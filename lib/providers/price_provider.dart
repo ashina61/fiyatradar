@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/price_model.dart';
 import '../services/firestore_service.dart';
@@ -36,14 +35,12 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
   final StorageService _storageService;
   final LocationService _locationService;
   final AuthService _authService;
-  final Ref _ref;
 
   PriceNotifier(
     this._firestoreService,
     this._storageService,
     this._locationService,
     this._authService,
-    this._ref,
   ) : super(const AsyncValue.data(null));
 
   Future<void> addPrice({
@@ -129,7 +126,6 @@ final priceNotifierProvider =
     ref.watch(storageServiceProvider),
     ref.watch(locationServiceProvider),
     ref.watch(authServiceProvider),
-    ref,
   );
 });
 

@@ -49,7 +49,7 @@ class PhotoGallery extends StatelessWidget {
                       width: thumbnailSize,
                       height: thumbnailSize,
                       color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                          Theme.of(context).colorScheme.surfaceVariant,
                       child: const Center(
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
@@ -58,7 +58,7 @@ class PhotoGallery extends StatelessWidget {
                       width: thumbnailSize,
                       height: thumbnailSize,
                       color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                          Theme.of(context).colorScheme.surfaceVariant,
                       child: Icon(
                         Icons.broken_image_outlined,
                         color: Theme.of(context).colorScheme.outline,
@@ -211,7 +211,7 @@ class ImagePickerGrid extends StatelessWidget {
                 height: 100,
                 margin: const EdgeInsets.only(right: AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   border: Border.all(
                     color: Theme.of(context).colorScheme.outline,

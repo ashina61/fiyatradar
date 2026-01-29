@@ -369,7 +369,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Row(

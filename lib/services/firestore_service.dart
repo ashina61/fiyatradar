@@ -179,7 +179,8 @@ class FirestoreService {
   Future<void> likeComment(String commentId, String userId) async {
     final doc = await _commentsRef.doc(commentId).get();
     if (doc.exists) {
-      final likedBy = List<String>.from(doc.data() as Map<String, dynamic>?['likedBy'] ?? []);
+      final data = doc.data() as Map<String, dynamic>?;
+      final likedBy = List<String>.from(data?['likedBy'] ?? []);
       if (likedBy.contains(userId)) {
         likedBy.remove(userId);
       } else {

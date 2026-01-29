@@ -7,7 +7,6 @@ import '../../providers/banner_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/banner_model.dart';
-import '../../models/price_model.dart';
 import '../../models/user_model.dart';
 import '../../utils/theme.dart';
 
@@ -198,7 +197,7 @@ class _BannerCard extends ConsumerWidget {
               banner.imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 child: const Icon(Icons.broken_image, size: 48),
               ),
             ),

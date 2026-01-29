@@ -42,7 +42,7 @@ class CommentCard extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor:
-                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surfaceVariant,
             backgroundImage: comment.userPhotoUrl != null
                 ? CachedNetworkImageProvider(comment.userPhotoUrl!)
                 : null,
@@ -192,7 +192,7 @@ class _CommentInputState extends State<CommentInput> {
                   hintText: 'Yorum yaz...',
                   filled: true,
                   fillColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                      Theme.of(context).colorScheme.surfaceVariant,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.xl),
                     borderSide: BorderSide.none,

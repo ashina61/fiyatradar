@@ -242,7 +242,7 @@ class NotificationCard extends StatelessWidget {
       case NotificationType.newComment:
         return AppColors.primary.withOpacity(0.1);
       case NotificationType.system:
-        return Theme.of(context).colorScheme.surfaceContainerHighest;
+        return Theme.of(context).colorScheme.surfaceVariant;
     }
   }
 }

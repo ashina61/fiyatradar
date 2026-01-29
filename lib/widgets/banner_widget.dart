@@ -115,13 +115,13 @@ class BannerCard extends StatelessWidget {
                 imageUrl: banner.imageUrl,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   child: const Center(
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   child: Icon(
                     Icons.image_outlined,
                     size: 48,
@@ -191,7 +191,7 @@ class BannerShimmer extends StatelessWidget {
       height: 160,
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
     );

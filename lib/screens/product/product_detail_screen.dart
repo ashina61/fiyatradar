@@ -96,20 +96,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       placeholder: (context, url) => Container(
                         color: Theme.of(context)
                             .colorScheme
-                            .surfaceContainerHighest,
+                            .surfaceVariant,
                         child: const Center(child: CircularProgressIndicator()),
                       ),
                       errorWidget: (context, url, error) => Container(
                         color: Theme.of(context)
                             .colorScheme
-                            .surfaceContainerHighest,
+                            .surfaceVariant,
                         child: const Icon(Icons.image, size: 64),
                       ),
                     ),
                   )
                 : Container(
                     color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.surfaceVariant,
                     child: const Icon(Icons.image, size: 64),
                   ),
           ),

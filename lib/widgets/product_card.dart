@@ -58,7 +58,7 @@ class ProductCard extends StatelessWidget {
                               placeholder: (context, url) => Container(
                                 color: Theme.of(context)
                                     .colorScheme
-                                    .surfaceContainerHighest,
+                                    .surfaceVariant,
                                 child: const Center(
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
@@ -172,7 +172,7 @@ class ProductCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: Theme.of(context).colorScheme.surfaceVariant,
       child: Icon(
         Icons.image_outlined,
         size: 48,
@@ -203,7 +203,7 @@ class ProductCardShimmer extends StatelessWidget {
             flex: 3,
             child: Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(AppRadius.lg),
                 ),
@@ -222,7 +222,7 @@ class ProductCardShimmer extends StatelessWidget {
                     width: 50,
                     decoration: BoxDecoration(
                       color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                          Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -232,7 +232,7 @@ class ProductCardShimmer extends StatelessWidget {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                          Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -242,7 +242,7 @@ class ProductCardShimmer extends StatelessWidget {
                     width: 70,
                     decoration: BoxDecoration(
                       color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                          Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),

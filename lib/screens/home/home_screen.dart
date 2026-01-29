@@ -39,7 +39,7 @@ class HomeScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(right: AppSpacing.md),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.stars,
                           color: AppColors.accent,
                           size: 20,
@@ -47,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${user.points}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.accent,
                           ),
