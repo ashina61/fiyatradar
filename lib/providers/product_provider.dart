@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../main.dart';
 import '../models/product_model.dart';
 import '../services/firestore_service.dart';
 
@@ -7,18 +8,22 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 });
 
 final trendingProductsProvider = StreamProvider<List<ProductModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getTrendingProducts();
 });
 
 final recommendedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getRecommendedProducts();
 });
 
 final allProductsProvider = StreamProvider<List<ProductModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllProducts();
 });
 
 final productProvider = FutureProvider.family<ProductModel?, String>((ref, productId) async {
+  if (!firebaseInitialized) return null;
   return ref.watch(firestoreServiceProvider).getProduct(productId);
 });
 
@@ -26,7 +31,7 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 final searchResultsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  if (query.isEmpty) {
+  if (query.isEmpty || !firebaseInitialized) {
     return [];
   }
   return ref.watch(firestoreServiceProvider).searchProducts(query);

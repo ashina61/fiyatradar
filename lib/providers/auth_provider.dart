@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../main.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -9,10 +10,12 @@ final authServiceProvider = Provider<AuthService>((ref) {
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {
+  if (!firebaseInitialized) return Stream.value(null);
   return ref.watch(authServiceProvider).authStateChanges;
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
+  if (!firebaseInitialized) return null;
   final authState = ref.watch(authStateProvider);
   return authState.when(
     data: (user) async {
@@ -27,6 +30,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
 });
 
 final userModelStreamProvider = StreamProvider<UserModel?>((ref) {
+  if (!firebaseInitialized) return Stream.value(null);
   final authState = ref.watch(authStateProvider);
   return authState.when(
     data: (user) {
