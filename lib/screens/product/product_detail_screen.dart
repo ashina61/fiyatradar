@@ -1,21 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
-import 'package:timeago/timeago.dart' as timeago;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../providers/product_provider.dart';
-import '../../providers/price_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
-import '../../models/product_model.dart';
-import '../../models/price_model.dart';
-import '../../models/comment_model.dart';
-import '../../widgets/photo_gallery.dart';
-import '../../widgets/comment_widget.dart';
 import '../../utils/theme.dart';
+import '../../services/mock_data_service.dart';
 
-class ProductDetailScreen extends ConsumerStatefulWidget {
+class ProductDetailScreen extends StatelessWidget {
   final String productId;
 
   const ProductDetailScreen({
@@ -24,149 +11,142 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ProductDetailScreen> createState() =>
-      _ProductDetailScreenState();
-}
-
-class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
-  final currencyFormat = NumberFormat.currency(
-    locale: 'tr_TR',
-    symbol: '₺',
-    decimalDigits: 2,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    // Increment view count
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(productNotifierProvider.notifier)
-          .incrementViewCount(widget.productId);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final productAsync = ref.watch(productProvider(widget.productId));
-    final pricesAsync = ref.watch(pricesForProductProvider(widget.productId));
-    final isSaved = ref.watch(isProductSavedProvider(widget.productId));
-    final currentUser = ref.watch(authStateProvider);
+    final mockData = MockDataService();
+    final product = mockData.products.where((p) => p.id == productId).firstOrNull;
+
+    if (product == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Urun Detayi')),
+        body: const Center(child: Text('Urun bulunamadi')),
+      );
+    }
+
+    final discount = product.discountPercentage;
+    final categoryColor = _colorForCategory(product.category);
 
     return Scaffold(
-      body: productAsync.when(
-        data: (product) {
-          if (product == null) {
-            return const Center(child: Text('Ürün bulunamadı'));
-          }
-          return _buildContent(
-            context,
-            product,
-            pricesAsync,
-            isSaved,
-            currentUser.value?.uid,
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Hata: $error')),
-      ),
-    );
-  }
-
-  Widget _buildContent(
-    BuildContext context,
-    ProductModel product,
-    AsyncValue<List<PriceModel>> pricesAsync,
-    bool isSaved,
-    String? currentUserId,
-  ) {
-    return CustomScrollView(
-      slivers: [
-        // App Bar with Image
-        SliverAppBar(
-          expandedHeight: 300,
-          pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            background: product.mainImage != null
-                ? Hero(
-                    tag: 'product_${product.id}',
-                    child: CachedNetworkImage(
-                      imageUrl: product.mainImage!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceVariant,
-                        child: const Center(child: CircularProgressIndicator()),
+      body: CustomScrollView(
+        slivers: [
+          // ---------- App Bar with product image placeholder ----------
+          SliverAppBar(
+            expandedHeight: 280,
+            pinned: true,
+            backgroundColor: AppColors.surface,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      categoryColor.withOpacity(0.15),
+                      categoryColor.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 60),
+                    Icon(
+                      _iconForCategory(product.category),
+                      size: 80,
+                      color: categoryColor.withOpacity(0.4),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    if (discount != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
+                        ),
+                        child: Text(
+                          '-%${discount.toStringAsFixed(0)} Indirim',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceVariant,
-                        child: const Icon(Icons.image, size: 64),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bookmark_border),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Urun kaydedildi'),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                     ),
-                  )
-                : Container(
-                    color:
-                        Theme.of(context).colorScheme.surfaceVariant,
-                    child: const Icon(Icons.image, size: 64),
-                  ),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(
-                isSaved ? Icons.bookmark : Icons.bookmark_border,
-                color: isSaved ? AppColors.accent : null,
+                  );
+                },
               ),
-              onPressed: () {
-                ref
-                    .read(userNotifierProvider.notifier)
-                    .toggleSavedProduct(product.id);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.share),
-              onPressed: () {
-                // Share functionality
-              },
-            ),
-          ],
-        ),
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () {},
+              ),
+            ],
+          ),
 
-        // Content
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Brand & Name
-                Text(
-                  product.brand.toUpperCase(),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  product.name,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+          // ---------- Content ----------
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category tag
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: categoryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      product.category,
+                      style: TextStyle(
+                        color: categoryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
-                ),
-                const SizedBox(height: AppSpacing.md),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
 
-                // Latest Price
-                if (product.lastPrice != null)
+                  // Product name
+                  Text(
+                    product.name,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Price card
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.08),
+                          AppColors.primaryLight.withOpacity(0.04),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.2),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -176,182 +156,245 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             children: [
                               const Text(
                                 'Son Fiyat',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                currencyFormat.format(product.lastPrice),
                                 style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatPrice(product.currentPrice),
+                                style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
+                                  color: AppColors.primary,
                                 ),
                               ),
+                              if (product.oldPrice != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatPrice(product.oldPrice!),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.textTertiary,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        if (product.lastStore != null)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'Mağaza',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                product.lastStore!,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // Stats
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem(
-                      context,
-                      icon: Icons.price_change,
-                      value: '${product.priceEntryCount}',
-                      label: 'Fiyat Girişi',
-                    ),
-                    _buildStatItem(
-                      context,
-                      icon: Icons.visibility,
-                      value: '${product.viewCount}',
-                      label: 'Görüntülenme',
-                    ),
-                    if (product.isTrending)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        child: const Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('🔥', style: TextStyle(fontSize: 16)),
-                            SizedBox(width: 4),
-                            Text(
-                              'Trend',
+                            const Text(
+                              'Magaza',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.sm),
+                                border: Border.all(color: AppColors.outline),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.store,
+                                      size: 16,
+                                      color: AppColors.textSecondary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    product.store,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                const Divider(),
-                const SizedBox(height: AppSpacing.md),
-
-                // Price History
-                Text(
-                  'Fiyat Geçmişi',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-
-                pricesAsync.when(
-                  data: (prices) => _buildPriceList(
-                    context,
-                    prices,
-                    currentUserId,
+                      ],
+                    ),
                   ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Text('Fiyatlar yüklenemedi'),
-                ),
+                  const SizedBox(height: AppSpacing.lg),
 
-                const SizedBox(height: AppSpacing.lg),
-                const Divider(),
-                const SizedBox(height: AppSpacing.md),
-
-                // Comments Section
-                Text(
-                  'Yorumlar',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  // Stats row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildStatItem(
+                        icon: Icons.price_change,
+                        value: product.oldPrice != null ? '2' : '1',
+                        label: 'Fiyat Girisi',
+                        color: AppColors.primary,
                       ),
-                ),
-                const SizedBox(height: AppSpacing.md),
+                      _buildStatItem(
+                        icon: Icons.visibility,
+                        value: '${42 + product.id.hashCode % 100}',
+                        label: 'Goruntuleme',
+                        color: AppColors.secondary,
+                      ),
+                      if (product.isTrending)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withOpacity(0.12),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.md),
+                          ),
+                          child: Row(
+                            children: const [
+                              Text('\u{1F525}',
+                                  style: TextStyle(fontSize: 16)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Trend',
+                                style: TextStyle(
+                                  color: AppColors.accentDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
 
-                _buildCommentsSection(context, currentUserId),
-              ],
+                  const Divider(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Price history section
+                  Text(
+                    'Fiyat Gecmisi',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Simple bar chart
+                  _buildPriceChart(product),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  const Divider(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Community validation
+                  Text(
+                    'Topluluk Dogrulamasi',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  _buildVerificationSection(),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  const Divider(),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Comments
+                  Text(
+                    'Yorumlar',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  _buildCommentsSection(context),
+                  const SizedBox(height: AppSpacing.xl),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildStatItem(
-    BuildContext context, {
+  Widget _buildStatItem({
     required IconData icon,
     required String value,
     required String label,
+    required Color color,
   }) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, color: color, size: 26),
         const SizedBox(height: AppSpacing.xs),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
+            color: color,
           ),
         ),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
-            color: Theme.of(context).colorScheme.outline,
+            color: AppColors.textSecondary,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPriceList(
-    BuildContext context,
-    List<PriceModel> prices,
-    String? currentUserId,
-  ) {
-    if (prices.isEmpty) {
+  Widget _buildPriceChart(MockProduct product) {
+    // Generate mock price history
+    final prices = <_PricePoint>[];
+    final now = DateTime.now();
+    if (product.oldPrice != null) {
+      prices.add(_PricePoint(
+        date: now.subtract(const Duration(days: 30)),
+        price: product.oldPrice!,
+        store: product.store,
+      ));
+      prices.add(_PricePoint(
+        date: now.subtract(const Duration(days: 14)),
+        price: (product.oldPrice! + product.currentPrice) / 2,
+        store: product.store,
+      ));
+    }
+    prices.add(_PricePoint(
+      date: product.addedAt,
+      price: product.currentPrice,
+      store: product.store,
+    ));
+
+    if (prices.length < 2) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
         child: Center(
           child: Column(
             children: [
-              Icon(
-                Icons.price_change_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Henüz fiyat girişi yok',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+              Icon(Icons.bar_chart,
+                  size: 48, color: AppColors.textTertiary),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Yeterli fiyat verisi yok',
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -359,238 +402,445 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: prices.length,
-      separatorBuilder: (_, __) => const Divider(),
-      itemBuilder: (context, index) {
-        final price = prices[index];
-        return _buildPriceCard(context, price, currentUserId);
-      },
-    );
-  }
+    final maxPrice =
+        prices.map((p) => p.price).reduce((a, b) => a > b ? a : b);
+    final minPrice =
+        prices.map((p) => p.price).reduce((a, b) => a < b ? a : b);
+    final range = maxPrice - minPrice;
 
-  Widget _buildPriceCard(
-    BuildContext context,
-    PriceModel price,
-    String? currentUserId,
-  ) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.outline),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currencyFormat.format(price.price),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      price.storeName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (price.storeLocation != null)
-                      Text(
-                        price.storeLocation!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.outline,
+          // Chart bars
+          SizedBox(
+            height: 120,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: prices.map((point) {
+                final normalizedHeight =
+                    range > 0 ? ((point.price - minPrice) / range) : 0.5;
+                final barHeight =
+                    30.0 + (normalizedHeight * 80.0); // min 30, max 110
+
+                return Expanded(
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatPriceShort(point.price),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                    Text(
-                      timeago.format(price.createdAt, locale: 'tr'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                AppColors.primary,
+                                AppColors.primaryLight,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(
+                                AppRadius.sm),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              // Verification buttons
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.thumb_up_outlined),
-                        color: AppColors.success,
-                        onPressed: currentUserId != null &&
-                                currentUserId != price.userId
-                            ? () {
-                                ref
-                                    .read(priceNotifierProvider.notifier)
-                                    .verifyPrice(price.id, true);
-                              }
-                            : null,
-                      ),
-                      Text(
-                        '${price.verifiedCount}',
-                        style: const TextStyle(color: AppColors.success),
-                      ),
-                    ],
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.thumb_down_outlined),
-                        color: AppColors.error,
-                        onPressed: currentUserId != null &&
-                                currentUserId != price.userId
-                            ? () {
-                                ref
-                                    .read(priceNotifierProvider.notifier)
-                                    .verifyPrice(price.id, false);
-                              }
-                            : null,
-                      ),
-                      Text(
-                        '${price.unverifiedCount}',
-                        style: const TextStyle(color: AppColors.error),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (price.images.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            PhotoGallery(images: price.images),
-          ],
-          if (price.verificationRate > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: LinearProgressIndicator(
-                value: price.verificationRate / 100,
-                backgroundColor: AppColors.error.withOpacity(0.2),
-                valueColor: const AlwaysStoppedAnimation(AppColors.success),
-              ),
+                );
+              }).toList(),
             ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // Date labels
+          Row(
+            children: prices.map((point) {
+              return Expanded(
+                child: Text(
+                  '${point.date.day}/${point.date.month}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCommentsSection(BuildContext context, String? currentUserId) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('comments')
-          .where('productId', isEqualTo: widget.productId)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Text('Yorumlar yüklenemedi: ${snapshot.error}');
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final comments = snapshot.data!.docs
-            .map((doc) => CommentModel.fromFirestore(doc))
-            .toList();
-
-        return Column(
-          children: [
-            // Comment Input
-            CommentInput(
-              onSubmit: (text) async {
-                if (currentUserId == null) return;
-
-                final userDoc = await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(currentUserId)
-                    .get();
-
-                final comment = CommentModel(
-                  id: '',
-                  productId: widget.productId,
-                  userId: currentUserId,
-                  userName: userDoc.data()?['name'] ?? 'Anonim',
-                  userPhotoUrl: userDoc.data()?['photoUrl'],
-                  text: text,
-                  createdAt: DateTime.now(),
-                );
-
-                await FirebaseFirestore.instance
-                    .collection('comments')
-                    .add(comment.toFirestore());
-              },
+  Widget _buildVerificationSection() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildVerifyButton(
+                  icon: Icons.thumb_up_outlined,
+                  label: 'Dogrula',
+                  count: 12,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildVerifyButton(
+                  icon: Icons.thumb_down_outlined,
+                  label: 'Reddet',
+                  count: 2,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Verification progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            child: Stack(
+              children: [
+                Container(
+                  height: 8,
+                  width: double.infinity,
+                  color: AppColors.error.withOpacity(0.2),
+                ),
+                FractionallySizedBox(
+                  widthFactor: 0.86, // 12/(12+2)
+                  child: Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.success,
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.full),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '%86 oraninda dogrulandi',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Comments List
-            if (comments.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Center(
-                  child: Column(
+  Widget _buildVerifyButton({
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentsSection(BuildContext context) {
+    // Mock comments
+    final comments = [
+      _MockComment(
+        user: 'Ahmet K.',
+        text: 'Bu fiyat gercekten iyi, hemen aldim.',
+        likes: 5,
+        timeAgo: '2 saat once',
+      ),
+      _MockComment(
+        user: 'Elif Y.',
+        text: 'Gecen hafta daha ucuzdu, biraz artmis.',
+        likes: 3,
+        timeAgo: '5 saat once',
+      ),
+      _MockComment(
+        user: 'Mehmet S.',
+        text: 'Kalitesi cok iyi tavsiye ederim.',
+        likes: 8,
+        timeAgo: '1 gun once',
+      ),
+    ];
+
+    return Column(
+      children: [
+        ...comments.map((comment) => Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(color: AppColors.outline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Icon(
-                        Icons.chat_bubble_outline,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Henüz yorum yok',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.outline,
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
                         ),
+                        child: Center(
+                          child: Text(
+                            comment.user[0],
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              comment.user,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              comment.timeAgo,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.thumb_up_outlined,
+                              size: 14, color: AppColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${comment.likes}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: comments.length,
-                itemBuilder: (context, index) {
-                  return CommentCard(
-                    comment: comments[index],
-                    currentUserId: currentUserId,
-                    onLike: () async {
-                      if (currentUserId == null) return;
-                      final commentRef = FirebaseFirestore.instance
-                          .collection('comments')
-                          .doc(comments[index].id);
-
-                      final likedBy =
-                          List<String>.from(comments[index].likedBy);
-                      if (likedBy.contains(currentUserId)) {
-                        likedBy.remove(currentUserId);
-                      } else {
-                        likedBy.add(currentUserId);
-                      }
-
-                      await commentRef.update({
-                        'likedBy': likedBy,
-                        'likes': likedBy.length,
-                      });
-                    },
-                  );
-                },
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    comment.text,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
-          ],
-        );
-      },
+            )),
+
+        // Add comment button
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Demo modda yorum eklenemez'),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add_comment_outlined, size: 18),
+            label: const Text('Yorum Ekle'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
+
+  // ---- Helpers ----
+
+  String _formatPrice(double price) {
+    if (price >= 1000) {
+      final parts = price.toStringAsFixed(2).split('.');
+      final intPart = parts[0];
+      final decPart = parts[1];
+      final buffer = StringBuffer();
+      int count = 0;
+      for (int i = intPart.length - 1; i >= 0; i--) {
+        buffer.write(intPart[i]);
+        count++;
+        if (count == 3 && i > 0) {
+          buffer.write('.');
+          count = 0;
+        }
+      }
+      return '\u20BA${buffer.toString().split('').reversed.join()},$decPart';
+    }
+    return '\u20BA${price.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  String _formatPriceShort(double price) {
+    if (price >= 1000) {
+      return '${(price / 1000).toStringAsFixed(1)}K';
+    }
+    return price.toStringAsFixed(0);
+  }
+
+  Color _colorForCategory(String category) {
+    switch (category) {
+      case 'Elektronik':
+        return AppColors.primary;
+      case 'Gida':
+        return AppColors.secondary;
+      case 'Temizlik':
+        return AppColors.info;
+      case 'Kisisel Bakim':
+        return AppColors.accent;
+      case 'Ev & Yasam':
+        return AppColors.secondaryDark;
+      case 'Giyim':
+        return AppColors.error;
+      case 'Spor':
+        return AppColors.primaryDark;
+      case 'Oyuncak':
+        return AppColors.accentDark;
+      case 'Kitap':
+        return AppColors.primaryLight;
+      case 'Otomotiv':
+        return AppColors.secondaryLight;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'Elektronik':
+        return Icons.devices;
+      case 'Gida':
+        return Icons.restaurant;
+      case 'Temizlik':
+        return Icons.cleaning_services;
+      case 'Kisisel Bakim':
+        return Icons.face;
+      case 'Ev & Yasam':
+        return Icons.home;
+      case 'Giyim':
+        return Icons.checkroom;
+      case 'Spor':
+        return Icons.sports;
+      case 'Oyuncak':
+        return Icons.toys;
+      case 'Kitap':
+        return Icons.book;
+      case 'Otomotiv':
+        return Icons.directions_car;
+      default:
+        return Icons.category;
+    }
+  }
+}
+
+class _PricePoint {
+  final DateTime date;
+  final double price;
+  final String store;
+
+  const _PricePoint({
+    required this.date,
+    required this.price,
+    required this.store,
+  });
+}
+
+class _MockComment {
+  final String user;
+  final String text;
+  final int likes;
+  final String timeAgo;
+
+  const _MockComment({
+    required this.user,
+    required this.text,
+    required this.likes,
+    required this.timeAgo,
+  });
 }

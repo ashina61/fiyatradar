@@ -1,15 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../providers/price_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../models/product_model.dart';
-import '../../services/location_service.dart';
-import '../../widgets/photo_gallery.dart';
+import '../../services/mock_data_service.dart';
 import '../../utils/theme.dart';
-import '../../utils/constants.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -24,18 +17,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _priceController = TextEditingController();
   final _storeController = TextEditingController();
 
-  final List<File> _selectedImages = [];
-  ProductModel? _selectedProduct;
-  LocationData? _locationData;
-  bool _isLoading = false;
-  bool _isLoadingLocation = true;
+  final _mockData = MockDataService();
   String? _selectedStore;
-
-  @override
-  void initState() {
-    super.initState();
-    _getLocation();
-  }
+  String? _selectedCategory;
+  MockProduct? _selectedProduct;
 
   @override
   void dispose() {
@@ -45,174 +30,151 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     super.dispose();
   }
 
-  Future<void> _getLocation() async {
-    final locationService = ref.read(locationServiceProvider);
-    final locationData = await locationService.getLocationData();
-    if (mounted) {
-      setState(() {
-        _locationData = locationData;
-        _isLoadingLocation = false;
-      });
-    }
-  }
-
-  Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage(
-      maxWidth: AppConstants.maxImageWidth.toDouble(),
-      maxHeight: AppConstants.maxImageHeight.toDouble(),
-      imageQuality: AppConstants.imageQuality,
-    );
-
-    if (images.isNotEmpty) {
-      setState(() {
-        for (final image in images) {
-          if (_selectedImages.length < AppConstants.maxImagesPerPrice) {
-            _selectedImages.add(File(image.path));
-          }
-        }
-      });
-    }
-  }
-
-  void _removeImage(int index) {
-    setState(() {
-      _selectedImages.removeAt(index);
-    });
-  }
-
-  Future<void> _searchProducts(String query) async {
-    if (query.isEmpty) return;
-
-    final products =
-        await ref.read(firestoreServiceProvider).searchProducts(query);
-
-    if (products.isNotEmpty && mounted) {
-      showModalBottomSheet(
-        context: context,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Ürün Seç',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ...products.take(5).map(
-                    (product) => ListTile(
-                      title: Text(product.name),
-                      subtitle: Text(product.brand),
-                      onTap: () {
-                        setState(() {
-                          _selectedProduct = product;
-                          _productController.text = product.name;
-                        });
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('Yeni ürün ekle'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Keep the product name as entered
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      String productId;
-
-      // If no product selected, create new product
-      if (_selectedProduct == null) {
-        final newProduct = ProductModel(
-          id: '',
-          name: _productController.text.trim(),
-          brand: '',
-          category: 'Diğer',
-          createdAt: DateTime.now(),
-        );
-        productId = await ref.read(productNotifierProvider.notifier).addProduct(newProduct);
-      } else {
-        productId = _selectedProduct!.id;
-      }
-
-      // Add price
-      await ref.read(priceNotifierProvider.notifier).addPrice(
-            productId: productId,
-            price: double.parse(_priceController.text.replaceAll(',', '.')),
-            storeName: _selectedStore ?? _storeController.text.trim(),
-            images: _selectedImages.isNotEmpty ? _selectedImages : null,
-          );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
+  void _showProductPicker() {
+    final products = _mockData.products;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          minChildSize: 0.3,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
+                Container(
+                  margin: const EdgeInsets.only(top: AppSpacing.sm),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   child: Text(
-                    _selectedImages.isNotEmpty
-                        ? 'Fiyat eklendi! +20 puan kazandınız (2x fotoğraf bonusu)'
-                        : 'Fiyat eklendi! +10 puan kazandınız',
+                    'Ürün Seçin',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    itemCount: products.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final product = products[index];
+                      return ListTile(
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight.withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: const Icon(Icons.shopping_bag_outlined,
+                              color: AppColors.primary, size: 22),
+                        ),
+                        title: Text(product.name,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(product.category),
+                        trailing: Text(
+                          _formatPrice(product.currentPrice),
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedProduct = product;
+                            _productController.text = product.name;
+                            _selectedCategory = product.category;
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
-            ),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 3),
-          ),
+            );
+          },
         );
+      },
+    );
+  }
 
-        // Clear form
-        _productController.clear();
-        _priceController.clear();
-        _storeController.clear();
-        setState(() {
-          _selectedProduct = null;
-          _selectedImages.clear();
-          _selectedStore = null;
-        });
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text('Fiyat eklendi! +10 puan kazandınız'),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    _productController.clear();
+    _priceController.clear();
+    _storeController.clear();
+    setState(() {
+      _selectedProduct = null;
+      _selectedStore = null;
+      _selectedCategory = null;
+    });
+  }
+
+  String _formatPrice(double price) {
+    if (price >= 1000) {
+      final parts = price.toStringAsFixed(2).split('.');
+      final intPart = parts[0];
+      final decPart = parts[1];
+      final buffer = StringBuffer();
+      int count = 0;
+      for (int i = intPart.length - 1; i >= 0; i--) {
+        buffer.write(intPart[i]);
+        count++;
+        if (count == 3 && i > 0) {
+          buffer.write('.');
+          count = 0;
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hata: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      return '₺${buffer.toString().split('').reversed.join()},$decPart';
     }
+    return '₺${price.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final stores = _mockData.stores;
+    final categories = _mockData.categories;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fiyat Ekle'),
@@ -228,21 +190,49 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.accent),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accent.withOpacity(0.1),
+                      AppColors.accent.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(
+                      color: AppColors.accent.withOpacity(0.3), width: 1),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.camera_alt, color: AppColors.accent),
-                    SizedBox(width: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: const Icon(Icons.stars,
+                          color: AppColors.accent, size: 22),
+                    ),
+                    const SizedBox(width: AppSpacing.sm + 4),
                     Expanded(
-                      child: Text(
-                        'Fotoğraf ekleyenler 2x puan kazanır!',
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Fiyat ekleyerek puan kazan!',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Her fiyat girişi +10 puan, fotoğraflı +20 puan',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -254,16 +244,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextFormField(
                 controller: _productController,
                 decoration: InputDecoration(
-                  labelText: 'Ürün Adı / Barkod',
+                  labelText: 'Ürün Adı',
                   hintText: 'Ürün adı veya barkod numarası',
                   prefixIcon: const Icon(Icons.shopping_bag_outlined),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _searchProducts(_productController.text),
+                    icon: const Icon(Icons.list),
+                    onPressed: _showProductPicker,
                   ),
                 ),
                 textInputAction: TextInputAction.next,
-                onFieldSubmitted: _searchProducts,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Ürün adı gerekli';
@@ -275,14 +264,44 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Chip(
+                    avatar: const Icon(Icons.check_circle,
+                        color: AppColors.success, size: 18),
                     label: Text(_selectedProduct!.name),
                     onDeleted: () {
                       setState(() {
                         _selectedProduct = null;
+                        _productController.clear();
                       });
                     },
                   ),
                 ),
+              const SizedBox(height: AppSpacing.md),
+
+              // Category dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Kategori',
+                  prefixIcon: Icon(Icons.category_outlined),
+                ),
+                items: categories
+                    .map((cat) => DropdownMenuItem(
+                          value: cat.name,
+                          child: Text(cat.name),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCategory = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Kategori seçin';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.md),
 
               // Price field
@@ -315,17 +334,28 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
               // Store selection
               Text(
-                'Mağaza',
-                style: Theme.of(context).textTheme.titleMedium,
+                'Mağaza Seçin',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
-                children: AppConstants.popularStores.take(8).map((store) {
+                children: stores.map((store) {
                   return ChoiceChip(
                     label: Text(store),
                     selected: _selectedStore == store,
+                    selectedColor: AppColors.primary.withOpacity(0.15),
+                    labelStyle: TextStyle(
+                      color: _selectedStore == store
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                      fontWeight: _selectedStore == store
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
                     onSelected: (selected) {
                       setState(() {
                         _selectedStore = selected ? store : null;
@@ -343,7 +373,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextFormField(
                 controller: _storeController,
                 decoration: const InputDecoration(
-                  labelText: 'Mağaza Adı',
+                  labelText: 'veya Mağaza Adı Yazın',
                   hintText: 'Mağaza adını yazın',
                   prefixIcon: Icon(Icons.store_outlined),
                 ),
@@ -365,86 +395,79 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Location
+              // Location (mock)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: _isLoadingLocation
-                          ? Theme.of(context).colorScheme.outline
-                          : AppColors.success,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
+                  children: const [
+                    Icon(Icons.location_on, color: AppColors.success),
+                    SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: _isLoadingLocation
-                          ? const Text('Konum alınıyor...')
-                          : Text(
-                              _locationData?.address ?? 'Konum bulunamadı',
-                              style: TextStyle(
-                                color: _locationData != null
-                                    ? null
-                                    : Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                    ),
-                    if (!_isLoadingLocation)
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: _getLocation,
+                      child: Text(
+                        'Istanbul, Türkiye',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                    ),
+                    Icon(Icons.check_circle,
+                        color: AppColors.success, size: 18),
                   ],
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Photo section
-              Text(
-                'Fotoğraflar (Opsiyonel)',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ImagePickerGrid(
-                images: _selectedImages,
-                onAdd: _pickImages,
-                onRemove: _removeImage,
-                maxImages: AppConstants.maxImagesPerPrice,
               ),
               const SizedBox(height: AppSpacing.xl),
 
               // Submit button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Fiyat Ekle'),
+              Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  child: const Text(
+                    'Fiyat Ekle',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
 
               // Points info
               Center(
                 child: Text(
-                  _selectedImages.isNotEmpty
-                      ? 'Bu fiyat girişi için +20 puan kazanacaksınız'
-                      : 'Bu fiyat girişi için +10 puan kazanacaksınız',
+                  'Bu fiyat girişi için +10 puan kazanacaksınız',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.outline,
+                    color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.lg),
             ],
           ),
         ),

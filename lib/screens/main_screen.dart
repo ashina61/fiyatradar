@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/notification_provider.dart';
+import '../services/mock_data_service.dart';
 import '../utils/theme.dart';
 import 'home/home_screen.dart';
 import 'search/search_screen.dart';
@@ -16,7 +16,8 @@ class MainScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(currentTabProvider);
-    final unreadCount = ref.watch(unreadNotificationCountProvider);
+    final mockData = MockDataService();
+    final unreadCount = mockData.notifications.where((n) => !n.isRead).length;
 
     final screens = [
       const HomeScreen(),
@@ -31,58 +32,75 @@ class MainScreen extends ConsumerWidget {
         index: currentTab,
         children: screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentTab,
-        onDestinationSelected: (index) {
-          ref.read(currentTabProvider.notifier).state = index;
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Ana Sayfa',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: 'Ara',
-          ),
-          NavigationDestination(
-            icon: Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: currentTab,
+          onDestinationSelected: (index) {
+            ref.read(currentTabProvider.notifier).state = index;
+          },
+          destinations: [
+            const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Ana Sayfa',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.search_outlined),
+              selectedIcon: Icon(Icons.search),
+              label: 'Ara',
+            ),
+            NavigationDestination(
+              icon: Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 24,
+              label: 'Fiyat Ekle',
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: unreadCount > 0,
+                label: Text('$unreadCount'),
+                child: const Icon(Icons.notifications_outlined),
               ),
+              selectedIcon: Badge(
+                isLabelVisible: unreadCount > 0,
+                label: Text('$unreadCount'),
+                child: const Icon(Icons.notifications),
+              ),
+              label: 'Bildirimler',
             ),
-            label: 'Fiyat Ekle',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: unreadCount.valueOrNull != null &&
-                  unreadCount.valueOrNull! > 0,
-              label: Text('${unreadCount.valueOrNull ?? 0}'),
-              child: const Icon(Icons.notifications_outlined),
+            const NavigationDestination(
+              icon: Icon(Icons.person_outlined),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil',
             ),
-            selectedIcon: Badge(
-              isLabelVisible: unreadCount.valueOrNull != null &&
-                  unreadCount.valueOrNull! > 0,
-              label: Text('${unreadCount.valueOrNull ?? 0}'),
-              child: const Icon(Icons.notifications),
-            ),
-            label: 'Bildirimler',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outlined),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
