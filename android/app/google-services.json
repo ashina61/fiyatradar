@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:360048908674:android:0577b2185257df381a979b",
+        "mobilesdk_app_id": "1:360048908674:web:835a1b2e477aac531a979b",
         "android_client_info": {
           "package_name": "com.fiyatradar"
         }

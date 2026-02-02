@@ -131,48 +131,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  }
-
-  void _showLocationPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: AppSpacing.sm),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Theme.of(context).hintColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text('Konum Secin', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: _locations.map((loc) => ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: Text(loc),
-                  onTap: () {
-                    setState(() => _selectedLocation = loc);
-                    Navigator.pop(ctx);
-                  },
-                  trailing: _selectedLocation == loc ? const Icon(Icons.check, color: AppColors.primary) : null,
-                )).toList(),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-        );
-      },
-    );
-  }
-
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -204,6 +162,44 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _selectedStore = null;
       _selectedCategory = null;
     });
+  }
+
+  void _showLocationPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: AppSpacing.sm),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Theme.of(context).hintColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text('Konum Secin', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            ...(_locations.map((loc) => ListTile(
+              leading: Icon(
+                _selectedLocation == loc ? Icons.location_on : Icons.location_on_outlined,
+                color: _selectedLocation == loc ? AppColors.success : Theme.of(context).hintColor,
+              ),
+              title: Text(loc, style: TextStyle(fontWeight: _selectedLocation == loc ? FontWeight.w600 : FontWeight.w400)),
+              trailing: _selectedLocation == loc ? const Icon(Icons.check_circle, color: AppColors.success, size: 20) : null,
+              onTap: () {
+                setState(() => _selectedLocation = loc);
+                Navigator.pop(ctx);
+              },
+            ))),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        );
+      },
+    );
   }
 
   String _formatPrice(double price) {
@@ -451,37 +447,52 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Location (mock)
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _showLocationPicker,
+              // Location
+              Text(
+                'Konum',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              InkWell(
+                onTap: () => _showLocationPicker(),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(AppRadius.md),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_on, color: AppColors.success),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text(
+                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on, color: AppColors.success),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
                               _selectedLocation,
                               style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
-                          ),
-                          const Icon(Icons.arrow_drop_down,
-                              color: AppColors.textSecondary),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              'Konum degistirmek icin dokunun',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).hintColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const Icon(Icons.chevron_right, color: AppColors.success, size: 20),
+                    ],
                   ),
                 ),
               ),

@@ -31,8 +31,6 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Firebase Console'dan alınan değerlerle değiştirin
-  // flutterfire configure komutu ile otomatik oluşturulabilir
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
     appId: '1:360048908674:web:835a1b2e477aac531a979b',
@@ -45,7 +43,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
-    appId: '1:360048908674:android:0577b2185257df381a979b',
+    appId: '1:360048908674:web:835a1b2e477aac531a979b',
     messagingSenderId: '360048908674',
     projectId: 'fiyatradar-611967',
     storageBucket: 'fiyatradar-611967.firebasestorage.app',
@@ -53,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
-    appId: '1:360048908674:ios:cd3e0587747e93541a979b',
+    appId: '1:360048908674:web:835a1b2e477aac531a979b',
     messagingSenderId: '360048908674',
     projectId: 'fiyatradar-611967',
     storageBucket: 'fiyatradar-611967.firebasestorage.app',
@@ -62,7 +60,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
-    appId: '1:360048908674:ios:cd3e0587747e93541a979b',
+    appId: '1:360048908674:web:835a1b2e477aac531a979b',
     messagingSenderId: '360048908674',
     projectId: 'fiyatradar-611967',
     storageBucket: 'fiyatradar-611967.firebasestorage.app',

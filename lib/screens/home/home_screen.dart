@@ -255,16 +255,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                image: banner.imageUrl != null &&
-                                        banner.imageUrl!.isNotEmpty
+                                image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty
                                     ? DecorationImage(
                                         image: NetworkImage(banner.imageUrl!),
                                         fit: BoxFit.cover,
                                         colorFilter: ColorFilter.mode(
-                                          Color(banner.colorValue)
-                                              .withOpacity(0.5),
+                                          Color(banner.colorValue).withOpacity(0.35),
                                           BlendMode.darken,
                                         ),
+                                        onError: (_, __) {},
                                       )
                                     : null,
                                 boxShadow: [
@@ -287,6 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       color: Colors.white,
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
+                                      shadows: [Shadow(blurRadius: 6, color: Colors.black45)],
                                     ),
                                   ),
                                   const SizedBox(height: AppSpacing.xs),
@@ -295,6 +295,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.9),
                                       fontSize: 14,
+                                      shadows: const [Shadow(blurRadius: 6, color: Colors.black45)],
                                     ),
                                   ),
                                 ],

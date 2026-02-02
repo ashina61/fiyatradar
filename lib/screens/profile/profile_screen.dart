@@ -56,7 +56,7 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => _showPriceHistory(context),
               ),
               _MenuItem(
-                icon: Icons.stars,
+                icon: Icons.stars_outlined,
                 title: 'Puan Sistemi',
                 onTap: () => _showPointsSystem(context),
               ),
@@ -269,59 +269,6 @@ class ProfileScreen extends ConsumerWidget {
     ));
   }
 
-  void _showPointsSystem(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.stars, color: AppColors.accent, size: 24),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Puan Sistemi'),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Nasil Puan Kazanirim?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: AppSpacing.md),
-            _buildPointItem(ctx, 'Fiyat Girisi', '+10 Puan', Icons.add_circle_outline, AppColors.primary),
-            _buildPointItem(ctx, 'Fiyat Dogrulama', '+5 Puan', Icons.check_circle_outline, AppColors.success),
-            _buildPointItem(ctx, 'Ilk Yorum', '+15 Puan', Icons.comment_outlined, AppColors.info),
-            _buildPointItem(ctx, 'Hatali Fiyat Bildirimi', '+20 Puan', Icons.report_outlined, AppColors.error),
-            const SizedBox(height: AppSpacing.lg),
-            const Text('Rozetler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: AppSpacing.sm),
-            const Text('Puanlariniz biriktikce yeni rozetler kazanir ve avantajlardan yararlanirsiniz.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tamam')),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPointItem(BuildContext context, String title, String points, IconData icon, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.full)),
-          child: Text(points, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-        ),
-      ]),
-    );
-  }
-
   void _showSettings(BuildContext context, WidgetRef ref) {
     final themeMode = ref.read(themeModeProvider);
     Navigator.of(context).push(MaterialPageRoute(
@@ -482,66 +429,221 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+  void _showPointsSystem(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('Puan Sistemi')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Header
             Container(
-              width: 80, height: 80,
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
-                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFFFF8C00)]),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
-              child: const Icon(Icons.radar, size: 48, color: Colors.white),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const Text('FiyatRadar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.xs),
-            Text('Versiyon 1.0.0', style: TextStyle(color: Theme.of(context).hintColor)),
-            const SizedBox(height: AppSpacing.md),
-            const Text(
-              'Turkiye\'nin en akilli fiyat takip uygulamasi. Topluluk destekli fiyat karsilastirmasi ve bildirimler.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13),
+              child: Column(children: [
+                const Icon(Icons.stars, color: Colors.white, size: 48),
+                const SizedBox(height: AppSpacing.sm),
+                const Text('1250 Puan', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Seviye: Altin Uye', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+              ]),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Align(alignment: Alignment.centerLeft, child: Text('Versiyon Gecmisi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
-            const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              height: 100,
-              width: double.maxFinite,
-              child: ListView(
-                shrinkWrap: true,
-                children: const [
-                  ListTile(
-                    title: Text('v1.0.0 - Ilk Surum', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Temel ozellikler, fiyat takibi, bildirimler ve profil yonetimi eklendi.', style: TextStyle(fontSize: 12)),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  ListTile(
-                    title: Text('v0.9.0 - Beta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Test surumu yayinlandi.', style: TextStyle(fontSize: 12)),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
+
+            const Text('Puan Kazanma Yollari', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSpacing.md),
-            Text('2024 FiyatRadar. Tum haklari saklidir.',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-          ],
+
+            _buildPointRow(Icons.add_shopping_cart, 'Fiyat Ekleme', '+10 Puan', 'Her yeni fiyat girisi icin', AppColors.primary),
+            _buildPointRow(Icons.camera_alt, 'Fotografli Fiyat', '+20 Puan', 'Fotograf ile fiyat ekleme', AppColors.secondary),
+            _buildPointRow(Icons.verified, 'Fiyat Dogrulama', '+5 Puan', 'Baskalarinin fiyatlarini dogrulama', AppColors.success),
+            _buildPointRow(Icons.comment, 'Yorum Yazma', '+3 Puan', 'Urun hakkinda yorum birakma', AppColors.info),
+            _buildPointRow(Icons.report, 'Yanlis Fiyat Bildirme', '+8 Puan', 'Yanlis fiyatlari raporlama', AppColors.error),
+            _buildPointRow(Icons.person_add, 'Arkadas Davet Etme', '+50 Puan', 'Davet linki ile yeni uye', AppColors.accent),
+            _buildPointRow(Icons.emoji_events, 'Gunluk Giris', '+2 Puan', 'Her gun uygulamaya giris yapma', const Color(0xFF8B5CF6)),
+
+            const SizedBox(height: AppSpacing.lg),
+            const Text('Seviye Sistemi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: AppSpacing.md),
+
+            _buildLevelRow('Bronz', '0 - 100 Puan', const Color(0xFFCD7F32)),
+            _buildLevelRow('Gumus', '100 - 500 Puan', const Color(0xFFC0C0C0)),
+            _buildLevelRow('Altin', '500 - 2000 Puan', AppColors.accent),
+            _buildLevelRow('Platin', '2000 - 5000 Puan', AppColors.primary),
+            _buildLevelRow('Elmas', '5000+ Puan', const Color(0xFF00BCD4)),
+
+            const SizedBox(height: AppSpacing.lg),
+            const Text('Avantajlar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: AppSpacing.md),
+            Card(child: Column(children: const [
+              ListTile(leading: Icon(Icons.notifications_active, color: AppColors.primary), title: Text('Oncelikli bildirimler'), subtitle: Text('Fiyat dususlerinden ilk siz haberdar olun')),
+              Divider(height: 1, indent: 56),
+              ListTile(leading: Icon(Icons.workspace_premium, color: AppColors.accent), title: Text('Ozel rozetler'), subtitle: Text('Profilinizde ozel rozetler sergileyin')),
+              Divider(height: 1, indent: 56),
+              ListTile(leading: Icon(Icons.leaderboard, color: AppColors.secondary), title: Text('Liderlik tablosu'), subtitle: Text('En aktif uyelerin siralama listesi')),
+            ])),
+
+            const SizedBox(height: AppSpacing.xl),
+          ]),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tamam')),
-        ],
+      ),
+    ));
+  }
+
+  Widget _buildPointRow(IconData icon, String title, String points, String desc, Color color) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: ListTile(
+        leading: Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        title: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Flexible(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: Text(points, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ]),
+        subtitle: Text(desc, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  Widget _buildLevelRow(String level, String range, Color color) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: ListTile(
+        leading: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color, width: 2)),
+          child: Icon(Icons.shield, color: color, size: 20),
+        ),
+        title: Text(level, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+        trailing: Text(range, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('Hakkinda')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // App logo
+            Center(child: Column(children: [
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.radar, size: 48, color: Colors.white),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text('FiyatRadar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: AppSpacing.xs),
+              Text('Versiyon 1.0.0', style: TextStyle(color: Theme.of(context).hintColor)),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Turkiye\'nin en akilli fiyat takip uygulamasi.\nTopluluk destekli fiyat karsilastirmasi ve bildirimler.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13),
+              ),
+            ])),
+            const SizedBox(height: AppSpacing.xl),
+
+            // Update History
+            const Text('Guncelleme Gecmisi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: AppSpacing.md),
+
+            _buildUpdateItem('v1.0.0', 'Subat 2025', 'Ilk Surum', [
+              'Uygulama temelden insa edildi',
+              'Firebase entegrasyonu ve kimlik dogrulama',
+              'Flutter 3.16+ ve Material Design 3 tasarim',
+              'Riverpod durum yonetimi altyapisi',
+              'GitHub Actions CI/CD pipeline',
+              'Urun, magaza ve kategori yonetimi',
+            ]),
+            _buildUpdateItem('v1.1.0', 'Subat 2025', 'Mock Data ve Premium Tasarim', [
+              'Firebase devre disi birakildi, mock data servisi eklendi',
+              '10 demo urun, 10 magaza, 10 kategori',
+              'Premium UI tasarimi - gradientler, animasyonlar',
+              'Onboarding tutorial (3 sayfa)',
+              'Login ekrani - demo mod destegi',
+              'Anasayfa: profil resmi, karsilama, bildirim cani',
+              'Banner carousel ve kategori tarama',
+              'Trending urunler ve en iyi firsatlar',
+              'Arama ekrani: filtreler, siralama, grid/liste gorunumu',
+              'Profil: istatistikler, rozetler, ayarlar menusu',
+              'Bildirimler: filtre sekmeleri, kaydir-sil',
+              'Urun detay: fiyat grafigi, topluluk dogrulamasi',
+              'Admin paneli: urun/magaza/kategori CRUD',
+              'Yeni uygulama simgesi',
+            ]),
+            _buildUpdateItem('v1.2.0', 'Subat 2025', 'Banner Yonetimi ve Dark Mode', [
+              'Admin paneline banner yonetimi eklendi',
+              'Banner resim destegi (URL ile)',
+              'Banner aktif/pasif durumu',
+              'Karanlik mod toggle - SharedPreferences ile kalici',
+              'Dark mode tum ekranlarda sorunsuz calisir',
+              'Profil sayfasi tamamen aktif: kaydedilen urunler, fiyat gecmisi, ayarlar, bildirim ayarlari, yardim & destek, geri bildirim, hakkinda, cikis',
+              'Admin istatistikler pixel overflow duzeltildi',
+              'Puan sistemi aciklama sayfasi',
+              'Fiyat ekleme ekrani: TL simgesi, konum secimi',
+              'Firebase yapilandirmasi gomuldu (gercek API anahtarlari)',
+              'Hakkinda sayfasi guncelleme gecmisi',
+            ]),
+
+            const SizedBox(height: AppSpacing.lg),
+            const Divider(),
+            const SizedBox(height: AppSpacing.md),
+
+            Center(child: Column(children: [
+              Text('2024-2025 FiyatRadar', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+              const SizedBox(height: 4),
+              Text('Tum haklari saklidir.', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            ])),
+            const SizedBox(height: AppSpacing.xl),
+          ]),
+        ),
+      ),
+    ));
+  }
+
+  Widget _buildUpdateItem(String version, String date, String title, List<String> changes) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: Text(version, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+          ]),
+          const SizedBox(height: 4),
+          Text(date, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+          const SizedBox(height: AppSpacing.sm),
+          ...changes.map((c) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('\u2022 ', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+              Expanded(child: Text(c, style: const TextStyle(fontSize: 12))),
+            ]),
+          )),
+        ]),
       ),
     );
   }

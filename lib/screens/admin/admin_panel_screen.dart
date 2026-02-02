@@ -485,7 +485,7 @@ class _BannerManagementTab extends StatelessWidget {
   void _showAddBannerDialog(BuildContext context) {
     final titleController = TextEditingController();
     final subtitleController = TextEditingController();
-    final imageController = TextEditingController();
+    final imageUrlController = TextEditingController();
     int selectedColor = 0xFF6366F1;
 
     showDialog(
@@ -508,9 +508,9 @@ class _BannerManagementTab extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
               const SizedBox(height: AppSpacing.md),
-              TextField(controller: imageController, decoration: const InputDecoration(labelText: 'Gorsel URL (Opsiyonel)', prefixIcon: Icon(Icons.image_outlined))),
+              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
               const SizedBox(height: AppSpacing.md),
-              const Align(alignment: Alignment.centerLeft, child: Text('Renk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+              const Align(alignment: Alignment.centerLeft, child: Text('Arka Plan Rengi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: 8, runSpacing: 8,
@@ -533,24 +533,7 @@ class _BannerManagementTab extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               // Preview
-              Container(
-                width: double.infinity, height: 80,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Color(selectedColor), Color(selectedColor).withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  image: imageController.text.isNotEmpty ? DecorationImage(
-                    image: NetworkImage(imageController.text),
-                    fit: BoxFit.cover,
-                    opacity: 0.3,
-                  ) : null,
-                ),
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(titleController.text.isEmpty ? 'Baslik' : titleController.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, shadows: [Shadow(blurRadius: 2, color: Colors.black45)])),
-                  const SizedBox(height: 2),
-                  Text(subtitleController.text.isEmpty ? 'Alt baslik' : subtitleController.text, style: const TextStyle(color: Colors.white, fontSize: 11, shadows: [Shadow(blurRadius: 2, color: Colors.black45)])),
-                ]),
-              ),
+              _buildBannerPreview(Color(selectedColor), titleController.text, subtitleController.text, imageUrlController.text),
             ]),
           ),
           actions: [
@@ -559,10 +542,10 @@ class _BannerManagementTab extends StatelessWidget {
               onPressed: () {
                 if (titleController.text.isEmpty) return;
                 mockData.addBanner(
-                  title: titleController.text, 
-                  subtitle: subtitleController.text.isEmpty ? '' : subtitleController.text, 
+                  title: titleController.text,
+                  subtitle: subtitleController.text.isEmpty ? '' : subtitleController.text,
                   colorValue: selectedColor,
-                  imageUrl: imageController.text.isEmpty ? null : imageController.text,
+                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
                 );
                 Navigator.pop(ctx);
                 onRefresh();
@@ -578,7 +561,7 @@ class _BannerManagementTab extends StatelessWidget {
   void _showEditBannerDialog(BuildContext context, MockBanner banner) {
     final titleController = TextEditingController(text: banner.title);
     final subtitleController = TextEditingController(text: banner.subtitle);
-    final imageController = TextEditingController(text: banner.imageUrl);
+    final imageUrlController = TextEditingController(text: banner.imageUrl ?? '');
     int selectedColor = banner.colorValue;
 
     showDialog(
@@ -601,9 +584,9 @@ class _BannerManagementTab extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
               const SizedBox(height: AppSpacing.md),
-              TextField(controller: imageController, decoration: const InputDecoration(labelText: 'Gorsel URL (Opsiyonel)', prefixIcon: Icon(Icons.image_outlined))),
+              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
               const SizedBox(height: AppSpacing.md),
-              const Align(alignment: Alignment.centerLeft, child: Text('Renk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+              const Align(alignment: Alignment.centerLeft, child: Text('Arka Plan Rengi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: 8, runSpacing: 8,
@@ -624,6 +607,8 @@ class _BannerManagementTab extends StatelessWidget {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: AppSpacing.md),
+              _buildBannerPreview(Color(selectedColor), titleController.text, subtitleController.text, imageUrlController.text),
             ]),
           ),
           actions: [
@@ -631,11 +616,11 @@ class _BannerManagementTab extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 mockData.updateBanner(
-                  banner.id, 
-                  title: titleController.text, 
-                  subtitle: subtitleController.text, 
+                  banner.id,
+                  title: titleController.text,
+                  subtitle: subtitleController.text,
                   colorValue: selectedColor,
-                  imageUrl: imageController.text.isEmpty ? null : imageController.text,
+                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
                 );
                 Navigator.pop(ctx);
                 onRefresh();
@@ -645,6 +630,27 @@ class _BannerManagementTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBannerPreview(Color color, String title, String subtitle, String imageUrl) {
+    return Container(
+      width: double.infinity, height: 100,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color, color.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        image: imageUrl.isNotEmpty ? DecorationImage(
+          image: NetworkImage(imageUrl),
+          fit: BoxFit.cover,
+          onError: (_, __) {},
+        ) : null,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+        Text(title.isEmpty ? 'Baslik' : title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
+        const SizedBox(height: 2),
+        Text(subtitle.isEmpty ? 'Alt baslik' : subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
+      ]),
     );
   }
 
@@ -691,21 +697,36 @@ class _BannerManagementTab extends StatelessWidget {
                         image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty ? DecorationImage(
                           image: NetworkImage(banner.imageUrl!),
                           fit: BoxFit.cover,
-                          colorFilter: ColorFilter.mode(bannerColor.withOpacity(0.5), BlendMode.darken),
+                          colorFilter: ColorFilter.mode(bannerColor.withOpacity(0.3), BlendMode.darken),
+                          onError: (_, __) {},
                         ) : null,
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        if (!banner.isActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
-                            child: const Text('PASIF', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                        Text(banner.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        Row(children: [
+                          if (!banner.isActive)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              margin: const EdgeInsets.only(right: AppSpacing.sm),
+                              decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
+                              child: const Text('PASIF', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ),
+                          if (banner.imageUrl != null && banner.imageUrl!.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
+                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.image, color: Colors.white70, size: 12),
+                                SizedBox(width: 4),
+                                Text('RESIM', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ]),
+                            ),
+                        ]),
+                        if (!banner.isActive || (banner.imageUrl != null && banner.imageUrl!.isNotEmpty))
+                          const SizedBox(height: AppSpacing.sm),
+                        Text(banner.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
                         if (banner.subtitle.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text(banner.subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          Text(banner.subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
                         ],
                       ]),
                     ),
