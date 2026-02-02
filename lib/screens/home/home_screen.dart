@@ -255,6 +255,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
+                                image: banner.imageUrl != null &&
+                                        banner.imageUrl!.isNotEmpty
+                                    ? DecorationImage(
+                                        image: NetworkImage(banner.imageUrl!),
+                                        fit: BoxFit.cover,
+                                        colorFilter: ColorFilter.mode(
+                                          Color(banner.colorValue)
+                                              .withOpacity(0.5),
+                                          BlendMode.darken,
+                                        ),
+                                      )
+                                    : null,
                                 boxShadow: [
                                   BoxShadow(
                                     color: Color(banner.colorValue)

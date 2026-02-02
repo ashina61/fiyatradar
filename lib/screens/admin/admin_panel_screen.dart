@@ -485,6 +485,7 @@ class _BannerManagementTab extends StatelessWidget {
   void _showAddBannerDialog(BuildContext context) {
     final titleController = TextEditingController();
     final subtitleController = TextEditingController();
+    final imageController = TextEditingController();
     int selectedColor = 0xFF6366F1;
 
     showDialog(
@@ -506,6 +507,8 @@ class _BannerManagementTab extends StatelessWidget {
               TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
               const SizedBox(height: AppSpacing.md),
               TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: imageController, decoration: const InputDecoration(labelText: 'Gorsel URL (Opsiyonel)', prefixIcon: Icon(Icons.image_outlined))),
               const SizedBox(height: AppSpacing.md),
               const Align(alignment: Alignment.centerLeft, child: Text('Renk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
               const SizedBox(height: AppSpacing.sm),
@@ -535,12 +538,17 @@ class _BannerManagementTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [Color(selectedColor), Color(selectedColor).withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(AppRadius.md),
+                  image: imageController.text.isNotEmpty ? DecorationImage(
+                    image: NetworkImage(imageController.text),
+                    fit: BoxFit.cover,
+                    opacity: 0.3,
+                  ) : null,
                 ),
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(titleController.text.isEmpty ? 'Baslik' : titleController.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(titleController.text.isEmpty ? 'Baslik' : titleController.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, shadows: [Shadow(blurRadius: 2, color: Colors.black45)])),
                   const SizedBox(height: 2),
-                  Text(subtitleController.text.isEmpty ? 'Alt baslik' : subtitleController.text, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  Text(subtitleController.text.isEmpty ? 'Alt baslik' : subtitleController.text, style: const TextStyle(color: Colors.white, fontSize: 11, shadows: [Shadow(blurRadius: 2, color: Colors.black45)])),
                 ]),
               ),
             ]),
@@ -550,7 +558,12 @@ class _BannerManagementTab extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 if (titleController.text.isEmpty) return;
-                mockData.addBanner(title: titleController.text, subtitle: subtitleController.text.isEmpty ? '' : subtitleController.text, colorValue: selectedColor);
+                mockData.addBanner(
+                  title: titleController.text, 
+                  subtitle: subtitleController.text.isEmpty ? '' : subtitleController.text, 
+                  colorValue: selectedColor,
+                  imageUrl: imageController.text.isEmpty ? null : imageController.text,
+                );
                 Navigator.pop(ctx);
                 onRefresh();
               },
@@ -565,6 +578,7 @@ class _BannerManagementTab extends StatelessWidget {
   void _showEditBannerDialog(BuildContext context, MockBanner banner) {
     final titleController = TextEditingController(text: banner.title);
     final subtitleController = TextEditingController(text: banner.subtitle);
+    final imageController = TextEditingController(text: banner.imageUrl);
     int selectedColor = banner.colorValue;
 
     showDialog(
@@ -586,6 +600,8 @@ class _BannerManagementTab extends StatelessWidget {
               TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
               const SizedBox(height: AppSpacing.md),
               TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: imageController, decoration: const InputDecoration(labelText: 'Gorsel URL (Opsiyonel)', prefixIcon: Icon(Icons.image_outlined))),
               const SizedBox(height: AppSpacing.md),
               const Align(alignment: Alignment.centerLeft, child: Text('Renk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
               const SizedBox(height: AppSpacing.sm),
@@ -614,7 +630,13 @@ class _BannerManagementTab extends StatelessWidget {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
             ElevatedButton(
               onPressed: () {
-                mockData.updateBanner(banner.id, title: titleController.text, subtitle: subtitleController.text, colorValue: selectedColor);
+                mockData.updateBanner(
+                  banner.id, 
+                  title: titleController.text, 
+                  subtitle: subtitleController.text, 
+                  colorValue: selectedColor,
+                  imageUrl: imageController.text.isEmpty ? null : imageController.text,
+                );
                 Navigator.pop(ctx);
                 onRefresh();
               },
@@ -666,6 +688,11 @@ class _BannerManagementTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [bannerColor, bannerColor.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+                        image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty ? DecorationImage(
+                          image: NetworkImage(banner.imageUrl!),
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(bannerColor.withOpacity(0.5), BlendMode.darken),
+                        ) : null,
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if (!banner.isActive)

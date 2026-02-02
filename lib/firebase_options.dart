@@ -34,37 +34,38 @@ class DefaultFirebaseOptions {
   // TODO: Firebase Console'dan alınan değerlerle değiştirin
   // flutterfire configure komutu ile otomatik oluşturulabilir
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
+    appId: '1:360048908674:web:835a1b2e477aac531a979b',
+    messagingSenderId: '360048908674',
+    projectId: 'fiyatradar-611967',
+    authDomain: 'fiyatradar-611967.firebaseapp.com',
+    storageBucket: 'fiyatradar-611967.firebasestorage.app',
+    measurementId: 'G-FZL57463WD',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
+    appId: '1:360048908674:android:0577b2185257df381a979b',
+    messagingSenderId: '360048908674',
+    projectId: 'fiyatradar-611967',
+    storageBucket: 'fiyatradar-611967.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
+    appId: '1:360048908674:ios:cd3e0587747e93541a979b',
+    messagingSenderId: '360048908674',
+    projectId: 'fiyatradar-611967',
+    storageBucket: 'fiyatradar-611967.firebasestorage.app',
     iosBundleId: 'com.fiyatradar',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_MACOS_API_KEY',
-    appId: 'YOUR_MACOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
+    appId: '1:360048908674:ios:cd3e0587747e93541a979b',
+    messagingSenderId: '360048908674',
+    projectId: 'fiyatradar-611967',
+    storageBucket: 'fiyatradar-611967.firebasestorage.app',
     iosBundleId: 'com.fiyatradar',
   );
 }

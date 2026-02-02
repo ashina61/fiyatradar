@@ -21,6 +21,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   String? _selectedStore;
   String? _selectedCategory;
   MockProduct? _selectedProduct;
+  String _selectedLocation = 'Istanbul, Turkiye';
+
+  static const _locations = [
+    'Istanbul, Turkiye',
+    'Ankara, Turkiye',
+    'Izmir, Turkiye',
+    'Bursa, Turkiye',
+    'Antalya, Turkiye',
+    'Adana, Turkiye',
+    'Gaziantep, Turkiye',
+    'Konya, Turkiye',
+    'Trabzon, Turkiye',
+    'Diyarbakir, Turkiye',
+  ];
 
   @override
   void dispose() {
@@ -112,6 +126,48 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  }
+
+  void _showLocationPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: AppSpacing.sm),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Theme.of(context).hintColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text('Konum Secin', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: _locations.map((loc) => ListTile(
+                  leading: const Icon(Icons.location_on_outlined),
+                  title: Text(loc),
+                  onTap: () {
+                    setState(() => _selectedLocation = loc);
+                    Navigator.pop(ctx);
+                  },
+                  trailing: _selectedLocation == loc ? const Icon(Icons.check, color: AppColors.primary) : null,
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
         );
       },
     );
@@ -315,8 +371,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Fiyat',
                   hintText: '0.00',
-                  prefixIcon: Icon(Icons.attach_money),
-                  suffixText: '₺',
+                  prefixText: '\u20BA ',
+                  prefixIcon: Icon(Icons.price_change_outlined),
                 ),
                 textInputAction: TextInputAction.next,
                 validator: (value) {
@@ -397,27 +453,36 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
               // Location (mock)
               Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.location_on, color: AppColors.success),
-                    SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'Istanbul, Türkiye',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _showLocationPicker,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, color: AppColors.success),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              _selectedLocation,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down,
+                              color: AppColors.textSecondary),
+                        ],
                       ),
                     ),
-                    Icon(Icons.check_circle,
-                        color: AppColors.success, size: 18),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),

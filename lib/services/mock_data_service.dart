@@ -354,16 +354,18 @@ class MockDataService {
     required String title,
     required String subtitle,
     required int colorValue,
+    String? imageUrl,
   }) {
     _banners.add(MockBanner(
       id: 'b${_bannerIdCounter++}',
       title: title,
       subtitle: subtitle,
       colorValue: colorValue,
+      imageUrl: imageUrl,
     ));
   }
 
-  void updateBanner(String id, {String? title, String? subtitle, int? colorValue, bool? isActive}) {
+  void updateBanner(String id, {String? title, String? subtitle, int? colorValue, bool? isActive, String? imageUrl}) {
     final index = _banners.indexWhere((b) => b.id == id);
     if (index != -1) {
       _banners[index] = _banners[index].copyWith(
@@ -371,6 +373,7 @@ class MockDataService {
         subtitle: subtitle,
         colorValue: colorValue,
         isActive: isActive,
+        imageUrl: imageUrl,
       );
     }
   }

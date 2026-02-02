@@ -56,6 +56,11 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => _showPriceHistory(context),
               ),
               _MenuItem(
+                icon: Icons.stars,
+                title: 'Puan Sistemi',
+                onTap: () => _showPointsSystem(context),
+              ),
+              _MenuItem(
                 icon: Icons.settings_outlined,
                 title: 'Ayarlar',
                 onTap: () => _showSettings(context, ref),
@@ -264,6 +269,59 @@ class ProfileScreen extends ConsumerWidget {
     ));
   }
 
+  void _showPointsSystem(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: const Icon(Icons.stars, color: AppColors.accent, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Text('Puan Sistemi'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nasil Puan Kazanirim?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: AppSpacing.md),
+            _buildPointItem(ctx, 'Fiyat Girisi', '+10 Puan', Icons.add_circle_outline, AppColors.primary),
+            _buildPointItem(ctx, 'Fiyat Dogrulama', '+5 Puan', Icons.check_circle_outline, AppColors.success),
+            _buildPointItem(ctx, 'Ilk Yorum', '+15 Puan', Icons.comment_outlined, AppColors.info),
+            _buildPointItem(ctx, 'Hatali Fiyat Bildirimi', '+20 Puan', Icons.report_outlined, AppColors.error),
+            const SizedBox(height: AppSpacing.lg),
+            const Text('Rozetler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: AppSpacing.sm),
+            const Text('Puanlariniz biriktikce yeni rozetler kazanir ve avantajlardan yararlanirsiniz.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tamam')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPointItem(BuildContext context, String title, String points, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.full)),
+          child: Text(points, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        ),
+      ]),
+    );
+  }
+
   void _showSettings(BuildContext context, WidgetRef ref) {
     final themeMode = ref.read(themeModeProvider);
     Navigator.of(context).push(MaterialPageRoute(
@@ -449,6 +507,32 @@ class ProfileScreen extends ConsumerWidget {
               'Turkiye\'nin en akilli fiyat takip uygulamasi. Topluluk destekli fiyat karsilastirmasi ve bildirimler.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const Align(alignment: Alignment.centerLeft, child: Text('Versiyon Gecmisi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              height: 100,
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: const [
+                  ListTile(
+                    title: Text('v1.0.0 - Ilk Surum', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Temel ozellikler, fiyat takibi, bildirimler ve profil yonetimi eklendi.', style: TextStyle(fontSize: 12)),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  ListTile(
+                    title: Text('v0.9.0 - Beta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Test surumu yayinlandi.', style: TextStyle(fontSize: 12)),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             Text('2024 FiyatRadar. Tum haklari saklidir.',

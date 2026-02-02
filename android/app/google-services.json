@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "YOUR_PROJECT_NUMBER",
-    "project_id": "YOUR_PROJECT_ID",
-    "storage_bucket": "YOUR_PROJECT_ID.appspot.com"
+    "project_number": "360048908674",
+    "project_id": "fiyatradar-611967",
+    "storage_bucket": "fiyatradar-611967.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "YOUR_ANDROID_APP_ID",
+        "mobilesdk_app_id": "1:360048908674:android:0577b2185257df381a979b",
         "android_client_info": {
           "package_name": "com.fiyatradar"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "YOUR_API_KEY"
+          "current_key": "AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g"
         }
       ],
       "services": {
