@@ -98,3 +98,6 @@ coverage/
 
 # Local configuration
 local.properties
+
+# Android gradle
+android/.gradle/
