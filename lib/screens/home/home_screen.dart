@@ -28,7 +28,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _startBannerAutoScroll() {
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
-      final bannerCount = _mockData.banners.length;
+      final bannerCount = _mockData.activeBanners.length;
       if (bannerCount == 0) return;
       final nextPage = (_currentBannerPage + 1) % bannerCount;
       _bannerController.animateToPage(
@@ -237,9 +237,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onPageChanged: (index) {
                           setState(() => _currentBannerPage = index);
                         },
-                        itemCount: _mockData.banners.length,
+                        itemCount: _mockData.activeBanners.length,
                         itemBuilder: (context, index) {
-                          final banner = _mockData.banners[index];
+                          final banner = _mockData.activeBanners[index];
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: AppSpacing.md),
@@ -297,7 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(
-                        _mockData.banners.length,
+                        _mockData.activeBanners.length,
                         (index) => AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           margin: const EdgeInsets.symmetric(horizontal: 3),

@@ -523,6 +523,41 @@ class AppTheme {
         color: AppColors.outlineDark,
         thickness: 1,
       ),
+      dialogTheme: DialogTheme(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        surfaceTintColor: Colors.transparent,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.surfaceVariantDark,
+        contentTextStyle: const TextStyle(color: AppColors.textPrimaryDark),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return AppColors.primaryLight;
+          return AppColors.textSecondaryDark;
+        }),
+        trackColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return AppColors.primaryLight.withOpacity(0.3);
+          return AppColors.outlineDark;
+        }),
+      ),
+      listTileTheme: const ListTileThemeData(
+        textColor: AppColors.textPrimaryDark,
+        iconColor: AppColors.textSecondaryDark,
+      ),
+      expansionTileTheme: const ExpansionTileThemeData(
+        textColor: AppColors.primaryLight,
+        collapsedTextColor: AppColors.textPrimaryDark,
+        iconColor: AppColors.primaryLight,
+        collapsedIconColor: AppColors.textSecondaryDark,
+      ),
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 34,
