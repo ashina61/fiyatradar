@@ -37,6 +37,7 @@ class MockBanner {
   final String subtitle;
   final String? imageUrl;
   final int colorValue;
+  final bool isActive;
 
   const MockBanner({
     required this.id,
@@ -44,7 +45,26 @@ class MockBanner {
     required this.subtitle,
     this.imageUrl,
     required this.colorValue,
+    this.isActive = true,
   });
+
+  MockBanner copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    String? imageUrl,
+    int? colorValue,
+    bool? isActive,
+  }) {
+    return MockBanner(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      imageUrl: imageUrl ?? this.imageUrl,
+      colorValue: colorValue ?? this.colorValue,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }
 
 class MockCategory {
@@ -56,13 +76,21 @@ class MockCategory {
 
 class MockUser {
   final String displayName;
+  final String email;
   final int points;
   final int notifications;
+  final int priceEntries;
+  final int verifications;
+  final List<String> savedProducts;
 
   const MockUser({
     required this.displayName,
+    this.email = 'demo@fiyatradar.com',
     required this.points,
     required this.notifications,
+    this.priceEntries = 45,
+    this.verifications = 120,
+    this.savedProducts = const ['p1', 'p3', 'p5', 'p7'],
   });
 
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
@@ -75,6 +103,7 @@ class MockDataService {
     _products = List<MockProduct>.from(_defaultProducts);
     _stores = List<String>.from(_defaultStores);
     _categories = List<MockCategory>.from(_defaultCategories);
+    _banners = List<MockBanner>.from(_defaultBanners);
   }
 
   MockUser get currentUser => const MockUser(
@@ -87,12 +116,19 @@ class MockDataService {
   late final List<MockProduct> _products;
   late final List<String> _stores;
   late final List<MockCategory> _categories;
+  late final List<MockBanner> _banners;
 
   int _productIdCounter = 11;
+  int _bannerIdCounter = 4;
 
   List<MockCategory> get categories => List.unmodifiable(_categories);
 
   List<String> get stores => List.unmodifiable(_stores);
+
+  List<MockBanner> get banners => List.unmodifiable(_banners);
+
+  List<MockBanner> get activeBanners =>
+      _banners.where((b) => b.isActive).toList();
 
   static const List<MockCategory> _defaultCategories = [
     MockCategory(name: 'Elektronik', iconName: 'devices'),
@@ -120,26 +156,26 @@ class MockDataService {
     'D&R',
   ];
 
-  List<MockBanner> get banners => [
-        const MockBanner(
-          id: 'b1',
-          title: 'Haftalik En Iyi Firsatlar',
-          subtitle: '%50\'ye varan indirimler seni bekliyor!',
-          colorValue: 0xFF6366F1,
-        ),
-        const MockBanner(
-          id: 'b2',
-          title: 'Elektronik Festivali',
-          subtitle: 'Teknoloji urunlerinde buyuk kampanya',
-          colorValue: 0xFF10B981,
-        ),
-        const MockBanner(
-          id: 'b3',
-          title: 'Fiyat Dustu Bildirimi',
-          subtitle: 'Takip ettigin urunler ucuzladi!',
-          colorValue: 0xFFF59E0B,
-        ),
-      ];
+  static const List<MockBanner> _defaultBanners = [
+    MockBanner(
+      id: 'b1',
+      title: 'Haftalik En Iyi Firsatlar',
+      subtitle: '%50\'ye varan indirimler seni bekliyor!',
+      colorValue: 0xFF6366F1,
+    ),
+    MockBanner(
+      id: 'b2',
+      title: 'Elektronik Festivali',
+      subtitle: 'Teknoloji urunlerinde buyuk kampanya',
+      colorValue: 0xFF10B981,
+    ),
+    MockBanner(
+      id: 'b3',
+      title: 'Fiyat Dustu Bildirimi',
+      subtitle: 'Takip ettigin urunler ucuzladi!',
+      colorValue: 0xFFF59E0B,
+    ),
+  ];
 
   static final List<MockProduct> _defaultProducts = [
     MockProduct(
@@ -261,7 +297,12 @@ class MockDataService {
     return sorted.take(5).toList();
   }
 
-  // Admin operations
+  List<MockProduct> get savedProducts {
+    final savedIds = currentUser.savedProducts;
+    return _products.where((p) => savedIds.contains(p.id)).toList();
+  }
+
+  // Admin operations - Products
 
   void addProduct({
     required String name,
@@ -283,6 +324,8 @@ class MockDataService {
     _products.removeWhere((p) => p.id == id);
   }
 
+  // Admin operations - Stores
+
   void addStore(String name) {
     if (!_stores.contains(name)) {
       _stores.add(name);
@@ -293,6 +336,8 @@ class MockDataService {
     _stores.remove(name);
   }
 
+  // Admin operations - Categories
+
   void addCategory(String name) {
     if (!_categories.any((c) => c.name == name)) {
       _categories.add(MockCategory(name: name, iconName: 'category'));
@@ -301,6 +346,44 @@ class MockDataService {
 
   void removeCategory(String name) {
     _categories.removeWhere((c) => c.name == name);
+  }
+
+  // Admin operations - Banners
+
+  void addBanner({
+    required String title,
+    required String subtitle,
+    required int colorValue,
+  }) {
+    _banners.add(MockBanner(
+      id: 'b${_bannerIdCounter++}',
+      title: title,
+      subtitle: subtitle,
+      colorValue: colorValue,
+    ));
+  }
+
+  void updateBanner(String id, {String? title, String? subtitle, int? colorValue, bool? isActive}) {
+    final index = _banners.indexWhere((b) => b.id == id);
+    if (index != -1) {
+      _banners[index] = _banners[index].copyWith(
+        title: title,
+        subtitle: subtitle,
+        colorValue: colorValue,
+        isActive: isActive,
+      );
+    }
+  }
+
+  void removeBanner(String id) {
+    _banners.removeWhere((b) => b.id == id);
+  }
+
+  void toggleBannerActive(String id) {
+    final index = _banners.indexWhere((b) => b.id == id);
+    if (index != -1) {
+      _banners[index] = _banners[index].copyWith(isActive: !_banners[index].isActive);
+    }
   }
 
   int get totalPriceEntries => _products.length * 3; // mock: ~3 prices per product
