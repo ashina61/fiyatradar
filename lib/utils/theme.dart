@@ -82,7 +82,7 @@ class AppTheme {
       tertiary: AppColors.accent,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
-      surfaceContainerHighest: AppColors.surfaceVariant,
+      surfaceVariant: AppColors.surfaceVariant,
       outline: AppColors.outline,
       outlineVariant: AppColors.outlineVariant,
       error: AppColors.error,
@@ -118,8 +118,8 @@ class AppTheme {
         indicatorColor: AppColors.primary.withOpacity(0.12),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
+        labelTextStyle: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) {
             return const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -132,8 +132,8 @@ class AppTheme {
             color: AppColors.textSecondary,
           );
         }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
+        iconTheme: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) {
             return const IconThemeData(
               color: AppColors.primary,
               size: 24,
@@ -355,7 +355,7 @@ class AppTheme {
       tertiary: AppColors.accentLight,
       surface: AppColors.surfaceDark,
       onSurface: AppColors.textPrimaryDark,
-      surfaceContainerHighest: AppColors.surfaceVariantDark,
+      surfaceVariant: AppColors.surfaceVariantDark,
       outline: AppColors.outlineDark,
       error: AppColors.error,
     );
@@ -390,8 +390,8 @@ class AppTheme {
         indicatorColor: AppColors.primaryLight.withOpacity(0.15),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
+        labelTextStyle: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) {
             return const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -404,8 +404,8 @@ class AppTheme {
             color: AppColors.textSecondaryDark,
           );
         }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
+        iconTheme: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) {
             return const IconThemeData(
               color: AppColors.primaryLight,
               size: 24,
@@ -545,12 +545,12 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primaryLight;
+        thumbColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return AppColors.primaryLight;
           return AppColors.textSecondaryDark;
         }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.primaryLight.withOpacity(0.3);
+        trackColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return AppColors.primaryLight.withOpacity(0.3);
           return AppColors.outlineDark;
         }),
       ),
