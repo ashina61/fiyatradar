@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../models/notification_model.dart';
 
 /// Filter categories for notification types.
@@ -68,7 +69,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   void _deleteNotification(String id) {
-    ref.read(notificationNotifierProvider.notifier).deleteNotification(id);
+    ref.read(firestoreServiceProvider).deleteNotification(id);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
