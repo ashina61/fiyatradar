@@ -138,9 +138,6 @@ class _ProductManagementTab extends ConsumerWidget {
                   name: nameController.text,
                   brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
                   category: selectedCategory!,
-                  description: '',
-                  barcode: '',
-                  unit: 'adet',
                   createdAt: DateTime.now(),
                   updatedAt: DateTime.now(),
                 ));
@@ -532,16 +529,15 @@ class _BannerManagementTab extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (titleController.text.isEmpty) return;
-              await ref.read(bannerNotifierProvider.notifier).addBanner(
-                BannerModel(
-                  id: '',
-                  title: titleController.text,
-                  description: descriptionController.text.isEmpty ? null : descriptionController.text,
-                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
-                  isActive: true,
-                  createdAt: DateTime.now(),
-                ),
+              final banner = BannerModel(
+                id: '',
+                title: titleController.text,
+                description: descriptionController.text.isEmpty ? null : descriptionController.text,
+                imageUrl: imageUrlController.text.isEmpty ? '' : imageUrlController.text,
+                isActive: true,
+                createdAt: DateTime.now(),
               );
+              await ref.read(firestoreServiceProvider).addBanner(banner);
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Ekle'),
@@ -553,7 +549,7 @@ class _BannerManagementTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bannersAsync = ref.watch(bannersProvider);
+    final bannersAsync = ref.watch(allBannersProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -623,7 +619,7 @@ class _BannerManagementTab extends ConsumerWidget {
                       const Spacer(),
                       TextButton.icon(
                         onPressed: () {
-                          ref.read(bannerNotifierProvider.notifier).toggleBannerActive(banner.id);
+                          ref.read(bannerNotifierProvider.notifier).toggleBannerActive(banner.id, !banner.isActive);
                         },
                         icon: Icon(banner.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
                         label: Text(banner.isActive ? 'Gizle' : 'Goster'),
@@ -663,7 +659,7 @@ class _StatisticsTab extends ConsumerWidget {
     final productsAsync = ref.watch(allProductsProvider);
     final storesAsync = ref.watch(storesProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final bannersAsync = ref.watch(bannersProvider);
+    final bannersAsync = ref.watch(allBannersProvider);
 
     final productCount = productsAsync.valueOrNull?.length ?? 0;
     final storeCount = storesAsync.valueOrNull?.length ?? 0;
