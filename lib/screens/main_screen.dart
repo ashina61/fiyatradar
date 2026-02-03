@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/mock_data_service.dart';
+import '../providers/notification_provider.dart';
 import '../utils/theme.dart';
 import 'home/home_screen.dart';
 import 'search/search_screen.dart';
@@ -16,8 +16,8 @@ class MainScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(currentTabProvider);
-    final mockData = MockDataService();
-    final unreadCount = mockData.notifications.where((n) => !n.isRead).length;
+    final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
+    final unreadCount = unreadCountAsync.valueOrNull ?? 0;
 
     final screens = [
       const HomeScreen(),

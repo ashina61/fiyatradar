@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../services/mock_data_service.dart';
+import '../../providers/notification_provider.dart';
 import '../../models/notification_model.dart';
 
 /// Filter categories for notification types.
@@ -27,20 +27,12 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with TickerProviderStateMixin {
   _NotificationFilter _selectedFilter = _NotificationFilter.all;
-  late List<NotificationModel> _notifications;
 
-  @override
-  void initState() {
-    super.initState();
-    _notifications =
-        List<NotificationModel>.from(MockDataService().notifications);
-  }
-
-  List<NotificationModel> get _filteredNotifications {
+  List<NotificationModel> _filterNotifications(List<NotificationModel> notifications) {
     if (_selectedFilter == _NotificationFilter.all) {
-      return _notifications;
+      return notifications;
     }
-    return _notifications.where((n) {
+    return notifications.where((n) {
       switch (_selectedFilter) {
         case _NotificationFilter.priceDrop:
           return n.type == NotificationType.priceDropped;
@@ -58,11 +50,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   void _markAllAsRead() {
-    setState(() {
-      _notifications = _notifications
-          .map((n) => n.copyWith(isRead: true))
-          .toList();
-    });
+    ref.read(notificationNotifierProvider.notifier).markAllAsRead();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Tum bildirimler okundu olarak isaretlendi'),
@@ -76,23 +64,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   void _markAsRead(String id) {
-    setState(() {
-      _notifications = _notifications.map((n) {
-        if (n.id == id) return n.copyWith(isRead: true);
-        return n;
-      }).toList();
-    });
+    ref.read(notificationNotifierProvider.notifier).markAsRead(id);
   }
 
   void _deleteNotification(String id) {
-    final index = _notifications.indexWhere((n) => n.id == id);
-    if (index == -1) return;
-    final removed = _notifications[index];
-
-    setState(() {
-      _notifications.removeAt(index);
-    });
-
+    ref.read(notificationNotifierProvider.notifier).deleteNotification(id);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -102,14 +78,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         margin: const EdgeInsets.all(AppSpacing.md),
-        action: SnackBarAction(
-          label: 'Geri Al',
-          onPressed: () {
-            setState(() {
-              _notifications.insert(index, removed);
-            });
-          },
-        ),
       ),
     );
   }
@@ -129,21 +97,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasUnread = _notifications.any((n) => !n.isRead);
-    final filtered = _filteredNotifications;
+    final notificationsAsync = ref.watch(notificationsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bildirimler'),
         actions: [
-          if (hasUnread)
-            TextButton(
-              onPressed: _markAllAsRead,
-              child: const Text(
-                'Tumunu Okundu Isaretle',
-                style: TextStyle(fontSize: 13),
-              ),
-            ),
+          notificationsAsync.when(
+            data: (notifications) {
+              final hasUnread = notifications.any((n) => !n.isRead);
+              if (hasUnread) {
+                return TextButton(
+                  onPressed: _markAllAsRead,
+                  child: const Text(
+                    'Tumunu Okundu Isaretle',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
         ],
       ),
       body: Column(
@@ -152,9 +128,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           _buildFilterBar(theme),
           // Notification list or empty state
           Expanded(
-            child: filtered.isEmpty
-                ? _buildEmptyState(theme)
-                : _buildNotificationList(filtered, theme),
+            child: notificationsAsync.when(
+              data: (notifications) {
+                final filtered = _filterNotifications(notifications);
+                return filtered.isEmpty
+                    ? _buildEmptyState(theme)
+                    : _buildNotificationList(filtered, theme);
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => _buildEmptyState(theme),
+            ),
           ),
         ],
       ),

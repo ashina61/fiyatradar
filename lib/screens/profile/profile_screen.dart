@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../services/mock_data_service.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../models/user_model.dart';
+import '../../services/auth_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -12,18 +15,19 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mockUser = MockDataService().currentUser;
+    final userAsync = ref.watch(userModelStreamProvider);
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
     final theme = Theme.of(context);
-    const bool isAdmin = true;
+    final user = userAsync.valueOrNull;
+    final bool isAdmin = user?.isAdmin ?? false;
 
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(context, mockUser),
+            _buildProfileHeader(context, user),
             Transform.translate(
               offset: const Offset(0, -36),
               child: _buildStatsRow(context, theme),
@@ -147,13 +151,16 @@ class ProfileScreen extends ConsumerWidget {
                             child: const Text('Iptal'),
                           ),
                           ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.pop(ctx);
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                    builder: (_) => const LoginScreen()),
-                                (route) => false,
-                              );
+                              await AuthService().signOut();
+                              if (context.mounted) {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                  (route) => false,
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.error,
@@ -188,80 +195,108 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
 
   void _showSavedProducts(BuildContext context) {
-    final saved = MockDataService().savedProducts;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         appBar: AppBar(title: const Text('Kaydedilen Urunler')),
-        body: saved.isEmpty
-            ? const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bookmark_outline, size: 64, color: AppColors.textTertiary),
-                    SizedBox(height: AppSpacing.md),
-                    Text('Kaydedilen urun yok', style: TextStyle(color: AppColors.textSecondary)),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                itemCount: saved.length,
-                itemBuilder: (context, i) {
-                  final p = saved[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: ListTile(
-                      leading: Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
-                      ),
-                      title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${p.store} - ${p.currentPrice.toStringAsFixed(2)} TL'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
-                      ),
+        body: Consumer(
+          builder: (context, ref, _) {
+            final productsAsync = ref.watch(allProductsProvider);
+            final userAsync = ref.watch(userModelStreamProvider);
+            final savedIds = userAsync.valueOrNull?.savedProducts ?? [];
+
+            return productsAsync.when(
+              data: (allProducts) {
+                final saved = allProducts.where((p) => savedIds.contains(p.id)).toList();
+                if (saved.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bookmark_outline, size: 64, color: AppColors.textTertiary),
+                        SizedBox(height: AppSpacing.md),
+                        Text('Kaydedilen urun yok', style: TextStyle(color: AppColors.textSecondary)),
+                      ],
                     ),
                   );
-                },
-              ),
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: saved.length,
+                  itemBuilder: (context, i) {
+                    final p = saved[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: ListTile(
+                        leading: Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
+                        ),
+                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('${p.lastStore ?? ''} - ${p.lastPrice?.toStringAsFixed(2) ?? '?'} TL'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const Center(child: Text('Yuklenemedi')),
+            );
+          },
+        ),
       ),
     ));
   }
 
   void _showPriceHistory(BuildContext context) {
-    final products = MockDataService().products.take(5).toList();
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         appBar: AppBar(title: const Text('Fiyat Gecmisim')),
-        body: ListView.builder(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: products.length,
-          itemBuilder: (context, i) {
-            final p = products[i];
-            final daysAgo = DateTime.now().difference(p.addedAt).inHours;
-            return Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: ListTile(
-                leading: Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: const Icon(Icons.history, color: AppColors.secondary),
-                ),
-                title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('${p.currentPrice.toStringAsFixed(2)} TL - ${daysAgo}s once'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
-                ),
-              ),
+        body: Consumer(
+          builder: (context, ref, _) {
+            final productsAsync = ref.watch(allProductsProvider);
+            return productsAsync.when(
+              data: (products) {
+                if (products.isEmpty) {
+                  return const Center(child: Text('Henuz fiyat girisi yok'));
+                }
+                final recentProducts = products.take(10).toList();
+                return ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: recentProducts.length,
+                  itemBuilder: (context, i) {
+                    final p = recentProducts[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: ListTile(
+                        leading: Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: const Icon(Icons.history, color: AppColors.secondary),
+                        ),
+                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('${p.lastPrice?.toStringAsFixed(2) ?? '?'} TL'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const Center(child: Text('Yuklenemedi')),
             );
           },
         ),
@@ -651,7 +686,11 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Profile Header
   // ===========================================================================
-  Widget _buildProfileHeader(BuildContext context, MockUser user) {
+  Widget _buildProfileHeader(BuildContext context, UserModel? user) {
+    final displayName = user?.name ?? 'Kullanici';
+    final email = user?.email ?? '';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(
@@ -675,7 +714,7 @@ class ProfileScreen extends ConsumerWidget {
               icon: const Icon(Icons.edit, color: Colors.white70, size: 22),
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profil duzenleme demo modda kulanilamaz'), behavior: SnackBarBehavior.floating),
+                  const SnackBar(content: Text('Profil duzenleme yaklnda eklenecek'), behavior: SnackBarBehavior.floating),
                 );
               },
             ),
@@ -693,13 +732,13 @@ class ProfileScreen extends ConsumerWidget {
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 6))],
                 ),
                 child: Center(
-                  child: Text(user.initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: Text(initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(user.displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: AppSpacing.xs),
-              Text(user.email, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+              Text(email, style: const TextStyle(fontSize: 14, color: Colors.white70)),
             ]),
           ),
         ],
