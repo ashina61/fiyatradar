@@ -564,7 +564,7 @@ class ProfileScreen extends ConsumerWidget {
             const Text('Guncelleme Gecmisi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSpacing.md),
 
-            _buildUpdateItem('v1.0.0', 'Subat 2025', 'Ilk Surum', [
+            _buildUpdateItem(context, 'v1.0.0', 'Subat 2025', 'Ilk Surum', [
               'Uygulama temelden insa edildi',
               'Firebase entegrasyonu ve kimlik dogrulama',
               'Flutter 3.16+ ve Material Design 3 tasarim',
@@ -572,7 +572,7 @@ class ProfileScreen extends ConsumerWidget {
               'GitHub Actions CI/CD pipeline',
               'Urun, magaza ve kategori yonetimi',
             ]),
-            _buildUpdateItem('v1.1.0', 'Subat 2025', 'Mock Data ve Premium Tasarim', [
+            _buildUpdateItem(context, 'v1.1.0', 'Subat 2025', 'Mock Data ve Premium Tasarim', [
               'Firebase devre disi birakildi, mock data servisi eklendi',
               '10 demo urun, 10 magaza, 10 kategori',
               'Premium UI tasarimi - gradientler, animasyonlar',
@@ -588,7 +588,7 @@ class ProfileScreen extends ConsumerWidget {
               'Admin paneli: urun/magaza/kategori CRUD',
               'Yeni uygulama simgesi',
             ]),
-            _buildUpdateItem('v1.2.0', 'Subat 2025', 'Banner Yonetimi ve Dark Mode', [
+            _buildUpdateItem(context, 'v1.2.0', 'Subat 2025', 'Banner Yonetimi ve Dark Mode', [
               'Admin paneline banner yonetimi eklendi',
               'Banner resim destegi (URL ile)',
               'Banner aktif/pasif durumu',
@@ -618,7 +618,7 @@ class ProfileScreen extends ConsumerWidget {
     ));
   }
 
-  Widget _buildUpdateItem(String version, String date, String title, List<String> changes) {
+  Widget _buildUpdateItem(BuildContext context, String version, String date, String title, List<String> changes) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Padding(
