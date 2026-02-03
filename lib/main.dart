@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import 'firebase_options.dart';
+// import 'firebase_options.dart'; // Bu satırı kaldırdık, artık JSON dosyasını okuyacak.
+
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -32,12 +33,15 @@ void main() async {
 
   // Initialize Firebase
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // DEĞİŞİKLİK BURADA:
+    // Parantez içini boş bıraktık. Böylece Android otomatik olarak
+    // 'android/app/google-services.json' dosyasındaki ayarları kullanacak.
+    await Firebase.initializeApp();
+    
     firebaseInitialized = true;
+    debugPrint('Firebase başarıyla başlatıldı! 🚀');
   } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
+    debugPrint('Firebase başlatılamadı, hata: $e');
     firebaseInitialized = false;
   }
 
@@ -109,6 +113,7 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
         return const MainScreen();
       }
     }
+    // Firebase başlamadıysa veya kullanıcı yoksa giriş ekranına at
     return const LoginScreen();
   }
 }
