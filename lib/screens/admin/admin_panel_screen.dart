@@ -587,8 +587,8 @@ class _BannerManagementTab extends ConsumerWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-                      image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty ? DecorationImage(
-                        image: NetworkImage(banner.imageUrl!),
+                      image: banner.imageUrl.isNotEmpty ? DecorationImage(
+                        image: NetworkImage(banner.imageUrl),
                         fit: BoxFit.cover,
                         colorFilter: ColorFilter.mode(AppColors.primary.withOpacity(0.3), BlendMode.darken),
                         onError: (_, __) {},
