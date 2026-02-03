@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../services/mock_data_service.dart';
+import '../../models/product_model.dart';
+import '../../models/banner_model.dart';
+import '../../providers/product_provider.dart';
+import '../../providers/banner_provider.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -13,7 +16,6 @@ class AdminPanelScreen extends ConsumerStatefulWidget {
 class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final MockDataService _mockData = MockDataService();
 
   @override
   void initState() {
@@ -52,12 +54,12 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _ProductManagementTab(mockData: _mockData, onRefresh: () => setState(() {})),
-          _StoreManagementTab(mockData: _mockData, onRefresh: () => setState(() {})),
-          _CategoryManagementTab(mockData: _mockData, onRefresh: () => setState(() {})),
-          _BannerManagementTab(mockData: _mockData, onRefresh: () => setState(() {})),
-          _StatisticsTab(mockData: _mockData),
+        children: const [
+          _ProductManagementTab(),
+          _StoreManagementTab(),
+          _CategoryManagementTab(),
+          _BannerManagementTab(),
+          _StatisticsTab(),
         ],
       ),
     );
@@ -67,10 +69,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
 // ---------------------------------------------------------------------------
 // Tab 1: Urun Yonetimi
 // ---------------------------------------------------------------------------
-class _ProductManagementTab extends StatelessWidget {
-  final MockDataService mockData;
-  final VoidCallback onRefresh;
-  const _ProductManagementTab({required this.mockData, required this.onRefresh});
+class _ProductManagementTab extends ConsumerWidget {
+  const _ProductManagementTab();
 
   IconData _categoryIcon(String category) {
     switch (category) {
@@ -88,10 +88,10 @@ class _ProductManagementTab extends StatelessWidget {
     }
   }
 
-  void _showAddProductDialog(BuildContext context) {
+  void _showAddProductDialog(BuildContext context, WidgetRef ref, List<Map<String, dynamic>> categories) {
     final nameController = TextEditingController();
+    final brandController = TextEditingController();
     String? selectedCategory;
-    final categories = mockData.categories;
 
     showDialog(
       context: context,
@@ -114,10 +114,15 @@ class _ProductManagementTab extends StatelessWidget {
                 decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
               ),
               const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: brandController,
+                decoration: const InputDecoration(labelText: 'Marka', prefixIcon: Icon(Icons.branding_watermark)),
+              ),
+              const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 decoration: const InputDecoration(labelText: 'Kategori', prefixIcon: Icon(Icons.category_outlined)),
-                items: categories.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
+                items: categories.map((c) => DropdownMenuItem(value: c['name'] as String, child: Text(c['name'] as String))).toList(),
                 onChanged: (val) => setDialogState(() => selectedCategory = val),
               ),
             ]),
@@ -125,11 +130,21 @@ class _ProductManagementTab extends StatelessWidget {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isEmpty || selectedCategory == null) return;
-                mockData.addProduct(name: nameController.text, category: selectedCategory!);
-                Navigator.pop(ctx);
-                onRefresh();
+                final service = ref.read(firestoreServiceProvider);
+                await service.addProduct(ProductModel(
+                  id: '',
+                  name: nameController.text,
+                  brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
+                  category: selectedCategory!,
+                  description: '',
+                  barcode: '',
+                  unit: 'adet',
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ));
+                if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('Ekle'),
             ),
@@ -140,76 +155,83 @@ class _ProductManagementTab extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final products = mockData.products;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(allProductsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_product',
-        onPressed: () => _showAddProductDialog(context),
+        onPressed: () => _showAddProductDialog(context, ref, categoriesAsync.valueOrNull ?? []),
         icon: const Icon(Icons.add),
         label: const Text('Urun Ekle'),
       ),
-      body: products.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      body: productsAsync.when(
+        data: (products) {
+          if (products.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.inventory_2_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
               Text('Henuz urun yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                final product = products[index];
-                return Dismissible(
-                  key: ValueKey(product.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(AppRadius.lg)),
-                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
-                  ),
-                  onDismissed: (_) {
-                    mockData.removeProduct(product.id);
-                    onRefresh();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${product.name} silindi'), behavior: SnackBarBehavior.floating),
-                    );
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Row(children: [
-                        Container(
-                          width: 48, height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                          child: Icon(_categoryIcon(product.category), color: AppColors.primary, size: 24),
+            ]));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return Dismissible(
+                key: ValueKey(product.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: AppSpacing.lg),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+                ),
+                onDismissed: (_) {
+                  ref.read(firestoreServiceProvider).deleteProduct(product.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${product.name} silindi'), behavior: SnackBarBehavior.floating),
+                  );
+                },
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(children: [
+                      Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(product.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            _InfoChip(icon: Icons.category_outlined, label: product.category),
-                            const SizedBox(width: AppSpacing.xs),
-                            _InfoChip(icon: Icons.store_outlined, label: product.store),
-                          ]),
-                        ])),
-                        Icon(Icons.chevron_left, color: theme.hintColor, size: 20),
-                      ]),
-                    ),
+                        child: Icon(_categoryIcon(product.category), color: AppColors.primary, size: 24),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(product.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          _InfoChip(icon: Icons.category_outlined, label: product.category),
+                          const SizedBox(width: AppSpacing.xs),
+                          if (product.lastStore != null) _InfoChip(icon: Icons.store_outlined, label: product.lastStore!),
+                        ]),
+                      ])),
+                      Icon(Icons.chevron_left, color: theme.hintColor, size: 20),
+                    ]),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Urunler yuklenemedi')),
+      ),
     );
   }
 }
@@ -239,12 +261,10 @@ class _InfoChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Tab 2: Magaza Yonetimi
 // ---------------------------------------------------------------------------
-class _StoreManagementTab extends StatelessWidget {
-  final MockDataService mockData;
-  final VoidCallback onRefresh;
-  const _StoreManagementTab({required this.mockData, required this.onRefresh});
+class _StoreManagementTab extends ConsumerWidget {
+  const _StoreManagementTab();
 
-  void _showAddStoreDialog(BuildContext context) {
+  void _showAddStoreDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -263,11 +283,10 @@ class _StoreManagementTab extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (nameController.text.isEmpty) return;
-              mockData.addStore(nameController.text);
-              Navigator.pop(ctx);
-              onRefresh();
+              await ref.read(firestoreServiceProvider).addStore(nameController.text);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Ekle'),
           ),
@@ -277,57 +296,63 @@ class _StoreManagementTab extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final storeList = mockData.stores;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storesAsync = ref.watch(storesProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_store',
-        onPressed: () => _showAddStoreDialog(context),
+        onPressed: () => _showAddStoreDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Magaza Ekle'),
       ),
-      body: storeList.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      body: storesAsync.when(
+        data: (stores) {
+          if (stores.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.store_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
               Text('Henuz magaza yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
-              itemCount: storeList.length,
-              itemBuilder: (context, index) {
-                final store = storeList[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                    leading: Container(
-                      width: 44, height: 44,
-                      decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
-                      child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
-                    ),
-                    title: Text(store, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                    trailing: IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-                        child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-                      ),
-                      onPressed: () {
-                        mockData.removeStore(store);
-                        onRefresh();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$store silindi'), behavior: SnackBarBehavior.floating),
-                        );
-                      },
-                    ),
+            ]));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
+            itemCount: stores.length,
+            itemBuilder: (context, index) {
+              final store = stores[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                  leading: Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
                   ),
-                );
-              },
-            ),
+                  title: Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  trailing: IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+                      child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                    ),
+                    onPressed: () {
+                      ref.read(firestoreServiceProvider).deleteStore(store['id']);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${store['name']} silindi'), behavior: SnackBarBehavior.floating),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Magazalar yuklenemedi')),
+      ),
     );
   }
 }
@@ -335,10 +360,8 @@ class _StoreManagementTab extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Tab 3: Kategori Yonetimi
 // ---------------------------------------------------------------------------
-class _CategoryManagementTab extends StatelessWidget {
-  final MockDataService mockData;
-  final VoidCallback onRefresh;
-  const _CategoryManagementTab({required this.mockData, required this.onRefresh});
+class _CategoryManagementTab extends ConsumerWidget {
+  const _CategoryManagementTab();
 
   IconData _categoryIcon(String name) {
     switch (name) {
@@ -361,7 +384,7 @@ class _CategoryManagementTab extends StatelessWidget {
     return colors[index % colors.length];
   }
 
-  void _showAddCategoryDialog(BuildContext context) {
+  void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -380,11 +403,10 @@ class _CategoryManagementTab extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (nameController.text.isEmpty) return;
-              mockData.addCategory(nameController.text);
-              Navigator.pop(ctx);
-              onRefresh();
+              await ref.read(firestoreServiceProvider).addCategory(nameController.text, 'category');
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Ekle'),
           ),
@@ -394,72 +416,80 @@ class _CategoryManagementTab extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final categoryList = mockData.categories;
-    final products = mockData.products;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final productsAsync = ref.watch(allProductsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_category',
-        onPressed: () => _showAddCategoryDialog(context),
+        onPressed: () => _showAddCategoryDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Kategori Ekle'),
       ),
-      body: categoryList.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      body: categoriesAsync.when(
+        data: (categories) {
+          final products = productsAsync.valueOrNull ?? [];
+          if (categories.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.category_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
               Text('Henuz kategori yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]))
-          : GridView.builder(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: AppSpacing.sm, mainAxisSpacing: AppSpacing.sm, childAspectRatio: 1.1),
-              itemCount: categoryList.length,
-              itemBuilder: (context, index) {
-                final cat = categoryList[index];
-                final color = _categoryColor(index);
-                final productCount = products.where((p) => p.category == cat.name).length;
+            ]));
+          }
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: AppSpacing.sm, mainAxisSpacing: AppSpacing.sm, childAspectRatio: 1.1),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final cat = categories[index];
+              final catName = cat['name'] ?? '';
+              final color = _categoryColor(index);
+              final productCount = products.where((p) => p.category == catName).length;
 
-                return Card(
-                  child: Stack(children: [
-                    Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppRadius.md)),
-                          child: Icon(_categoryIcon(cat.name), color: color, size: 24),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 2),
-                        Text('$productCount urun', style: TextStyle(fontSize: 12, color: theme.hintColor)),
-                      ]),
-                    ),
-                    Positioned(
-                      top: 4, right: 4,
-                      child: IconButton(
-                        icon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
-                          child: const Icon(Icons.close, color: AppColors.error, size: 14),
-                        ),
-                        iconSize: 22,
-                        onPressed: () {
-                          mockData.removeCategory(cat.name);
-                          onRefresh();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${cat.name} silindi'), behavior: SnackBarBehavior.floating),
-                          );
-                        },
+              return Card(
+                child: Stack(children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppRadius.md)),
+                        child: Icon(_categoryIcon(catName), color: color, size: 24),
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text('$productCount urun', style: TextStyle(fontSize: 12, color: theme.hintColor)),
+                    ]),
+                  ),
+                  Positioned(
+                    top: 4, right: 4,
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                        child: const Icon(Icons.close, color: AppColors.error, size: 14),
+                      ),
+                      iconSize: 22,
+                      onPressed: () {
+                        ref.read(firestoreServiceProvider).deleteCategory(cat['id']);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$catName silindi'), behavior: SnackBarBehavior.floating),
+                        );
+                      },
                     ),
-                  ]),
-                );
-              },
-            ),
+                  ),
+                ]),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Kategoriler yuklenemedi')),
+      ),
     );
   }
 }
@@ -467,350 +497,193 @@ class _CategoryManagementTab extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Tab 4: Banner Yonetimi
 // ---------------------------------------------------------------------------
-class _BannerManagementTab extends StatelessWidget {
-  final MockDataService mockData;
-  final VoidCallback onRefresh;
-  const _BannerManagementTab({required this.mockData, required this.onRefresh});
+class _BannerManagementTab extends ConsumerWidget {
+  const _BannerManagementTab();
 
-  static const List<_BannerColorOption> _colorOptions = [
-    _BannerColorOption('Mor', 0xFF6366F1),
-    _BannerColorOption('Yesil', 0xFF10B981),
-    _BannerColorOption('Turuncu', 0xFFF59E0B),
-    _BannerColorOption('Kirmizi', 0xFFEF4444),
-    _BannerColorOption('Mavi', 0xFF3B82F6),
-    _BannerColorOption('Pembe', 0xFFEC4899),
-    _BannerColorOption('Cyan', 0xFF06B6D4),
-  ];
-
-  void _showAddBannerDialog(BuildContext context) {
+  void _showAddBannerDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
-    final subtitleController = TextEditingController();
+    final descriptionController = TextEditingController();
     final imageUrlController = TextEditingController();
-    int selectedColor = 0xFF6366F1;
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Color(selectedColor).withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Icon(Icons.view_carousel_outlined, color: Color(selectedColor), size: 20),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text('Yeni Banner Ekle'),
-          ]),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
-              const SizedBox(height: AppSpacing.md),
-              const Align(alignment: Alignment.centerLeft, child: Text('Arka Plan Rengi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: _colorOptions.map((opt) {
-                  final isSelected = selectedColor == opt.value;
-                  return GestureDetector(
-                    onTap: () => setDialogState(() => selectedColor = opt.value),
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: Color(opt.value),
-                        shape: BoxShape.circle,
-                        border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                        boxShadow: isSelected ? [BoxShadow(color: Color(opt.value).withOpacity(0.5), blurRadius: 8)] : null,
-                      ),
-                      child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              // Preview
-              _buildBannerPreview(Color(selectedColor), titleController.text, subtitleController.text, imageUrlController.text),
-            ]),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: const Icon(Icons.view_carousel_outlined, color: AppColors.primary, size: 20),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isEmpty) return;
-                mockData.addBanner(
-                  title: titleController.text,
-                  subtitle: subtitleController.text.isEmpty ? '' : subtitleController.text,
-                  colorValue: selectedColor,
-                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
-                );
-                Navigator.pop(ctx);
-                onRefresh();
-              },
-              child: const Text('Ekle'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditBannerDialog(BuildContext context, MockBanner banner) {
-    final titleController = TextEditingController(text: banner.title);
-    final subtitleController = TextEditingController(text: banner.subtitle);
-    final imageUrlController = TextEditingController(text: banner.imageUrl ?? '');
-    int selectedColor = banner.colorValue;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Color(selectedColor).withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Icon(Icons.edit, color: Color(selectedColor), size: 20),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text('Banner Duzenle'),
+          const SizedBox(width: AppSpacing.sm),
+          const Text('Yeni Banner Ekle'),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
+            const SizedBox(height: AppSpacing.md),
+            TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama', prefixIcon: Icon(Icons.subtitles_outlined))),
+            const SizedBox(height: AppSpacing.md),
+            TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
           ]),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Alt Baslik', prefixIcon: Icon(Icons.subtitles_outlined))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
-              const SizedBox(height: AppSpacing.md),
-              const Align(alignment: Alignment.centerLeft, child: Text('Arka Plan Rengi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: _colorOptions.map((opt) {
-                  final isSelected = selectedColor == opt.value;
-                  return GestureDetector(
-                    onTap: () => setDialogState(() => selectedColor = opt.value),
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: Color(opt.value),
-                        shape: BoxShape.circle,
-                        border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                        boxShadow: isSelected ? [BoxShadow(color: Color(opt.value).withOpacity(0.5), blurRadius: 8)] : null,
-                      ),
-                      child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _buildBannerPreview(Color(selectedColor), titleController.text, subtitleController.text, imageUrlController.text),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () {
-                mockData.updateBanner(
-                  banner.id,
-                  title: titleController.text,
-                  subtitle: subtitleController.text,
-                  colorValue: selectedColor,
-                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
-                );
-                Navigator.pop(ctx);
-                onRefresh();
-              },
-              child: const Text('Kaydet'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isEmpty) return;
+              await ref.read(bannerNotifierProvider.notifier).addBanner(
+                BannerModel(
+                  id: '',
+                  title: titleController.text,
+                  description: descriptionController.text.isEmpty ? null : descriptionController.text,
+                  imageUrl: imageUrlController.text.isEmpty ? null : imageUrlController.text,
+                  isActive: true,
+                  createdAt: DateTime.now(),
+                ),
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildBannerPreview(Color color, String title, String subtitle, String imageUrl) {
-    return Container(
-      width: double.infinity, height: 100,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [color, color.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        image: imageUrl.isNotEmpty ? DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-          onError: (_, __) {},
-        ) : null,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-        Text(title.isEmpty ? 'Baslik' : title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-        const SizedBox(height: 2),
-        Text(subtitle.isEmpty ? 'Alt baslik' : subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-      ]),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final bannerList = mockData.banners;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bannersAsync = ref.watch(bannersProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_banner',
-        onPressed: () => _showAddBannerDialog(context),
+        onPressed: () => _showAddBannerDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Banner Ekle'),
       ),
-      body: bannerList.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      body: bannersAsync.when(
+        data: (banners) {
+          if (banners.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.view_carousel_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
               Text('Henuz banner yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
-              itemCount: bannerList.length,
-              itemBuilder: (context, index) {
-                final banner = bannerList[index];
-                final bannerColor = Color(banner.colorValue);
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    boxShadow: [BoxShadow(color: bannerColor.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4))],
+            ]));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
+            itemCount: banners.length,
+            itemBuilder: (context, index) {
+              final banner = banners[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4))],
+                ),
+                child: Column(children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+                      image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty ? DecorationImage(
+                        image: NetworkImage(banner.imageUrl!),
+                        fit: BoxFit.cover,
+                        colorFilter: ColorFilter.mode(AppColors.primary.withOpacity(0.3), BlendMode.darken),
+                        onError: (_, __) {},
+                      ) : null,
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      if (!banner.isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
+                          child: const Text('PASIF', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      Text(banner.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
+                      if (banner.description != null && banner.description!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(banner.description!, style: const TextStyle(color: Colors.white70, fontSize: 13, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
+                      ],
+                    ]),
                   ),
-                  child: Column(children: [
-                    // Banner preview
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [bannerColor, bannerColor.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-                        image: banner.imageUrl != null && banner.imageUrl!.isNotEmpty ? DecorationImage(
-                          image: NetworkImage(banner.imageUrl!),
-                          fit: BoxFit.cover,
-                          colorFilter: ColorFilter.mode(bannerColor.withOpacity(0.3), BlendMode.darken),
-                          onError: (_, __) {},
-                        ) : null,
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          if (!banner.isActive)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              margin: const EdgeInsets.only(right: AppSpacing.sm),
-                              decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
-                              child: const Text('PASIF', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ),
-                          if (banner.imageUrl != null && banner.imageUrl!.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.image, color: Colors.white70, size: 12),
-                                SizedBox(width: 4),
-                                Text('RESIM', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                              ]),
-                            ),
-                        ]),
-                        if (!banner.isActive || (banner.imageUrl != null && banner.imageUrl!.isNotEmpty))
-                          const SizedBox(height: AppSpacing.sm),
-                        Text(banner.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-                        if (banner.subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(banner.subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-                        ],
-                      ]),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
                     ),
-                    // Action buttons
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.cardColor,
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    child: Row(children: [
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          ref.read(bannerNotifierProvider.notifier).toggleBannerActive(banner.id);
+                        },
+                        icon: Icon(banner.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+                        label: Text(banner.isActive ? 'Gizle' : 'Goster'),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                      child: Row(children: [
-                        TextButton.icon(
-                          onPressed: () => _showEditBannerDialog(context, banner),
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('Duzenle'),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: () {
-                            mockData.toggleBannerActive(banner.id);
-                            onRefresh();
-                          },
-                          icon: Icon(banner.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                          label: Text(banner.isActive ? 'Gizle' : 'Goster'),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                          onPressed: () {
-                            mockData.removeBanner(banner.id);
-                            onRefresh();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: const Text('Banner silindi'), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm))),
-                            );
-                          },
-                        ),
-                      ]),
-                    ),
-                  ]),
-                );
-              },
-            ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                        onPressed: () {
+                          ref.read(bannerNotifierProvider.notifier).deleteBanner(banner.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: const Text('Banner silindi'), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm))),
+                          );
+                        },
+                      ),
+                    ]),
+                  ),
+                ]),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Bannerlar yuklenemedi')),
+      ),
     );
   }
 }
 
-class _BannerColorOption {
-  final String name;
-  final int value;
-  const _BannerColorOption(this.name, this.value);
-}
-
 // ---------------------------------------------------------------------------
-// Tab 5: Istatistikler (Fixed overflow)
+// Tab 5: Istatistikler
 // ---------------------------------------------------------------------------
-class _StatisticsTab extends StatelessWidget {
-  final MockDataService mockData;
-  const _StatisticsTab({required this.mockData});
+class _StatisticsTab extends ConsumerWidget {
+  const _StatisticsTab();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final productCount = mockData.products.length;
-    final storeCount = mockData.stores.length;
-    final categoryCount = mockData.categories.length;
-    final bannerCount = mockData.banners.length;
-    final totalPrices = mockData.totalPriceEntries;
+    final productsAsync = ref.watch(allProductsProvider);
+    final storesAsync = ref.watch(storesProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final bannersAsync = ref.watch(bannersProvider);
+
+    final productCount = productsAsync.valueOrNull?.length ?? 0;
+    final storeCount = storesAsync.valueOrNull?.length ?? 0;
+    final categoryCount = categoriesAsync.valueOrNull?.length ?? 0;
+    final bannerCount = bannersAsync.valueOrNull?.length ?? 0;
 
     final stats = [
       _StatItem('Toplam Urun', productCount, Icons.inventory_2_outlined, AppColors.primary),
       _StatItem('Toplam Magaza', storeCount, Icons.store_outlined, AppColors.secondary),
       _StatItem('Toplam Kategori', categoryCount, Icons.category_outlined, AppColors.accent),
       _StatItem('Toplam Banner', bannerCount, Icons.view_carousel_outlined, const Color(0xFF8B5CF6)),
-      _StatItem('Fiyat Girisi', totalPrices, Icons.price_change_outlined, AppColors.info),
-      _StatItem('Kullanici', 1, Icons.person_outlined, AppColors.error),
     ];
 
-    final maxVal = stats.map((s) => s.value).reduce((a, b) => a > b ? a : b).toDouble();
+    final maxVal = stats.map((s) => s.value).fold(1, (a, b) => a > b ? a : b).toDouble();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stat cards - use Wrap instead of Grid to avoid pixel overflow
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
@@ -840,8 +713,6 @@ class _StatisticsTab extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Bar chart
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),

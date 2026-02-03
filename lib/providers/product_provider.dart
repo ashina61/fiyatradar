@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../main.dart';
 import '../models/product_model.dart';
+import '../models/comment_model.dart';
+import '../models/price_model.dart';
 import '../services/firestore_service.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
@@ -62,4 +64,36 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
 final productNotifierProvider =
     StateNotifierProvider<ProductNotifier, AsyncValue<void>>((ref) {
   return ProductNotifier(ref.watch(firestoreServiceProvider));
+});
+
+// Categories
+final categoriesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getCategories();
+});
+
+// Stores
+final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getStores();
+});
+
+// Product by ID (stream version)
+final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, productId) {
+  if (!firebaseInitialized || productId.isEmpty) return Stream.value(null);
+  return ref.watch(firestoreServiceProvider).getAllProducts().map(
+    (products) => products.where((p) => p.id == productId).firstOrNull,
+  );
+});
+
+// Comments for a product
+final productCommentsProvider = StreamProvider.family<List<CommentModel>, String>((ref, productId) {
+  if (!firebaseInitialized || productId.isEmpty) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getComments(productId);
+});
+
+// Price history for a product
+final productPriceHistoryProvider = StreamProvider.family<List<PriceModel>, String>((ref, productId) {
+  if (!firebaseInitialized || productId.isEmpty) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getPricesForProduct(productId);
 });

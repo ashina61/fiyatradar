@@ -328,4 +328,75 @@ class FirestoreService {
             .map((doc) => ProductModel.fromFirestore(doc))
             .toList());
   }
+
+  // Categories
+  CollectionReference get _categoriesRef => _firestore.collection('categories');
+
+  Stream<List<Map<String, dynamic>>> getCategories() {
+    return _categoriesRef.orderBy('order').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'] ?? '',
+            'iconName': data['iconName'] ?? 'category',
+            'order': data['order'] ?? 0,
+          };
+        }).toList());
+  }
+
+  Future<String> addCategory(String name, String iconName) async {
+    final doc = await _categoriesRef.add({
+      'name': name,
+      'iconName': iconName,
+      'order': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  Future<void> deleteCategory(String categoryId) async {
+    await _categoriesRef.doc(categoryId).delete();
+  }
+
+  // Stores
+  CollectionReference get _storesRef => _firestore.collection('stores');
+
+  Stream<List<Map<String, dynamic>>> getStores() {
+    return _storesRef.orderBy('name').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'] ?? '',
+          };
+        }).toList());
+  }
+
+  Future<String> addStore(String name) async {
+    final doc = await _storesRef.add({
+      'name': name,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  Future<void> deleteStore(String storeId) async {
+    await _storesRef.doc(storeId).delete();
+  }
+
+  // Delete product
+  Future<void> deleteProduct(String productId) async {
+    await _productsRef.doc(productId).delete();
+  }
+
+  // Delete comment
+  Future<void> deleteComment(String commentId) async {
+    await _commentsRef.doc(commentId).delete();
+  }
+
+  // Delete notification
+  Future<void> deleteNotification(String notificationId) async {
+    await _notificationsRef.doc(notificationId).delete();
+  }
 }

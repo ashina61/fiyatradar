@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../services/mock_data_service.dart';
+import '../../providers/product_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../models/product_model.dart';
+import '../../models/comment_model.dart';
+import '../../models/price_model.dart';
 
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
 
   const ProductDetailScreen({
@@ -11,318 +17,542 @@ class ProductDetailScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final mockData = MockDataService();
-    final product = mockData.products.where((p) => p.id == productId).firstOrNull;
+  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
 
-    if (product == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Urun Detayi')),
-        body: const Center(child: Text('Urun bulunamadi')),
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
+  final _commentController = TextEditingController();
+  bool _isSubmittingComment = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitComment() async {
+    if (_commentController.text.trim().isEmpty) return;
+
+    final userModel = ref.read(userModelStreamProvider).value;
+    if (userModel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Yorum eklemek icin giris yapmalisiniz'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
       );
+      return;
     }
 
-    final discount = product.discountPercentage;
-    final categoryColor = _colorForCategory(product.category);
+    setState(() => _isSubmittingComment = true);
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // ---------- App Bar with product image placeholder ----------
-          SliverAppBar(
-            expandedHeight: 280,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      categoryColor.withOpacity(0.15),
-                      categoryColor.withOpacity(0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 60),
-                    Icon(
-                      _iconForCategory(product.category),
-                      size: 80,
-                      color: categoryColor.withOpacity(0.4),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    if (discount != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.error,
-                          borderRadius: BorderRadius.circular(AppRadius.xl),
-                        ),
-                        child: Text(
-                          '-%${discount.toStringAsFixed(0)} Indirim',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+    try {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final comment = CommentModel(
+        id: '',
+        productId: widget.productId,
+        userId: userModel.uid,
+        userName: userModel.name,
+        userPhotoUrl: userModel.photoUrl,
+        text: _commentController.text.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      await firestoreService.addComment(comment);
+      _commentController.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Yorum eklendi!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.bookmark_border),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Urun kaydedildi'),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.share),
-                onPressed: () {},
-              ),
-            ],
           ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingComment = false);
+      }
+    }
+  }
 
-          // ---------- Content ----------
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Category tag
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: categoryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Text(
-                      product.category,
-                      style: TextStyle(
-                        color: categoryColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
+  void _showAddCommentDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: AppSpacing.md,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                alignment: Alignment.center,
+              ),
+              Text(
+                'Yorum Ekle',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _commentController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Yorumunuzu yazin...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-
-                  // Product name
-                  Text(
-                    product.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ElevatedButton(
+                onPressed: _isSubmittingComment ? null : () {
+                  _submitComment();
+                  Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                child: _isSubmittingComment
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Gonder',
+                        style: TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
+                      ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-                  // Price card
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+  @override
+  Widget build(BuildContext context) {
+    final productAsync = ref.watch(productByIdProvider(widget.productId));
+    final commentsAsync = ref.watch(productCommentsProvider(widget.productId));
+    final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
+    final isSaved = ref.watch(isProductSavedProvider(widget.productId));
+
+    return productAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Urun Detayi')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text('Urun Detayi')),
+        body: Center(child: Text('Hata: $error')),
+      ),
+      data: (product) {
+        if (product == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Urun Detayi')),
+            body: const Center(child: Text('Urun bulunamadi')),
+          );
+        }
+
+        final categoryColor = _colorForCategory(product.category);
+
+        return Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              // ---------- App Bar with product image placeholder ----------
+              SliverAppBar(
+                expandedHeight: 280,
+                pinned: true,
+                backgroundColor: AppColors.surface,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppColors.primary.withOpacity(0.08),
-                          AppColors.primaryLight.withOpacity(0.04),
+                          categoryColor.withOpacity(0.15),
+                          categoryColor.withOpacity(0.05),
                         ],
-                      ),
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2),
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
-                    child: Row(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Son Fiyat',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
+                        const SizedBox(height: 60),
+                        if (product.mainImage != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            child: Image.network(
+                              product.mainImage!,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                _iconForCategory(product.category),
+                                size: 80,
+                                color: categoryColor.withOpacity(0.4),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _formatPrice(product.currentPrice),
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                              if (product.oldPrice != null) ...[
-                                const SizedBox(height: 2),
+                            ),
+                          )
+                        else
+                          Icon(
+                            _iconForCategory(product.category),
+                            size: 80,
+                            color: categoryColor.withOpacity(0.4),
+                          ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (product.isTrending)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(AppRadius.xl),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('\u{1F525}', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 4),
                                 Text(
-                                  _formatPrice(product.oldPrice!),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: AppColors.textTertiary,
-                                    decoration: TextDecoration.lineThrough,
+                                  'Trend',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
                                 ),
                               ],
-                            ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      color: isSaved ? AppColors.primary : null,
+                    ),
+                    onPressed: () async {
+                      await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isSaved ? 'Urun kaldirildi' : 'Urun kaydedildi'),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.share),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+
+              // ---------- Content ----------
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category tag
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: categoryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Text(
+                          product.category,
+                          style: TextStyle(
+                            color: categoryColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              'Magaza',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // Product name
+                      Text(
+                        product.name,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 4),
+                      ),
+                      if (product.brand.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          product.brand,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Price card
+                      _buildPriceCard(product),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Stats row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildStatItem(
+                            icon: Icons.price_change,
+                            value: '${product.priceEntryCount}',
+                            label: 'Fiyat Girisi',
+                            color: AppColors.primary,
+                          ),
+                          _buildStatItem(
+                            icon: Icons.visibility,
+                            value: '${product.viewCount}',
+                            label: 'Goruntuleme',
+                            color: AppColors.secondary,
+                          ),
+                          if (product.isTrending)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
+                                  horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
-                                color: AppColors.surface,
+                                color: AppColors.accent.withOpacity(0.12),
                                 borderRadius:
-                                    BorderRadius.circular(AppRadius.sm),
-                                border: Border.all(color: AppColors.outline),
+                                    BorderRadius.circular(AppRadius.md),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: const Row(
                                 children: [
-                                  const Icon(Icons.store,
-                                      size: 16,
-                                      color: AppColors.textSecondary),
-                                  const SizedBox(width: 4),
+                                  Text('\u{1F525}',
+                                      style: TextStyle(fontSize: 16)),
+                                  SizedBox(width: 4),
                                   Text(
-                                    product.store,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
+                                    'Trend',
+                                    style: TextStyle(
+                                      color: AppColors.accentDark,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
 
-                  // Stats row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatItem(
-                        icon: Icons.price_change,
-                        value: product.oldPrice != null ? '2' : '1',
-                        label: 'Fiyat Girisi',
-                        color: AppColors.primary,
+                      const Divider(),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Price history section
+                      Text(
+                        'Fiyat Gecmisi',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                      _buildStatItem(
-                        icon: Icons.visibility,
-                        value: '${42 + product.id.hashCode % 100}',
-                        label: 'Goruntuleme',
-                        color: AppColors.secondary,
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Price chart from Firebase
+                      priceHistoryAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Hata: $e'),
+                        data: (prices) => _buildPriceChart(prices),
                       ),
-                      if (product.isTrending)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent.withOpacity(0.12),
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.md),
-                          ),
-                          child: Row(
-                            children: const [
-                              Text('\u{1F525}',
-                                  style: TextStyle(fontSize: 16)),
-                              SizedBox(width: 4),
-                              Text(
-                                'Trend',
-                                style: TextStyle(
-                                  color: AppColors.accentDark,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      const Divider(),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Community validation
+                      Text(
+                        'Topluluk Dogrulamasi',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      priceHistoryAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Hata: $e'),
+                        data: (prices) => _buildVerificationSection(prices),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      const Divider(),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Comments
+                      Text(
+                        'Yorumlar',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      commentsAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Hata: $e'),
+                        data: (comments) => _buildCommentsSection(context, comments),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  const Divider(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Price history section
-                  Text(
-                    'Fiyat Gecmisi',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Simple bar chart
-                  _buildPriceChart(product),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  const Divider(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Community validation
-                  Text(
-                    'Topluluk Dogrulamasi',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  _buildVerificationSection(),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  const Divider(),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Comments
-                  Text(
-                    'Yorumlar',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  _buildCommentsSection(context),
-                  const SizedBox(height: AppSpacing.xl),
-                ],
+                ),
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPriceCard(ProductModel product) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.08),
+            AppColors.primaryLight.withOpacity(0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Son Fiyat',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  product.lastPrice != null
+                      ? _formatPrice(product.lastPrice!)
+                      : 'Fiyat yok',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
             ),
           ),
+          if (product.lastStore != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Magaza',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppColors.outline),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.store,
+                          size: 16,
+                          color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        product.lastStore!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -357,28 +587,7 @@ class ProductDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceChart(MockProduct product) {
-    // Generate mock price history
-    final prices = <_PricePoint>[];
-    final now = DateTime.now();
-    if (product.oldPrice != null) {
-      prices.add(_PricePoint(
-        date: now.subtract(const Duration(days: 30)),
-        price: product.oldPrice!,
-        store: product.store,
-      ));
-      prices.add(_PricePoint(
-        date: now.subtract(const Duration(days: 14)),
-        price: (product.oldPrice! + product.currentPrice) / 2,
-        store: product.store,
-      ));
-    }
-    prices.add(_PricePoint(
-      date: product.addedAt,
-      price: product.currentPrice,
-      store: product.store,
-    ));
-
+  Widget _buildPriceChart(List<PriceModel> prices) {
     if (prices.length < 2) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -402,10 +611,17 @@ class ProductDetailScreen extends StatelessWidget {
       );
     }
 
-    final maxPrice =
-        prices.map((p) => p.price).reduce((a, b) => a > b ? a : b);
-    final minPrice =
-        prices.map((p) => p.price).reduce((a, b) => a < b ? a : b);
+    // Sort by date ascending
+    final sortedPrices = List<PriceModel>.from(prices)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Take last 5 prices for chart
+    final chartPrices = sortedPrices.length > 5
+        ? sortedPrices.sublist(sortedPrices.length - 5)
+        : sortedPrices;
+
+    final maxPrice = chartPrices.map((p) => p.price).reduce((a, b) => a > b ? a : b);
+    final minPrice = chartPrices.map((p) => p.price).reduce((a, b) => a < b ? a : b);
     final range = maxPrice - minPrice;
 
     return Container(
@@ -422,9 +638,9 @@ class ProductDetailScreen extends StatelessWidget {
             height: 120,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: prices.map((point) {
+              children: chartPrices.map((price) {
                 final normalizedHeight =
-                    range > 0 ? ((point.price - minPrice) / range) : 0.5;
+                    range > 0 ? ((price.price - minPrice) / range) : 0.5;
                 final barHeight =
                     30.0 + (normalizedHeight * 80.0); // min 30, max 110
 
@@ -436,7 +652,7 @@ class ProductDetailScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          _formatPriceShort(point.price),
+                          _formatPriceShort(price.price),
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -444,19 +660,22 @@ class ProductDetailScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Container(
-                          height: barHeight,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                AppColors.primary,
-                                AppColors.primaryLight,
-                              ],
+                        Tooltip(
+                          message: '${price.storeName}\n${_formatPrice(price.price)}',
+                          child: Container(
+                            height: barHeight,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.primaryLight,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                  AppRadius.sm),
                             ),
-                            borderRadius: BorderRadius.circular(
-                                AppRadius.sm),
                           ),
                         ),
                       ],
@@ -469,10 +688,10 @@ class ProductDetailScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           // Date labels
           Row(
-            children: prices.map((point) {
+            children: chartPrices.map((price) {
               return Expanded(
                 child: Text(
-                  '${point.date.day}/${point.date.month}',
+                  '${price.createdAt.day}/${price.createdAt.month}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 10,
@@ -487,7 +706,18 @@ class ProductDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVerificationSection() {
+  Widget _buildVerificationSection(List<PriceModel> prices) {
+    int totalVerified = 0;
+    int totalUnverified = 0;
+
+    for (final price in prices) {
+      totalVerified += price.verifiedCount;
+      totalUnverified += price.unverifiedCount;
+    }
+
+    final total = totalVerified + totalUnverified;
+    final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -503,7 +733,7 @@ class ProductDetailScreen extends StatelessWidget {
                 child: _buildVerifyButton(
                   icon: Icons.thumb_up_outlined,
                   label: 'Dogrula',
-                  count: 12,
+                  count: totalVerified,
                   color: AppColors.success,
                 ),
               ),
@@ -512,7 +742,7 @@ class ProductDetailScreen extends StatelessWidget {
                 child: _buildVerifyButton(
                   icon: Icons.thumb_down_outlined,
                   label: 'Reddet',
-                  count: 2,
+                  count: totalUnverified,
                   color: AppColors.error,
                 ),
               ),
@@ -530,7 +760,7 @@ class ProductDetailScreen extends StatelessWidget {
                   color: AppColors.error.withOpacity(0.2),
                 ),
                 FractionallySizedBox(
-                  widthFactor: 0.86, // 12/(12+2)
+                  widthFactor: verificationRate,
                   child: Container(
                     height: 8,
                     decoration: BoxDecoration(
@@ -545,10 +775,12 @@ class ProductDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '%86 oraninda dogrulandi',
+            total > 0
+                ? '%${(verificationRate * 100).toStringAsFixed(0)} oraninda dogrulandi'
+                : 'Henuz dogrulama yapilmadi',
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.success,
+              color: total > 0 ? AppColors.success : AppColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -596,130 +828,133 @@ class ProductDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCommentsSection(BuildContext context) {
-    // Mock comments
-    final comments = [
-      _MockComment(
-        user: 'Ahmet K.',
-        text: 'Bu fiyat gercekten iyi, hemen aldim.',
-        likes: 5,
-        timeAgo: '2 saat once',
-      ),
-      _MockComment(
-        user: 'Elif Y.',
-        text: 'Gecen hafta daha ucuzdu, biraz artmis.',
-        likes: 3,
-        timeAgo: '5 saat once',
-      ),
-      _MockComment(
-        user: 'Mehmet S.',
-        text: 'Kalitesi cok iyi tavsiye ederim.',
-        likes: 8,
-        timeAgo: '1 gun once',
-      ),
-    ];
-
+  Widget _buildCommentsSection(BuildContext context, List<CommentModel> comments) {
     return Column(
       children: [
-        ...comments.map((comment) => Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                border: Border.all(color: AppColors.outline),
-              ),
+        if (comments.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                  Icon(Icons.comment_outlined,
+                      size: 48, color: AppColors.textTertiary),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    'Henuz yorum yok',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...comments.map((comment) => Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: AppColors.outline),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: comment.userPhotoUrl != null
+                              ? ClipOval(
+                                  child: Image.network(
+                                    comment.userPhotoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Text(
+                                        comment.userName.isNotEmpty ? comment.userName[0] : 'A',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    comment.userName.isNotEmpty ? comment.userName[0] : 'A',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
                         ),
-                        child: Center(
-                          child: Text(
-                            comment.user[0],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                              fontSize: 14,
-                            ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                comment.userName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                _formatTimeAgo(comment.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            Icon(Icons.thumb_up_outlined,
+                                size: 14, color: AppColors.textTertiary),
+                            const SizedBox(width: 4),
                             Text(
-                              comment.user,
+                              '${comment.likes}',
                               style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              comment.timeAgo,
-                              style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: AppColors.textTertiary,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.thumb_up_outlined,
-                              size: 14, color: AppColors.textTertiary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${comment.likes}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    comment.text,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                      height: 1.4,
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            )),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      comment.text,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
 
         // Add comment button
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Demo modda yorum eklenemez'),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _showAddCommentDialog(context),
             icon: const Icon(Icons.add_comment_outlined, size: 18),
             label: const Text('Yorum Ekle'),
             style: OutlinedButton.styleFrom(
@@ -736,6 +971,21 @@ class ProductDetailScreen extends StatelessWidget {
   }
 
   // ---- Helpers ----
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} dakika once';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} saat once';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gun once';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
 
   String _formatPrice(double price) {
     if (price >= 1000) {
@@ -817,30 +1067,4 @@ class ProductDetailScreen extends StatelessWidget {
         return Icons.category;
     }
   }
-}
-
-class _PricePoint {
-  final DateTime date;
-  final double price;
-  final String store;
-
-  const _PricePoint({
-    required this.date,
-    required this.price,
-    required this.store,
-  });
-}
-
-class _MockComment {
-  final String user;
-  final String text;
-  final int likes;
-  final String timeAgo;
-
-  const _MockComment({
-    required this.user,
-    required this.text,
-    required this.likes,
-    required this.timeAgo,
-  });
 }

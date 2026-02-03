@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../services/mock_data_service.dart';
+import '../../models/product_model.dart';
+import '../../providers/product_provider.dart';
+import '../../providers/user_provider.dart';
 import '../product/product_detail_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Sort options
 // ---------------------------------------------------------------------------
 enum _SortOption {
-  recommended('Önerilen'),
-  priceLowToHigh('Fiyat: Düşükten Yükseğe'),
-  priceHighToLow('Fiyat: Yüksekten Düşüğe'),
+  recommended('Onerilen'),
+  priceLowToHigh('Fiyat: Dusukten Yuksege'),
+  priceHighToLow('Fiyat: Yuksekten Dusuge'),
   newest('En Yeni'),
-  mostPopular('En Popüler');
+  mostPopular('En Populer');
 
   final String label;
   const _SortOption(this.label);
@@ -36,30 +38,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   // State
   String _query = '';
-  String _selectedCategory = 'Tümü';
+  String _selectedCategory = 'Tumu';
   _SortOption _sortOption = _SortOption.recommended;
   bool _isGridView = true;
 
-  // Recent & popular search data
-  final List<String> _recentSearches = [
-    'iPhone 15',
-    'Ariel deterjan',
-    'Samsung Galaxy',
-    'Nutella',
-  ];
+  // Popular search data
   final List<String> _popularSearches = [
     'Telefon',
     'Laptop',
-    'Çamaşır deterjanı',
+    'Deterjan',
     'Kahve',
-    'Kulaklık',
-    'Ayakkabı',
-    'Süpürge',
+    'Kulaklik',
+    'Ayakkabi',
+    'Supurge',
     'Bebek bezi',
   ];
-
-  // Services
-  final _mockService = MockDataService();
 
   // Animation
   late final AnimationController _animController;
@@ -145,22 +138,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
   }
 
-  List<MockProduct> _getFilteredProducts() {
-    List<MockProduct> results;
+  List<ProductModel> _filterAndSortProducts(List<ProductModel> allProducts) {
+    List<ProductModel> results;
 
     if (_query.isNotEmpty) {
       final lower = _query.toLowerCase();
-      results = _mockService.products.where((p) {
+      results = allProducts.where((p) {
         return p.name.toLowerCase().contains(lower) ||
             p.category.toLowerCase().contains(lower) ||
-            p.store.toLowerCase().contains(lower);
+            (p.brand.toLowerCase().contains(lower)) ||
+            (p.lastStore?.toLowerCase().contains(lower) ?? false);
       }).toList();
     } else {
-      results = List.from(_mockService.products);
+      results = List.from(allProducts);
     }
 
     // Category filter
-    if (_selectedCategory != 'Tümü') {
+    if (_selectedCategory != 'Tumu') {
       results =
           results.where((p) => p.category == _selectedCategory).toList();
     }
@@ -170,27 +164,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       case _SortOption.recommended:
         break; // default order
       case _SortOption.priceLowToHigh:
-        results.sort((a, b) => a.currentPrice.compareTo(b.currentPrice));
+        results.sort((a, b) => (a.lastPrice ?? 0).compareTo(b.lastPrice ?? 0));
         break;
       case _SortOption.priceHighToLow:
-        results.sort((a, b) => b.currentPrice.compareTo(a.currentPrice));
+        results.sort((a, b) => (b.lastPrice ?? 0).compareTo(a.lastPrice ?? 0));
         break;
       case _SortOption.newest:
-        results.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case _SortOption.mostPopular:
-        results.sort((a, b) {
-          final aScore = (a.isTrending ? 2 : 0) + (a.isBestDeal ? 1 : 0);
-          final bScore = (b.isTrending ? 2 : 0) + (b.isBestDeal ? 1 : 0);
-          return bScore.compareTo(aScore);
-        });
+        results.sort((a, b) => b.viewCount.compareTo(a.viewCount));
         break;
     }
 
     return results;
   }
 
-  bool get _hasActiveSearch => _query.isNotEmpty || _selectedCategory != 'Tümü';
+  bool get _hasActiveSearch => _query.isNotEmpty || _selectedCategory != 'Tumu';
 
   void _applySearch(String text) {
     setState(() {
@@ -199,10 +189,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _searchController.selection =
           TextSelection.collapsed(offset: text.length);
     });
-    if (text.isNotEmpty && !_recentSearches.contains(text)) {
-      _recentSearches.insert(0, text);
-      if (_recentSearches.length > 8) _recentSearches.removeLast();
-    }
+    // Save search to Firebase
+    ref.read(userNotifierProvider.notifier).saveSearch(text);
   }
 
   // ---- Build ----
@@ -210,8 +198,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final products = _getFilteredProducts();
-    final showResults = _hasActiveSearch;
+    final allProductsAsync = ref.watch(allProductsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final searchHistoryAsync = ref.watch(searchHistoryProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -224,17 +213,32 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               _buildSearchBar(theme),
 
               // ── Category Chips ──
-              _buildCategoryChips(theme),
+              categoriesAsync.when(
+                data: (categories) => _buildCategoryChips(theme, categories),
+                loading: () => const SizedBox(height: 48),
+                error: (_, __) => const SizedBox(height: 48),
+              ),
 
               // ── Body ──
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: showResults
-                      ? _buildResultsBody(theme, products)
-                      : _buildEmptyState(theme),
+                child: allProductsAsync.when(
+                  data: (allProducts) {
+                    final products = _filterAndSortProducts(allProducts);
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: _hasActiveSearch
+                          ? _buildResultsBody(theme, products)
+                          : _buildEmptyState(
+                              theme,
+                              categoriesAsync.valueOrNull ?? [],
+                              searchHistoryAsync.valueOrNull ?? [],
+                            ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => const Center(child: Text('Urunler yuklenemedi')),
                 ),
               ),
             ],
@@ -261,7 +265,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           onChanged: (v) => setState(() => _query = v),
           style: theme.textTheme.bodyLarge,
           decoration: InputDecoration(
-            hintText: 'Ürün, mağaza veya kategori ara...',
+            hintText: 'Urun, magaza veya kategori ara...',
             hintStyle: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.textTertiary,
             ),
@@ -304,18 +308,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // ─────────────────────────────────────────────
   // CATEGORY CHIPS
   // ─────────────────────────────────────────────
-  Widget _buildCategoryChips(ThemeData theme) {
-    final cats = _mockService.categories;
+  Widget _buildCategoryChips(ThemeData theme, List<Map<String, dynamic>> categories) {
     return SizedBox(
       height: 48,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        itemCount: cats.length + 1, // +1 for "Tümü"
+        itemCount: categories.length + 1, // +1 for "Tumu"
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
           final isAll = index == 0;
-          final label = isAll ? 'Tümü' : cats[index - 1].name;
+          final label = isAll ? 'Tumu' : categories[index - 1]['name'] ?? '';
           final selected = _selectedCategory == label;
 
           return FilterChip(
@@ -327,7 +330,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             avatar: isAll
                 ? null
                 : Icon(
-                    _iconForCategory(cats[index - 1].name),
+                    _iconForCategory(categories[index - 1]['name'] ?? ''),
                     size: 16,
                     color: selected
                         ? AppColors.textOnPrimary
@@ -361,7 +364,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // ─────────────────────────────────────────────
   // RESULTS BODY (sort row + grid/list)
   // ─────────────────────────────────────────────
-  Widget _buildResultsBody(ThemeData theme, List<MockProduct> products) {
+  Widget _buildResultsBody(ThemeData theme, List<ProductModel> products) {
     if (products.isEmpty) return _buildNoResults(theme);
 
     return Column(
@@ -375,7 +378,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             children: [
               // Result count
               Text(
-                '${products.length} ürün bulundu',
+                '${products.length} urun bulundu',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -458,7 +461,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // ─────────────────────────────────────────────
   // GRID VIEW
   // ─────────────────────────────────────────────
-  Widget _buildGridView(List<MockProduct> products) {
+  Widget _buildGridView(List<ProductModel> products) {
     return GridView.builder(
       key: const ValueKey('grid'),
       padding: const EdgeInsets.fromLTRB(
@@ -487,7 +490,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // ─────────────────────────────────────────────
   // LIST VIEW
   // ─────────────────────────────────────────────
-  Widget _buildListView(List<MockProduct> products) {
+  Widget _buildListView(List<ProductModel> products) {
     return ListView.separated(
       key: const ValueKey('list'),
       padding: const EdgeInsets.fromLTRB(
@@ -511,7 +514,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // ─────────────────────────────────────────────
   // EMPTY STATE  (no search active)
   // ─────────────────────────────────────────────
-  Widget _buildEmptyState(ThemeData theme) {
+  Widget _buildEmptyState(
+      ThemeData theme, List<Map<String, dynamic>> categories, List<String> recentSearches) {
     return SingleChildScrollView(
       key: const ValueKey('empty'),
       padding: const EdgeInsets.symmetric(
@@ -520,13 +524,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Son Aramalar ──
-          if (_recentSearches.isNotEmpty) ...[
+          if (recentSearches.isNotEmpty) ...[
             _sectionTitle(theme, 'Son Aramalar', icon: Icons.history_rounded),
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
-              children: _recentSearches.map((s) {
+              children: recentSearches.map((s) {
                 return ActionChip(
                   label: Text(s),
                   avatar: const Icon(Icons.history_rounded,
@@ -547,8 +551,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             const SizedBox(height: AppSpacing.lg),
           ],
 
-          // ── Popüler Aramalar ──
-          _sectionTitle(theme, 'Popüler Aramalar',
+          // ── Populer Aramalar ──
+          _sectionTitle(theme, 'Populer Aramalar',
               icon: Icons.trending_up_rounded),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
@@ -574,67 +578,70 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Popüler Kategoriler ──
-          _sectionTitle(theme, 'Popüler Kategoriler',
-              icon: Icons.category_rounded),
-          const SizedBox(height: AppSpacing.sm),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 2.4,
-            ),
-            itemCount: _mockService.categories.length,
-            itemBuilder: (context, index) {
-              final cat = _mockService.categories[index];
-              final color = _colorForCategory(cat.name);
-              return Material(
-                color: color.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                child: InkWell(
+          // ── Populer Kategoriler ──
+          if (categories.isNotEmpty) ...[
+            _sectionTitle(theme, 'Populer Kategoriler',
+                icon: Icons.category_rounded),
+            const SizedBox(height: AppSpacing.sm),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 2.4,
+              ),
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final cat = categories[index];
+                final catName = cat['name'] ?? '';
+                final color = _colorForCategory(catName);
+                return Material(
+                  color: color.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = cat.name;
-                    });
-                  },
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.15),
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: Icon(_iconForCategory(cat.name),
-                              size: 18, color: color),
-                        ),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(
-                            cat.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    onTap: () {
+                      setState(() {
+                        _selectedCategory = catName;
+                      });
+                    },
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.15),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.sm),
                             ),
-                            overflow: TextOverflow.ellipsis,
+                            child: Icon(_iconForCategory(catName),
+                                size: 18, color: color),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              catName,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
@@ -664,14 +671,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              'Sonuç bulunamadı',
+              'Sonuc bulunamadi',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Farklı anahtar kelimeler deneyin',
+              'Farkli anahtar kelimeler deneyin',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -707,7 +714,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 // PRODUCT GRID CARD
 // ===========================================================================
 class _ProductGridCard extends StatelessWidget {
-  final MockProduct product;
+  final ProductModel product;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
@@ -722,7 +729,6 @@ class _ProductGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasDiscount = product.discountPercentage != null;
 
     return GestureDetector(
       onTap: onTap,
@@ -751,36 +757,19 @@ class _ProductGridCard extends StatelessWidget {
                   color: color.withOpacity(0.08),
                   borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppRadius.lg)),
+                  image: product.mainImage != null
+                      ? DecorationImage(
+                          image: NetworkImage(product.mainImage!),
+                          fit: BoxFit.cover,
+                          onError: (_, __) {},
+                        )
+                      : null,
                 ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Icon(icon, size: 40, color: color.withOpacity(0.5)),
-                    ),
-                    if (hasDiscount)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.error,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.xs),
-                          ),
-                          child: Text(
-                            '-%${product.discountPercentage!.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                child: product.mainImage == null
+                    ? Center(
+                        child: Icon(icon, size: 40, color: color.withOpacity(0.5)),
+                      )
+                    : null,
               ),
             ),
 
@@ -823,42 +812,30 @@ class _ProductGridCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     // Price
-                    Row(
-                      children: [
-                        Text(
-                          '₺${_formatPrice(product.currentPrice)}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
+                    if (product.lastPrice != null)
+                      Text(
+                        'TL${_formatPrice(product.lastPrice!)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
                         ),
-                        if (product.oldPrice != null) ...[
-                          const SizedBox(width: 4),
+                      ),
+                    const SizedBox(height: 2),
+                    // Store
+                    if (product.lastStore != null)
+                      Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded,
+                              size: 12, color: AppColors.textTertiary),
+                          const SizedBox(width: 3),
                           Text(
-                            '₺${_formatPrice(product.oldPrice!)}',
+                            product.lastStore!,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              decoration: TextDecoration.lineThrough,
                               color: AppColors.textTertiary,
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    // Store
-                    Row(
-                      children: [
-                        const Icon(Icons.storefront_rounded,
-                            size: 12, color: AppColors.textTertiary),
-                        const SizedBox(width: 3),
-                        Text(
-                          product.store,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
                   ],
                 ),
               ),
@@ -874,7 +851,7 @@ class _ProductGridCard extends StatelessWidget {
 // PRODUCT LIST CARD
 // ===========================================================================
 class _ProductListCard extends StatelessWidget {
-  final MockProduct product;
+  final ProductModel product;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
@@ -889,7 +866,6 @@ class _ProductListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasDiscount = product.discountPercentage != null;
 
     return GestureDetector(
       onTap: onTap,
@@ -916,37 +892,20 @@ class _ProductListCard extends StatelessWidget {
                 color: color.withOpacity(0.08),
                 borderRadius: const BorderRadius.horizontal(
                     left: Radius.circular(AppRadius.lg)),
+                image: product.mainImage != null
+                    ? DecorationImage(
+                        image: NetworkImage(product.mainImage!),
+                        fit: BoxFit.cover,
+                        onError: (_, __) {},
+                      )
+                    : null,
               ),
-              child: Stack(
-                children: [
-                  Center(
-                    child:
-                        Icon(icon, size: 36, color: color.withOpacity(0.5)),
-                  ),
-                  if (hasDiscount)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.error,
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.xs),
-                        ),
-                        child: Text(
-                          '-%${product.discountPercentage!.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              child: product.mainImage == null
+                  ? Center(
+                      child:
+                          Icon(icon, size: 36, color: color.withOpacity(0.5)),
+                    )
+                  : null,
             ),
 
             // Info
@@ -990,33 +949,26 @@ class _ProductListCard extends StatelessWidget {
                     // Price + store row
                     Row(
                       children: [
-                        Text(
-                          '₺${_formatPrice(product.currentPrice)}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        if (product.oldPrice != null) ...[
-                          const SizedBox(width: 4),
+                        if (product.lastPrice != null)
                           Text(
-                            '₺${_formatPrice(product.oldPrice!)}',
+                            'TL${_formatPrice(product.lastPrice!)}',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        const Spacer(),
+                        if (product.lastStore != null) ...[
+                          const Icon(Icons.storefront_rounded,
+                              size: 12, color: AppColors.textTertiary),
+                          const SizedBox(width: 3),
+                          Text(
+                            product.lastStore!,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              decoration: TextDecoration.lineThrough,
                               color: AppColors.textTertiary,
                             ),
                           ),
                         ],
-                        const Spacer(),
-                        const Icon(Icons.storefront_rounded,
-                            size: 12, color: AppColors.textTertiary),
-                        const SizedBox(width: 3),
-                        Text(
-                          product.store,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
                       ],
                     ),
                   ],

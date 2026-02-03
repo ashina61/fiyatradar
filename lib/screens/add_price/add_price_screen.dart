@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/mock_data_service.dart';
+import '../../providers/product_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/product_model.dart';
+import '../../models/price_model.dart';
 import '../../utils/theme.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
@@ -17,11 +20,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _priceController = TextEditingController();
   final _storeController = TextEditingController();
 
-  final _mockData = MockDataService();
   String? _selectedStore;
   String? _selectedCategory;
-  MockProduct? _selectedProduct;
+  ProductModel? _selectedProduct;
   String _selectedLocation = 'Istanbul, Turkiye';
+  bool _isSubmitting = false;
 
   static const _locations = [
     'Istanbul, Turkiye',
@@ -45,85 +48,97 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   void _showProductPicker() {
-    final products = _mockData.products;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    final productsAsync = ref.read(allProductsProvider);
+
+    productsAsync.when(
+      loading: () => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Urunler yukleniyor...'), behavior: SnackBarBehavior.floating),
       ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          maxChildSize: 0.9,
-          minChildSize: 0.3,
-          expand: false,
-          builder: (context, scrollController) {
-            return Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: AppSpacing.sm),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Text(
-                    'Ürün Seçin',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    controller: scrollController,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    itemCount: products.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final product = products[index];
-                      return ListTile(
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.1),
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: const Icon(Icons.shopping_bag_outlined,
-                              color: AppColors.primary, size: 22),
-                        ),
-                        title: Text(product.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(product.category),
-                        trailing: Text(
-                          _formatPrice(product.currentPrice),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onTap: () {
-                          setState(() {
-                            _selectedProduct = product;
-                            _productController.text = product.name;
-                            _selectedCategory = product.category;
-                          });
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+      error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
+      ),
+      data: (products) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+          ),
+          builder: (context) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              maxChildSize: 0.9,
+              minChildSize: 0.3,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: AppSpacing.sm),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Text(
+                        'Urun Secin',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                    Expanded(
+                      child: products.isEmpty
+                          ? const Center(child: Text('Henuz urun yok'))
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                              itemCount: products.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final product = products[index];
+                                return ListTile(
+                                  leading: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryLight.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                                    ),
+                                    child: const Icon(Icons.shopping_bag_outlined,
+                                        color: AppColors.primary, size: 22),
+                                  ),
+                                  title: Text(product.name,
+                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  subtitle: Text(product.category),
+                                  trailing: product.lastPrice != null
+                                      ? Text(
+                                          _formatPrice(product.lastPrice!),
+                                          style: const TextStyle(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedProduct = product;
+                                      _productController.text = product.name;
+                                      _selectedCategory = product.category;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -131,37 +146,98 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedProduct == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Lutfen bir urun secin'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+        ),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: const [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text('Fiyat eklendi! +10 puan kazandınız'),
+    final userModel = ref.read(userModelStreamProvider).value;
+    if (userModel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Fiyat eklemek icin giris yapmalisiniz'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final priceText = _priceController.text.replaceAll(',', '.');
+      final price = double.tryParse(priceText) ?? 0.0;
+      final storeName = _selectedStore ?? _storeController.text;
+
+      final priceModel = PriceModel(
+        id: '',
+        productId: _selectedProduct!.id,
+        userId: userModel.uid,
+        userName: userModel.name,
+        price: price,
+        storeName: storeName,
+        storeLocation: _selectedLocation,
+        createdAt: DateTime.now(),
+      );
+
+      await firestoreService.addPrice(priceModel);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text('Fiyat eklendi! +10 puan kazandiniz'),
+                ),
+              ],
             ),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
 
-    _productController.clear();
-    _priceController.clear();
-    _storeController.clear();
-    setState(() {
-      _selectedProduct = null;
-      _selectedStore = null;
-      _selectedCategory = null;
-    });
+        _productController.clear();
+        _priceController.clear();
+        _storeController.clear();
+        setState(() {
+          _selectedProduct = null;
+          _selectedStore = null;
+          _selectedCategory = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   void _showLocationPicker() {
@@ -217,15 +293,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           count = 0;
         }
       }
-      return '₺${buffer.toString().split('').reversed.join()},$decPart';
+      return '\u20BA${buffer.toString().split('').reversed.join()},$decPart';
     }
-    return '₺${price.toStringAsFixed(2).replaceAll('.', ',')}';
+    return '\u20BA${price.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final stores = _mockData.stores;
-    final categories = _mockData.categories;
+    final storesAsync = ref.watch(storesProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -264,10 +340,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           color: AppColors.accent, size: 22),
                     ),
                     const SizedBox(width: AppSpacing.sm + 4),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'Fiyat ekleyerek puan kazan!',
                             style: TextStyle(
@@ -278,7 +354,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Her fiyat girişi +10 puan, fotoğraflı +20 puan',
+                            'Her fiyat girisi +10 puan, fotografli +20 puan',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -296,8 +372,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextFormField(
                 controller: _productController,
                 decoration: InputDecoration(
-                  labelText: 'Ürün Adı',
-                  hintText: 'Ürün adı veya barkod numarası',
+                  labelText: 'Urun Adi',
+                  hintText: 'Urun adi veya barkod numarasi',
                   prefixIcon: const Icon(Icons.shopping_bag_outlined),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.list),
@@ -307,7 +383,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 textInputAction: TextInputAction.next,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Ürün adı gerekli';
+                    return 'Urun adi gerekli';
                   }
                   return null;
                 },
@@ -330,29 +406,33 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               const SizedBox(height: AppSpacing.md),
 
               // Category dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Kategori',
-                  prefixIcon: Icon(Icons.category_outlined),
+              categoriesAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Hata: $e'),
+                data: (categories) => DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Kategori',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  items: categories
+                      .map((cat) => DropdownMenuItem(
+                            value: cat['name'] as String,
+                            child: Text(cat['name'] as String),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Kategori secin';
+                    }
+                    return null;
+                  },
                 ),
-                items: categories
-                    .map((cat) => DropdownMenuItem(
-                          value: cat.name,
-                          child: Text(cat.name),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Kategori seçin';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: AppSpacing.md),
 
@@ -377,7 +457,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   }
                   final price = double.tryParse(value.replaceAll(',', '.'));
                   if (price == null || price <= 0) {
-                    return 'Geçerli bir fiyat girin';
+                    return 'Gecerli bir fiyat girin';
                   }
                   return null;
                 },
@@ -386,38 +466,43 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
               // Store selection
               Text(
-                'Mağaza Seçin',
+                'Magaza Secin',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: stores.map((store) {
-                  return ChoiceChip(
-                    label: Text(store),
-                    selected: _selectedStore == store,
-                    selectedColor: AppColors.primary.withOpacity(0.15),
-                    labelStyle: TextStyle(
-                      color: _selectedStore == store
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
-                      fontWeight: _selectedStore == store
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedStore = selected ? store : null;
-                        if (selected) {
-                          _storeController.text = store;
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+              storesAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Hata: $e'),
+                data: (stores) => Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: stores.map((store) {
+                    final storeName = store['name'] as String;
+                    return ChoiceChip(
+                      label: Text(storeName),
+                      selected: _selectedStore == storeName,
+                      selectedColor: AppColors.primary.withOpacity(0.15),
+                      labelStyle: TextStyle(
+                        color: _selectedStore == storeName
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                        fontWeight: _selectedStore == storeName
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedStore = selected ? storeName : null;
+                          if (selected) {
+                            _storeController.text = storeName;
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
 
@@ -425,8 +510,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextFormField(
                 controller: _storeController,
                 decoration: const InputDecoration(
-                  labelText: 'veya Mağaza Adı Yazın',
-                  hintText: 'Mağaza adını yazın',
+                  labelText: 'veya Magaza Adi Yazin',
+                  hintText: 'Magaza adini yazin',
                   prefixIcon: Icon(Icons.store_outlined),
                 ),
                 textInputAction: TextInputAction.done,
@@ -440,7 +525,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 validator: (value) {
                   if ((value == null || value.isEmpty) &&
                       _selectedStore == null) {
-                    return 'Mağaza adı gerekli';
+                    return 'Magaza adi gerekli';
                   }
                   return null;
                 },
@@ -513,7 +598,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
@@ -521,22 +606,31 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                   ),
-                  child: const Text(
-                    'Fiyat Ekle',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Fiyat Ekle',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
 
               // Points info
-              Center(
+              const Center(
                 child: Text(
-                  'Bu fiyat girişi için +10 puan kazanacaksınız',
+                  'Bu fiyat girisi icin +10 puan kazanacaksiniz',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
