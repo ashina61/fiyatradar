@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     if (!firebaseInitialized) {
-      _showErrorSnackBar('Firebase baglantisi kurulamadi. Demo modu ile devam edin.');
+      _showErrorSnackBar('Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.');
       setState(() => _isLoading = false);
       return;
     }
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _signInWithGoogle() async {
     if (!firebaseInitialized) {
-      _showErrorSnackBar('Firebase baglantisi kurulamadi. Demo modu ile devam edin.');
+      _showErrorSnackBar('Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.');
       return;
     }
 
@@ -134,15 +134,24 @@ class _LoginScreenState extends State<LoginScreen>
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainScreen()),
         );
+      } else if (mounted) {
+        setState(() => _isGoogleLoading = false);
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showErrorSnackBar(_authService.getErrorMessage(e));
+      setState(() => _isGoogleLoading = false);
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar('Google ile giris yapilamadi: $e');
-    } finally {
-      if (mounted) setState(() => _isGoogleLoading = false);
+      // More specific error message for Google Sign-in
+      String errorMessage = 'Google ile giris yapilamadi.';
+      if (e.toString().contains('ApiException: 10')) {
+        errorMessage = 'Google giris yapilandirmasi eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'Baglanti hatasi. Internet baglantinizi kontrol edin.';
+      }
+      _showErrorSnackBar(errorMessage);
+      setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -156,6 +165,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         margin: const EdgeInsets.all(AppSpacing.md),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -229,12 +239,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  void _navigateToDemo() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen()),
-    );
-  }
-
   void _navigateToRegister() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const RegisterScreen()),
@@ -249,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       body: SingleChildScrollView(
         child: SizedBox(
-          height: screenHeight < 750 ? null : screenHeight,
+          height: screenHeight < 700 ? null : screenHeight,
           child: Stack(
             children: [
               // --- Gradient Background ---
@@ -543,30 +547,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.md),
-
-                            // --- Demo Button ---
-                            OutlinedButton(
-                              onPressed: _navigateToDemo,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(
-                                  color: AppColors.primary.withOpacity(0.4),
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                                ),
-                              ),
-                              child: const Text(
-                                'Demo ile Devam Et',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(height: AppSpacing.xl),
 
                             // --- Register Link ---
                             Row(

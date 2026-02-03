@@ -46,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!firebaseInitialized) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Firebase baglantisi kurulamadi. Demo modu ile devam edin.';
+        _errorMessage = 'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.';
       });
       return;
     }
@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _signInWithGoogle() async {
     if (!firebaseInitialized) {
       setState(() {
-        _errorMessage = 'Firebase baglantisi kurulamadi. Demo modu ile devam edin.';
+        _errorMessage = 'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.';
       });
       return;
     }
@@ -99,6 +99,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
         );
+      } else if (mounted) {
+        setState(() => _isGoogleLoading = false);
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -108,9 +110,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      String errorMessage = 'Google ile kayit olusturulamadi.';
+      if (e.toString().contains('ApiException: 10')) {
+        errorMessage = 'Google giris yapilandirmasi eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
+      }
       setState(() {
         _isGoogleLoading = false;
-        _errorMessage = 'Google ile kayit olusturulamadi: $e';
+        _errorMessage = errorMessage;
       });
     }
   }
