@@ -7,20 +7,37 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:360048908674:web:835a1b2e477aac531a979b",
+        "mobilesdk_app_id": "1:360048908674:android:6accc66cc9d75a2e1a979b",
         "android_client_info": {
           "package_name": "com.fiyatradar"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "360048908674-7daqbt00l4so88vgj29k9cvrjumbmesv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g"
+          "current_key": "AIzaSyCe8yijDysK9vtCngDmFNh1Gb0k4ijBSjg"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "360048908674-7daqbt00l4so88vgj29k9cvrjumbmesv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "360048908674-08fojcjtrgh0gotunpessfak61vjpr58.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fiyatradar.fiyatRadar2"
+              }
+            }
+          ]
         }
       }
     }
