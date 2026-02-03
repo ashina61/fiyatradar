@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "360048908674-tr2nmg6eehlfket8sfumlhb2r0os937f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fiyatradar",
+            "certificate_hash": "573566acf1c1376c7c9b0e22ecdc8efcc9004d73"
+          }
+        },
+        {
           "client_id": "360048908674-7daqbt00l4so88vgj29k9cvrjumbmesv.apps.googleusercontent.com",
           "client_type": 3
         }
