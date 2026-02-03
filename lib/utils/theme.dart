@@ -1,43 +1,43 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors
-  static const Color primary = Color(0xFF6C5CE7);
-  static const Color primaryLight = Color(0xFF9B8FEF);
-  static const Color primaryDark = Color(0xFF4A3CB5);
+  // Primary Colors - Terracotta/Brick Brown
+  static const Color primary = Color(0xFFB5651D);
+  static const Color primaryLight = Color(0xFFD4874A);
+  static const Color primaryDark = Color(0xFF8B4513);
 
-  // Secondary Colors
-  static const Color secondary = Color(0xFF00B894);
-  static const Color secondaryLight = Color(0xFF55EFC4);
-  static const Color secondaryDark = Color(0xFF00896D);
+  // Secondary Colors - Warm Tan/Cream
+  static const Color secondary = Color(0xFFD4A574);
+  static const Color secondaryLight = Color(0xFFE8C9A8);
+  static const Color secondaryDark = Color(0xFFA67B5B);
 
-  // Accent Colors
-  static const Color accent = Color(0xFFFFB800);
-  static const Color accentLight = Color(0xFFFFD166);
-  static const Color accentDark = Color(0xFFCC9300);
+  // Accent Colors - Burnt Orange
+  static const Color accent = Color(0xFFCD853F);
+  static const Color accentLight = Color(0xFFDEB887);
+  static const Color accentDark = Color(0xFFA0522D);
 
   // Neutral Colors
-  static const Color background = Color(0xFFF8F9FE);
+  static const Color background = Color(0xFFFAF6F3);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceVariant = Color(0xFFF0F1FA);
-  static const Color outline = Color(0xFFE8ECF1);
-  static const Color outlineVariant = Color(0xFFD1D8E0);
+  static const Color surfaceVariant = Color(0xFFF5EDE6);
+  static const Color outline = Color(0xFFE8DDD4);
+  static const Color outlineVariant = Color(0xFFD9CCC2);
 
   // Text Colors
-  static const Color textPrimary = Color(0xFF2D3436);
-  static const Color textSecondary = Color(0xFF636E72);
-  static const Color textTertiary = Color(0xFF94A3B8);
-  static const Color textHint = Color(0xFFB2BEC3);
+  static const Color textPrimary = Color(0xFF3D2914);
+  static const Color textSecondary = Color(0xFF6B5344);
+  static const Color textTertiary = Color(0xFF9A8576);
+  static const Color textHint = Color(0xFFB8A99A);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
 
   // Status Colors
-  static const Color success = Color(0xFF00B894);
-  static const Color warning = Color(0xFFFFC048);
-  static const Color error = Color(0xFFFF6B6B);
-  static const Color info = Color(0xFF6C5CE7);
+  static const Color success = Color(0xFF4CAF50);
+  static const Color warning = Color(0xFFFF9800);
+  static const Color error = Color(0xFFE53935);
+  static const Color info = Color(0xFFB5651D);
 
   // Divider & Shadow
-  static const Color divider = Color(0xFFE8ECF1);
+  static const Color divider = Color(0xFFE8DDD4);
   static const Color cardShadow = Color(0x14000000);
 
   // Gradients
@@ -53,13 +53,19 @@ class AppColors {
     colors: [secondary, secondaryLight],
   );
 
+  static const LinearGradient gradientWarm = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primary, accent],
+  );
+
   // Dark Theme Colors
-  static const Color backgroundDark = Color(0xFF1A1A2E);
-  static const Color surfaceDark = Color(0xFF16213E);
-  static const Color surfaceVariantDark = Color(0xFF1F2B47);
-  static const Color outlineDark = Color(0xFF2A3A5C);
-  static const Color textPrimaryDark = Color(0xFFF8F9FE);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
+  static const Color backgroundDark = Color(0xFF1A1410);
+  static const Color surfaceDark = Color(0xFF2D241E);
+  static const Color surfaceVariantDark = Color(0xFF3D322A);
+  static const Color outlineDark = Color(0xFF4D4036);
+  static const Color textPrimaryDark = Color(0xFFFAF6F3);
+  static const Color textSecondaryDark = Color(0xFFB8A99A);
 }
 
 class AppTheme {
@@ -76,7 +82,7 @@ class AppTheme {
       tertiary: AppColors.accent,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
-      surfaceVariant: AppColors.surfaceVariant,
+      surfaceContainerHighest: AppColors.surfaceVariant,
       outline: AppColors.outline,
       outlineVariant: AppColors.outlineVariant,
       error: AppColors.error,
@@ -112,8 +118,8 @@ class AppTheme {
         indicatorColor: AppColors.primary.withOpacity(0.12),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -126,8 +132,8 @@ class AppTheme {
             color: AppColors.textSecondary,
           );
         }),
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const IconThemeData(
               color: AppColors.primary,
               size: 24,
@@ -349,7 +355,7 @@ class AppTheme {
       tertiary: AppColors.accentLight,
       surface: AppColors.surfaceDark,
       onSurface: AppColors.textPrimaryDark,
-      surfaceVariant: AppColors.surfaceVariantDark,
+      surfaceContainerHighest: AppColors.surfaceVariantDark,
       outline: AppColors.outlineDark,
       error: AppColors.error,
     );
@@ -384,8 +390,8 @@ class AppTheme {
         indicatorColor: AppColors.primaryLight.withOpacity(0.15),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -398,8 +404,8 @@ class AppTheme {
             color: AppColors.textSecondaryDark,
           );
         }),
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const IconThemeData(
               color: AppColors.primaryLight,
               size: 24,
@@ -539,12 +545,12 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return AppColors.primaryLight;
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.primaryLight;
           return AppColors.textSecondaryDark;
         }),
-        trackColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return AppColors.primaryLight.withOpacity(0.3);
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.primaryLight.withOpacity(0.3);
           return AppColors.outlineDark;
         }),
       ),

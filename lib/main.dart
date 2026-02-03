@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'firebase_options.dart';
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'screens/main_screen.dart';
+import 'services/auth_service.dart';
 
 /// Whether Firebase was successfully initialized.
-/// When false, the app runs in demo/offline mode.
 bool firebaseInitialized = false;
 
 void main() async {
@@ -26,6 +29,17 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    firebaseInitialized = true;
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e');
+    firebaseInitialized = false;
+  }
 
   // Load saved preferences
   final prefs = await SharedPreferences.getInstance();
@@ -83,7 +97,18 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
                 await prefs.setBool('onboarding_complete', true);
               },
             )
-          : const LoginScreen(),
+          : _buildHomeScreen(),
     );
+  }
+
+  Widget _buildHomeScreen() {
+    // If Firebase is initialized, check auth state
+    if (firebaseInitialized) {
+      final authService = AuthService();
+      if (authService.currentUser != null) {
+        return const MainScreen();
+      }
+    }
+    return const LoginScreen();
   }
 }

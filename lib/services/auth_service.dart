@@ -1,14 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // Email/Password Sign In
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -29,6 +32,7 @@ class AuthService {
     }
   }
 
+  // Email/Password Sign Up
   Future<UserModel?> registerWithEmailAndPassword({
     required String email,
     required String password,
@@ -41,6 +45,8 @@ class AuthService {
       );
 
       if (credential.user != null) {
+        await credential.user!.updateDisplayName(name);
+
         final user = UserModel(
           uid: credential.user!.uid,
           email: email,
@@ -62,14 +68,76 @@ class AuthService {
     }
   }
 
+  // Google Sign In
+  Future<UserModel?> signInWithGoogle() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        return null; // User cancelled the sign-in
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final userCredential = await _auth.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        final user = userCredential.user!;
+
+        // Check if user document exists
+        final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
+
+        if (!docSnapshot.exists) {
+          // Create new user document
+          final newUser = UserModel(
+            uid: user.uid,
+            email: user.email ?? '',
+            name: user.displayName ?? 'Kullanici',
+            photoUrl: user.photoURL,
+            createdAt: DateTime.now(),
+            lastLoginAt: DateTime.now(),
+          );
+
+          await _firestore.collection('users').doc(user.uid).set(newUser.toFirestore());
+          return newUser;
+        } else {
+          // Update last login
+          await _updateLastLogin(user.uid);
+          return await getUserModel(user.uid);
+        }
+      }
+      return null;
+    } on FirebaseAuthException {
+      rethrow;
+    } catch (e) {
+      throw FirebaseAuthException(
+        code: 'google-sign-in-failed',
+        message: 'Google ile giris yapilamadi: $e',
+      );
+    }
+  }
+
+  // Sign Out
   Future<void> signOut() async {
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
+  // Password Reset
   Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
+  // Get User Model
   Future<UserModel?> getUserModel(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
@@ -138,6 +206,36 @@ class AuthService {
       await _firestore.collection('users').doc(uid).update({
         'savedProducts': savedProducts,
       });
+    }
+  }
+
+  // Get auth error message in Turkish
+  String getErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return 'Bu e-posta adresiyle kayitli kullanici bulunamadi.';
+      case 'wrong-password':
+        return 'Yanlis sifre girdiniz.';
+      case 'email-already-in-use':
+        return 'Bu e-posta adresi zaten kullaniliyor.';
+      case 'weak-password':
+        return 'Sifre cok zayif. En az 6 karakter kullanin.';
+      case 'invalid-email':
+        return 'Gecersiz e-posta adresi.';
+      case 'user-disabled':
+        return 'Bu hesap devre disi birakilmis.';
+      case 'too-many-requests':
+        return 'Cok fazla deneme yaptiniz. Lutfen daha sonra tekrar deneyin.';
+      case 'operation-not-allowed':
+        return 'Bu islem simdilik kullanilamaz.';
+      case 'network-request-failed':
+        return 'Baglanti hatasi. Internet baglantinizi kontrol edin.';
+      case 'google-sign-in-failed':
+        return e.message ?? 'Google ile giris yapilamadi.';
+      case 'invalid-credential':
+        return 'E-posta veya sifre hatali.';
+      default:
+        return 'Bir hata olustu: ${e.message}';
     }
   }
 }
