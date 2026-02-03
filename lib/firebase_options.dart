@@ -42,8 +42,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCNuvzOOgu14wZtW12ZpSVrZ9_G7A9E9_g',
-    appId: '1:360048908674:web:835a1b2e477aac531a979b',
+    apiKey: 'AIzaSyCe8yijDysK9vtCngDmFNh1Gb0k4ijBSjg',
+    appId: '1:360048908674:android:6accc66cc9d75a2e1a979b',
     messagingSenderId: '360048908674',
     projectId: 'fiyatradar-611967',
     storageBucket: 'fiyatradar-611967.firebasestorage.app',
