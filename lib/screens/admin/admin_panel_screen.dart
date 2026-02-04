@@ -5,6 +5,7 @@ import '../../models/product_model.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
+import '../../providers/user_provider.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -20,7 +21,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -48,6 +49,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Magazalar', icon: Icon(Icons.store_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
+            Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
+            Tab(text: 'Kullanicilar', icon: Icon(Icons.people_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
           ],
         ),
@@ -59,6 +62,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _StoreManagementTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
+          _ReportsManagementTab(),
+          _UserManagementTab(),
           _StatisticsTab(),
         ],
       ),
@@ -648,7 +653,253 @@ class _BannerManagementTab extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 5: Istatistikler
+// Tab 5: Rapor Yonetimi
+// ---------------------------------------------------------------------------
+class _ReportsManagementTab extends ConsumerWidget {
+  const _ReportsManagementTab();
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'pending': return AppColors.accent;
+      case 'resolved': return AppColors.success;
+      case 'dismissed': return AppColors.error;
+      default: return AppColors.info;
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'pending': return 'Bekliyor';
+      case 'resolved': return 'Cozuldu';
+      case 'dismissed': return 'Reddedildi';
+      default: return status;
+    }
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'price': return 'Fiyat';
+      case 'comment': return 'Yorum';
+      default: return type;
+    }
+  }
+
+  IconData _typeIcon(String type) {
+    switch (type) {
+      case 'price': return Icons.price_change_outlined;
+      case 'comment': return Icons.comment_outlined;
+      default: return Icons.flag_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reportsAsync = ref.watch(reportsProvider);
+    final theme = Theme.of(context);
+
+    return reportsAsync.when(
+      data: (reports) {
+        if (reports.isEmpty) {
+          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.flag_outlined, size: 64, color: theme.hintColor),
+            const SizedBox(height: AppSpacing.md),
+            Text('Henuz rapor yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+          ]));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          itemCount: reports.length,
+          itemBuilder: (context, index) {
+            final report = reports[index];
+            final status = report['status'] as String;
+            final type = report['type'] as String;
+            final reason = report['reason'] as String;
+            final createdAt = report['createdAt'] as DateTime;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: _statusColor(status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Icon(_typeIcon(type), color: _statusColor(status), size: 20),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                          child: Text(_typeLabel(type), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.15), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                          child: Text(_statusLabel(status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                        ),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(reason, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ])),
+                  ]),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(children: [
+                    Icon(Icons.access_time, size: 12, color: theme.hintColor),
+                    const SizedBox(width: 4),
+                    Text('${createdAt.day}.${createdAt.month}.${createdAt.year}', style: TextStyle(fontSize: 11, color: theme.hintColor)),
+                    const Spacer(),
+                    if (status == 'pending') ...[
+                      SizedBox(
+                        height: 30,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'resolved');
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor cozuldu olarak isaretlendi'), behavior: SnackBarBehavior.floating));
+                          },
+                          icon: const Icon(Icons.check_circle_outline, size: 16),
+                          label: const Text('Coz', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(foregroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'dismissed');
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor reddedildi'), behavior: SnackBarBehavior.floating));
+                          },
+                          icon: const Icon(Icons.cancel_outlined, size: 16),
+                          label: const Text('Reddet', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(foregroundColor: AppColors.error, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                        ),
+                      ),
+                    ],
+                    SizedBox(
+                      height: 30,
+                      child: IconButton(
+                        onPressed: () {
+                          ref.read(firestoreServiceProvider).deleteReport(report['id']);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor silindi'), behavior: SnackBarBehavior.floating));
+                        },
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        color: AppColors.error,
+                        padding: EdgeInsets.zero,
+                        iconSize: 18,
+                      ),
+                    ),
+                  ]),
+                ]),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Raporlar yuklenemedi')),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 6: Kullanici Yonetimi
+// ---------------------------------------------------------------------------
+class _UserManagementTab extends ConsumerWidget {
+  const _UserManagementTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersAsync = ref.watch(allUsersProvider);
+    final theme = Theme.of(context);
+
+    return usersAsync.when(
+      data: (users) {
+        if (users.isEmpty) {
+          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.people_outlined, size: 64, color: theme.hintColor),
+            const SizedBox(height: AppSpacing.md),
+            Text('Henuz kullanici yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+          ]));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(children: [
+                  Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withOpacity(0.1),
+                      image: user.photoUrl != null ? DecorationImage(
+                        image: NetworkImage(user.photoUrl!),
+                        fit: BoxFit.cover,
+                        onError: (_, __) {},
+                      ) : null,
+                    ),
+                    child: user.photoUrl == null ? Center(
+                      child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 18)),
+                    ) : null,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Flexible(child: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                      if (user.isAdmin) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified, color: Colors.lightBlueAccent, size: 16),
+                      ],
+                    ]),
+                    const SizedBox(height: 2),
+                    Text(user.email, style: TextStyle(fontSize: 12, color: theme.hintColor), overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      _InfoChip(icon: Icons.price_change, label: '${user.priceEntries} fiyat'),
+                      const SizedBox(width: 4),
+                      _InfoChip(icon: Icons.stars, label: '${user.points} puan'),
+                      const SizedBox(width: 4),
+                      _InfoChip(icon: Icons.verified_outlined, label: '${user.validations} d.'),
+                    ]),
+                  ])),
+                  Switch(
+                    value: user.isAdmin,
+                    activeColor: AppColors.primary,
+                    onChanged: (val) {
+                      ref.read(userNotifierProvider.notifier).toggleUserAdmin(user.uid, val);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(val ? '${user.name} admin yapildi' : '${user.name} admin kaldirildi'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                ]),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Kullanicilar yuklenemedi')),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 7: Istatistikler
 // ---------------------------------------------------------------------------
 class _StatisticsTab extends ConsumerWidget {
   const _StatisticsTab();
@@ -660,17 +911,34 @@ class _StatisticsTab extends ConsumerWidget {
     final storesAsync = ref.watch(storesProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final bannersAsync = ref.watch(allBannersProvider);
+    final usersAsync = ref.watch(allUsersProvider);
+    final reportsAsync = ref.watch(reportsProvider);
 
     final productCount = productsAsync.valueOrNull?.length ?? 0;
     final storeCount = storesAsync.valueOrNull?.length ?? 0;
     final categoryCount = categoriesAsync.valueOrNull?.length ?? 0;
     final bannerCount = bannersAsync.valueOrNull?.length ?? 0;
+    final userCount = usersAsync.valueOrNull?.length ?? 0;
+    final reportCount = reportsAsync.valueOrNull?.length ?? 0;
+
+    // Calculate total price entries and total points from users
+    final users = usersAsync.valueOrNull ?? [];
+    int totalPriceEntries = 0;
+    int totalPoints = 0;
+    for (final user in users) {
+      totalPriceEntries += user.priceEntries;
+      totalPoints += user.points;
+    }
 
     final stats = [
       _StatItem('Toplam Urun', productCount, Icons.inventory_2_outlined, AppColors.primary),
       _StatItem('Toplam Magaza', storeCount, Icons.store_outlined, AppColors.secondary),
       _StatItem('Toplam Kategori', categoryCount, Icons.category_outlined, AppColors.accent),
+      _StatItem('Toplam Kullanici', userCount, Icons.people_outlined, AppColors.info),
+      _StatItem('Toplam Fiyat Girisi', totalPriceEntries, Icons.price_change_outlined, const Color(0xFF10B981)),
+      _StatItem('Toplam Rapor', reportCount, Icons.flag_outlined, AppColors.error),
       _StatItem('Toplam Banner', bannerCount, Icons.view_carousel_outlined, const Color(0xFF8B5CF6)),
+      _StatItem('Toplam Puan', totalPoints, Icons.stars, const Color(0xFFF59E0B)),
     ];
 
     final maxVal = stats.map((s) => s.value).fold(1, (a, b) => a > b ? a : b).toDouble();

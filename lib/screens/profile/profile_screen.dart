@@ -30,7 +30,7 @@ class ProfileScreen extends ConsumerWidget {
             _buildProfileHeader(context, user),
             Transform.translate(
               offset: const Offset(0, -36),
-              child: _buildStatsRow(context, theme),
+              child: _buildStatsRow(context, theme, user),
             ),
 
             // Badges
@@ -62,7 +62,7 @@ class ProfileScreen extends ConsumerWidget {
               _MenuItem(
                 icon: Icons.stars_outlined,
                 title: 'Puan Sistemi',
-                onTap: () => _showPointsSystem(context),
+                onTap: () => _showPointsSystem(context, user),
               ),
               _MenuItem(
                 icon: Icons.settings_outlined,
@@ -464,7 +464,21 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showPointsSystem(BuildContext context) {
+  void _showPointsSystem(BuildContext context, UserModel? user) {
+    final userPoints = user?.points ?? 0;
+    String levelName;
+    if (userPoints >= 5000) {
+      levelName = 'Elmas Uye';
+    } else if (userPoints >= 2000) {
+      levelName = 'Platin Uye';
+    } else if (userPoints >= 500) {
+      levelName = 'Altin Uye';
+    } else if (userPoints >= 100) {
+      levelName = 'Gumus Uye';
+    } else {
+      levelName = 'Bronz Uye';
+    }
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         appBar: AppBar(title: const Text('Puan Sistemi')),
@@ -482,9 +496,9 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(children: [
                 const Icon(Icons.stars, color: Colors.white, size: 48),
                 const SizedBox(height: AppSpacing.sm),
-                const Text('1250 Puan', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                Text('$userPoints Puan', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('Seviye: Altin Uye', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+                Text('Seviye: $levelName', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
               ]),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -585,10 +599,10 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               const Text('FiyatRadar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: AppSpacing.xs),
-              Text('Versiyon 1.0.0', style: TextStyle(color: Theme.of(context).hintColor)),
+              Text('Versiyon 2.0.0', style: TextStyle(color: Theme.of(context).hintColor)),
               const SizedBox(height: AppSpacing.sm),
               const Text(
-                'Turkiye\'nin en akilli fiyat takip uygulamasi.\nTopluluk destekli fiyat karsilastirmasi ve bildirimler.',
+                'Turkiye\'nin en akilli fiyat takip uygulamasi.\nTopluluk destekli fiyat karsilastirmasi, dogrulama sistemi ve bildirimler.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13),
               ),
@@ -684,12 +698,89 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   // ===========================================================================
+  // Profile Edit Dialog
+  // ===========================================================================
+  void _showEditProfileDialog(BuildContext context, UserModel? user) {
+    if (user == null) return;
+    final emailController = TextEditingController(text: user.email);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: const Icon(Icons.edit, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Text('Profil Duzenle'),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Name field - disabled
+            TextField(
+              controller: TextEditingController(text: user.name),
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'Ad Soyad',
+                prefixIcon: const Icon(Icons.person_outline),
+                suffixIcon: const Icon(Icons.lock_outline, size: 18),
+                helperText: 'Isim degistirilemez',
+                helperStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Email field - disabled
+            TextField(
+              controller: emailController,
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'E-posta',
+                prefixIcon: const Icon(Icons.email_outlined),
+                suffixIcon: const Icon(Icons.lock_outline, size: 18),
+                helperText: 'E-posta degistirilemez',
+                helperStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline, color: AppColors.info, size: 18),
+                SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Guvenlik nedeniyle ad soyad ve e-posta degistirilemez.',
+                  style: TextStyle(fontSize: 12, color: AppColors.info),
+                )),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
   // Profile Header
   // ===========================================================================
   Widget _buildProfileHeader(BuildContext context, UserModel? user) {
     final displayName = user?.name ?? 'Kullanici';
     final email = user?.email ?? '';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+    final photoUrl = user?.photoUrl;
+    final isAdmin = user?.isAdmin ?? false;
 
     return Container(
       width: double.infinity,
@@ -712,11 +803,7 @@ class ProfileScreen extends ConsumerWidget {
             top: 0, right: 0,
             child: IconButton(
               icon: const Icon(Icons.edit, color: Colors.white70, size: 22),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profil duzenleme yaklnda eklenecek'), behavior: SnackBarBehavior.floating),
-                );
-              },
+              onPressed: () => _showEditProfileDialog(context, user),
             ),
           ),
           Center(
@@ -725,18 +812,32 @@ class ProfileScreen extends ConsumerWidget {
                 width: 100, height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [
+                  gradient: photoUrl == null ? LinearGradient(colors: [
                     AppColors.primaryLight.withOpacity(0.8),
                     AppColors.secondaryLight.withOpacity(0.8),
-                  ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  ], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                  image: photoUrl != null ? DecorationImage(
+                    image: NetworkImage(photoUrl),
+                    fit: BoxFit.cover,
+                    onError: (_, __) {},
+                  ) : null,
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 6))],
                 ),
-                child: Center(
+                child: photoUrl == null ? Center(
                   child: Text(initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
-                ),
+                ) : null,
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                  if (isAdmin) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.verified, color: Colors.lightBlueAccent, size: 22),
+                  ],
+                ],
+              ),
               const SizedBox(height: AppSpacing.xs),
               Text(email, style: const TextStyle(fontSize: 14, color: Colors.white70)),
             ]),
@@ -749,16 +850,19 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Stats Row
   // ===========================================================================
-  Widget _buildStatsRow(BuildContext context, ThemeData theme) {
+  Widget _buildStatsRow(BuildContext context, ThemeData theme, UserModel? user) {
     final cardColor = theme.cardColor;
+    final priceEntries = user?.priceEntries ?? 0;
+    final points = user?.points ?? 0;
+    final validations = user?.validations ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(children: [
-        Expanded(child: _buildStatCard(context, cardColor, value: '45', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '$priceEntries', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '1250', label: 'Puan', icon: Icons.stars, color: AppColors.accent)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '$points', label: 'Puan', icon: Icons.stars, color: AppColors.accent)),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '120', label: 'Dogrulama', icon: Icons.verified, color: AppColors.secondary)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '$validations', label: 'Dogrulama', icon: Icons.verified, color: AppColors.secondary)),
       ]),
     );
   }
@@ -789,7 +893,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget _buildBadgesSection(BuildContext context, UserModel? user) {
     final priceEntries = user?.priceEntries ?? 0;
     final validations = user?.validations ?? 0;
-    final isAdmin = user?.isAdmin ?? false;
 
     // Define badges with unlock conditions
     final badges = [
@@ -820,13 +923,6 @@ class ProfileScreen extends ConsumerWidget {
         color: AppColors.secondary,
         isEarned: validations >= 50,
         progress: validations < 50 ? '$validations/50 dogrulama yap' : null,
-      ),
-      if (isAdmin) const _BadgeItem(
-        emoji: '\u{1F48E}', name: 'Meta',
-        description: 'Admin',
-        color: Color(0xFF8B5CF6),
-        isEarned: true,
-        progress: null,
       ),
     ];
 

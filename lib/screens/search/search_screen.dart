@@ -71,11 +71,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     // Auto-focus the search field after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
-      // Check if a category filter was set from home screen
-      final catFilter = ref.read(selectedCategoryFilterProvider);
-      if (catFilter != 'Tumu') {
-        setState(() => _selectedCategory = catFilter);
-      }
     });
   }
 
@@ -202,6 +197,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for category filter changes from home screen
+    ref.listen<String>(selectedCategoryFilterProvider, (prev, next) {
+      if (next != 'Tumu') {
+        setState(() => _selectedCategory = next);
+        // Reset so it doesn't stick on next navigation
+        Future.microtask(() => ref.read(selectedCategoryFilterProvider.notifier).state = 'Tumu');
+      }
+    });
+
     final theme = Theme.of(context);
     final allProductsAsync = ref.watch(allProductsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);

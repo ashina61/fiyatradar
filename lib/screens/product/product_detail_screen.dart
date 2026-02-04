@@ -23,6 +23,18 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
   bool _isSubmittingComment = false;
+  bool _viewCounted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_viewCounted) {
+        _viewCounted = true;
+        ref.read(firestoreServiceProvider).incrementViewCount(widget.productId);
+      }
+    });
+  }
 
   @override
   void dispose() {
