@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
+import '../../services/storage_service.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -20,7 +23,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -48,6 +51,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Magazalar', icon: Icon(Icons.store_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
+            Tab(text: 'Bakim', icon: Icon(Icons.build_circle_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
           ],
         ),
@@ -59,6 +63,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _StoreManagementTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
+          _MaintenanceTab(),
           _StatisticsTab(),
         ],
       ),
@@ -92,6 +97,7 @@ class _ProductManagementTab extends ConsumerWidget {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
     String? selectedCategory;
+    File? selectedImage;
 
     showDialog(
       context: context,
@@ -109,6 +115,32 @@ class _ProductManagementTab extends ConsumerWidget {
           ]),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Image picker
+              GestureDetector(
+                onTap: () async {
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 80);
+                  if (picked != null) {
+                    setDialogState(() => selectedImage = File(picked.path));
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.outlineVariant),
+                    image: selectedImage != null ? DecorationImage(image: FileImage(selectedImage!), fit: BoxFit.cover) : null,
+                  ),
+                  child: selectedImage == null ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.textTertiary),
+                    SizedBox(height: 4),
+                    Text('Resim Ekle (opsiyonel)', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                  ]) : null,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
@@ -133,11 +165,20 @@ class _ProductManagementTab extends ConsumerWidget {
               onPressed: () async {
                 if (nameController.text.isEmpty || selectedCategory == null) return;
                 final service = ref.read(firestoreServiceProvider);
+
+                String? imageUrl;
+                if (selectedImage != null) {
+                  final productId = DateTime.now().millisecondsSinceEpoch.toString();
+                  final storage = StorageService();
+                  imageUrl = await storage.uploadProductImage(file: selectedImage!, productId: productId);
+                }
+
                 await service.addProduct(ProductModel(
                   id: '',
                   name: nameController.text,
                   brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
                   category: selectedCategory!,
+                  mainImage: imageUrl,
                   createdAt: DateTime.now(),
                   updatedAt: DateTime.now(),
                 ));
@@ -360,20 +401,30 @@ class _StoreManagementTab extends ConsumerWidget {
 class _CategoryManagementTab extends ConsumerWidget {
   const _CategoryManagementTab();
 
-  IconData _categoryIcon(String name) {
-    switch (name) {
-      case 'Elektronik': return Icons.devices;
-      case 'Gida': return Icons.restaurant;
-      case 'Temizlik': return Icons.cleaning_services;
-      case 'Kisisel Bakim': return Icons.face;
-      case 'Ev & Yasam': return Icons.home;
-      case 'Giyim': return Icons.checkroom;
-      case 'Spor': return Icons.sports;
-      case 'Oyuncak': return Icons.toys;
-      case 'Kitap': return Icons.book;
-      case 'Otomotiv': return Icons.directions_car;
-      default: return Icons.category;
-    }
+  IconData _iconFromName(String iconName) {
+    const iconMap = <String, IconData>{
+      'category': Icons.category,
+      'devices': Icons.devices,
+      'restaurant': Icons.restaurant,
+      'cleaning_services': Icons.cleaning_services,
+      'face': Icons.face,
+      'home': Icons.home,
+      'checkroom': Icons.checkroom,
+      'sports': Icons.sports,
+      'toys': Icons.toys,
+      'book': Icons.book,
+      'directions_car': Icons.directions_car,
+      'pets': Icons.pets,
+      'local_pharmacy': Icons.local_pharmacy,
+      'child_care': Icons.child_care,
+      'build': Icons.build,
+      'headphones': Icons.headphones,
+      'watch': Icons.watch,
+      'chair': Icons.chair,
+      'local_florist': Icons.local_florist,
+      'fitness_center': Icons.fitness_center,
+    };
+    return iconMap[iconName] ?? Icons.category;
   }
 
   Color _categoryColor(int index) {
@@ -381,33 +432,90 @@ class _CategoryManagementTab extends ConsumerWidget {
     return colors[index % colors.length];
   }
 
+  static const _availableIcons = <String, IconData>{
+    'category': Icons.category,
+    'devices': Icons.devices,
+    'restaurant': Icons.restaurant,
+    'cleaning_services': Icons.cleaning_services,
+    'face': Icons.face,
+    'home': Icons.home,
+    'checkroom': Icons.checkroom,
+    'sports': Icons.sports,
+    'toys': Icons.toys,
+    'book': Icons.book,
+    'directions_car': Icons.directions_car,
+    'pets': Icons.pets,
+    'local_pharmacy': Icons.local_pharmacy,
+    'child_care': Icons.child_care,
+    'build': Icons.build,
+    'headphones': Icons.headphones,
+    'watch': Icons.watch,
+    'chair': Icons.chair,
+    'local_florist': Icons.local_florist,
+    'fitness_center': Icons.fitness_center,
+  };
+
   void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    String selectedIconName = 'category';
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.category_outlined, color: AppColors.accent, size: 20),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: const Icon(Icons.category_outlined, color: AppColors.accent, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Text('Yeni Kategori Ekle'),
+          ]),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)), autofocus: true),
+              const SizedBox(height: AppSpacing.md),
+              const Align(alignment: Alignment.centerLeft, child: Text('Ikon Sec:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                height: 200,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, crossAxisSpacing: 8, mainAxisSpacing: 8),
+                  itemCount: _availableIcons.length,
+                  itemBuilder: (context, index) {
+                    final entry = _availableIcons.entries.elementAt(index);
+                    final isSelected = entry.key == selectedIconName;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedIconName = entry.key),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withOpacity(0.15) : AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: isSelected ? Border.all(color: AppColors.primary, width: 2) : null,
+                        ),
+                        child: Icon(entry.value, color: isSelected ? AppColors.primary : AppColors.textSecondary, size: 22),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Yeni Kategori Ekle'),
-        ]),
-        content: TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)), autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) return;
-              await ref.read(firestoreServiceProvider).addCategory(nameController.text, 'category');
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Ekle'),
-          ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) return;
+                await ref.read(firestoreServiceProvider).addCategory(nameController.text, selectedIconName);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -443,6 +551,7 @@ class _CategoryManagementTab extends ConsumerWidget {
             itemBuilder: (context, index) {
               final cat = categories[index];
               final catName = cat['name'] ?? '';
+              final catIconName = cat['iconName'] ?? 'category';
               final color = _categoryColor(index);
               final productCount = products.where((p) => p.category == catName).length;
 
@@ -454,7 +563,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                       Container(
                         width: 44, height: 44,
                         decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppRadius.md)),
-                        child: Icon(_categoryIcon(catName), color: color, size: 24),
+                        child: Icon(_iconFromName(catIconName), color: color, size: 24),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -648,7 +757,157 @@ class _BannerManagementTab extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 5: Istatistikler
+// Tab 5: Bakim Modu
+// ---------------------------------------------------------------------------
+class _MaintenanceTab extends ConsumerStatefulWidget {
+  const _MaintenanceTab();
+
+  @override
+  ConsumerState<_MaintenanceTab> createState() => _MaintenanceTabState();
+}
+
+class _MaintenanceTabState extends ConsumerState<_MaintenanceTab> {
+  final _messageController = TextEditingController();
+  bool _isUpdating = false;
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final service = ref.watch(firestoreServiceProvider);
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: service.getMaintenanceStatus(),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? {'enabled': false, 'message': ''};
+        final isEnabled = data['enabled'] as bool;
+        final message = data['message'] as String;
+
+        if (_messageController.text.isEmpty && message.isNotEmpty) {
+          _messageController.text = message;
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Status Card
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    children: [
+                      Icon(
+                        isEnabled ? Icons.engineering : Icons.check_circle_outline,
+                        size: 64,
+                        color: isEnabled ? AppColors.accent : AppColors.success,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        isEnabled ? 'Bakim Modu Aktif' : 'Uygulama Normal Calisiyor',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isEnabled ? AppColors.accent : AppColors.success,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        isEnabled
+                            ? 'Kullanicilar uygulamayi kullanamaz durumda.'
+                            : 'Tum ozellikler aktif ve calisiyor.',
+                        style: TextStyle(fontSize: 14, color: theme.hintColor),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Toggle Switch
+              Card(
+                child: SwitchListTile(
+                  title: const Text('Bakim Modu', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(isEnabled ? 'Aktif - Kullanicilar giremez' : 'Pasif - Normal calisma'),
+                  value: isEnabled,
+                  activeColor: AppColors.accent,
+                  secondary: Icon(
+                    Icons.build_circle_outlined,
+                    color: isEnabled ? AppColors.accent : theme.hintColor,
+                  ),
+                  onChanged: _isUpdating ? null : (val) async {
+                    setState(() => _isUpdating = true);
+                    await service.setMaintenanceMode(
+                      val,
+                      message: _messageController.text.isNotEmpty
+                          ? _messageController.text
+                          : null,
+                    );
+                    setState(() => _isUpdating = false);
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Message
+              Text('Bakim Mesaji', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: AppSpacing.sm),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _messageController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Kullanicilara gosterilecek mesaj...',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.message_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : () async {
+                            setState(() => _isUpdating = true);
+                            await service.setMaintenanceMode(
+                              isEnabled,
+                              message: _messageController.text,
+                            );
+                            setState(() => _isUpdating = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Mesaj guncellendi'), behavior: SnackBarBehavior.floating),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.save_outlined),
+                          label: const Text('Mesaji Kaydet'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 6: Istatistikler
 // ---------------------------------------------------------------------------
 class _StatisticsTab extends ConsumerWidget {
   const _StatisticsTab();
