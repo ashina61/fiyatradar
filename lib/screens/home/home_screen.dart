@@ -10,7 +10,6 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../main_screen.dart';
-import '../search/search_screen.dart';
 import '../product/product_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -627,6 +626,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       default:
         return Icons.category;
     }
+  }
+
+  Widget _buildLatestPricesSection(ThemeData theme, List<PriceModel> prices) {
+    if (prices.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        const _SectionHeader(
+          title: 'Son Eklenen Fiyatlar',
+          icon: Icons.access_time,
+          iconColor: AppColors.info,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...prices.take(5).map((price) => Card(
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+          child: ListTile(
+            leading: Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Icon(Icons.price_change, color: AppColors.primary, size: 20),
+            ),
+            title: Text(price.storeName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(price.userName ?? 'Anonim', style: const TextStyle(fontSize: 12)),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Text(
+                '${price.price.toStringAsFixed(2)} TL',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 14),
+              ),
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: price.productId)),
+            ),
+          ),
+        )),
+      ],
+    );
   }
 
   Color _categoryColor(int index) {
