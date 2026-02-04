@@ -44,7 +44,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            _buildBadgesSection(context),
+            _buildBadgesSection(context, user),
             const SizedBox(height: AppSpacing.lg),
 
             // Menu Group 1
@@ -786,16 +786,52 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Badges
   // ===========================================================================
-  Widget _buildBadgesSection(BuildContext context) {
-    const badges = [
-      _BadgeItem(emoji: '\u{1F3C6}', name: 'Fiyat Avcisi', description: '50+ fiyat girisi', color: AppColors.accent),
-      _BadgeItem(emoji: '\u{2B50}', name: 'Guvenilir Uye', description: '100+ dogrulama', color: AppColors.primary),
-      _BadgeItem(emoji: '\u{1F525}', name: 'Trend Belirleyici', description: '10+ trend urun', color: AppColors.error),
-      _BadgeItem(emoji: '\u{1F6E1}', name: 'Dogrulayici', description: '50+ dogrulama', color: AppColors.secondary),
+  Widget _buildBadgesSection(BuildContext context, UserModel? user) {
+    final priceEntries = user?.priceEntries ?? 0;
+    final validations = user?.validations ?? 0;
+    final isAdmin = user?.isAdmin ?? false;
+
+    // Define badges with unlock conditions
+    final badges = [
+      _BadgeItem(
+        emoji: '\u{1F3C6}', name: 'Fiyat Avcisi',
+        description: '50+ fiyat girisi',
+        color: AppColors.accent,
+        isEarned: priceEntries >= 50,
+        progress: priceEntries < 50 ? '$priceEntries/50 fiyat ekle' : null,
+      ),
+      _BadgeItem(
+        emoji: '\u{2B50}', name: 'Guvenilir Uye',
+        description: '100+ dogrulama',
+        color: AppColors.primary,
+        isEarned: validations >= 100,
+        progress: validations < 100 ? '$validations/100 dogrulama yap' : null,
+      ),
+      _BadgeItem(
+        emoji: '\u{1F525}', name: 'Trend Belirleyici',
+        description: '10+ fiyat girisi',
+        color: AppColors.error,
+        isEarned: priceEntries >= 10,
+        progress: priceEntries < 10 ? '$priceEntries/10 fiyat ekle' : null,
+      ),
+      _BadgeItem(
+        emoji: '\u{1F6E1}', name: 'Dogrulayici',
+        description: '50+ dogrulama',
+        color: AppColors.secondary,
+        isEarned: validations >= 50,
+        progress: validations < 50 ? '$validations/50 dogrulama yap' : null,
+      ),
+      if (isAdmin) _BadgeItem(
+        emoji: '\u{1F48E}', name: 'Meta',
+        description: 'Admin',
+        color: const Color(0xFF8B5CF6),
+        isEarned: true,
+        progress: null,
+      ),
     ];
 
     return SizedBox(
-      height: 120,
+      height: 130,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -803,21 +839,60 @@ class ProfileScreen extends ConsumerWidget {
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, index) {
           final badge = badges[index];
-          return SizedBox(
-            width: 90,
-            child: Column(children: [
-              Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                  color: badge.color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: badge.color.withOpacity(0.3), width: 2),
+          final earned = badge.isEarned;
+          return GestureDetector(
+            onTap: !earned ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(badge.progress ?? '${badge.description} gerekli'),
+                  behavior: SnackBarBehavior.floating,
                 ),
-                child: Center(child: Text(badge.emoji, style: const TextStyle(fontSize: 28))),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(badge.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodyMedium?.color), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            ]),
+              );
+            } : null,
+            child: SizedBox(
+              width: 90,
+              child: Column(children: [
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: earned ? badge.color.withOpacity(0.12) : Colors.grey.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: earned ? badge.color.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Opacity(
+                      opacity: earned ? 1.0 : 0.3,
+                      child: Text(badge.emoji, style: const TextStyle(fontSize: 28)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  badge.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: earned
+                        ? Theme.of(context).textTheme.bodyMedium?.color
+                        : AppColors.textTertiary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (!earned && badge.progress != null)
+                  Text(
+                    badge.progress!,
+                    style: const TextStyle(fontSize: 9, color: AppColors.textTertiary),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ]),
+            ),
           );
         },
       ),
@@ -987,5 +1062,14 @@ class _BadgeItem {
   final String name;
   final String description;
   final Color color;
-  const _BadgeItem({required this.emoji, required this.name, required this.description, required this.color});
+  final bool isEarned;
+  final String? progress;
+  const _BadgeItem({
+    required this.emoji,
+    required this.name,
+    required this.description,
+    required this.color,
+    this.isEarned = false,
+    this.progress,
+  });
 }

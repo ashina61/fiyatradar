@@ -418,7 +418,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       priceHistoryAsync.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
                         error: (e, _) => Text('Hata: $e'),
-                        data: (prices) => _buildPriceChart(prices),
+                        data: (prices) => Column(
+                          children: [
+                            _buildPriceChart(prices),
+                            if (prices.isNotEmpty)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () => _showReportPriceDialog(prices.first),
+                                  icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
+                                  label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
@@ -718,6 +731,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final total = totalVerified + totalUnverified;
     final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
 
+    // Get the latest price for voting
+    final latestPrice = prices.isNotEmpty ? prices.first : null;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -727,28 +743,31 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildVerifyButton(
-                  icon: Icons.thumb_up_outlined,
-                  label: 'Dogrula',
-                  count: totalVerified,
-                  color: AppColors.success,
+          if (latestPrice != null)
+            Row(
+              children: [
+                Expanded(
+                  child: _buildVerifyButton(
+                    icon: Icons.thumb_up_outlined,
+                    label: 'Dogrula',
+                    count: totalVerified,
+                    color: AppColors.success,
+                    onTap: () => _verifyLatestPrice(latestPrice.id, true),
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildVerifyButton(
-                  icon: Icons.thumb_down_outlined,
-                  label: 'Reddet',
-                  count: totalUnverified,
-                  color: AppColors.error,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _buildVerifyButton(
+                    icon: Icons.thumb_down_outlined,
+                    label: 'Reddet',
+                    count: totalUnverified,
+                    color: AppColors.error,
+                    onTap: () => _verifyLatestPrice(latestPrice.id, false),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
+              ],
+            ),
+          if (latestPrice != null) const SizedBox(height: AppSpacing.md),
           // Verification progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.full),
@@ -789,41 +808,175 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+  Future<void> _verifyLatestPrice(String priceId, bool isVerified) async {
+    final user = ref.read(userModelStreamProvider).valueOrNull;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dogrulama icin giris yapmalisiniz'), behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+
+    final service = ref.read(firestoreServiceProvider);
+    final already = await service.hasUserVerifiedPrice(priceId, user.uid);
+    if (already) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu fiyati zaten degerlendirdiniz'), behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+
+    await service.verifyPrice(priceId, user.uid, isVerified);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isVerified ? 'Fiyat dogrulandi (+5 puan)' : 'Fiyat reddedildi (+5 puan)'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isVerified ? AppColors.success : AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _showReportPriceDialog(PriceModel price) {
+    final reasons = ['Yanlis fiyat', 'Yanlis magaza', 'Sahte giriş', 'Diger'];
+    String? selectedReason;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: const Row(children: [
+            Icon(Icons.flag_outlined, color: AppColors.error, size: 22),
+            SizedBox(width: 8),
+            Text('Fiyati Raporla'),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: reasons.map((r) => RadioListTile<String>(
+              title: Text(r, style: const TextStyle(fontSize: 14)),
+              value: r,
+              groupValue: selectedReason,
+              activeColor: AppColors.primary,
+              onChanged: (val) => setDialogState(() => selectedReason = val),
+            )).toList(),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: selectedReason == null ? null : () async {
+                final user = ref.read(userModelStreamProvider).valueOrNull;
+                if (user != null) {
+                  await ref.read(firestoreServiceProvider).reportPrice(price.id, user.uid, selectedReason!);
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rapor gonderildi'), behavior: SnackBarBehavior.floating),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              child: const Text('Raporla', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportCommentDialog(CommentModel comment) {
+    final reasons = ['Uygunsuz icerik', 'Spam', 'Kufur/hakaret', 'Diger'];
+    String? selectedReason;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: const Row(children: [
+            Icon(Icons.flag_outlined, color: AppColors.error, size: 22),
+            SizedBox(width: 8),
+            Text('Yorumu Raporla'),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: reasons.map((r) => RadioListTile<String>(
+              title: Text(r, style: const TextStyle(fontSize: 14)),
+              value: r,
+              groupValue: selectedReason,
+              activeColor: AppColors.primary,
+              onChanged: (val) => setDialogState(() => selectedReason = val),
+            )).toList(),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: selectedReason == null ? null : () async {
+                final user = ref.read(userModelStreamProvider).valueOrNull;
+                if (user != null) {
+                  await ref.read(firestoreServiceProvider).reportComment(comment.id, user.uid, selectedReason!);
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rapor gonderildi'), behavior: SnackBarBehavior.floating),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              child: const Text('Raporla', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildVerifyButton({
     required IconData icon,
     required String label,
     required int count,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 6),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: 16,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -919,20 +1072,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             ],
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.thumb_up_outlined,
-                                size: 14, color: AppColors.textTertiary),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${comment.likes}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ],
+                        GestureDetector(
+                          onTap: () => _showReportCommentDialog(comment),
+                          child: const Icon(Icons.flag_outlined,
+                              size: 16, color: AppColors.textTertiary),
                         ),
                       ],
                     ),

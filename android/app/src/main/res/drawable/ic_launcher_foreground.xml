@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Radar circle outer -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M54,20 A34,34 0 1,1 54,88 A34,34 0 1,1 54,20Z"/>
+
+    <!-- Radar circle middle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.3"
+        android:pathData="M54,30 A24,24 0 1,1 54,78 A24,24 0 1,1 54,30Z"/>
+
+    <!-- Radar circle inner -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.4"
+        android:pathData="M54,40 A14,14 0 1,1 54,68 A14,14 0 1,1 54,40Z"/>
+
+    <!-- Center dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,50 A4,4 0 1,1 54,58 A4,4 0 1,1 54,50Z"/>
+
+    <!-- Radar sweep line -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:pathData="M54,54 L78,30"/>
+
+    <!-- TL symbol (Turkish Lira) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,38 L36,70 M30,50 L42,50 M30,58 L42,58"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+
+</vector>

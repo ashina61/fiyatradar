@@ -20,33 +20,40 @@ class FirestoreService {
   // Get trending products (most price entries)
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
     return _productsRef
-        .orderBy('priceEntryCount', descending: true)
-        .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => ProductModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
+          return list.take(limit).toList();
+        });
   }
 
   // Get recommended products (by view count)
   Stream<List<ProductModel>> getRecommendedProducts({int limit = 10}) {
     return _productsRef
-        .orderBy('viewCount', descending: true)
-        .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => ProductModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+          return list.take(limit).toList();
+        });
   }
 
   // Get all products
   Stream<List<ProductModel>> getAllProducts() {
     return _productsRef
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => ProductModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   // Search products
@@ -93,25 +100,40 @@ class FirestoreService {
   Stream<List<PriceModel>> getPricesForProduct(String productId) {
     return _pricesRef
         .where('productId', isEqualTo: productId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PriceModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => PriceModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<PriceModel?> getLatestPrice(String productId) async {
     final snapshot = await _pricesRef
         .where('productId', isEqualTo: productId)
-        .where('isApproved', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
         .get();
 
-    if (snapshot.docs.isNotEmpty) {
-      return PriceModel.fromFirestore(snapshot.docs.first);
-    }
-    return null;
+    final prices = snapshot.docs
+        .map((doc) => PriceModel.fromFirestore(doc))
+        .where((p) => p.isApproved)
+        .toList();
+    prices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return prices.isNotEmpty ? prices.first : null;
+  }
+
+  // Get latest prices across all products
+  Stream<List<PriceModel>> getLatestPrices({int limit = 10}) {
+    return _pricesRef
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => PriceModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list.take(limit).toList();
+        });
   }
 
   Future<String> addPrice(PriceModel price) async {
@@ -128,10 +150,49 @@ class FirestoreService {
     return doc.id;
   }
 
-  Future<void> verifyPrice(String priceId, bool isVerified) async {
+  Future<void> verifyPrice(String priceId, String voterId, bool isVerified) async {
     final field = isVerified ? 'verifiedCount' : 'unverifiedCount';
     await _pricesRef.doc(priceId).update({
       field: FieldValue.increment(1),
+      'verifiedBy': FieldValue.arrayUnion([voterId]),
+    });
+    // Give the voter +5 points for validating
+    await _usersRef.doc(voterId).update({
+      'validations': FieldValue.increment(1),
+      'points': FieldValue.increment(5),
+    });
+  }
+
+  // Check if user already verified a price
+  Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
+    final doc = await _pricesRef.doc(priceId).get();
+    if (!doc.exists) return false;
+    final data = doc.data() as Map<String, dynamic>?;
+    final verifiedBy = List<String>.from(data?['verifiedBy'] ?? []);
+    return verifiedBy.contains(userId);
+  }
+
+  // Report a price
+  Future<void> reportPrice(String priceId, String userId, String reason) async {
+    await _firestore.collection('reports').add({
+      'type': 'price',
+      'targetId': priceId,
+      'userId': userId,
+      'reason': reason,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Report a comment
+  Future<void> reportComment(String commentId, String userId, String reason) async {
+    await _firestore.collection('reports').add({
+      'type': 'comment',
+      'targetId': commentId,
+      'userId': userId,
+      'reason': reason,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -139,11 +200,14 @@ class FirestoreService {
   Stream<List<PriceModel>> getPendingPrices() {
     return _pricesRef
         .where('isPending', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PriceModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => PriceModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<void> approvePrice(String priceId) async {
@@ -164,11 +228,14 @@ class FirestoreService {
   Stream<List<CommentModel>> getComments(String productId) {
     return _commentsRef
         .where('productId', isEqualTo: productId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CommentModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => CommentModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<String> addComment(CommentModel comment) async {
@@ -197,11 +264,14 @@ class FirestoreService {
   Stream<List<NotificationModel>> getNotifications(String userId) {
     return _notificationsRef
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => NotificationModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => NotificationModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Stream<int> getUnreadNotificationCount(String userId) {
@@ -240,21 +310,27 @@ class FirestoreService {
   Stream<List<BannerModel>> getActiveBanners() {
     return _bannersRef
         .where('isActive', isEqualTo: true)
-        .orderBy('order')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => BannerModel.fromFirestore(doc))
-            .where((banner) => banner.shouldShow)
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => BannerModel.fromFirestore(doc))
+              .where((banner) => banner.shouldShow)
+              .toList();
+          list.sort((a, b) => a.order.compareTo(b.order));
+          return list;
+        });
   }
 
   Stream<List<BannerModel>> getAllBanners() {
     return _bannersRef
-        .orderBy('order')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => BannerModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => BannerModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => a.order.compareTo(b.order));
+          return list;
+        });
   }
 
   Future<String> addBanner(BannerModel banner) async {
@@ -273,11 +349,14 @@ class FirestoreService {
   // Users (for admin)
   Stream<List<UserModel>> getAllUsers() {
     return _usersRef
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => UserModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<void> updateUserAdmin(String userId, bool isAdmin) async {
@@ -299,11 +378,16 @@ class FirestoreService {
     return _usersRef
         .doc(userId)
         .collection('searchHistory')
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => doc.data()['query'] as String).toList());
+        .map((snapshot) {
+          final docs = snapshot.docs.toList();
+          docs.sort((a, b) {
+            final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+            final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+            return bTime.compareTo(aTime);
+          });
+          return docs.take(limit).map((doc) => doc.data()['query'] as String).toList();
+        });
   }
 
   Future<void> clearSearchHistory(String userId) async {
@@ -333,16 +417,19 @@ class FirestoreService {
   CollectionReference get _categoriesRef => _firestore.collection('categories');
 
   Stream<List<Map<String, dynamic>>> getCategories() {
-    return _categoriesRef.orderBy('order').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'] ?? '',
-            'iconName': data['iconName'] ?? 'category',
-            'order': data['order'] ?? 0,
-          };
-        }).toList());
+    return _categoriesRef.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? '',
+          'iconName': data['iconName'] ?? 'category',
+          'order': data['order'] ?? 0,
+        };
+      }).toList();
+      list.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+      return list;
+    });
   }
 
   Future<String> addCategory(String name, String iconName) async {
@@ -363,14 +450,17 @@ class FirestoreService {
   CollectionReference get _storesRef => _firestore.collection('stores');
 
   Stream<List<Map<String, dynamic>>> getStores() {
-    return _storesRef.orderBy('name').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'] ?? '',
-          };
-        }).toList());
+    return _storesRef.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? '',
+        };
+      }).toList();
+      list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+      return list;
+    });
   }
 
   Future<String> addStore(String name) async {
