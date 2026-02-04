@@ -489,4 +489,39 @@ class FirestoreService {
   Future<void> deleteNotification(String notificationId) async {
     await _notificationsRef.doc(notificationId).delete();
   }
+
+  // Reports
+  CollectionReference get _reportsRef => _firestore.collection('reports');
+
+  Stream<List<Map<String, dynamic>>> getReports() {
+    return _reportsRef.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'type': data['type'] ?? '',
+          'targetId': data['targetId'] ?? '',
+          'userId': data['userId'] ?? '',
+          'reason': data['reason'] ?? '',
+          'status': data['status'] ?? 'pending',
+          'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        };
+      }).toList();
+      list.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
+      return list;
+    });
+  }
+
+  Future<void> updateReportStatus(String reportId, String status) async {
+    await _reportsRef.doc(reportId).update({'status': status});
+  }
+
+  Future<void> deleteReport(String reportId) async {
+    await _reportsRef.doc(reportId).delete();
+  }
+
+  // Update user profile
+  Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
+    await _usersRef.doc(userId).update(data);
+  }
 }

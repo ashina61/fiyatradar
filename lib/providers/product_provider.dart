@@ -106,3 +106,9 @@ final latestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getLatestPrices(limit: 10);
 });
+
+// Reports (for admin panel)
+final reportsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getReports();
+});

@@ -208,39 +208,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Row(
       children: [
         // Avatar + Greeting
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: photoUrl == null ? const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryLight],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ) : null,
-            image: photoUrl != null ? DecorationImage(
-              image: NetworkImage(photoUrl),
-              fit: BoxFit.cover,
-              onError: (_, __) {},
-            ) : null,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: photoUrl == null ? Center(
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+        GestureDetector(
+          onTap: () {
+            ref.read(currentTabProvider.notifier).state = 4;
+          },
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: photoUrl == null ? const LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ) : null,
+              image: photoUrl != null ? DecorationImage(
+                image: NetworkImage(photoUrl),
+                fit: BoxFit.cover,
+                onError: (_, __) {},
+              ) : null,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-          ) : null,
+            child: photoUrl == null ? Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ) : null,
+          ),
         ),
         const SizedBox(width: AppSpacing.sm + 4),
         Expanded(
