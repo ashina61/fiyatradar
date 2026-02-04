@@ -893,7 +893,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget _buildBadgesSection(BuildContext context, UserModel? user) {
     final priceEntries = user?.priceEntries ?? 0;
     final validations = user?.validations ?? 0;
-    final isAdmin = user?.isAdmin ?? false;
 
     // Define badges with unlock conditions
     final badges = [
