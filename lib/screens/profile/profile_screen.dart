@@ -1,14 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../utils/theme.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
-import '../../services/storage_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -30,10 +27,10 @@ class ProfileScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(context, ref, user),
+            _buildProfileHeader(context, user),
             Transform.translate(
               offset: const Offset(0, -36),
-              child: _buildStatsRow(context, theme, user),
+              child: _buildStatsRow(context, theme),
             ),
 
             // Badges
@@ -61,11 +58,6 @@ class ProfileScreen extends ConsumerWidget {
                 icon: Icons.history,
                 title: 'Fiyat Gecmisim',
                 onTap: () => _showPriceHistory(context),
-              ),
-              _MenuItem(
-                icon: Icons.add_box_outlined,
-                title: 'Yeni Urun Talep Et',
-                onTap: () => _showProductRequestDialog(context, ref, user),
               ),
               _MenuItem(
                 icon: Icons.stars_outlined,
@@ -201,73 +193,6 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Active Feature Handlers
   // ===========================================================================
-
-  void _showProductRequestDialog(BuildContext context, WidgetRef ref, UserModel? user) {
-    final productNameController = TextEditingController();
-    final brandController = TextEditingController();
-    final notesController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.add_box_outlined, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Urun Talep Et'),
-        ]),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Uygulamada bulamadiginiz bir urunu talep edin. Yonetim ekibi inceleyecektir.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: productNameController,
-              decoration: const InputDecoration(labelText: 'Urun Adi *', prefixIcon: Icon(Icons.label_outline)),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: brandController,
-              decoration: const InputDecoration(labelText: 'Marka (opsiyonel)', prefixIcon: Icon(Icons.branding_watermark)),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Notlar (opsiyonel)', prefixIcon: Icon(Icons.notes)),
-            ),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (productNameController.text.isEmpty) return;
-              final service = ref.read(firestoreServiceProvider);
-              await service.addProductRequest(
-                productName: productNameController.text,
-                brand: brandController.text,
-                notes: notesController.text,
-                userId: user?.uid ?? '',
-                userName: user?.name ?? '',
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Urun talebiniz gonderildi!'), behavior: SnackBarBehavior.floating),
-                );
-              }
-            },
-            child: const Text('Gonder'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showSavedProducts(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(
@@ -541,24 +466,7 @@ class ProfileScreen extends ConsumerWidget {
 
   void _showPointsSystem(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Consumer(
-        builder: (context, ref, _) {
-        final userAsync = ref.watch(userModelStreamProvider);
-        final user = userAsync.valueOrNull;
-        final userPoints = user?.points ?? 0;
-        String level;
-        if (userPoints >= 5000) {
-          level = 'Elmas Uye';
-        } else if (userPoints >= 2000) {
-          level = 'Platin Uye';
-        } else if (userPoints >= 500) {
-          level = 'Altin Uye';
-        } else if (userPoints >= 100) {
-          level = 'Gumus Uye';
-        } else {
-          level = 'Bronz Uye';
-        }
-        return Scaffold(
+      builder: (_) => Scaffold(
         appBar: AppBar(title: const Text('Puan Sistemi')),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -574,9 +482,9 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(children: [
                 const Icon(Icons.stars, color: Colors.white, size: 48),
                 const SizedBox(height: AppSpacing.sm),
-                Text('$userPoints Puan', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                const Text('1250 Puan', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('Seviye: $level', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+                Text('Seviye: Altin Uye', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
               ]),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -616,8 +524,6 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xl),
           ]),
         ),
-      );
-        },
       ),
     ));
   }
@@ -780,119 +686,10 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Profile Header
   // ===========================================================================
-  void _showEditProfileDialog(BuildContext context, WidgetRef ref, UserModel? user) {
-    final nameController = TextEditingController(text: user?.name ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.edit, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Profili Duzenle'),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Adiniz',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) return;
-              final uid = user?.uid;
-              if (uid != null) {
-                await AuthService().updateUserProfile(uid: uid, name: nameController.text);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profil guncellendi'), behavior: SnackBarBehavior.floating),
-                  );
-                }
-              }
-            },
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _changeProfilePhoto(BuildContext context, WidgetRef ref, UserModel? user) async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg))),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.md),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.outlineVariant, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: AppSpacing.md),
-            const Text('Profil Fotografi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.md),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Kamera'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: AppColors.secondary),
-              title: const Text('Galeri'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-        ),
-      ),
-    );
-
-    if (source == null || user == null) return;
-
-    final pickedFile = await picker.pickImage(source: source, maxWidth: 512, maxHeight: 512, imageQuality: 80);
-    if (pickedFile == null) return;
-
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fotograf yukleniyor...'), behavior: SnackBarBehavior.floating),
-    );
-
-    try {
-      final storage = StorageService();
-      final url = await storage.uploadUserAvatar(file: File(pickedFile.path), userId: user.uid);
-      await AuthService().updateUserProfile(uid: user.uid, photoUrl: url);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil fotografi guncellendi'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    }
-  }
-
-  Widget _buildProfileHeader(BuildContext context, WidgetRef ref, UserModel? user) {
+  Widget _buildProfileHeader(BuildContext context, UserModel? user) {
     final displayName = user?.name ?? 'Kullanici';
     final email = user?.email ?? '';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
-    final photoUrl = user?.photoUrl;
 
     return Container(
       width: double.infinity,
@@ -915,47 +712,27 @@ class ProfileScreen extends ConsumerWidget {
             top: 0, right: 0,
             child: IconButton(
               icon: const Icon(Icons.edit, color: Colors.white70, size: 22),
-              onPressed: () => _showEditProfileDialog(context, ref, user),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profil duzenleme yaklnda eklenecek'), behavior: SnackBarBehavior.floating),
+                );
+              },
             ),
           ),
           Center(
             child: Column(children: [
-              GestureDetector(
-                onTap: () => _changeProfilePhoto(context, ref, user),
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 100, height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: photoUrl == null ? LinearGradient(colors: [
-                          AppColors.primaryLight.withOpacity(0.8),
-                          AppColors.secondaryLight.withOpacity(0.8),
-                        ], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                        image: photoUrl != null ? DecorationImage(
-                          image: NetworkImage(photoUrl),
-                          fit: BoxFit.cover,
-                          onError: (_, __) {},
-                        ) : null,
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 6))],
-                      ),
-                      child: photoUrl == null ? Center(
-                        child: Text(initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ) : null,
-                    ),
-                    Positioned(
-                      bottom: 0, right: 0,
-                      child: Container(
-                        width: 32, height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                      ),
-                    ),
-                  ],
+              Container(
+                width: 100, height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(colors: [
+                    AppColors.primaryLight.withOpacity(0.8),
+                    AppColors.secondaryLight.withOpacity(0.8),
+                  ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 6))],
+                ),
+                child: Center(
+                  child: Text(initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -972,19 +749,16 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Stats Row
   // ===========================================================================
-  Widget _buildStatsRow(BuildContext context, ThemeData theme, UserModel? user) {
+  Widget _buildStatsRow(BuildContext context, ThemeData theme) {
     final cardColor = theme.cardColor;
-    final priceEntries = user?.priceEntries ?? 0;
-    final points = user?.points ?? 0;
-    final validations = user?.validations ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(children: [
-        Expanded(child: _buildStatCard(context, cardColor, value: '$priceEntries', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '45', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '$points', label: 'Puan', icon: Icons.stars, color: AppColors.accent)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '1250', label: 'Puan', icon: Icons.stars, color: AppColors.accent)),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '$validations', label: 'Dogrulama', icon: Icons.verified, color: AppColors.secondary)),
+        Expanded(child: _buildStatCard(context, cardColor, value: '120', label: 'Dogrulama', icon: Icons.verified, color: AppColors.secondary)),
       ]),
     );
   }

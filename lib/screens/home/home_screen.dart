@@ -147,10 +147,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     theme,
                     'Trend Urunler',
                     products,
-                    icon: Icons.local_fire_department,
-                    iconColor: AppColors.error,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Trend Urunler', icon: Icons.local_fire_department, iconColor: AppColors.error),
+                  loading: () => _buildProductsLoading(theme, 'Trend Urunler'),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -165,10 +163,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     theme,
                     'Onerilen Urunler',
                     products,
-                    icon: Icons.thumb_up,
-                    iconColor: AppColors.primary,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Onerilen Urunler', icon: Icons.thumb_up, iconColor: AppColors.primary),
+                  loading: () => _buildProductsLoading(theme, 'Onerilen Urunler'),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -521,15 +517,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildProductsSection(ThemeData theme, String title, List<ProductModel> products, {IconData? icon, Color? iconColor}) {
+  Widget _buildProductsSection(ThemeData theme, String title, List<ProductModel> products) {
     if (products.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
         _SectionHeader(
           title: title,
-          icon: icon,
-          iconColor: iconColor,
           actionText: 'Tumunu Gor',
           onAction: () {
             ref.read(currentTabProvider.notifier).state = 1;
@@ -563,10 +557,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildProductsLoading(ThemeData theme, String title, {IconData? icon, Color? iconColor}) {
+  Widget _buildProductsLoading(ThemeData theme, String title) {
     return Column(
       children: [
-        _SectionHeader(title: title, icon: icon, iconColor: iconColor),
+        _SectionHeader(title: title),
         const SizedBox(height: AppSpacing.sm),
         const SizedBox(
           height: 230,
@@ -598,24 +592,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return Icons.book;
       case 'directions_car':
         return Icons.directions_car;
-      case 'pets':
-        return Icons.pets;
-      case 'local_pharmacy':
-        return Icons.local_pharmacy;
-      case 'child_care':
-        return Icons.child_care;
-      case 'build':
-        return Icons.build;
-      case 'headphones':
-        return Icons.headphones;
-      case 'watch':
-        return Icons.watch;
-      case 'chair':
-        return Icons.chair;
-      case 'local_florist':
-        return Icons.local_florist;
-      case 'fitness_center':
-        return Icons.fitness_center;
       default:
         return Icons.category;
     }
@@ -646,15 +622,11 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String? actionText;
   final VoidCallback? onAction;
-  final IconData? icon;
-  final Color? iconColor;
 
   const _SectionHeader({
     required this.title,
     this.actionText,
     this.onAction,
-    this.icon,
-    this.iconColor,
   });
 
   @override
@@ -664,21 +636,12 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 22, color: iconColor ?? AppColors.primary),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
+          Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           if (actionText != null && onAction != null)
             GestureDetector(

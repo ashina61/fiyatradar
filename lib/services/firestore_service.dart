@@ -240,27 +240,21 @@ class FirestoreService {
   Stream<List<BannerModel>> getActiveBanners() {
     return _bannersRef
         .where('isActive', isEqualTo: true)
+        .orderBy('order')
         .snapshots()
-        .map((snapshot) {
-          final banners = snapshot.docs
-              .map((doc) => BannerModel.fromFirestore(doc))
-              .where((banner) => banner.shouldShow)
-              .toList();
-          banners.sort((a, b) => a.order.compareTo(b.order));
-          return banners;
-        });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => BannerModel.fromFirestore(doc))
+            .where((banner) => banner.shouldShow)
+            .toList());
   }
 
   Stream<List<BannerModel>> getAllBanners() {
     return _bannersRef
+        .orderBy('order')
         .snapshots()
-        .map((snapshot) {
-          final banners = snapshot.docs
-              .map((doc) => BannerModel.fromFirestore(doc))
-              .toList();
-          banners.sort((a, b) => a.order.compareTo(b.order));
-          return banners;
-        });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => BannerModel.fromFirestore(doc))
+            .toList());
   }
 
   Future<String> addBanner(BannerModel banner) async {
@@ -339,19 +333,16 @@ class FirestoreService {
   CollectionReference get _categoriesRef => _firestore.collection('categories');
 
   Stream<List<Map<String, dynamic>>> getCategories() {
-    return _categoriesRef.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          'name': data['name'] ?? '',
-          'iconName': data['iconName'] ?? 'category',
-          'order': data['order'] ?? 0,
-        };
-      }).toList();
-      list.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
-      return list;
-    });
+    return _categoriesRef.orderBy('order').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'] ?? '',
+            'iconName': data['iconName'] ?? 'category',
+            'order': data['order'] ?? 0,
+          };
+        }).toList());
   }
 
   Future<String> addCategory(String name, String iconName) async {
@@ -392,66 +383,6 @@ class FirestoreService {
 
   Future<void> deleteStore(String storeId) async {
     await _storesRef.doc(storeId).delete();
-  }
-
-  // Product requests
-  CollectionReference get _productRequestsRef => _firestore.collection('productRequests');
-
-  Future<void> addProductRequest({
-    required String productName,
-    required String brand,
-    required String notes,
-    required String userId,
-    required String userName,
-  }) async {
-    await _productRequestsRef.add({
-      'productName': productName,
-      'brand': brand,
-      'notes': notes,
-      'userId': userId,
-      'userName': userName,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Stream<List<Map<String, dynamic>>> getProductRequests() {
-    return _productRequestsRef.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          ...data,
-        };
-      }).toList();
-      return list;
-    });
-  }
-
-  Future<void> updateProductRequestStatus(String requestId, String status) async {
-    await _productRequestsRef.doc(requestId).update({'status': status});
-  }
-
-  // Maintenance mode
-  Future<void> setMaintenanceMode(bool enabled, {String? message}) async {
-    await _firestore.collection('appSettings').doc('maintenance').set({
-      'enabled': enabled,
-      'message': message ?? 'Uygulama bakim modundadir. Lutfen daha sonra tekrar deneyin.',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Stream<Map<String, dynamic>> getMaintenanceStatus() {
-    return _firestore.collection('appSettings').doc('maintenance').snapshots().map((doc) {
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'enabled': data['enabled'] ?? false,
-          'message': data['message'] ?? '',
-        };
-      }
-      return {'enabled': false, 'message': ''};
-    });
   }
 
   // Delete product
