@@ -31,6 +31,9 @@ final productProvider = FutureProvider.family<ProductModel?, String>((ref, produ
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
+// Category filter for search screen (set from home screen category tap)
+final selectedCategoryFilterProvider = StateProvider<String>((ref) => 'Tumu');
+
 final searchResultsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final query = ref.watch(searchQueryProvider);
   if (query.isEmpty || !firebaseInitialized) {
@@ -96,4 +99,10 @@ final productCommentsProvider = StreamProvider.family<List<CommentModel>, String
 final productPriceHistoryProvider = StreamProvider.family<List<PriceModel>, String>((ref, productId) {
   if (!firebaseInitialized || productId.isEmpty) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPricesForProduct(productId);
+});
+
+// Latest prices across all products (for home screen)
+final latestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getLatestPrices(limit: 10);
 });

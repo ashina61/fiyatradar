@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
+import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../main_screen.dart';
+import '../search/search_screen.dart';
 import '../product/product_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -59,6 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
+    final latestPricesAsync = ref.watch(latestPricesProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -147,8 +150,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     theme,
                     'Trend Urunler',
                     products,
+                    icon: Icons.local_fire_department,
+                    iconColor: AppColors.error,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Trend Urunler'),
+                  loading: () => _buildProductsLoading(theme, 'Trend Urunler', icon: Icons.local_fire_department, iconColor: AppColors.error),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -163,8 +168,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     theme,
                     'Onerilen Urunler',
                     products,
+                    icon: Icons.thumb_up,
+                    iconColor: AppColors.primary,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Onerilen Urunler'),
+                  loading: () => _buildProductsLoading(theme, 'Onerilen Urunler', icon: Icons.thumb_up, iconColor: AppColors.primary),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+
+            // ---------- Latest Prices ----------
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.lg),
+                child: latestPricesAsync.when(
+                  data: (prices) => _buildLatestPricesSection(theme, prices),
+                  loading: () => const SizedBox.shrink(),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -185,6 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
     final unreadCount = unreadCountAsync.valueOrNull ?? 0;
+    final String? photoUrl = user?.photoUrl;
 
     return Row(
       children: [
@@ -194,11 +214,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: photoUrl == null ? const LinearGradient(
               colors: [AppColors.primary, AppColors.primaryLight],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-            ),
+            ) : null,
+            image: photoUrl != null ? DecorationImage(
+              image: NetworkImage(photoUrl),
+              fit: BoxFit.cover,
+              onError: (_, __) {},
+            ) : null,
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.3),
@@ -207,7 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-          child: Center(
+          child: photoUrl == null ? Center(
             child: Text(
               initial,
               style: const TextStyle(
@@ -216,7 +241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontSize: 18,
               ),
             ),
-          ),
+          ) : null,
         ),
         const SizedBox(width: AppSpacing.sm + 4),
         Expanded(
@@ -482,12 +507,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm + 4),
             itemBuilder: (context, index) {
               final cat = categories[index];
+              final catName = cat['name'] ?? '';
               return _CategoryChip(
-                name: cat['name'] ?? '',
+                name: catName,
                 iconData: _categoryIcon(cat['iconName'] ?? 'category'),
                 color: _categoryColor(index),
                 onTap: () {
                   ref.read(currentTabProvider.notifier).state = 1;
+                  // Set category filter via a brief delay to let the tab switch first
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    ref.read(selectedCategoryFilterProvider.notifier).state = catName;
+                  });
                 },
               );
             },
@@ -517,13 +547,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildProductsSection(ThemeData theme, String title, List<ProductModel> products) {
+  Widget _buildProductsSection(ThemeData theme, String title, List<ProductModel> products, {IconData? icon, Color? iconColor}) {
     if (products.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
         _SectionHeader(
           title: title,
+          icon: icon,
+          iconColor: iconColor,
           actionText: 'Tumunu Gor',
           onAction: () {
             ref.read(currentTabProvider.notifier).state = 1;
@@ -557,10 +589,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildProductsLoading(ThemeData theme, String title) {
+  Widget _buildProductsLoading(ThemeData theme, String title, {IconData? icon, Color? iconColor}) {
     return Column(
       children: [
-        _SectionHeader(title: title),
+        _SectionHeader(title: title, icon: icon, iconColor: iconColor),
         const SizedBox(height: AppSpacing.sm),
         const SizedBox(
           height: 230,
@@ -622,11 +654,15 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String? actionText;
   final VoidCallback? onAction;
+  final IconData? icon;
+  final Color? iconColor;
 
   const _SectionHeader({
     required this.title,
     this.actionText,
     this.onAction,
+    this.icon,
+    this.iconColor,
   });
 
   @override
@@ -636,12 +672,21 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 22, color: iconColor ?? AppColors.primary),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           if (actionText != null && onAction != null)
             GestureDetector(
@@ -755,32 +800,41 @@ class _ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image placeholder
-            Container(
-              height: 100,
-              decoration: BoxDecoration(
-                color: categoryColor.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppRadius.lg),
-                  topRight: Radius.circular(AppRadius.lg),
+            // Image placeholder with price change badge
+            Stack(
+              children: [
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withOpacity(0.08),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppRadius.lg),
+                      topRight: Radius.circular(AppRadius.lg),
+                    ),
+                    image: product.mainImage != null
+                        ? DecorationImage(
+                            image: NetworkImage(product.mainImage!),
+                            fit: BoxFit.cover,
+                            onError: (_, __) {},
+                          )
+                        : null,
+                  ),
+                  child: product.mainImage == null
+                      ? Center(
+                          child: Icon(
+                            _iconForCategory(product.category),
+                            size: 36,
+                            color: categoryColor.withOpacity(0.5),
+                          ),
+                        )
+                      : null,
                 ),
-                image: product.mainImage != null
-                    ? DecorationImage(
-                        image: NetworkImage(product.mainImage!),
-                        fit: BoxFit.cover,
-                        onError: (_, __) {},
-                      )
-                    : null,
-              ),
-              child: product.mainImage == null
-                  ? Center(
-                      child: Icon(
-                        _iconForCategory(product.category),
-                        size: 36,
-                        color: categoryColor.withOpacity(0.5),
-                      ),
-                    )
-                  : null,
+                if (product.priceEntryCount >= 2 && product.lastPrice != null)
+                  Positioned(
+                    top: 6, right: 6,
+                    child: _buildPriceChangeBadge(),
+                  ),
+              ],
             ),
             // Details
             Expanded(
@@ -908,6 +962,33 @@ class _ProductCard extends StatelessWidget {
       default:
         return Icons.category;
     }
+  }
+
+  Widget _buildPriceChangeBadge() {
+    // Show a badge that indicates price tracking is active
+    // We show "Fiyat Takipte" (price being tracked) when we have multiple entries
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.info.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.trending_up, color: Colors.white, size: 12),
+          SizedBox(width: 3),
+          Text(
+            'Takipte',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatPrice(double price) {

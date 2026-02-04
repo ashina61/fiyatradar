@@ -71,6 +71,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     // Auto-focus the search field after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
+      // Check if a category filter was set from home screen
+      final catFilter = ref.read(selectedCategoryFilterProvider);
+      if (catFilter != 'Tumu') {
+        setState(() => _selectedCategory = catFilter);
+      }
     });
   }
 
