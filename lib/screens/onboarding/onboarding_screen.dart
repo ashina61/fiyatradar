@@ -143,7 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             child: TextButton(
               onPressed:
                   _currentPage < _pages.length - 1 ? _skip : null,
-              child: Text(
+              child: const Text(
                 'Atla',
                 style: TextStyle(
                   fontSize: 16,

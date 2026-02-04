@@ -434,10 +434,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.end,
-        children: const [
+        children: [
           Text(
             'FiyatRadar\'a Hosgeldiniz!',
             style: TextStyle(

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String _themeModeKey = 'theme_mode';
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier(ThemeMode initialMode) : super(initialMode);
+  ThemeModeNotifier(super.initialMode);
 
   Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;

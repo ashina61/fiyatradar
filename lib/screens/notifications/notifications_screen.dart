@@ -220,7 +220,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                 color: theme.colorScheme.surfaceVariant,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.notifications_off_outlined,
                 size: 48,
                 color: AppColors.textTertiary,

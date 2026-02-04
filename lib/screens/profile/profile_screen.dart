@@ -513,7 +513,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             const Text('Avantajlar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSpacing.md),
-            Card(child: Column(children: const [
+            const Card(child: Column(children: [
               ListTile(leading: Icon(Icons.notifications_active, color: AppColors.primary), title: Text('Oncelikli bildirimler'), subtitle: Text('Fiyat dususlerinden ilk siz haberdar olun')),
               Divider(height: 1, indent: 56),
               ListTile(leading: Icon(Icons.workspace_premium, color: AppColors.accent), title: Text('Ozel rozetler'), subtitle: Text('Profilinizde ozel rozetler sergileyin')),
@@ -787,7 +787,7 @@ class ProfileScreen extends ConsumerWidget {
   // Badges
   // ===========================================================================
   Widget _buildBadgesSection(BuildContext context) {
-    final badges = [
+    const badges = [
       _BadgeItem(emoji: '\u{1F3C6}', name: 'Fiyat Avcisi', description: '50+ fiyat girisi', color: AppColors.accent),
       _BadgeItem(emoji: '\u{2B50}', name: 'Guvenilir Uye', description: '100+ dogrulama', color: AppColors.primary),
       _BadgeItem(emoji: '\u{1F525}', name: 'Trend Belirleyici', description: '10+ trend urun', color: AppColors.error),
