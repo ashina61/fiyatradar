@@ -345,7 +345,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           product.brand,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                           ),
@@ -595,13 +595,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
-        child: Center(
+        child: const Center(
           child: Column(
             children: [
               Icon(Icons.bar_chart,
                   size: 48, color: AppColors.textTertiary),
-              const SizedBox(height: AppSpacing.sm),
-              const Text(
+              SizedBox(height: AppSpacing.sm),
+              Text(
                 'Yeterli fiyat verisi yok',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -665,7 +665,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: Container(
                             height: barHeight,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
                                 colors: [
@@ -834,13 +834,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         if (comments.isEmpty)
           Container(
             padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Center(
+            child: const Center(
               child: Column(
                 children: [
                   Icon(Icons.comment_outlined,
                       size: 48, color: AppColors.textTertiary),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text(
+                  SizedBox(height: AppSpacing.sm),
+                  Text(
                     'Henuz yorum yok',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
@@ -922,7 +922,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.thumb_up_outlined,
+                            const Icon(Icons.thumb_up_outlined,
                                 size: 14, color: AppColors.textTertiary),
                             const SizedBox(width: 4),
                             Text(
