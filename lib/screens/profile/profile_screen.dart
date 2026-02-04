@@ -821,10 +821,10 @@ class ProfileScreen extends ConsumerWidget {
         isEarned: validations >= 50,
         progress: validations < 50 ? '$validations/50 dogrulama yap' : null,
       ),
-      if (isAdmin) _BadgeItem(
+      if (isAdmin) const _BadgeItem(
         emoji: '\u{1F48E}', name: 'Meta',
         description: 'Admin',
-        color: const Color(0xFF8B5CF6),
+        color: Color(0xFF8B5CF6),
         isEarned: true,
         progress: null,
       ),

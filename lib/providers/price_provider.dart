@@ -109,9 +109,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
     final currentUser = _authService.currentUser;
     if (currentUser == null) return;
 
-    await _firestoreService.verifyPrice(priceId, isVerified);
-    await _authService.incrementValidations(currentUser.uid);
-    await _authService.addPoints(currentUser.uid, 5);
+    await _firestoreService.verifyPrice(priceId, currentUser.uid, isVerified);
   }
 
   Future<void> approvePrice(String priceId) async {
