@@ -1,4 +1,4 @@
-name: Build Android APK (Filebin - Garanti Yontem)
+name: Build Android APK (ZIP & PixelDrain)
 
 on:
   push:
@@ -57,29 +57,48 @@ jobs:
       - name: Build App Bundle (Release)
         run: flutter build appbundle --release
 
-      # --- GARANTİ YUKLEME ADIMI (Filebin + Uguu) ---
-      - name: Upload Artifacts (Fail-Safe)
+      # --- AKILLI YUKLEME ADIMI (ZIP + PixelDrain) ---
+      - name: Upload Artifacts (Anti-Block Mode)
         run: |
           echo "======================================================="
-          echo "1. DENEME: FILEBIN.NET (Garanti Link)"
+          echo "HAZIRLIK: APK DOSYASI ZIPLENIYOR (Engeli Asmak Icin)..."
+          # APK'yi zip içine koyuyoruz ki sunucu 'illegal extension' demesin
+          cd build/app/outputs/flutter-apk/
+          zip -r app-release.zip app-release.apk
+          cd ../../../..
+          echo "Zipleme Tamam."
+          echo "======================================================="
+
+          echo " "
+          echo "1. DENEME: PIXELDRAIN (En Saglami)"
           echo "Yukleniyor..."
+          # PixelDrain APK kabul eder, etmezse ZIP deneriz
+          RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.apk" -u : "https://pixeldrain.com/api/file")
+          # ID'yi ceker
+          ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
           
-          # Rastgele bir ID uretiyoruz ki link cakismasin
+          if [ -z "$ID" ]; then
+            echo "APK yuklenemedi, ZIP deniyoruz..."
+            RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.zip" -u : "https://pixeldrain.com/api/file")
+            ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
+          fi
+
+          echo " "
+          echo "-------------------------------------------------------"
+          echo "PIXELDRAIN LINKI (APK):"
+          echo "https://pixeldrain.com/u/$ID"
+          echo "-------------------------------------------------------"
+
+          echo " "
+          echo "======================================================="
+          echo "2. DENEME: FILEBIN (ZIP MODU)"
+          echo "APK yerine ZIP yukluyoruz, boylece hata vermeyecek..."
+          
           BIN_ID="fiyatradar-$(date +%s)"
-          
-          # Dosyayi direk o ID'ye yukluyoruz
-          curl -T build/app/outputs/flutter-apk/app-release.apk "https://filebin.net/$BIN_ID/app-release.apk"
+          curl -T build/app/outputs/flutter-apk/app-release.zip "https://filebin.net/$BIN_ID/app-release.zip"
           
           echo " "
           echo "-------------------------------------------------------"
-          echo "APK INDIRME LINKIN HAZIR (TIKLA INDIR):"
-          echo "https://filebin.net/$BIN_ID/app-release.apk"
+          echo "FILEBIN LINKI (ZIP):"
+          echo "https://filebin.net/$BIN_ID/app-release.zip"
           echo "-------------------------------------------------------"
-          echo " "
-          
-          echo "======================================================="
-          echo "2. DENEME: UGUU.SE (Yedek)"
-          # Uguu.se animeci ve yazilimcilarin dostudur, kolay kolay cokmez
-          curl -F "files[]=@build/app/outputs/flutter-apk/app-release.apk" https://uguu.se/upload.php
-          echo " "
-          echo "======================================================="
