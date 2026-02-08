@@ -1,4 +1,4 @@
-name: Build Android (Final - Kotlin Fix)
+name: Build Android (Filebin ZIP - Final)
 
 on:
   push:
@@ -14,29 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- BURASI HAYAT KURTARAN KISIM ---
-      # Kotlin'i 2.0.21 yapiyoruz (Firebase icin sart)
-      # MinSDK'yi 23 yapiyoruz (Garanti olsun)
-      - name: Force Fix Configuration
+      # --- 1. KOTLIN VE MINSDK DÜZELTME (Build Patlamasın Diye Şart) ---
+      - name: Force Fix Kotlin & MinSDK
         run: |
-          echo "Kotlin ve MinSDK ayarlaniyor..."
+          echo "Kotlin sürümü 2.0.21 yapiliyor..."
           
-          # 1. Build.gradle icindeki Kotlin surumunu 2.0.21 yap
+          # build.gradle güncelle
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '2.0.21'/" android/build.gradle
           fi
           
-          # 2. Settings.gradle icindeki plugin surumunu 2.0.21 yap
+          # settings.gradle güncelle
           if [ -f "android/settings.gradle" ]; then
              sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
           fi
           
-          # 3. App/Build.gradle icindeki minSdkVersion'i 23 yap (Zorla)
+          # MinSDK 23 yap (Firebase icin sart)
           if [ -f "android/app/build.gradle" ]; then
              sed -i 's/minSdkVersion [0-9]*/minSdkVersion 23/' android/app/build.gradle
           fi
-          
-          echo "Ayarlar zorla güncellendi!"
 
       - uses: actions/setup-java@v4
         with:
@@ -51,27 +47,29 @@ jobs:
 
       - run: flutter pub get
 
-      # Ikonlari olustur
+      # --- 2. IKONLARI OLUSTURMA ---
       - name: Generate Icons
-        run: dart run flutter_launcher_icons || echo "Ikon config yoksa devam et"
+        run: dart run flutter_launcher_icons || echo "Ikon config yok, geciliyor"
 
       - name: Build APK
         run: flutter build apk --release
 
-      # --- ZİP VE YÜKLE (PixelDrain - Calisan Yontem) ---
-      - name: Upload Artifacts
+      # --- 3. ZIPLE VE FILEBIN'E YUKLE (Senin İstedigin Yontem) ---
+      - name: Upload to Filebin (ZIP)
         run: |
-          echo "APK Zipleniyor..."
+          echo "APK Zipleniyor (Filebin kabul etsin diye)..."
           cd build/app/outputs/flutter-apk/
           zip -r app-release.zip app-release.apk
           cd ../../../..
           
-          echo "PixelDrain'e Yukleniyor..."
-          RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.zip" -u : "https://pixeldrain.com/api/file")
-          ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
+          echo "Filebin'e Yukleniyor..."
+          # Rastgele ID ile link cakismasini onle
+          BIN_ID="fiyatradar-$(date +%s)"
+          
+          curl -T build/app/outputs/flutter-apk/app-release.zip "https://filebin.net/$BIN_ID/app-release.zip"
           
           echo " "
           echo "======================================================="
-          echo "✅ İNDİRME LİNKİN (Bu Sefer Bitti):"
-          echo "https://pixeldrain.com/u/$ID"
+          echo "✅ İNDİRME LİNKİN HAZIR:"
+          echo "https://filebin.net/$BIN_ID/app-release.zip"
           echo "======================================================="
