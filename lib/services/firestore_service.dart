@@ -3,6 +3,7 @@ import '../models/product_model.dart';
 import '../models/price_model.dart';
 import '../models/comment_model.dart';
 import '../models/notification_model.dart';
+import '../utils/constants.dart';
 import '../models/banner_model.dart';
 import '../models/user_model.dart';
 
@@ -16,6 +17,8 @@ class FirestoreService {
   CollectionReference get _notificationsRef => _firestore.collection('notifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
   CollectionReference get _usersRef => _firestore.collection('users');
+  DocumentReference get _maintenanceRef =>
+      _firestore.collection('app_config').doc('maintenance');
 
   // Get trending products (most price entries)
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
@@ -28,6 +31,22 @@ class FirestoreService {
           list.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
           return list.take(limit).toList();
         });
+  }
+
+  // Maintenance mode
+  Stream<bool> getMaintenanceMode() {
+    return _maintenanceRef.snapshots().map((doc) {
+      if (!doc.exists) return false;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      return data['enabled'] as bool? ?? false;
+    });
+  }
+
+  Future<void> setMaintenanceMode(bool enabled) async {
+    await _maintenanceRef.set({
+      'enabled': enabled,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   // Get recommended products (by view count)
@@ -159,7 +178,7 @@ class FirestoreService {
     // Give the voter +5 points for validating
     await _usersRef.doc(voterId).update({
       'validations': FieldValue.increment(1),
-      'points': FieldValue.increment(5),
+      'points': FieldValue.increment(AppConstants.pointsForValidation),
     });
   }
 
@@ -181,6 +200,9 @@ class FirestoreService {
       'reason': reason,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
+    });
+    await _usersRef.doc(userId).update({
+      'points': FieldValue.increment(AppConstants.pointsForReportPrice),
     });
   }
 
@@ -240,6 +262,9 @@ class FirestoreService {
 
   Future<String> addComment(CommentModel comment) async {
     final doc = await _commentsRef.add(comment.toFirestore());
+    await _usersRef.doc(comment.userId).update({
+      'points': FieldValue.increment(AppConstants.pointsForComment),
+    });
     return doc.id;
   }
 
@@ -362,6 +387,13 @@ class FirestoreService {
   Future<void> updateUserAdmin(String userId, bool isAdmin) async {
     await _usersRef.doc(userId).update({
       'isAdmin': isAdmin,
+    });
+  }
+
+  Future<void> updateUserFcmToken(String userId, String token) async {
+    await _usersRef.doc(userId).update({
+      'fcmToken': token,
+      'fcmUpdatedAt': FieldValue.serverTimestamp(),
     });
   }
 

@@ -17,6 +17,9 @@ class AppConstants {
   static const int pointsForPriceEntryWithPhoto = 20;
   static const int pointsForValidation = 5;
   static const int pointsForComment = 3;
+  static const int pointsForReportPrice = 8;
+  static const int pointsForDailyLogin = 2;
+  static const int pointsForInvite = 50;
 
   // Badges
   static const Map<String, int> badges = {

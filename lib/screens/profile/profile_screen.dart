@@ -1,11 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import '../../utils/theme.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/price_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../utils/constants.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -27,7 +32,7 @@ class ProfileScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(context, user),
+            _buildProfileHeader(context, ref, user),
             Transform.translate(
               offset: const Offset(0, -36),
               child: _buildStatsRow(context, theme, user),
@@ -63,6 +68,11 @@ class ProfileScreen extends ConsumerWidget {
                 icon: Icons.stars_outlined,
                 title: 'Puan Sistemi',
                 onTap: () => _showPointsSystem(context, user),
+              ),
+              _MenuItem(
+                icon: Icons.person_add_alt_1_outlined,
+                title: 'Arkadas Davet Et',
+                onTap: () => _showInviteFriends(context, user),
               ),
               _MenuItem(
                 icon: Icons.settings_outlined,
@@ -506,13 +516,55 @@ class ProfileScreen extends ConsumerWidget {
             const Text('Puan Kazanma Yollari', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSpacing.md),
 
-            _buildPointRow(Icons.add_shopping_cart, 'Fiyat Ekleme', '+10 Puan', 'Her yeni fiyat girisi icin', AppColors.primary),
-            _buildPointRow(Icons.camera_alt, 'Fotografli Fiyat', '+20 Puan', 'Fotograf ile fiyat ekleme', AppColors.secondary),
-            _buildPointRow(Icons.verified, 'Fiyat Dogrulama', '+5 Puan', 'Baskalarinin fiyatlarini dogrulama', AppColors.success),
-            _buildPointRow(Icons.comment, 'Yorum Yazma', '+3 Puan', 'Urun hakkinda yorum birakma', AppColors.info),
-            _buildPointRow(Icons.report, 'Yanlis Fiyat Bildirme', '+8 Puan', 'Yanlis fiyatlari raporlama', AppColors.error),
-            _buildPointRow(Icons.person_add, 'Arkadas Davet Etme', '+50 Puan', 'Davet linki ile yeni uye', AppColors.accent),
-            _buildPointRow(Icons.emoji_events, 'Gunluk Giris', '+2 Puan', 'Her gun uygulamaya giris yapma', const Color(0xFF8B5CF6)),
+            _buildPointRow(
+              Icons.add_shopping_cart,
+              'Fiyat Ekleme',
+              '+${AppConstants.pointsForPriceEntry} Puan',
+              'Her yeni fiyat girisi icin',
+              AppColors.primary,
+            ),
+            _buildPointRow(
+              Icons.camera_alt,
+              'Fotografli Fiyat',
+              '+${AppConstants.pointsForPriceEntryWithPhoto} Puan',
+              'Fotograf ile fiyat ekleme',
+              AppColors.secondary,
+            ),
+            _buildPointRow(
+              Icons.verified,
+              'Fiyat Dogrulama',
+              '+${AppConstants.pointsForValidation} Puan',
+              'Baskalarinin fiyatlarini dogrulama',
+              AppColors.success,
+            ),
+            _buildPointRow(
+              Icons.comment,
+              'Yorum Yazma',
+              '+${AppConstants.pointsForComment} Puan',
+              'Urun hakkinda yorum birakma',
+              AppColors.info,
+            ),
+            _buildPointRow(
+              Icons.report,
+              'Yanlis Fiyat Bildirme',
+              '+${AppConstants.pointsForReportPrice} Puan',
+              'Yanlis fiyatlari raporlama',
+              AppColors.error,
+            ),
+            _buildPointRow(
+              Icons.person_add,
+              'Arkadas Davet Etme',
+              '+${AppConstants.pointsForInvite} Puan',
+              'Davet kodu ile yeni uye',
+              AppColors.accent,
+            ),
+            _buildPointRow(
+              Icons.emoji_events,
+              'Gunluk Giris',
+              '+${AppConstants.pointsForDailyLogin} Puan',
+              'Her gun uygulamaya giris yapma',
+              const Color(0xFF8B5CF6),
+            ),
 
             const SizedBox(height: AppSpacing.lg),
             const Text('Seviye Sistemi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -540,6 +592,91 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ),
     ));
+  }
+
+  void _showInviteFriends(BuildContext context, UserModel? user) {
+    final inviteCode = user?.inviteCode;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Arkadaslarini Davet Et',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Davet kodunu paylas, arkadasin kayit olsun ve puan kazan.',
+                style: TextStyle(color: Theme.of(ctx).hintColor),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).cardColor,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.outline),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Davet Kodun',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            inviteCode ?? 'Kod olusturulamadi',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy),
+                      onPressed: inviteCode == null
+                          ? null
+                          : () async {
+                              await Clipboard.setData(ClipboardData(text: inviteCode));
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Davet kodu kopyalandi.'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                    ),
+                  ],
+                ),
+              ),
+              if (user != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Toplam davet: ${user.inviteCount}',
+                  style: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildPointRow(IconData icon, String title, String points, String desc, Color color) {
@@ -775,7 +912,101 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   // Profile Header
   // ===========================================================================
-  Widget _buildProfileHeader(BuildContext context, UserModel? user) {
+  Future<ImageSource?> _pickPhotoSource(BuildContext context) async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Galeriden Sec'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Kamerayi Ac'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _changeProfilePhoto(
+    BuildContext context,
+    WidgetRef ref,
+    UserModel? user,
+  ) async {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil resmini guncellemek icin giris yapin.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final source = await _pickPhotoSource(context);
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 512,
+    );
+
+    if (picked == null) return;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final storageService = ref.read(storageServiceProvider);
+      final authService = ref.read(authServiceProvider);
+      final file = File(picked.path);
+      final url = await storageService.uploadUserAvatar(
+        file: file,
+        userId: user.uid,
+      );
+      await authService.updateUserProfile(uid: user.uid, photoUrl: url);
+
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil resmi guncellendi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Profil resmi guncellenemedi: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Widget _buildProfileHeader(BuildContext context, WidgetRef ref, UserModel? user) {
     final displayName = user?.name ?? 'Kullanici';
     final email = user?.email ?? '';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
@@ -808,24 +1039,76 @@ class ProfileScreen extends ConsumerWidget {
           ),
           Center(
             child: Column(children: [
-              Container(
-                width: 100, height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: photoUrl == null ? LinearGradient(colors: [
-                    AppColors.primaryLight.withOpacity(0.8),
-                    AppColors.secondaryLight.withOpacity(0.8),
-                  ], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                  image: photoUrl != null ? DecorationImage(
-                    image: NetworkImage(photoUrl),
-                    fit: BoxFit.cover,
-                    onError: (_, __) {},
-                  ) : null,
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 6))],
+              GestureDetector(
+                onTap: () => _changeProfilePhoto(context, ref, user),
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: photoUrl == null
+                            ? LinearGradient(
+                                colors: [
+                                  AppColors.primaryLight.withOpacity(0.8),
+                                  AppColors.secondaryLight.withOpacity(0.8),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        image: photoUrl != null
+                            ? DecorationImage(
+                                image: NetworkImage(photoUrl),
+                                fit: BoxFit.cover,
+                                onError: (_, __) {},
+                              )
+                            : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: photoUrl == null
+                          ? Center(
+                              child: Text(
+                                initial,
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.photo_camera_outlined,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
-                child: photoUrl == null ? Center(
-                  child: Text(initial, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
-                ) : null,
               ),
               const SizedBox(height: AppSpacing.md),
               Row(

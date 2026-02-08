@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
+import '../../models/price_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../product/product_detail_screen.dart';
@@ -722,7 +723,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 // ===========================================================================
 // PRODUCT GRID CARD
 // ===========================================================================
-class _ProductGridCard extends StatelessWidget {
+class _ProductGridCard extends ConsumerWidget {
   final ProductModel product;
   final IconData icon;
   final Color color;
@@ -736,8 +737,10 @@ class _ProductGridCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final priceHistoryAsync =
+        ref.watch(productPriceHistoryProvider(product.id));
 
     return GestureDetector(
       onTap: onTap,
@@ -822,12 +825,28 @@ class _ProductGridCard extends StatelessWidget {
                     const Spacer(),
                     // Price
                     if (product.lastPrice != null)
-                      Text(
-                        'TL${_formatPrice(product.lastPrice!)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TL${_formatPrice(product.lastPrice!)}',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          priceHistoryAsync.when(
+                            data: (prices) =>
+                                _buildPriceChangeIndicator(prices),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                          priceHistoryAsync.when(
+                            data: (prices) => _buildRelativeTimeText(prices),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                        ],
                       ),
                     const SizedBox(height: 2),
                     // Store
@@ -859,7 +878,7 @@ class _ProductGridCard extends StatelessWidget {
 // ===========================================================================
 // PRODUCT LIST CARD
 // ===========================================================================
-class _ProductListCard extends StatelessWidget {
+class _ProductListCard extends ConsumerWidget {
   final ProductModel product;
   final IconData icon;
   final Color color;
@@ -873,8 +892,10 @@ class _ProductListCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final priceHistoryAsync =
+        ref.watch(productPriceHistoryProvider(product.id));
 
     return GestureDetector(
       onTap: onTap,
@@ -959,12 +980,29 @@ class _ProductListCard extends StatelessWidget {
                     Row(
                       children: [
                         if (product.lastPrice != null)
-                          Text(
-                            'TL${_formatPrice(product.lastPrice!)}',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'TL${_formatPrice(product.lastPrice!)}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              priceHistoryAsync.when(
+                                data: (prices) =>
+                                    _buildPriceChangeIndicator(prices),
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              ),
+                              priceHistoryAsync.when(
+                                data: (prices) =>
+                                    _buildRelativeTimeText(prices),
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              ),
+                            ],
                           ),
                         const Spacer(),
                         if (product.lastStore != null) ...[
@@ -994,6 +1032,65 @@ class _ProductListCard extends StatelessWidget {
 // ===========================================================================
 // PRICE FORMATTER
 // ===========================================================================
+Widget _buildPriceChangeIndicator(List<PriceModel> prices) {
+  if (prices.length < 2) return const SizedBox.shrink();
+  final approved = prices.where((price) => price.isApproved).toList();
+  final source = approved.length >= 2 ? approved : prices;
+  if (source.length < 2) return const SizedBox.shrink();
+
+  final latest = source[0];
+  final previous = source[1];
+  final diff = latest.price - previous.price;
+  if (diff == 0) return const SizedBox.shrink();
+
+  final percent = (diff / previous.price) * 100;
+  final isUp = diff > 0;
+  final color = isUp ? AppColors.error : AppColors.success;
+
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        isUp ? Icons.trending_up : Icons.trending_down,
+        size: 12,
+        color: color,
+      ),
+      const SizedBox(width: 2),
+      Text(
+        '${percent.abs().toStringAsFixed(1)}%',
+        style: TextStyle(fontSize: 11, color: color),
+      ),
+    ],
+  );
+}
+
+Widget _buildRelativeTimeText(List<PriceModel> prices) {
+  if (prices.isEmpty) return const SizedBox.shrink();
+  final text = _formatTimeAgo(prices.first.createdAt);
+  if (text.isEmpty) return const SizedBox.shrink();
+  return Text(
+    text,
+    style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+  );
+}
+
+String _formatTimeAgo(DateTime dateTime) {
+  final now = DateTime.now();
+  final difference = now.difference(dateTime);
+
+  if (difference.inMinutes < 1) {
+    return 'az once';
+  } else if (difference.inMinutes < 60) {
+    return '${difference.inMinutes} dk once';
+  } else if (difference.inHours < 24) {
+    return '${difference.inHours} sa once';
+  } else if (difference.inDays < 7) {
+    return '${difference.inDays} gun once';
+  } else {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  }
+}
+
 String _formatPrice(double price) {
   if (price >= 1000) {
     final parts = price.toStringAsFixed(2).split('.');
