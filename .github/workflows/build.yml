@@ -1,4 +1,4 @@
-name: Build Android (Filebin ZIP - Final)
+name: Build Android (SHA-1 Goster)
 
 on:
   push:
@@ -14,22 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- 1. KOTLIN VE MINSDK DÜZELTME (Build Patlamasın Diye Şart) ---
+      # --- KOTLIN VE MINSDK AYARLARI ---
       - name: Force Fix Kotlin & MinSDK
         run: |
-          echo "Kotlin sürümü 2.0.21 yapiliyor..."
-          
-          # build.gradle güncelle
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '2.0.21'/" android/build.gradle
           fi
-          
-          # settings.gradle güncelle
           if [ -f "android/settings.gradle" ]; then
              sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
           fi
-          
-          # MinSDK 23 yap (Firebase icin sart)
           if [ -f "android/app/build.gradle" ]; then
              sed -i 's/minSdkVersion [0-9]*/minSdkVersion 23/' android/app/build.gradle
           fi
@@ -47,29 +40,30 @@ jobs:
 
       - run: flutter pub get
 
-      # --- 2. IKONLARI OLUSTURMA ---
       - name: Generate Icons
-        run: dart run flutter_launcher_icons || echo "Ikon config yok, geciliyor"
+        run: dart run flutter_launcher_icons || echo "ikon yoksa devam"
 
       - name: Build APK
         run: flutter build apk --release
 
-      # --- 3. ZIPLE VE FILEBIN'E YUKLE (Senin İstedigin Yontem) ---
-      - name: Upload to Filebin (ZIP)
+      # --- İŞTE BU ADIM SANA KODU VERECEK ---
+      - name: 🔥 GET SHA-1 FINGERPRINT (BUNU KOPYALA)
         run: |
-          echo "APK Zipleniyor (Filebin kabul etsin diye)..."
+          echo " "
+          echo "======================================================="
+          echo "🔐 FIREBASE ICIN SHA-1 KODUN:"
+          echo " "
+          keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep "SHA1: " | cut -d " " -f 3
+          echo " "
+          echo "👉 Yukaridaki kodu kopyala ve Firebase -> Project Settings -> Add Fingerprint kismina yapistir."
+          echo "======================================================="
+
+      # --- ZİPLE VE YÜKLE ---
+      - name: Upload to Filebin
+        run: |
           cd build/app/outputs/flutter-apk/
           zip -r app-release.zip app-release.apk
           cd ../../../..
-          
-          echo "Filebin'e Yukleniyor..."
-          # Rastgele ID ile link cakismasini onle
           BIN_ID="fiyatradar-$(date +%s)"
-          
           curl -T build/app/outputs/flutter-apk/app-release.zip "https://filebin.net/$BIN_ID/app-release.zip"
-          
-          echo " "
-          echo "======================================================="
-          echo "✅ İNDİRME LİNKİN HAZIR:"
-          echo "https://filebin.net/$BIN_ID/app-release.zip"
-          echo "======================================================="
+          echo "⬇️ İNDİRME LİNKİ: https://filebin.net/$BIN_ID/app-release.zip"
