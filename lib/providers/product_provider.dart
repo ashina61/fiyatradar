@@ -112,3 +112,9 @@ final reportsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getReports();
 });
+
+// Maintenance mode
+final maintenanceModeProvider = StreamProvider<bool>((ref) {
+  if (!firebaseInitialized) return Stream.value(false);
+  return ref.watch(firestoreServiceProvider).getMaintenanceMode();
+});

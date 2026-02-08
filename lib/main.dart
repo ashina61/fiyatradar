@@ -3,18 +3,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // import 'firebase_options.dart'; // Bu satırı kaldırdık, artık JSON dosyasını okuyacak.
 
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
+import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
 
 /// Whether Firebase was successfully initialized.
 bool firebaseInitialized = false;
+
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +45,7 @@ void main() async {
     // Parantez içini boş bıraktık. Böylece Android otomatik olarak
     // 'android/app/google-services.json' dosyasındaki ayarları kullanacak.
     await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     
     firebaseInitialized = true;
     debugPrint('Firebase başarıyla başlatıldı! 🚀');
@@ -75,12 +84,20 @@ class FiyatRadarApp extends ConsumerStatefulWidget {
 }
 
 class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
+  late final FcmService _fcmService;
+
   @override
   void initState() {
     super.initState();
+    _fcmService = FcmService();
     // Set initial theme mode from saved preferences
     Future.microtask(() {
       ref.read(themeModeProvider.notifier).setThemeMode(widget.initialThemeMode);
+    });
+
+    ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
+      final user = next.valueOrNull;
+      _fcmService.configureForUser(user?.uid);
     });
   }
 
