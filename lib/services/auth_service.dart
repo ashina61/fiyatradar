@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../utils/constants.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -10,6 +11,14 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  String _generateInviteCode(String uid) {
+    final normalized = uid.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    if (normalized.length >= 6) {
+      return normalized.substring(0, 6).toUpperCase();
+    }
+    return uid.substring(0, uid.length.clamp(1, 6)).toUpperCase();
+  }
 
   // Email/Password Sign In
   Future<UserModel?> signInWithEmailAndPassword({
@@ -37,6 +46,7 @@ class AuthService {
     required String email,
     required String password,
     required String name,
+    String? inviteCode,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -45,12 +55,16 @@ class AuthService {
       );
 
       if (credential.user != null) {
+        final normalizedInviteCode =
+            inviteCode?.trim().toUpperCase().replaceAll(' ', '');
+        final newInviteCode = _generateInviteCode(credential.user!.uid);
         await credential.user!.updateDisplayName(name);
 
         final user = UserModel(
           uid: credential.user!.uid,
           email: email,
           name: name,
+          inviteCode: newInviteCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
         );
@@ -59,6 +73,24 @@ class AuthService {
             .collection('users')
             .doc(credential.user!.uid)
             .set(user.toFirestore());
+
+        if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
+          final inviterSnapshot = await _firestore
+              .collection('users')
+              .where('inviteCode', isEqualTo: normalizedInviteCode)
+              .limit(1)
+              .get();
+          if (inviterSnapshot.docs.isNotEmpty) {
+            final inviterId = inviterSnapshot.docs.first.id;
+            await _firestore.collection('users').doc(credential.user!.uid).update({
+              'invitedBy': inviterId,
+            });
+            await _firestore.collection('users').doc(inviterId).update({
+              'inviteCount': FieldValue.increment(1),
+              'points': FieldValue.increment(AppConstants.pointsForInvite),
+            });
+          }
+        }
 
         return user;
       }
@@ -103,6 +135,7 @@ class AuthService {
             email: user.email ?? '',
             name: user.displayName ?? 'Kullanici',
             photoUrl: user.photoURL,
+            inviteCode: _generateInviteCode(user.uid),
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
           );
@@ -110,6 +143,12 @@ class AuthService {
           await _firestore.collection('users').doc(user.uid).set(newUser.toFirestore());
           return newUser;
         } else {
+          final data = docSnapshot.data();
+          if (data != null && data['inviteCode'] == null) {
+            await _firestore.collection('users').doc(user.uid).update({
+              'inviteCode': _generateInviteCode(user.uid),
+            });
+          }
           // Update last login
           await _updateLastLogin(user.uid);
           return await getUserModel(user.uid);
@@ -151,9 +190,29 @@ class AuthService {
   }
 
   Future<void> _updateLastLogin(String uid) async {
-    await _firestore.collection('users').doc(uid).update({
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final data = doc.data();
+    final lastLoginAt = (data?['lastLoginAt'] as Timestamp?)?.toDate();
+    final now = DateTime.now();
+    final isNewDay = lastLoginAt == null ||
+        lastLoginAt.year != now.year ||
+        lastLoginAt.month != now.month ||
+        lastLoginAt.day != now.day;
+    final inviteCode = data?['inviteCode'] as String?;
+
+    final updates = <String, dynamic>{
       'lastLoginAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    if (inviteCode == null || inviteCode.isEmpty) {
+      updates['inviteCode'] = _generateInviteCode(uid);
+    }
+
+    if (isNewDay) {
+      updates['points'] = FieldValue.increment(AppConstants.pointsForDailyLogin);
+    }
+
+    await _firestore.collection('users').doc(uid).update(updates);
   }
 
   Future<void> updateUserProfile({

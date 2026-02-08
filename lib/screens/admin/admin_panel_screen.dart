@@ -6,6 +6,8 @@ import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../widgets/barcode_scanner_sheet.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -32,6 +34,32 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
 
   @override
   Widget build(BuildContext context) {
+    final userAsync = ref.watch(userModelStreamProvider);
+    return userAsync.when(
+      data: (user) {
+        if (user?.isAdmin != true) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Admin Paneli'),
+              elevation: 0,
+            ),
+            body: const Center(
+              child: Text('Bu sayfaya erisim yetkiniz yok.'),
+            ),
+          );
+        }
+        return _buildAdminScaffold(context);
+      },
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const Scaffold(
+        body: Center(child: Text('Bir hata olustu.')),
+      ),
+    );
+  }
+
+  Scaffold _buildAdminScaffold(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Paneli'),
@@ -96,6 +124,7 @@ class _ProductManagementTab extends ConsumerWidget {
   void _showAddProductDialog(BuildContext context, WidgetRef ref, List<Map<String, dynamic>> categories) {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
+    final barcodeController = TextEditingController();
     String? selectedCategory;
 
     showDialog(
@@ -117,6 +146,26 @@ class _ProductManagementTab extends ConsumerWidget {
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: barcodeController,
+                decoration: InputDecoration(
+                  labelText: 'Barkod (Opsiyonel)',
+                  prefixIcon: const Icon(Icons.qr_code),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.qr_code_scanner),
+                    onPressed: () async {
+                      final code = await BarcodeScannerSheet.scan(
+                        ctx,
+                        title: 'Barkod Tara',
+                      );
+                      if (code != null) {
+                        barcodeController.text = code;
+                      }
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
@@ -143,6 +192,7 @@ class _ProductManagementTab extends ConsumerWidget {
                   name: nameController.text,
                   brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
                   category: selectedCategory!,
+                  barcode: barcodeController.text.isEmpty ? null : barcodeController.text,
                   createdAt: DateTime.now(),
                   updatedAt: DateTime.now(),
                 ));
@@ -913,6 +963,7 @@ class _StatisticsTab extends ConsumerWidget {
     final bannersAsync = ref.watch(allBannersProvider);
     final usersAsync = ref.watch(allUsersProvider);
     final reportsAsync = ref.watch(reportsProvider);
+    final maintenanceAsync = ref.watch(maintenanceModeProvider);
 
     final productCount = productsAsync.valueOrNull?.length ?? 0;
     final storeCount = storesAsync.valueOrNull?.length ?? 0;
@@ -942,12 +993,61 @@ class _StatisticsTab extends ConsumerWidget {
     ];
 
     final maxVal = stats.map((s) => s.value).fold(1, (a, b) => a > b ? a : b).toDouble();
+    final maintenanceEnabled = maintenanceAsync.valueOrNull ?? false;
+    final maintenanceBusy = maintenanceAsync.isLoading;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: const Icon(Icons.build_circle_outlined, color: AppColors.error),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Bakim Modu',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(
+                          maintenanceEnabled
+                              ? 'Uygulama bakim modunda'
+                              : 'Uygulama normal calisiyor',
+                          style: TextStyle(fontSize: 12, color: theme.hintColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: maintenanceEnabled,
+                    onChanged: maintenanceBusy
+                        ? null
+                        : (value) async {
+                            await ref
+                                .read(firestoreServiceProvider)
+                                .setMaintenanceMode(value);
+                          },
+                    activeColor: AppColors.error,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,

@@ -6,6 +6,7 @@ import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/auth_service.dart';
+import '../utils/constants.dart';
 import 'auth_provider.dart';
 import 'product_provider.dart';
 
@@ -95,7 +96,9 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
       await _authService.incrementPriceEntries(currentUser.uid);
 
       // Add points (2x for photos)
-      final points = images != null && images.isNotEmpty ? 20 : 10;
+      final points = images != null && images.isNotEmpty
+          ? AppConstants.pointsForPriceEntryWithPhoto
+          : AppConstants.pointsForPriceEntry;
       await _authService.addPoints(currentUser.uid, points);
 
       state = const AsyncValue.data(null);

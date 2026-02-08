@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _inviteController = TextEditingController();
   final _authService = AuthService();
 
   bool _isLoading = false;
@@ -32,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -56,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
+        inviteCode: _inviteController.text.trim(),
       );
 
       if (!mounted) return;
@@ -222,6 +225,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: AppSpacing.md),
+
+                TextFormField(
+                  controller: _inviteController,
+                  textCapitalization: TextCapitalization.characters,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Davet Kodu (Opsiyonel)',
+                    hintText: 'Arkadasinizdan aldiginiz kod',
+                    prefixIcon:
+                        Icon(Icons.person_add_alt, color: Theme.of(context).hintColor),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
 

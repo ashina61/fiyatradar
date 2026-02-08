@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/product_model.dart';
+import '../models/price_model.dart';
+import '../providers/product_provider.dart';
 import '../utils/theme.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   final ProductModel product;
   final VoidCallback? onTap;
   final bool showTrendBadge;
@@ -17,12 +20,14 @@ class ProductCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currencyFormat = NumberFormat.currency(
       locale: 'tr_TR',
       symbol: '₺',
       decimalDigits: 2,
     );
+    final priceHistoryAsync =
+        ref.watch(productPriceHistoryProvider(product.id));
 
     return GestureDetector(
       onTap: onTap,
@@ -142,13 +147,30 @@ class ProductCard extends StatelessWidget {
                     ),
                     // Price
                     if (product.lastPrice != null)
-                      Text(
-                        currencyFormat.format(product.lastPrice),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currencyFormat.format(product.lastPrice),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          priceHistoryAsync.when(
+                            data: (prices) =>
+                                _buildPriceChangeIndicator(context, prices),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                          priceHistoryAsync.when(
+                            data: (prices) =>
+                                _buildRelativeTimeText(context, prices),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                        ],
                       )
                     else
                       Text(
@@ -166,6 +188,69 @@ class ProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildRelativeTimeText(
+      BuildContext context, List<PriceModel> prices) {
+    if (prices.isEmpty) return const SizedBox.shrink();
+    final latest = prices.first;
+    final text = _formatTimeAgo(latest.createdAt);
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Text(
+      text,
+      style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+    );
+  }
+
+  Widget _buildPriceChangeIndicator(
+      BuildContext context, List<PriceModel> prices) {
+    if (prices.length < 2) return const SizedBox.shrink();
+
+    final approved = prices.where((price) => price.isApproved).toList();
+    final source = approved.length >= 2 ? approved : prices;
+    if (source.length < 2) return const SizedBox.shrink();
+
+    final latest = source[0];
+    final previous = source[1];
+    final diff = latest.price - previous.price;
+    if (diff == 0) return const SizedBox.shrink();
+
+    final percent = (diff / previous.price) * 100;
+    final isUp = diff > 0;
+    final color = isUp ? AppColors.error : AppColors.success;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isUp ? Icons.trending_up : Icons.trending_down,
+          size: 12,
+          color: color,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          '${percent.abs().toStringAsFixed(1)}%',
+          style: TextStyle(fontSize: 11, color: color),
+        ),
+      ],
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'az once';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} dk once';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} sa once';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gun once';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
   }
 
   Widget _buildPlaceholder(BuildContext context) {

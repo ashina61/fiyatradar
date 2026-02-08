@@ -6,6 +6,8 @@ import '../../providers/auth_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../utils/theme.dart';
+import '../../utils/constants.dart';
+import '../../widgets/barcode_scanner_sheet.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -23,21 +25,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   String? _selectedStore;
   String? _selectedCategory;
   ProductModel? _selectedProduct;
-  String _selectedLocation = 'Istanbul, Turkiye';
   bool _isSubmitting = false;
-
-  static const _locations = [
-    'Istanbul, Turkiye',
-    'Ankara, Turkiye',
-    'Izmir, Turkiye',
-    'Bursa, Turkiye',
-    'Antalya, Turkiye',
-    'Adana, Turkiye',
-    'Gaziantep, Turkiye',
-    'Konya, Turkiye',
-    'Trabzon, Turkiye',
-    'Diyarbakir, Turkiye',
-  ];
 
   @override
   void dispose() {
@@ -186,11 +174,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         userName: userModel.name,
         price: price,
         storeName: storeName,
-        storeLocation: _selectedLocation,
         createdAt: DateTime.now(),
       );
 
       await firestoreService.addPrice(priceModel);
+      final authService = ref.read(authServiceProvider);
+      await authService.incrementPriceEntries(userModel.uid);
+      await authService.addPoints(userModel.uid, AppConstants.pointsForPriceEntry);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -200,7 +190,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text('Fiyat eklendi! +10 puan kazandiniz'),
+                  child: Text(
+                    'Fiyat eklendi! +${AppConstants.pointsForPriceEntry} puan kazandiniz',
+                  ),
                 ),
               ],
             ),
@@ -238,44 +230,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         setState(() => _isSubmitting = false);
       }
     }
-  }
-
-  void _showLocationPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: AppSpacing.sm),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Theme.of(context).hintColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text('Konum Secin', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            ),
-            ...(_locations.map((loc) => ListTile(
-              leading: Icon(
-                _selectedLocation == loc ? Icons.location_on : Icons.location_on_outlined,
-                color: _selectedLocation == loc ? AppColors.success : Theme.of(context).hintColor,
-              ),
-              title: Text(loc, style: TextStyle(fontWeight: _selectedLocation == loc ? FontWeight.w600 : FontWeight.w400)),
-              trailing: _selectedLocation == loc ? const Icon(Icons.check_circle, color: AppColors.success, size: 20) : null,
-              onTap: () {
-                setState(() => _selectedLocation = loc);
-                Navigator.pop(ctx);
-              },
-            ))),
-            const SizedBox(height: AppSpacing.md),
-          ],
-        );
-      },
-    );
   }
 
   String _formatPrice(double price) {
@@ -353,8 +307,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             ),
                           ),
                           SizedBox(height: 2),
-                          Text(
-                            'Her fiyat girisi +10 puan, fotografli +20 puan',
+                          const Text(
+                            'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
+                            'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -375,9 +330,25 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   labelText: 'Urun Adi',
                   hintText: 'Urun adi veya barkod numarasi',
                   prefixIcon: const Icon(Icons.shopping_bag_outlined),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.list),
-                    onPressed: _showProductPicker,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        onPressed: () async {
+                          final code = await BarcodeScannerSheet.scan(
+                            context,
+                            title: 'Barkod Tara',
+                          );
+                          if (!mounted || code == null) return;
+                          _productController.text = code;
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.list),
+                        onPressed: _showProductPicker,
+                      ),
+                    ],
                   ),
                 ),
                 textInputAction: TextInputAction.next,
@@ -532,56 +503,49 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Location
-              Text(
-                'Konum',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              InkWell(
-                onTap: () => _showLocationPicker(),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on, color: AppColors.success),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedLocation,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Konum degistirmek icin dokunun',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).hintColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: AppColors.success, size: 20),
-                    ],
+              // Disclaimer
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(
+                    color: AppColors.info.withOpacity(0.25),
+                    width: 1,
                   ),
                 ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Onemli Bilgilendirme',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Lutfen dogru ve guncel fiyat girin. '
+                            'Yanlis bildirimler raporlanabilir ve puaniniz dusurulebilir.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).hintColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.md),
 
               // Submit button
               Container(
@@ -630,7 +594,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               // Points info
               const Center(
                 child: Text(
-                  'Bu fiyat girisi icin +10 puan kazanacaksiniz',
+                  'Bu fiyat girisi icin +${AppConstants.pointsForPriceEntry} puan kazanacaksiniz',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,

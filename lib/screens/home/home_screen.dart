@@ -813,7 +813,7 @@ class _CategoryChip extends StatelessWidget {
 // Product Card (horizontal scroll card)
 // ============================================================
 
-class _ProductCard extends StatelessWidget {
+class _ProductCard extends ConsumerWidget {
   final ProductModel product;
   final double width;
   final VoidCallback? onTap;
@@ -825,9 +825,11 @@ class _ProductCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final categoryColor = _colorForCategory(product.category);
     final hasPrice = product.lastPrice != null;
+    final priceHistoryAsync =
+        ref.watch(productPriceHistoryProvider(product.id));
 
     return GestureDetector(
       onTap: onTap,
@@ -880,7 +882,11 @@ class _ProductCard extends StatelessWidget {
                 if (product.priceEntryCount >= 2 && product.lastPrice != null)
                   Positioned(
                     top: 6, right: 6,
-                    child: _buildPriceChangeBadge(),
+                    child: priceHistoryAsync.when(
+                      data: (prices) => _buildPriceChangeBadge(prices),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
                   ),
               ],
             ),
@@ -924,17 +930,27 @@ class _ProductCard extends StatelessWidget {
                     ),
                     // Price row
                     if (hasPrice)
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              _formatPrice(product.lastPrice!),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _formatPrice(product.lastPrice!),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
+                          ),
+                          priceHistoryAsync.when(
+                            data: (prices) => _buildRelativeTimeText(prices),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
                           ),
                         ],
                       ),
@@ -1012,23 +1028,39 @@ class _ProductCard extends StatelessWidget {
     }
   }
 
-  Widget _buildPriceChangeBadge() {
-    // Show a badge that indicates price tracking is active
-    // We show "Fiyat Takipte" (price being tracked) when we have multiple entries
+  Widget _buildPriceChangeBadge(List<PriceModel> prices) {
+    if (prices.length < 2) return const SizedBox.shrink();
+    final approved = prices.where((price) => price.isApproved).toList();
+    final source = approved.length >= 2 ? approved : prices;
+    if (source.length < 2) return const SizedBox.shrink();
+
+    final latest = source[0];
+    final previous = source[1];
+    final diff = latest.price - previous.price;
+    if (diff == 0) return const SizedBox.shrink();
+
+    final percent = (diff / previous.price) * 100;
+    final isUp = diff > 0;
+    final color = isUp ? AppColors.error : AppColors.success;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.info.withOpacity(0.9),
+        color: color.withOpacity(0.9),
         borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.trending_up, color: Colors.white, size: 12),
-          SizedBox(width: 3),
+          Icon(
+            isUp ? Icons.trending_up : Icons.trending_down,
+            color: Colors.white,
+            size: 12,
+          ),
+          const SizedBox(width: 3),
           Text(
-            'Takipte',
-            style: TextStyle(
+            '${percent.abs().toStringAsFixed(1)}%',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 9,
               fontWeight: FontWeight.bold,
@@ -1037,6 +1069,33 @@ class _ProductCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildRelativeTimeText(List<PriceModel> prices) {
+    if (prices.isEmpty) return const SizedBox.shrink();
+    final text = _formatTimeAgo(prices.first.createdAt);
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'az once';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} dk once';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} sa once';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gun once';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
   }
 
   String _formatPrice(double price) {
