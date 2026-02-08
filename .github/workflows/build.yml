@@ -1,4 +1,4 @@
-name: Build Android APK (Final - Saglam Link)
+name: Build Android APK (HIZLI & TEMIZ)
 
 on:
   push:
@@ -57,22 +57,25 @@ jobs:
       - name: Build App Bundle (Release)
         run: flutter build appbundle --release
 
-      # --- EN SAGLAM YUKLEME ADIMI (0x0.st + Catbox) ---
-      - name: Upload Artifacts (Developer Mode)
+      # --- TURBO YUKLEME ADIMI ---
+      - name: Upload Artifacts (Fast Mode)
         run: |
-          echo "---------------------------------------------------"
-          echo "1. DENEME: 0x0.st (En Saglam) YUKLENIYOR..."
-          # Bu site Linuxcularin kullandigi cok hizli bir yerdir
-          curl -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://0x0.st
+          echo "======================================================="
+          echo "1. DENEME: CATBOX.MOE (En Hizlisi)"
+          echo "Yukleniyor, lutfen bekle..."
+          # Sessiz modda yukle, sadece sonucu goster
+          curl -s -F "reqtype=fileupload" -F "fileToUpload=@build/app/outputs/flutter-apk/app-release.apk" https://catbox.moe/user/api.php
           echo " "
+          echo "======================================================="
           
-          echo "---------------------------------------------------"
-          echo "2. DENEME: CATBOX.MOE (Yedek) YUKLENIYOR..."
-          curl -F "reqtype=fileupload" -F "fileToUpload=@build/app/outputs/flutter-apk/app-release.apk" https://catbox.moe/user/api.php
           echo " "
-          
-          echo "---------------------------------------------------"
+          echo "2. DENEME: TMPFILES.ORG (Yedek)"
+          echo "Yukleniyor..."
+          curl -s -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://tmpfiles.org/api/v1/upload | grep -o 'https://tmpfiles.org/[^"]*'
+          echo " "
+          echo "======================================================="
           echo "LUTFEN DIKKAT:"
-          echo "Yukarida 'https://0x0.st/...' veya 'catbox.moe/...' ile baslayan linki kopyala."
-          echo "---------------------------------------------------"
-          
+          echo "Yukaridaki https://files.catbox.moe/... linkine tikla indir."
+          echo "Eger TmpFiles linki gelirse, linkteki 'tmpfiles.org' kismini"
+          echo "'tmpfiles.org/dl' olarak degistirmen gerekebilir."
+          echo "======================================================="
