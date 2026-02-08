@@ -185,10 +185,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: AppSpacing.sm),
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Fiyat eklendi! +${AppConstants.pointsForPriceEntry} puan kazandiniz',
@@ -308,9 +308,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ),
                           SizedBox(height: 2),
                           const Text(
+
+  'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
+
+  'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
+
+  style: TextStyle(
+                          Text(
                             'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
                             'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
-                            style: TextStyle(
+                            style: const TextStyle(
+                              claude/fiyatradar-app-oKr5R
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -592,10 +600,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               const SizedBox(height: AppSpacing.md),
 
               // Points info
-              const Center(
+              Center(
                 child: Text(
                   'Bu fiyat girisi icin +${AppConstants.pointsForPriceEntry} puan kazanacaksiniz',
                   style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
