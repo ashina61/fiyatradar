@@ -307,10 +307,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             ),
                           ),
                           SizedBox(height: 2),
+                          const Text(
+
+  'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
+
+  'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
+
+  style: TextStyle(
                           Text(
                             'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
                             'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
                             style: const TextStyle(
+                              claude/fiyatradar-app-oKr5R
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -595,6 +603,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               Center(
                 child: Text(
                   'Bu fiyat girisi icin +${AppConstants.pointsForPriceEntry} puan kazanacaksiniz',
+                  style: TextStyle(
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
