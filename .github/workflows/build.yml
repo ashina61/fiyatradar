@@ -1,14 +1,8 @@
-name: Build Android APK (ZIP & PixelDrain)
+name: Build Android (Final Fix)
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'claude/**'
-  pull_request:
-    branches:
-      - main
+    branches: [ main, develop, 'claude/**' ]
   workflow_dispatch:
 
 env:
@@ -16,15 +10,12 @@ env:
 
 jobs:
   build:
-    name: Build APK & AAB
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # --- KOTLIN SURUMU DÜZELTME ---
-      - name: Fix Kotlin Version Automatically
+      # Kotlin Hatası Düzeltici
+      - name: Fix Kotlin Version
         run: |
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.0'/" android/build.gradle
@@ -32,73 +23,43 @@ jobs:
           if [ -f "android/settings.gradle" ]; then
              sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.0" apply false/' android/settings.gradle
           fi
-      # ---------------------------------------------------
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
-          cache: gradle
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
+          channel: 'stable'
           cache: true
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
+      - run: flutter pub get
 
-      - name: Build APK (Release)
+      # --- İKONLARI OLUŞTURMA KOMUTU (Bunu ekledim) ---
+      - name: Generate Icons
+        run: dart run flutter_launcher_icons || echo "Ikon ayari yoksa devam et"
+
+      - name: Build APK
         run: flutter build apk --release
 
-      - name: Build App Bundle (Release)
-        run: flutter build appbundle --release
-
-      # --- AKILLI YUKLEME ADIMI (ZIP + PixelDrain) ---
-      - name: Upload Artifacts (Anti-Block Mode)
+      # --- ZIPLE VE YÜKLE (PixelDrain) ---
+      - name: Upload Artifacts
         run: |
-          echo "======================================================="
-          echo "HAZIRLIK: APK DOSYASI ZIPLENIYOR (Engeli Asmak Icin)..."
-          # APK'yi zip içine koyuyoruz ki sunucu 'illegal extension' demesin
+          echo "APK Zipleniyor..."
           cd build/app/outputs/flutter-apk/
           zip -r app-release.zip app-release.apk
           cd ../../../..
-          echo "Zipleme Tamam."
-          echo "======================================================="
-
-          echo " "
-          echo "1. DENEME: PIXELDRAIN (En Saglami)"
-          echo "Yukleniyor..."
-          # PixelDrain APK kabul eder, etmezse ZIP deneriz
-          RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.apk" -u : "https://pixeldrain.com/api/file")
-          # ID'yi ceker
+          
+          echo "PixelDrain'e Yukleniyor..."
+          # Sessizce yükleyip sadece ID'yi alıyoruz
+          RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.zip" -u : "https://pixeldrain.com/api/file")
           ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
           
-          if [ -z "$ID" ]; then
-            echo "APK yuklenemedi, ZIP deniyoruz..."
-            RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.zip" -u : "https://pixeldrain.com/api/file")
-            ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
-          fi
-
-          echo " "
-          echo "-------------------------------------------------------"
-          echo "PIXELDRAIN LINKI (APK):"
-          echo "https://pixeldrain.com/u/$ID"
-          echo "-------------------------------------------------------"
-
           echo " "
           echo "======================================================="
-          echo "2. DENEME: FILEBIN (ZIP MODU)"
-          echo "APK yerine ZIP yukluyoruz, boylece hata vermeyecek..."
+          echo "✅ İNDİRME LİNKİN HAZIR:"
+          echo "https://pixeldrain.com/u/$ID"
+          echo "======================================================="
           
-          BIN_ID="fiyatradar-$(date +%s)"
-          curl -T build/app/outputs/flutter-apk/app-release.zip "https://filebin.net/$BIN_ID/app-release.zip"
-          
-          echo " "
-          echo "-------------------------------------------------------"
-          echo "FILEBIN LINKI (ZIP):"
-          echo "https://filebin.net/$BIN_ID/app-release.zip"
-          echo "-------------------------------------------------------"
