@@ -322,7 +322,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             ),
                           ),
                           SizedBox(height: 2),
-                          // BURASI DUZELTİLDİ
                           Text(
                             'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
                             'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
@@ -517,4 +516,57 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   return null;
                 },
               ),
-              const Siz
+              const SizedBox(height: AppSpacing.md),
+
+              // Disclaimer
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                      color: AppColors.info.withOpacity(0.3), width: 1),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                    SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Fiyatlar editör onayı sonrası yayınlanır.',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _isSubmitting ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Fiyat Ekle'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
