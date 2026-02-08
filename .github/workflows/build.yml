@@ -1,4 +1,4 @@
-name: Build Android APK & AAB (Kotasiz)
+name: Build Android APK & AAB (Kotasiz - Yedekli)
 
 on:
   push:
@@ -23,15 +23,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- BURASI KOTLIN HATASINI OTOMATIK DUZELTECEK ---
+      # --- KOTLIN SURUMU DÜZELTME (Fix) ---
       - name: Fix Kotlin Version Automatically
         run: |
           echo "Kotlin sürümü 1.9.0'a güncelleniyor..."
-          # build.gradle varsa değiştir
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.0'/" android/build.gradle
           fi
-          # settings.gradle varsa değiştir
           if [ -f "android/settings.gradle" ]; then
              sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.0" apply false/' android/settings.gradle
           fi
@@ -61,15 +59,21 @@ jobs:
       - name: Build App Bundle (Release)
         run: flutter build appbundle --release
 
-      # --- BURASI DOSYAYI TRANSFER.SH'A YUKLER (KOTA YEMEZ) ---
-      - name: Upload APK & AAB to Transfer.sh
+      # --- GARANTİ YUKLEME ADIMI (BashUpload + File.io) ---
+      - name: Upload Artifacts (Guaranteed)
         run: |
-          echo "APK Yukleniyor..."
-          curl --upload-file build/app/outputs/flutter-apk/app-release.apk https://transfer.sh/app-release.apk
-          echo " "
-          echo "AAB Yukleniyor..."
-          curl --upload-file build/app/outputs/bundle/release/app-release.aab https://transfer.sh/app-release.aab
-          echo " "
           echo "---------------------------------------------------"
-          echo "LINKLER HAZIR! YUKARIDAKI URL'LERI KOPYALA VE INDIR"
+          echo "1. YONTEM: BASHUPLOAD YUKLENIYOR..."
+          curl https://bashupload.com/ -T build/app/outputs/flutter-apk/app-release.apk
+          echo " "
+          
+          echo "---------------------------------------------------"
+          echo "2. YONTEM: FILE.IO (Yedek) YUKLENIYOR..."
+          # File.io tek indirimliktir, indirdikten sonra silinir!
+          curl -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://file.io
+          echo " "
+          
+          echo "---------------------------------------------------"
+          echo "NOT: Yukaridaki linklerden birini kopyalayip tarayicida ac."
+          echo "Bashupload linki 'wget' ile baslar, sadece https kismini al."
           echo "---------------------------------------------------"
