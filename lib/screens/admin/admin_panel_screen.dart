@@ -6,10 +6,9 @@ import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
-codex/restrict-admin-panel-visibility-k6cize
 import '../../providers/auth_provider.dart';
 
-claude/fiyatradar-app-oKr5R
+
 import '../../widgets/barcode_scanner_sheet.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
