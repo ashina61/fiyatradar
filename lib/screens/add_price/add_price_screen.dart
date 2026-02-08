@@ -40,17 +40,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
     productsAsync.when(
       loading: () => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Urunler yukleniyor...'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Urunler yukleniyor...'),
+            behavior: SnackBarBehavior.floating),
       ),
       error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
+        SnackBar(
+            content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
       ),
       data: (products) {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
           ),
           builder: (context) {
             return DraggableScrollableSheet(
@@ -84,9 +88,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ? const Center(child: Text('Henuz urun yok'))
                           : ListView.separated(
                               controller: scrollController,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md),
                               itemCount: products.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (context, index) {
                                 final product = products[index];
                                 return ListTile(
@@ -94,14 +100,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryLight.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                                      color: AppColors.primaryLight
+                                          .withOpacity(0.1),
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadius.sm),
                                     ),
-                                    child: const Icon(Icons.shopping_bag_outlined,
-                                        color: AppColors.primary, size: 22),
+                                    child: const Icon(
+                                        Icons.shopping_bag_outlined,
+                                        color: AppColors.primary,
+                                        size: 22),
                                   ),
                                   title: Text(product.name,
-                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
                                   subtitle: Text(product.category),
                                   trailing: product.lastPrice != null
                                       ? Text(
@@ -141,7 +152,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         SnackBar(
           content: const Text('Lutfen bir urun secin'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm)),
         ),
       );
       return;
@@ -153,7 +165,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         SnackBar(
           content: const Text('Fiyat eklemek icin giris yapmalisiniz'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm)),
         ),
       );
       return;
@@ -180,7 +193,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       await firestoreService.addPrice(priceModel);
       final authService = ref.read(authServiceProvider);
       await authService.incrementPriceEntries(userModel.uid);
-      await authService.addPoints(userModel.uid, AppConstants.pointsForPriceEntry);
+      await authService.addPoints(
+          userModel.uid, AppConstants.pointsForPriceEntry);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,7 +235,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             content: Text('Hata: $e'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm)),
           ),
         );
       }
@@ -307,18 +322,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             ),
                           ),
                           SizedBox(height: 2),
-                          const Text(
-
-  'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
-
-  'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
-
-  style: TextStyle(
+                          // BURASI DUZELTİLDİ
                           Text(
                             'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
                             'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
-                            style: const TextStyle(
-                              
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -509,112 +517,4 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Disclaimer
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                    color: AppColors.info.withOpacity(0.25),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Onemli Bilgilendirme',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Lutfen dogru ve guncel fiyat girin. '
-                            'Yanlis bildirimler raporlanabilir ve puaniniz dusurulebilir.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).hintColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Submit button
-              Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: AppColors.gradient,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Fiyat Ekle',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Points info
-              Center(
-                child: Text(
-                  'Bu fiyat girisi icin +${AppConstants.pointsForPriceEntry} puan kazanacaksiniz',
-                  style: TextStyle(
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+              const Siz
