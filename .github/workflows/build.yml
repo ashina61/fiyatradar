@@ -1,4 +1,4 @@
-name: Build Android (Final Fix)
+name: Build Android (Final - Kotlin Fix)
 
 on:
   push:
@@ -14,15 +14,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Kotlin Hatası Düzeltici
-      - name: Fix Kotlin Version
+      # --- BURASI HAYAT KURTARAN KISIM ---
+      # Kotlin'i 2.0.21 yapiyoruz (Firebase icin sart)
+      # MinSDK'yi 23 yapiyoruz (Garanti olsun)
+      - name: Force Fix Configuration
         run: |
+          echo "Kotlin ve MinSDK ayarlaniyor..."
+          
+          # 1. Build.gradle icindeki Kotlin surumunu 2.0.21 yap
           if [ -f "android/build.gradle" ]; then
-            sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.0'/" android/build.gradle
+            sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '2.0.21'/" android/build.gradle
           fi
+          
+          # 2. Settings.gradle icindeki plugin surumunu 2.0.21 yap
           if [ -f "android/settings.gradle" ]; then
-             sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.0" apply false/' android/settings.gradle
+             sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
           fi
+          
+          # 3. App/Build.gradle icindeki minSdkVersion'i 23 yap (Zorla)
+          if [ -f "android/app/build.gradle" ]; then
+             sed -i 's/minSdkVersion [0-9]*/minSdkVersion 23/' android/app/build.gradle
+          fi
+          
+          echo "Ayarlar zorla güncellendi!"
 
       - uses: actions/setup-java@v4
         with:
@@ -37,14 +51,14 @@ jobs:
 
       - run: flutter pub get
 
-      # --- İKONLARI OLUŞTURMA KOMUTU (Bunu ekledim) ---
+      # Ikonlari olustur
       - name: Generate Icons
-        run: dart run flutter_launcher_icons || echo "Ikon ayari yoksa devam et"
+        run: dart run flutter_launcher_icons || echo "Ikon config yoksa devam et"
 
       - name: Build APK
         run: flutter build apk --release
 
-      # --- ZIPLE VE YÜKLE (PixelDrain) ---
+      # --- ZİP VE YÜKLE (PixelDrain - Calisan Yontem) ---
       - name: Upload Artifacts
         run: |
           echo "APK Zipleniyor..."
@@ -53,13 +67,11 @@ jobs:
           cd ../../../..
           
           echo "PixelDrain'e Yukleniyor..."
-          # Sessizce yükleyip sadece ID'yi alıyoruz
           RESPONSE=$(curl -s -T "build/app/outputs/flutter-apk/app-release.zip" -u : "https://pixeldrain.com/api/file")
           ID=$(echo $RESPONSE | grep -o '"id":"[^"]*' | cut -d'"' -f4)
           
           echo " "
           echo "======================================================="
-          echo "✅ İNDİRME LİNKİN HAZIR:"
+          echo "✅ İNDİRME LİNKİN (Bu Sefer Bitti):"
           echo "https://pixeldrain.com/u/$ID"
           echo "======================================================="
-          
