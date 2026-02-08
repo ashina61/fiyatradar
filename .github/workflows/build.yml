@@ -1,4 +1,4 @@
-name: Build Android APK & AAB (Kotasiz - Yedekli)
+name: Build Android APK (Final - Saglam Link)
 
 on:
   push:
@@ -23,17 +23,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- KOTLIN SURUMU DÜZELTME (Fix) ---
+      # --- KOTLIN SURUMU DÜZELTME ---
       - name: Fix Kotlin Version Automatically
         run: |
-          echo "Kotlin sürümü 1.9.0'a güncelleniyor..."
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.0'/" android/build.gradle
           fi
           if [ -f "android/settings.gradle" ]; then
              sed -i 's/id "org.jetbrains.kotlin.android" version .*/id "org.jetbrains.kotlin.android" version "1.9.0" apply false/' android/settings.gradle
           fi
-          echo "Düzeltme tamamlandı."
       # ---------------------------------------------------
 
       - name: Setup Java 17
@@ -59,21 +57,22 @@ jobs:
       - name: Build App Bundle (Release)
         run: flutter build appbundle --release
 
-      # --- GARANTİ YUKLEME ADIMI (BashUpload + File.io) ---
-      - name: Upload Artifacts (Guaranteed)
+      # --- EN SAGLAM YUKLEME ADIMI (0x0.st + Catbox) ---
+      - name: Upload Artifacts (Developer Mode)
         run: |
           echo "---------------------------------------------------"
-          echo "1. YONTEM: BASHUPLOAD YUKLENIYOR..."
-          curl https://bashupload.com/ -T build/app/outputs/flutter-apk/app-release.apk
+          echo "1. DENEME: 0x0.st (En Saglam) YUKLENIYOR..."
+          # Bu site Linuxcularin kullandigi cok hizli bir yerdir
+          curl -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://0x0.st
           echo " "
           
           echo "---------------------------------------------------"
-          echo "2. YONTEM: FILE.IO (Yedek) YUKLENIYOR..."
-          # File.io tek indirimliktir, indirdikten sonra silinir!
-          curl -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://file.io
+          echo "2. DENEME: CATBOX.MOE (Yedek) YUKLENIYOR..."
+          curl -F "reqtype=fileupload" -F "fileToUpload=@build/app/outputs/flutter-apk/app-release.apk" https://catbox.moe/user/api.php
           echo " "
           
           echo "---------------------------------------------------"
-          echo "NOT: Yukaridaki linklerden birini kopyalayip tarayicida ac."
-          echo "Bashupload linki 'wget' ile baslar, sadece https kismini al."
+          echo "LUTFEN DIKKAT:"
+          echo "Yukarida 'https://0x0.st/...' veya 'catbox.moe/...' ile baslayan linki kopyala."
           echo "---------------------------------------------------"
+          
