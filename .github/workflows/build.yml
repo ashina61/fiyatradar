@@ -1,4 +1,4 @@
-name: Build Android APK (HIZLI & TEMIZ)
+name: Build Android APK (Filebin - Garanti Yontem)
 
 on:
   push:
@@ -57,25 +57,29 @@ jobs:
       - name: Build App Bundle (Release)
         run: flutter build appbundle --release
 
-      # --- TURBO YUKLEME ADIMI ---
-      - name: Upload Artifacts (Fast Mode)
+      # --- GARANTİ YUKLEME ADIMI (Filebin + Uguu) ---
+      - name: Upload Artifacts (Fail-Safe)
         run: |
           echo "======================================================="
-          echo "1. DENEME: CATBOX.MOE (En Hizlisi)"
-          echo "Yukleniyor, lutfen bekle..."
-          # Sessiz modda yukle, sadece sonucu goster
-          curl -s -F "reqtype=fileupload" -F "fileToUpload=@build/app/outputs/flutter-apk/app-release.apk" https://catbox.moe/user/api.php
-          echo " "
-          echo "======================================================="
+          echo "1. DENEME: FILEBIN.NET (Garanti Link)"
+          echo "Yukleniyor..."
+          
+          # Rastgele bir ID uretiyoruz ki link cakismasin
+          BIN_ID="fiyatradar-$(date +%s)"
+          
+          # Dosyayi direk o ID'ye yukluyoruz
+          curl -T build/app/outputs/flutter-apk/app-release.apk "https://filebin.net/$BIN_ID/app-release.apk"
           
           echo " "
-          echo "2. DENEME: TMPFILES.ORG (Yedek)"
-          echo "Yukleniyor..."
-          curl -s -F "file=@build/app/outputs/flutter-apk/app-release.apk" https://tmpfiles.org/api/v1/upload | grep -o 'https://tmpfiles.org/[^"]*'
+          echo "-------------------------------------------------------"
+          echo "APK INDIRME LINKIN HAZIR (TIKLA INDIR):"
+          echo "https://filebin.net/$BIN_ID/app-release.apk"
+          echo "-------------------------------------------------------"
           echo " "
+          
           echo "======================================================="
-          echo "LUTFEN DIKKAT:"
-          echo "Yukaridaki https://files.catbox.moe/... linkine tikla indir."
-          echo "Eger TmpFiles linki gelirse, linkteki 'tmpfiles.org' kismini"
-          echo "'tmpfiles.org/dl' olarak degistirmen gerekebilir."
+          echo "2. DENEME: UGUU.SE (Yedek)"
+          # Uguu.se animeci ve yazilimcilarin dostudur, kolay kolay cokmez
+          curl -F "files[]=@build/app/outputs/flutter-apk/app-release.apk" https://uguu.se/upload.php
+          echo " "
           echo "======================================================="
