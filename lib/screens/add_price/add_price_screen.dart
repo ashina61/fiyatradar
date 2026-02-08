@@ -318,7 +318,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
                             'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
                             style: const TextStyle(
-                              claude/fiyatradar-app-oKr5R
+                              
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
