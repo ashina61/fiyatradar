@@ -403,7 +403,9 @@ class _PricingResults extends StatelessWidget {
     final bestSingle = summary.bestSingleMarket;
     final mixed = summary.mixedResult;
     final saveAmount = bestSingle != null
-        ? (bestSingle.total - mixed.total).clamp(0, double.infinity)
+        ? (bestSingle.total - mixed.total)
+            .clamp(0, double.infinity)
+            .toDouble()
         : null;
     final marketEntries = summary.perMarketTotals.entries.toList()
       ..sort((a, b) => a.value.total.compareTo(b.value.total));
