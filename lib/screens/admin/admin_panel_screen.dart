@@ -905,7 +905,7 @@ class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final reportsAsync = ref.watch(reportsProvider);
     final theme = Theme.of(context);
 

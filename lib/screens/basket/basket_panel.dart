@@ -5,6 +5,7 @@ import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/basket_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../services/basket_service.dart';
 import '../../utils/theme.dart';
 
 class BasketPanel extends ConsumerWidget {
