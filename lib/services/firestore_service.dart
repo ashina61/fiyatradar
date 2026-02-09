@@ -655,6 +655,23 @@ class FirestoreService {
     return results;
   }
 
+  Future<List<PriceModel>> getPricesForProductKeys(List<String> productKeys) async {
+    if (productKeys.isEmpty) return [];
+    final results = <PriceModel>[];
+    final chunks = <List<String>>[];
+    for (var i = 0; i < productKeys.length; i += 10) {
+      chunks.add(productKeys.sublist(
+        i,
+        i + 10 > productKeys.length ? productKeys.length : i + 10,
+      ));
+    }
+    for (final chunk in chunks) {
+      final snapshot = await _pricesRef.where('productId', whereIn: chunk).get();
+      results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+    }
+    return results;
+  }
+
   // Update user profile
   Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
     await _usersRef.doc(userId).update(data);

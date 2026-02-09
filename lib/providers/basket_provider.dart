@@ -2,13 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../main.dart';
 import '../models/basket_item_model.dart';
 import '../models/product_model.dart';
-import '../services/basket_service.dart';
+import '../services/basket_pricing_service.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 import 'product_provider.dart';
 
-final basketServiceProvider = Provider<BasketService>((ref) {
-  return BasketService(ref.watch(firestoreServiceProvider));
+final basketPricingServiceProvider = Provider<BasketPricingService>((ref) {
+  return BasketPricingService(ref.watch(firestoreServiceProvider));
 });
 
 final basketItemsProvider = StreamProvider<List<BasketItemModel>>((ref) {
@@ -41,17 +41,21 @@ final basketProductsProvider = FutureProvider<Map<String, ProductModel>>((ref) a
   };
 });
 
-final basketCalculationProvider = FutureProvider<BasketCalculationResult>((ref) async {
+final basketCalculationProvider = FutureProvider<BasketPricingResult>((ref) async {
   final items = ref.watch(basketItemsProvider).valueOrNull ?? [];
   if (items.isEmpty) {
-    return BasketCalculationResult(
-      perStoreTotal: {},
-      perStoreCoverage: {},
-      perStoreMissingCount: {},
-      cheapestPerProduct: {},
-      missingProductIds: [],
-      bestMixTotal: 0,
+    return BasketPricingResult(
+      bestSingleMarket: null,
+      mixedBasket: MixedBasketResult(
+        total: 0,
+        perItemCheapest: {},
+        missingProductIds: const [],
+      ),
+      perMarketTotals: {},
+      perMarketMissingCount: {},
+      marketNames: {},
     );
   }
-  return ref.watch(basketServiceProvider).calculateRecommendations(items);
+  final productMap = await ref.watch(basketProductsProvider.future);
+  return ref.watch(basketPricingServiceProvider).calculateRecommendations(items, productMap);
 });

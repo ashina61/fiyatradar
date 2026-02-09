@@ -5,7 +5,7 @@ import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/basket_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../services/basket_service.dart';
+import '../../services/basket_pricing_service.dart';
 import '../../utils/theme.dart';
 
 class BasketPanel extends ConsumerWidget {
@@ -333,7 +333,7 @@ class _BasketItemTile extends ConsumerWidget {
 class _BasketResults extends StatelessWidget {
   final List<BasketItemModel> items;
   final Map<String, ProductModel> productMap;
-  final BasketCalculationResult result;
+  final BasketPricingResult result;
 
   const _BasketResults({
     required this.items,
@@ -343,33 +343,21 @@ class _BasketResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storeEntries = result.perStoreCoverage.entries.toList();
+    final storeEntries = result.perMarketTotals.entries.toList();
     storeEntries.sort((a, b) {
-      if (a.value != b.value) {
-        return b.value.compareTo(a.value);
-      }
-      final totalA = result.perStoreTotal[a.key] ?? double.infinity;
-      final totalB = result.perStoreTotal[b.key] ?? double.infinity;
+      final totalA = result.perMarketTotals[a.key] ?? double.infinity;
+      final totalB = result.perMarketTotals[b.key] ?? double.infinity;
       return totalA.compareTo(totalB);
     });
+    final eligibleStoreEntries = storeEntries
+        .where((entry) => (result.perMarketMissingCount[entry.key] ?? 0) == 0)
+        .toList();
 
-    MapEntry<String, int>? bestStoreEntry;
-    for (final entry in storeEntries) {
-      if (entry.value > 0) {
-        bestStoreEntry = entry;
-        break;
-      }
-    }
-
-    final bestStoreKey = bestStoreEntry?.key;
-    final bestStoreTotal =
-        bestStoreKey != null ? (result.perStoreTotal[bestStoreKey] ?? 0) : 0;
-    final bestStoreMissing = bestStoreKey != null
-        ? (result.perStoreMissingCount[bestStoreKey] ?? 0)
-        : 0;
-    final mixTotal = result.bestMixTotal;
-    final saveAmount =
-        bestStoreKey != null ? (bestStoreTotal - mixTotal).clamp(0, double.infinity) : 0;
+    final bestSingle = result.bestSingleMarket;
+    final mixTotal = result.mixedBasket.total;
+    final saveAmount = bestSingle != null
+        ? (bestSingle.total - mixTotal).clamp(0, double.infinity)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,19 +373,16 @@ class _BasketResults extends StatelessWidget {
                 Text('Oneri', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  bestStoreKey != null
-                      ? 'En Iyi Tek Market: $bestStoreKey - ${bestStoreTotal.toStringAsFixed(2)} TL'
-                      : 'En Iyi Tek Market: fiyat bulunamadi',
+                  bestSingle != null
+                      ? 'En İyi Tek Market: ${bestSingle.marketName} - ${bestSingle.total.toStringAsFixed(2)} TL'
+                      : 'En İyi Tek Market: bulunamadı',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                if (bestStoreKey != null && bestStoreMissing > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.xs),
-                    child: Text('Missing $bestStoreMissing items'),
-                  ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'En Ucuz Karma: ${mixTotal.toStringAsFixed(2)} TL (Save ${saveAmount.toStringAsFixed(2)} TL)',
+                  saveAmount != null
+                      ? 'En Ucuz Karma: ${mixTotal.toStringAsFixed(2)} TL (Save ${saveAmount.toStringAsFixed(2)} TL)'
+                      : 'En Ucuz Karma: ${mixTotal.toStringAsFixed(2)} TL (Save -)',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -405,22 +390,19 @@ class _BasketResults extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text('Market karsilastirmasi', style: Theme.of(context).textTheme.titleSmall),
+        Text('Market karşılaştırması', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
-        if (storeEntries.isEmpty)
-          const Text('Market fiyati bulunamadi.')
+        if (eligibleStoreEntries.isEmpty)
+          const Text('Market fiyatı bulunamadı.')
         else
-          ...storeEntries.map((entry) {
-            final storeTotal = result.perStoreTotal[entry.key] ?? 0;
-            final missingCount = result.perStoreMissingCount[entry.key] ?? 0;
+          ...eligibleStoreEntries.map((entry) {
+            final storeTotal = result.perMarketTotals[entry.key] ?? 0;
             return Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: ListTile(
                 leading: const Icon(Icons.storefront_outlined, color: AppColors.primary),
-                title: Text(entry.key),
-                subtitle: missingCount > 0
-                    ? Text('Missing $missingCount items')
-                    : const Text('Tum urunlerde fiyat var'),
+                title: Text(result.marketNames[entry.key] ?? entry.key),
+                subtitle: const Text('Tüm ürünlerde fiyat var'),
                 trailing: Text(
                   '${storeTotal.toStringAsFixed(2)} TL',
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -428,40 +410,40 @@ class _BasketResults extends StatelessWidget {
               ),
             );
           }),
-        Text('Parca parca en ucuz', style: Theme.of(context).textTheme.titleSmall),
+        Text('Parça parça en ucuz', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
         ...items.map((item) {
           final product = productMap[item.productId];
-          final cheapest = result.cheapestPerProduct[item.productId];
+          final cheapest = result.mixedBasket.perItemCheapest[item.productId];
           if (cheapest == null) {
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: Text('${product?.name ?? 'Urun'}: fiyat bulunamadi'),
+              child: Text('${product?.name ?? 'Ürün'}: fiyat bulunamadı'),
             );
           }
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xs),
             child: Text(
-              '${product?.name ?? 'Urun'} → ${cheapest.storeName} (${cheapest.price.toStringAsFixed(2)} TL)',
+              '${product?.name ?? 'Ürün'} → ${cheapest.marketName} (${cheapest.price.toStringAsFixed(2)} TL)',
             ),
           );
         }),
-        if (result.missingProductIds.isNotEmpty) ...[
+        if (result.mixedBasket.missingProductIds.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Fiyat Bulunamadi',
+            'Fiyat bulunamadı',
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
                 ?.copyWith(color: AppColors.warning),
           ),
           const SizedBox(height: AppSpacing.xs),
-          ...result.missingProductIds.map((productId) {
+          ...result.mixedBasket.missingProductIds.map((productId) {
             final product = productMap[productId];
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: Text(
-                product?.name ?? 'Urun',
+                product?.name ?? 'Ürün',
                 style: const TextStyle(color: AppColors.warning),
               ),
             );

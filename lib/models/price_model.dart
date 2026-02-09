@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PriceModel {
   final String id;
   final String productId;
+  final String? productName;
+  final String? productBarcode;
   final String userId;
   final String? userName;
   final double price;
@@ -20,6 +22,8 @@ class PriceModel {
   PriceModel({
     required this.id,
     required this.productId,
+    this.productName,
+    this.productBarcode,
     required this.userId,
     this.userName,
     required this.price,
@@ -49,6 +53,8 @@ class PriceModel {
     return PriceModel(
       id: doc.id,
       productId: data['productId'] ?? '',
+      productName: data['productName'] ?? data['name'],
+      productBarcode: data['productBarcode'] ?? data['barcode'],
       userId: data['userId'] ?? '',
       userName: data['userName'],
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
@@ -68,6 +74,8 @@ class PriceModel {
   Map<String, dynamic> toFirestore() {
     return {
       'productId': productId,
+      'productName': productName,
+      'productBarcode': productBarcode,
       'userId': userId,
       'userName': userName,
       'price': price,
@@ -87,6 +95,8 @@ class PriceModel {
   PriceModel copyWith({
     String? id,
     String? productId,
+    String? productName,
+    String? productBarcode,
     String? userId,
     String? userName,
     double? price,
@@ -104,6 +114,8 @@ class PriceModel {
     return PriceModel(
       id: id ?? this.id,
       productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
+      productBarcode: productBarcode ?? this.productBarcode,
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       price: price ?? this.price,
