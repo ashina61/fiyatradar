@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../basket/basket_panel.dart';
+import '../../features/basket/basket_screen.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/notification_model.dart';
@@ -164,7 +164,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
               ),
             ],
           ),
-          const BasketPanel(showTitle: false),
+          const BasketScreen(),
         ],
       ),
     );

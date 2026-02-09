@@ -1,0 +1,66 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fiyatradar/features/basket/basket_pricing.dart';
+
+void main() {
+  test('two markets, three items -> best single and mixed totals', () {
+    final items = [
+      const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
+      const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 2),
+      const BasketItemInput(key: 'p3', name: 'Yag', quantity: 1),
+    ];
+    final pricesIndex = {
+      'p1': {'m1': 10, 'm2': 12},
+      'p2': {'m1': 4, 'm2': 3},
+      'p3': {'m1': 20, 'm2': 19},
+    };
+    final summary = calculateBasketPricing(
+      items: items,
+      pricesIndex: pricesIndex,
+      marketNames: const {'m1': 'Market 1', 'm2': 'Market 2'},
+    );
+
+    expect(summary.bestSingleMarket?.marketId, 'm2');
+    expect(summary.bestSingleMarket?.total, 37);
+    expect(summary.mixedResult.total, 36);
+  });
+
+  test('one market missing an item -> best single chooses other market', () {
+    final items = [
+      const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
+      const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
+    ];
+    final pricesIndex = {
+      'p1': {'m1': 10, 'm2': 11},
+      'p2': {'m2': 5},
+    };
+    final summary = calculateBasketPricing(
+      items: items,
+      pricesIndex: pricesIndex,
+      marketNames: const {'m1': 'Market 1', 'm2': 'Market 2'},
+    );
+
+    expect(summary.bestSingleMarket?.marketId, 'm2');
+    expect(summary.bestSingleMarket?.total, 16);
+    expect(summary.mixedResult.total, 15);
+  });
+
+  test('no market has full basket -> best single null, mixed computed', () {
+    final items = [
+      const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
+      const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
+    ];
+    final pricesIndex = {
+      'p1': {'m1': 10},
+      'p2': {'m2': 6},
+    };
+    final summary = calculateBasketPricing(
+      items: items,
+      pricesIndex: pricesIndex,
+      marketNames: const {'m1': 'Market 1', 'm2': 'Market 2'},
+    );
+
+    expect(summary.bestSingleMarket, isNull);
+    expect(summary.mixedResult.total, 16);
+    expect(summary.mixedResult.missingKeys, isEmpty);
+  });
+}
