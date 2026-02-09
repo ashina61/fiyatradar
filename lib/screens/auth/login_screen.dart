@@ -296,10 +296,11 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.radar,
-                            size: 72,
-                            color: Colors.white,
+                          child: Image.asset(
+                            'assets/images/app_logo.png',
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
