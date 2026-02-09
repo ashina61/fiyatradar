@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
+import '../basket/basket_panel.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/notification_model.dart';
@@ -28,6 +29,19 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with TickerProviderStateMixin {
   _NotificationFilter _selectedFilter = _NotificationFilter.all;
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   List<NotificationModel> _filterNotifications(List<NotificationModel> notifications) {
     if (_selectedFilter == _NotificationFilter.all) {
@@ -103,6 +117,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bildirimler'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Bildirimler'),
+            Tab(text: 'Fiyat Sepeti'),
+          ],
+        ),
         actions: [
           notificationsAsync.when(
             data: (notifications) {
@@ -123,23 +144,27 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           ),
         ],
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Filter chips
-          _buildFilterBar(theme),
-          // Notification list or empty state
-          Expanded(
-            child: notificationsAsync.when(
-              data: (notifications) {
-                final filtered = _filterNotifications(notifications);
-                return filtered.isEmpty
-                    ? _buildEmptyState(theme)
-                    : _buildNotificationList(filtered, theme);
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => _buildEmptyState(theme),
-            ),
+          Column(
+            children: [
+              _buildFilterBar(theme),
+              Expanded(
+                child: notificationsAsync.when(
+                  data: (notifications) {
+                    final filtered = _filterNotifications(notifications);
+                    return filtered.isEmpty
+                        ? _buildEmptyState(theme)
+                        : _buildNotificationList(filtered, theme);
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => _buildEmptyState(theme),
+                ),
+              ),
+            ],
           ),
+          const BasketPanel(showTitle: false),
         ],
       ),
     );

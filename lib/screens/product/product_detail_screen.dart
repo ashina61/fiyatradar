@@ -63,12 +63,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
+      final isAdmin = userModel.isAdmin || userModel.role == 'admin';
       final comment = CommentModel(
         id: '',
         productId: widget.productId,
         userId: userModel.uid,
         userName: userModel.name,
         userPhotoUrl: userModel.photoUrl,
+        authorRole: isAdmin ? 'admin' : 'user',
         text: _commentController.text.trim(),
         createdAt: DateTime.now(),
       );
@@ -884,7 +886,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               onPressed: selectedReason == null ? null : () async {
                 final user = ref.read(userModelStreamProvider).valueOrNull;
                 if (user != null) {
-                  await ref.read(firestoreServiceProvider).reportPrice(price.id, user.uid, selectedReason!);
+                  await ref.read(firestoreServiceProvider).reportPrice(
+                        priceId: price.id,
+                        userId: user.uid,
+                        reason: selectedReason!,
+                        contextId: widget.productId,
+                      );
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
@@ -932,7 +939,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               onPressed: selectedReason == null ? null : () async {
                 final user = ref.read(userModelStreamProvider).valueOrNull;
                 if (user != null) {
-                  await ref.read(firestoreServiceProvider).reportComment(comment.id, user.uid, selectedReason!);
+                  await ref.read(firestoreServiceProvider).reportComment(
+                        commentId: comment.id,
+                        userId: user.uid,
+                        reason: selectedReason!,
+                        contextId: comment.productId,
+                      );
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
@@ -1067,12 +1079,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                comment.userName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    comment.userName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (comment.authorRole == 'admin') ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.verified,
+                                      size: 14,
+                                      color: Colors.blue,
+                                    ),
+                                  ],
+                                ],
                               ),
                               Text(
                                 _formatTimeAgo(comment.createdAt),

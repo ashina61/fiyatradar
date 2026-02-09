@@ -73,6 +73,14 @@ class CommentCard extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
+                    if (comment.authorRole == 'admin') ...[
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.verified,
+                        size: 16,
+                        color: Colors.blue,
+                      ),
+                    ],
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       timeago.format(comment.createdAt, locale: 'tr'),

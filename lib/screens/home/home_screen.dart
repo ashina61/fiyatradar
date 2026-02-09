@@ -10,6 +10,7 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../main_screen.dart';
+import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -270,26 +271,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         // Points badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.accent.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.star, color: AppColors.accent, size: 16),
-              const SizedBox(width: 4),
-              Text(
-                '$points',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppColors.accentDark,
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PointsScreen()),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star, color: AppColors.accent, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '$points',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AppColors.accentDark,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),

@@ -85,8 +85,7 @@ class StorageService {
   }) async {
     return await uploadImage(
       file: file,
-      folder: 'products',
-      customName: '$productId.jpg',
+      folder: 'products/$productId',
     );
   }
 

@@ -6,6 +6,7 @@ class CommentModel {
   final String userId;
   final String userName;
   final String? userPhotoUrl;
+  final String? authorRole;
   final String text;
   final DateTime createdAt;
   final int likes;
@@ -17,6 +18,7 @@ class CommentModel {
     required this.userId,
     required this.userName,
     this.userPhotoUrl,
+    this.authorRole,
     required this.text,
     required this.createdAt,
     this.likes = 0,
@@ -31,6 +33,7 @@ class CommentModel {
       userId: data['userId'] ?? '',
       userName: data['userName'] ?? 'Anonim',
       userPhotoUrl: data['userPhotoUrl'],
+      authorRole: data['authorRole'],
       text: data['text'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: data['likes'] ?? 0,
@@ -44,6 +47,7 @@ class CommentModel {
       'userId': userId,
       'userName': userName,
       'userPhotoUrl': userPhotoUrl,
+      'authorRole': authorRole,
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
       'likes': likes,
@@ -57,6 +61,7 @@ class CommentModel {
     String? userId,
     String? userName,
     String? userPhotoUrl,
+    String? authorRole,
     String? text,
     DateTime? createdAt,
     int? likes,
@@ -68,6 +73,7 @@ class CommentModel {
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
+      authorRole: authorRole ?? this.authorRole,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
       likes: likes ?? this.likes,
