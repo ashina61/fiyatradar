@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
@@ -127,6 +129,22 @@ class _ProductManagementTab extends ConsumerWidget {
     }
   }
 
+  Future<Map<String, String?>> _fetchProductData(String barcode) async {
+    final url = Uri.parse(
+      'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
+    );
+    final response = await http.get(url);
+    if (response.statusCode != 200) return {};
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    if (data['status'] != 1) return {};
+    final product = data['product'] as Map<String, dynamic>? ?? {};
+    return {
+      'name': product['product_name'] as String?,
+      'brand': product['brands'] as String?,
+      'imageUrl': product['image_url'] as String?,
+    };
+  }
+
   void _showAddProductDialog(BuildContext context, WidgetRef ref, List<Map<String, dynamic>> categories) {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
@@ -136,7 +154,9 @@ class _ProductManagementTab extends ConsumerWidget {
     final List<File> selectedImages = [];
     final picker = ImagePicker();
     bool isUploading = false;
+    bool isFetching = false;
     String? uploadError;
+    String? fetchedImageUrl;
 
     showDialog(
       context: context,
@@ -155,6 +175,78 @@ class _ProductManagementTab extends ConsumerWidget {
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(
+                controller: barcodeController,
+                decoration: InputDecoration(
+                  labelText: 'Barkod (Opsiyonel)',
+                  prefixIcon: const Icon(Icons.qr_code),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: isFetching
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.search),
+                        tooltip: 'OpenFoodFacts\'ta Ara',
+                        onPressed: isFetching
+                            ? null
+                            : () async {
+                                final barcode = barcodeController.text.trim();
+                                if (barcode.isEmpty) return;
+                                setDialogState(() {
+                                  isFetching = true;
+                                  uploadError = null;
+                                });
+                                try {
+                                  final result = await _fetchProductData(barcode);
+                                  if (result.isEmpty) {
+                                    setDialogState(() {
+                                      uploadError = 'Urun bulunamadi (OpenFoodFacts)';
+                                    });
+                                    return;
+                                  }
+                                  setDialogState(() {
+                                    if (result['name'] != null && result['name']!.isNotEmpty) {
+                                      nameController.text = result['name']!;
+                                    }
+                                    if (result['brand'] != null && result['brand']!.isNotEmpty) {
+                                      brandController.text = result['brand']!;
+                                    }
+                                    if (result['imageUrl'] != null && result['imageUrl']!.isNotEmpty) {
+                                      fetchedImageUrl = result['imageUrl'];
+                                    }
+                                  });
+                                } catch (e) {
+                                  setDialogState(() {
+                                    uploadError = 'Arama hatasi: $e';
+                                  });
+                                } finally {
+                                  setDialogState(() => isFetching = false);
+                                }
+                              },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'Barkod Tara',
+                        onPressed: () async {
+                          final code = await BarcodeScannerSheet.scan(
+                            ctx,
+                            title: 'Barkod Tara',
+                          );
+                          if (code != null) {
+                            barcodeController.text = code;
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
               ),
@@ -163,26 +255,6 @@ class _ProductManagementTab extends ConsumerWidget {
                 controller: descriptionController,
                 decoration: const InputDecoration(labelText: 'Aciklama (Opsiyonel)', prefixIcon: Icon(Icons.description_outlined)),
                 maxLines: 2,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: barcodeController,
-                decoration: InputDecoration(
-                  labelText: 'Barkod (Opsiyonel)',
-                  prefixIcon: const Icon(Icons.qr_code),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.qr_code_scanner),
-                    onPressed: () async {
-                      final code = await BarcodeScannerSheet.scan(
-                        ctx,
-                        title: 'Barkod Tara',
-                      );
-                      if (code != null) {
-                        barcodeController.text = code;
-                      }
-                    },
-                  ),
-                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
@@ -205,6 +277,60 @@ class _ProductManagementTab extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
+              // Show fetched network image if available and no local images picked
+              if (fetchedImageUrl != null && selectedImages.isEmpty) ...[
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      child: Image.network(
+                        fetchedImageUrl!,
+                        width: double.infinity,
+                        height: 120,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: double.infinity,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_outlined, color: AppColors.primary, size: 32),
+                              SizedBox(height: 4),
+                              Text('Gorsel yuklenemedi', style: TextStyle(fontSize: 11, color: AppColors.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: GestureDetector(
+                        onTap: () => setDialogState(() => fetchedImageUrl = null),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'OpenFoodFacts gorseli kullaniliyor. Degistirmek icin asagidan secin.',
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -318,12 +444,16 @@ class _ProductManagementTab extends ConsumerWidget {
 
                   final List<String> imageUrls = [];
                   if (selectedImages.isNotEmpty) {
+                    // Local files picked -> upload to Storage
                     final storageService = StorageService();
                     final urls = await storageService.uploadMultipleImages(
                       files: selectedImages,
                       folder: 'products/$productId',
                     );
                     imageUrls.addAll(urls);
+                  } else if (fetchedImageUrl != null) {
+                    // No local file, but have network URL -> use directly
+                    imageUrls.add(fetchedImageUrl!);
                   }
 
                   await service.updateProduct(productId, {
