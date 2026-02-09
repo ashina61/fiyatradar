@@ -375,17 +375,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    image: banner.imageUrl.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(banner.imageUrl),
-                            fit: BoxFit.cover,
-                            colorFilter: ColorFilter.mode(
-                              AppColors.primary.withOpacity(0.35),
-                              BlendMode.darken,
-                            ),
-                            onError: (_, __) {},
-                          )
-                        : null,
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withOpacity(0.3),
@@ -394,31 +383,87 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        banner.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          shadows: [Shadow(blurRadius: 6, color: Colors.black45)],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      if (banner.description != null)
-                        Text(
-                          banner.description!,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 14,
-                            shadows: const [Shadow(blurRadius: 6, color: Colors.black45)],
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    child: Stack(
+                      children: [
+                        // Gradient overlay for readability
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black26,
+                                  Colors.transparent,
+                                ],
+                                begin: Alignment.bottomLeft,
+                                end: Alignment.topRight,
+                              ),
+                            ),
                           ),
                         ),
-                    ],
+                        // Content: Row with text left, image right
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Row(
+                            children: [
+                              // Left side — text
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      banner.title,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.2,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (banner.description != null &&
+                                        banner.description!.isNotEmpty) ...[
+                                      const SizedBox(height: AppSpacing.sm),
+                                      Text(
+                                        banner.description!,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.5,
+                                        ),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              // Right side — image
+                              if (banner.imageUrl.isNotEmpty) ...[
+                                const SizedBox(width: AppSpacing.md),
+                                SizedBox(
+                                  width: 110,
+                                  child: ClipRRect(
+                                    borderRadius:
+                                        BorderRadius.circular(AppRadius.md),
+                                    child: Image.network(
+                                      banner.imageUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -471,28 +516,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         gradient: AppColors.gradient,
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            'FiyatRadar\'a Hosgeldiniz!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Stack(
+          children: [
+            // Gradient overlay
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black26,
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.topRight,
+                  ),
+                ),
+              ),
             ),
-          ),
-          SizedBox(height: AppSpacing.xs),
-          Text(
-            'En iyi fiyatlari kesfetmeye baslayin',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          'FiyatRadar\'a Hosgeldiniz!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                          ),
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'En iyi fiyatlari kesfetmeye baslayin',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Icon(
+                    Icons.campaign_outlined,
+                    size: 72,
+                    color: Colors.white.withOpacity(0.3),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
