@@ -280,26 +280,24 @@ class _LoginScreenState extends State<LoginScreen>
                       FadeTransition(
                         opacity: _iconFadeAnimation,
                         child: Container(
-                          padding: const EdgeInsets.all(20),
+                          width: 112,
+                          height: 112,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 2,
-                            ),
+                            borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withOpacity(0.2),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.radar,
-                            size: 72,
-                            color: Colors.white,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(
+                              'assets/icons/icon.png',
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),
