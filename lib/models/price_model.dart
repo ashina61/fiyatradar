@@ -6,6 +6,7 @@ class PriceModel {
   final String userId;
   final String? userName;
   final double price;
+  final String? storeId;
   final String storeName;
   final String? storeLocation;
   final GeoPoint? geoPoint;
@@ -22,6 +23,7 @@ class PriceModel {
     required this.userId,
     this.userName,
     required this.price,
+    this.storeId,
     required this.storeName,
     this.storeLocation,
     this.geoPoint,
@@ -50,6 +52,7 @@ class PriceModel {
       userId: data['userId'] ?? '',
       userName: data['userName'],
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
+      storeId: data['storeId'],
       storeName: data['storeName'] ?? '',
       storeLocation: data['storeLocation'],
       geoPoint: data['geoPoint'] as GeoPoint?,
@@ -68,6 +71,7 @@ class PriceModel {
       'userId': userId,
       'userName': userName,
       'price': price,
+      'storeId': storeId,
       'storeName': storeName,
       'storeLocation': storeLocation,
       'geoPoint': geoPoint,
@@ -86,6 +90,7 @@ class PriceModel {
     String? userId,
     String? userName,
     double? price,
+    String? storeId,
     String? storeName,
     String? storeLocation,
     GeoPoint? geoPoint,
@@ -102,6 +107,7 @@ class PriceModel {
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       price: price ?? this.price,
+      storeId: storeId ?? this.storeId,
       storeName: storeName ?? this.storeName,
       storeLocation: storeLocation ?? this.storeLocation,
       geoPoint: geoPoint ?? this.geoPoint,

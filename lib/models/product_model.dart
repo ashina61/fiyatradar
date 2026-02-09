@@ -6,6 +6,8 @@ class ProductModel {
   final String brand;
   final String category;
   final String? mainImage;
+  final List<String> imageUrls;
+  final String? description;
   final String? barcode;
   final int viewCount;
   final int priceEntryCount;
@@ -20,6 +22,8 @@ class ProductModel {
     required this.brand,
     required this.category,
     this.mainImage,
+    this.imageUrls = const [],
+    this.description,
     this.barcode,
     this.viewCount = 0,
     this.priceEntryCount = 0,
@@ -39,6 +43,8 @@ class ProductModel {
       brand: data['brand'] ?? '',
       category: data['category'] ?? '',
       mainImage: data['mainImage'],
+      imageUrls: List<String>.from(data['imageUrls'] ?? []),
+      description: data['description'],
       barcode: data['barcode'],
       viewCount: data['viewCount'] ?? 0,
       priceEntryCount: data['priceEntryCount'] ?? 0,
@@ -55,6 +61,8 @@ class ProductModel {
       'brand': brand,
       'category': category,
       'mainImage': mainImage,
+      'imageUrls': imageUrls,
+      'description': description,
       'barcode': barcode,
       'viewCount': viewCount,
       'priceEntryCount': priceEntryCount,
@@ -71,6 +79,8 @@ class ProductModel {
     String? brand,
     String? category,
     String? mainImage,
+    List<String>? imageUrls,
+    String? description,
     String? barcode,
     int? viewCount,
     int? priceEntryCount,
@@ -85,6 +95,8 @@ class ProductModel {
       brand: brand ?? this.brand,
       category: category ?? this.category,
       mainImage: mainImage ?? this.mainImage,
+      imageUrls: imageUrls ?? this.imageUrls,
+      description: description ?? this.description,
       barcode: barcode ?? this.barcode,
       viewCount: viewCount ?? this.viewCount,
       priceEntryCount: priceEntryCount ?? this.priceEntryCount,

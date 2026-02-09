@@ -13,6 +13,7 @@ class UserModel {
   final int validations;
   final int inviteCount;
   final bool isAdmin;
+  final String? role;
   final List<String> savedProducts;
   final double reliabilityScore;
   final DateTime createdAt;
@@ -31,6 +32,7 @@ class UserModel {
     this.validations = 0,
     this.inviteCount = 0,
     this.isAdmin = false,
+    this.role,
     this.savedProducts = const [],
     this.reliabilityScore = 100.0,
     required this.createdAt,
@@ -52,6 +54,7 @@ class UserModel {
       validations: data['validations'] ?? 0,
       inviteCount: data['inviteCount'] ?? 0,
       isAdmin: data['isAdmin'] ?? false,
+      role: data['role'],
       savedProducts: List<String>.from(data['savedProducts'] ?? []),
       reliabilityScore: (data['reliabilityScore'] ?? 100.0).toDouble(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -72,6 +75,7 @@ class UserModel {
       'validations': validations,
       'inviteCount': inviteCount,
       'isAdmin': isAdmin,
+      'role': role,
       'savedProducts': savedProducts,
       'reliabilityScore': reliabilityScore,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -92,6 +96,7 @@ class UserModel {
     int? validations,
     int? inviteCount,
     bool? isAdmin,
+    String? role,
     List<String>? savedProducts,
     double? reliabilityScore,
     DateTime? createdAt,
@@ -110,6 +115,7 @@ class UserModel {
       validations: validations ?? this.validations,
       inviteCount: inviteCount ?? this.inviteCount,
       isAdmin: isAdmin ?? this.isAdmin,
+      role: role ?? this.role,
       savedProducts: savedProducts ?? this.savedProducts,
       reliabilityScore: reliabilityScore ?? this.reliabilityScore,
       createdAt: createdAt ?? this.createdAt,

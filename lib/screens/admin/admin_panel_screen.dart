@@ -1,12 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
+import 'report_detail_screen.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/storage_service.dart';
 
 
 import '../../widgets/barcode_scanner_sheet.dart';
@@ -127,7 +131,12 @@ class _ProductManagementTab extends ConsumerWidget {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
     final barcodeController = TextEditingController();
+    final descriptionController = TextEditingController();
     String? selectedCategory;
+    final List<File> selectedImages = [];
+    final picker = ImagePicker();
+    bool isUploading = false;
+    String? uploadError;
 
     showDialog(
       context: context,
@@ -148,6 +157,12 @@ class _ProductManagementTab extends ConsumerWidget {
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Aciklama (Opsiyonel)', prefixIcon: Icon(Icons.description_outlined)),
+                maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
@@ -181,26 +196,158 @@ class _ProductManagementTab extends ConsumerWidget {
                 items: categories.map((c) => DropdownMenuItem(value: c['name'] as String, child: Text(c['name'] as String))).toList(),
                 onChanged: (val) => setDialogState(() => selectedCategory = val),
               ),
+              const SizedBox(height: AppSpacing.md),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Urun Gorselleri',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final images = await picker.pickMultiImage(imageQuality: 85);
+                        if (images.isNotEmpty) {
+                          setDialogState(() {
+                            selectedImages.addAll(images.map((e) => File(e.path)));
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.photo_library_outlined, size: 18),
+                      label: const Text('Galeriden Sec'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final image = await picker.pickImage(
+                          source: ImageSource.camera,
+                          imageQuality: 85,
+                        );
+                        if (image != null) {
+                          setDialogState(() {
+                            selectedImages.add(File(image.path));
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                      label: const Text('Kamera'),
+                    ),
+                  ),
+                ],
+              ),
+              if (selectedImages.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  height: 70,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, index) {
+                      final file = selectedImages[index];
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            child: Image.file(
+                              file,
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() => selectedImages.removeAt(index));
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+                    itemCount: selectedImages.length,
+                  ),
+                ),
+              ],
+              if (uploadError != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(uploadError!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
+              ],
             ]),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.isEmpty || selectedCategory == null) return;
-                final service = ref.read(firestoreServiceProvider);
-                await service.addProduct(ProductModel(
-                  id: '',
-                  name: nameController.text,
-                  brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
-                  category: selectedCategory!,
-                  barcode: barcodeController.text.isEmpty ? null : barcodeController.text,
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ));
-                if (ctx.mounted) Navigator.pop(ctx);
+                if (nameController.text.isEmpty || selectedCategory == null || isUploading) return;
+                setDialogState(() {
+                  isUploading = true;
+                  uploadError = null;
+                });
+                try {
+                  final service = ref.read(firestoreServiceProvider);
+                  final productId = await service.addProduct(ProductModel(
+                    id: '',
+                    name: nameController.text,
+                    brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
+                    category: selectedCategory!,
+                    barcode: barcodeController.text.isEmpty ? null : barcodeController.text,
+                    description: descriptionController.text.isEmpty
+                        ? null
+                        : descriptionController.text,
+                    imageUrls: const [],
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  ));
+
+                  final List<String> imageUrls = [];
+                  if (selectedImages.isNotEmpty) {
+                    final storageService = StorageService();
+                    final urls = await storageService.uploadMultipleImages(
+                      files: selectedImages,
+                      folder: 'products/$productId',
+                    );
+                    imageUrls.addAll(urls);
+                  }
+
+                  await service.updateProduct(productId, {
+                    if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
+                    if (imageUrls.isNotEmpty) 'mainImage': imageUrls.first,
+                    'updatedAt': DateTime.now(),
+                  });
+
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  setDialogState(() {
+                    uploadError = 'Yukleme basarisiz: $e';
+                  });
+                } finally {
+                  setDialogState(() => isUploading = false);
+                }
               },
-              child: const Text('Ekle'),
+              child: isUploading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Ekle'),
             ),
           ],
         ),
@@ -707,14 +854,22 @@ class _BannerManagementTab extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Tab 5: Rapor Yonetimi
 // ---------------------------------------------------------------------------
-class _ReportsManagementTab extends ConsumerWidget {
+class _ReportsManagementTab extends ConsumerStatefulWidget {
   const _ReportsManagementTab();
+
+  @override
+  ConsumerState<_ReportsManagementTab> createState() =>
+      _ReportsManagementTabState();
+}
+
+class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
+  String _statusFilter = 'all';
 
   Color _statusColor(String status) {
     switch (status) {
       case 'pending': return AppColors.accent;
       case 'resolved': return AppColors.success;
-      case 'dismissed': return AppColors.error;
+      case 'rejected': return AppColors.error;
       default: return AppColors.info;
     }
   }
@@ -723,23 +878,28 @@ class _ReportsManagementTab extends ConsumerWidget {
     switch (status) {
       case 'pending': return 'Bekliyor';
       case 'resolved': return 'Cozuldu';
-      case 'dismissed': return 'Reddedildi';
+      case 'rejected': return 'Reddedildi';
       default: return status;
     }
   }
 
   String _typeLabel(String type) {
     switch (type) {
-      case 'price': return 'Fiyat';
+      case 'priceEntry': return 'Fiyat';
       case 'comment': return 'Yorum';
+      case 'product': return 'Urun';
+      case 'user': return 'Kullanici';
+      case 'other': return 'Diger';
       default: return type;
     }
   }
 
   IconData _typeIcon(String type) {
     switch (type) {
-      case 'price': return Icons.price_change_outlined;
+      case 'priceEntry': return Icons.price_change_outlined;
       case 'comment': return Icons.comment_outlined;
+      case 'product': return Icons.inventory_2_outlined;
+      case 'user': return Icons.person_outline;
       default: return Icons.flag_outlined;
     }
   }
@@ -758,96 +918,139 @@ class _ReportsManagementTab extends ConsumerWidget {
             Text('Henuz rapor yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
           ]));
         }
+        final filteredReports = _statusFilter == 'all'
+            ? reports
+            : reports.where((report) => report['status'] == _statusFilter).toList();
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: reports.length,
+          itemCount: filteredReports.length + 1,
           itemBuilder: (context, index) {
-            final report = reports[index];
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  children: [
+                    _StatusChip(
+                      label: 'Tumu',
+                      selected: _statusFilter == 'all',
+                      onTap: () => setState(() => _statusFilter = 'all'),
+                    ),
+                    _StatusChip(
+                      label: 'Bekleyen',
+                      selected: _statusFilter == 'pending',
+                      onTap: () => setState(() => _statusFilter = 'pending'),
+                    ),
+                    _StatusChip(
+                      label: 'Cozuldu',
+                      selected: _statusFilter == 'resolved',
+                      onTap: () => setState(() => _statusFilter = 'resolved'),
+                    ),
+                    _StatusChip(
+                      label: 'Reddedildi',
+                      selected: _statusFilter == 'rejected',
+                      onTap: () => setState(() => _statusFilter = 'rejected'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final report = filteredReports[index - 1];
             final status = report['status'] as String;
-            final type = report['type'] as String;
+            final type = report['targetType'] as String? ?? '';
             final reason = report['reason'] as String;
             final createdAt = report['createdAt'] as DateTime;
 
             return Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: _statusColor(status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Icon(_typeIcon(type), color: _statusColor(status), size: 20),
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReportDetailScreen(report: report),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
-                          child: Text(_typeLabel(type), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: _statusColor(status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.15), borderRadius: BorderRadius.circular(AppRadius.xs)),
-                          child: Text(_statusLabel(status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                        child: Icon(_typeIcon(type), color: _statusColor(status), size: 20),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                            child: Text(_typeLabel(type), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: _statusColor(status).withOpacity(0.15), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                            child: Text(_statusLabel(status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _statusColor(status))),
+                          ),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(reason, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ])),
+                    ]),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(children: [
+                      Icon(Icons.access_time, size: 12, color: theme.hintColor),
+                      const SizedBox(width: 4),
+                      Text('${createdAt.day}.${createdAt.month}.${createdAt.year}', style: TextStyle(fontSize: 11, color: theme.hintColor)),
+                      const Spacer(),
+                      if (status == 'pending') ...[
+                        SizedBox(
+                          height: 30,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'resolved');
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor cozuldu olarak isaretlendi'), behavior: SnackBarBehavior.floating));
+                            },
+                            icon: const Icon(Icons.check_circle_outline, size: 16),
+                            label: const Text('Coz', style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          ),
                         ),
-                      ]),
-                      const SizedBox(height: 4),
-                      Text(reason, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
-                    ])),
-                  ]),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(children: [
-                    Icon(Icons.access_time, size: 12, color: theme.hintColor),
-                    const SizedBox(width: 4),
-                    Text('${createdAt.day}.${createdAt.month}.${createdAt.year}', style: TextStyle(fontSize: 11, color: theme.hintColor)),
-                    const Spacer(),
-                    if (status == 'pending') ...[
+                        SizedBox(
+                          height: 30,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'rejected');
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor reddedildi'), behavior: SnackBarBehavior.floating));
+                            },
+                            icon: const Icon(Icons.cancel_outlined, size: 16),
+                            label: const Text('Reddet', style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.error, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          ),
+                        ),
+                      ],
                       SizedBox(
                         height: 30,
-                        child: TextButton.icon(
+                        child: IconButton(
                           onPressed: () {
-                            ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'resolved');
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor cozuldu olarak isaretlendi'), behavior: SnackBarBehavior.floating));
+                            ref.read(firestoreServiceProvider).deleteReport(report['id']);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor silindi'), behavior: SnackBarBehavior.floating));
                           },
-                          icon: const Icon(Icons.check_circle_outline, size: 16),
-                          label: const Text('Coz', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(foregroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          color: AppColors.error,
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
                         ),
                       ),
-                      SizedBox(
-                        height: 30,
-                        child: TextButton.icon(
-                          onPressed: () {
-                            ref.read(firestoreServiceProvider).updateReportStatus(report['id'], 'dismissed');
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor reddedildi'), behavior: SnackBarBehavior.floating));
-                          },
-                          icon: const Icon(Icons.cancel_outlined, size: 16),
-                          label: const Text('Reddet', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(foregroundColor: AppColors.error, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                        ),
-                      ),
-                    ],
-                    SizedBox(
-                      height: 30,
-                      child: IconButton(
-                        onPressed: () {
-                          ref.read(firestoreServiceProvider).deleteReport(report['id']);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapor silindi'), behavior: SnackBarBehavior.floating));
-                        },
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        color: AppColors.error,
-                        padding: EdgeInsets.zero,
-                        iconSize: 18,
-                      ),
-                    ),
+                    ]),
                   ]),
-                ]),
+                ),
               ),
             );
           },
@@ -1132,4 +1335,42 @@ class _StatItem {
   final IconData icon;
   final Color color;
   const _StatItem(this.label, this.value, this.icon, this.color);
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StatusChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.xl),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.outline,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: selected ? Colors.white : AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
 }

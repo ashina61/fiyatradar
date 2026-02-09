@@ -192,14 +192,22 @@ class FirestoreService {
   }
 
   // Report a price
-  Future<void> reportPrice(String priceId, String userId, String reason) async {
+  Future<void> reportPrice({
+    required String priceId,
+    required String userId,
+    required String reason,
+    String? contextId,
+  }) async {
     await _firestore.collection('reports').add({
-      'type': 'price',
+      'targetType': 'priceEntry',
       'targetId': priceId,
-      'userId': userId,
+      'contextId': contextId,
       'reason': reason,
+      'reporterUserId': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
+      'resolvedBy': null,
+      'resolvedAt': null,
     });
     await _usersRef.doc(userId).update({
       'points': FieldValue.increment(AppConstants.pointsForReportPrice),
@@ -207,14 +215,22 @@ class FirestoreService {
   }
 
   // Report a comment
-  Future<void> reportComment(String commentId, String userId, String reason) async {
+  Future<void> reportComment({
+    required String commentId,
+    required String userId,
+    required String reason,
+    String? contextId,
+  }) async {
     await _firestore.collection('reports').add({
-      'type': 'comment',
+      'targetType': 'comment',
       'targetId': commentId,
-      'userId': userId,
+      'contextId': contextId,
       'reason': reason,
+      'reporterUserId': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
+      'resolvedBy': null,
+      'resolvedAt': null,
     });
   }
 
@@ -522,6 +538,41 @@ class FirestoreService {
     await _notificationsRef.doc(notificationId).delete();
   }
 
+  // Basket
+  CollectionReference<Map<String, dynamic>> _basketRef(String userId) {
+    return _usersRef.doc(userId).collection('basketItems');
+  }
+
+  Stream<List<Map<String, dynamic>>> getBasketItems(String userId) {
+    return _basketRef(userId).snapshots().map((snapshot) {
+      return snapshot.docs
+          .map((doc) => {
+                'id': doc.id,
+                ...doc.data(),
+              })
+          .toList();
+    });
+  }
+
+  Future<void> upsertBasketItem({
+    required String userId,
+    required String productId,
+    required int quantity,
+  }) async {
+    await _basketRef(userId).doc(productId).set({
+      'productId': productId,
+      'quantity': quantity,
+      'addedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> removeBasketItem({
+    required String userId,
+    required String productId,
+  }) async {
+    await _basketRef(userId).doc(productId).delete();
+  }
+
   // Reports
   CollectionReference get _reportsRef => _firestore.collection('reports');
 
@@ -529,13 +580,18 @@ class FirestoreService {
     return _reportsRef.snapshots().map((snapshot) {
       final list = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
+        final status = data['status'] ?? 'pending';
         return {
           'id': doc.id,
-          'type': data['type'] ?? '',
+          'targetType': data['targetType'] ?? data['type'] ?? '',
           'targetId': data['targetId'] ?? '',
-          'userId': data['userId'] ?? '',
+          'contextId': data['contextId'],
+          'reporterUserId': data['reporterUserId'] ?? data['userId'] ?? '',
           'reason': data['reason'] ?? '',
-          'status': data['status'] ?? 'pending',
+          'status': status == 'dismissed' ? 'rejected' : status,
+          'resolutionNote': data['resolutionNote'],
+          'resolvedBy': data['resolvedBy'],
+          'resolvedAt': (data['resolvedAt'] as Timestamp?)?.toDate(),
           'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         };
       }).toList();
@@ -544,12 +600,59 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateReportStatus(String reportId, String status) async {
-    await _reportsRef.doc(reportId).update({'status': status});
+  Future<void> updateReportStatus(
+    String reportId,
+    String status, {
+    String? resolvedBy,
+    String? resolutionNote,
+  }) async {
+    await _reportsRef.doc(reportId).update({
+      'status': status,
+      if (resolvedBy != null) 'resolvedBy': resolvedBy,
+      if (status != 'pending') 'resolvedAt': FieldValue.serverTimestamp(),
+      if (resolutionNote != null) 'resolutionNote': resolutionNote,
+    });
   }
 
   Future<void> deleteReport(String reportId) async {
     await _reportsRef.doc(reportId).delete();
+  }
+
+  Future<CommentModel?> getCommentById(String commentId) async {
+    final doc = await _commentsRef.doc(commentId).get();
+    if (!doc.exists) return null;
+    return CommentModel.fromFirestore(doc);
+  }
+
+  Future<PriceModel?> getPriceById(String priceId) async {
+    final doc = await _pricesRef.doc(priceId).get();
+    if (!doc.exists) return null;
+    return PriceModel.fromFirestore(doc);
+  }
+
+  Future<UserModel?> getUserById(String userId) async {
+    final doc = await _usersRef.doc(userId).get();
+    if (!doc.exists) return null;
+    return UserModel.fromFirestore(doc);
+  }
+
+  Future<List<PriceModel>> getPricesForProductIds(List<String> productIds) async {
+    if (productIds.isEmpty) return [];
+    final results = <PriceModel>[];
+    final chunks = <List<String>>[];
+    for (var i = 0; i < productIds.length; i += 10) {
+      chunks.add(productIds.sublist(
+        i,
+        i + 10 > productIds.length ? productIds.length : i + 10,
+      ));
+    }
+    for (final chunk in chunks) {
+      final snapshot = await _pricesRef
+          .where('productId', whereIn: chunk)
+          .get();
+      results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+    }
+    return results;
   }
 
   // Update user profile
