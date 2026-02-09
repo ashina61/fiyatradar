@@ -343,40 +343,91 @@ class _BasketResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalItems = items.length;
-    final threshold = (totalItems * 0.7).ceil();
-    final eligibleStores = result.perStoreCoverage.entries
-        .where((entry) => entry.value >= threshold)
-        .toList();
-
-    eligibleStores.sort((a, b) {
+    final storeEntries = result.perStoreCoverage.entries.toList();
+    storeEntries.sort((a, b) {
+      if (a.value != b.value) {
+        return b.value.compareTo(a.value);
+      }
       final totalA = result.perStoreTotal[a.key] ?? double.infinity;
       final totalB = result.perStoreTotal[b.key] ?? double.infinity;
       return totalA.compareTo(totalB);
     });
 
-    final bestStore = eligibleStores.isNotEmpty ? eligibleStores.first : null;
+    MapEntry<String, int>? bestStoreEntry;
+    for (final entry in storeEntries) {
+      if (entry.value > 0) {
+        bestStoreEntry = entry;
+        break;
+      }
+    }
+
+    final bestStoreKey = bestStoreEntry?.key;
+    final bestStoreTotal =
+        bestStoreKey != null ? (result.perStoreTotal[bestStoreKey] ?? 0) : 0;
+    final bestStoreMissing = bestStoreKey != null
+        ? (result.perStoreMissingCount[bestStoreKey] ?? 0)
+        : 0;
+    final mixTotal = result.bestMixTotal;
+    final saveAmount =
+        bestStoreKey != null ? (bestStoreTotal - mixTotal).clamp(0, double.infinity) : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Sonuclar', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
-        if (bestStore != null)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.storefront_outlined, color: AppColors.success),
-              title: const Text('Tek markette en ucuz'),
-              subtitle: Text(bestStore.key),
-              trailing: Text(
-                '${(result.perStoreTotal[bestStore.key] ?? 0).toStringAsFixed(2)} TL',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Oneri', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  bestStoreKey != null
+                      ? 'En Iyi Tek Market: $bestStoreKey - ${bestStoreTotal.toStringAsFixed(2)} TL'
+                      : 'En Iyi Tek Market: fiyat bulunamadi',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (bestStoreKey != null && bestStoreMissing > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xs),
+                    child: Text('Missing $bestStoreMissing items'),
+                  ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'En Ucuz Karma: ${mixTotal.toStringAsFixed(2)} TL (Save ${saveAmount.toStringAsFixed(2)} TL)',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
-          )
-        else
-          const Text('Tek markette yeterli kapsama bulunamadi.'),
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
+        Text('Market karsilastirmasi', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: AppSpacing.xs),
+        if (storeEntries.isEmpty)
+          const Text('Market fiyati bulunamadi.')
+        else
+          ...storeEntries.map((entry) {
+            final storeTotal = result.perStoreTotal[entry.key] ?? 0;
+            final missingCount = result.perStoreMissingCount[entry.key] ?? 0;
+            return Card(
+              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: ListTile(
+                leading: const Icon(Icons.storefront_outlined, color: AppColors.primary),
+                title: Text(entry.key),
+                subtitle: missingCount > 0
+                    ? Text('Missing $missingCount items')
+                    : const Text('Tum urunlerde fiyat var'),
+                trailing: Text(
+                  '${storeTotal.toStringAsFixed(2)} TL',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          }),
         Text('Parca parca en ucuz', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
         ...items.map((item) {
@@ -398,9 +449,23 @@ class _BasketResults extends StatelessWidget {
         if (result.missingProductIds.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Fiyat bulunamayan urunler: ${result.missingProductIds.length}',
-            style: const TextStyle(color: AppColors.warning),
+            'Fiyat Bulunamadi',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(color: AppColors.warning),
           ),
+          const SizedBox(height: AppSpacing.xs),
+          ...result.missingProductIds.map((productId) {
+            final product = productMap[productId];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Text(
+                product?.name ?? 'Urun',
+                style: const TextStyle(color: AppColors.warning),
+              ),
+            );
+          }),
         ],
       ],
     );

@@ -47,8 +47,10 @@ final basketCalculationProvider = FutureProvider<BasketCalculationResult>((ref) 
     return BasketCalculationResult(
       perStoreTotal: {},
       perStoreCoverage: {},
+      perStoreMissingCount: {},
       cheapestPerProduct: {},
       missingProductIds: [],
+      bestMixTotal: 0,
     );
   }
   return ref.watch(basketServiceProvider).calculateRecommendations(items);
