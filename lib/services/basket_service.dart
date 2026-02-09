@@ -5,14 +5,18 @@ import 'firestore_service.dart';
 class BasketCalculationResult {
   final Map<String, double> perStoreTotal;
   final Map<String, int> perStoreCoverage;
+  final Map<String, int> perStoreMissingCount;
   final Map<String, PriceModel> cheapestPerProduct;
   final List<String> missingProductIds;
+  final double bestMixTotal;
 
   BasketCalculationResult({
     required this.perStoreTotal,
     required this.perStoreCoverage,
+    required this.perStoreMissingCount,
     required this.cheapestPerProduct,
     required this.missingProductIds,
+    required this.bestMixTotal,
   });
 }
 
@@ -30,11 +34,16 @@ class BasketService {
 
     final Map<String, PriceModel> cheapestPerProduct = {};
     final Map<String, Map<String, PriceModel>> cheapestPerStore = {};
+    final Set<String> storeKeys = {};
 
     for (final price in approvedPrices) {
+      if (price.price <= 0) {
+        continue;
+      }
       final productId = price.productId;
       final storeKey = price.storeId ?? price.storeName;
       if (storeKey.isEmpty) continue;
+      storeKeys.add(storeKey);
 
       final currentCheapest = cheapestPerProduct[productId];
       if (currentCheapest == null || price.price < currentCheapest.price) {
@@ -50,18 +59,28 @@ class BasketService {
 
     final Map<String, double> perStoreTotal = {};
     final Map<String, int> perStoreCoverage = {};
+    final Map<String, int> perStoreMissingCount = {};
+
+    for (final storeKey in storeKeys) {
+      perStoreTotal[storeKey] = 0;
+      perStoreCoverage[storeKey] = 0;
+      perStoreMissingCount[storeKey] = 0;
+    }
 
     for (final item in items) {
       final storeMap = cheapestPerStore[item.productId];
-      if (storeMap == null) {
-        continue;
+      for (final storeKey in storeKeys) {
+        final price = storeMap?[storeKey];
+        if (price == null) {
+          perStoreMissingCount[storeKey] =
+              (perStoreMissingCount[storeKey] ?? 0) + 1;
+        } else {
+          perStoreTotal[storeKey] =
+              (perStoreTotal[storeKey] ?? 0) + price.price * item.quantity;
+          perStoreCoverage[storeKey] =
+              (perStoreCoverage[storeKey] ?? 0) + 1;
+        }
       }
-      storeMap.forEach((storeKey, price) {
-        perStoreTotal[storeKey] =
-            (perStoreTotal[storeKey] ?? 0) + price.price * item.quantity;
-        perStoreCoverage[storeKey] =
-            (perStoreCoverage[storeKey] ?? 0) + 1;
-      });
     }
 
     final missingProductIds = items
@@ -69,11 +88,20 @@ class BasketService {
         .map((item) => item.productId)
         .toList();
 
+    double bestMixTotal = 0;
+    for (final item in items) {
+      final cheapest = cheapestPerProduct[item.productId];
+      if (cheapest == null) continue;
+      bestMixTotal += cheapest.price * item.quantity;
+    }
+
     return BasketCalculationResult(
       perStoreTotal: perStoreTotal,
       perStoreCoverage: perStoreCoverage,
+      perStoreMissingCount: perStoreMissingCount,
       cheapestPerProduct: cheapestPerProduct,
       missingProductIds: missingProductIds,
+      bestMixTotal: bestMixTotal,
     );
   }
 }
