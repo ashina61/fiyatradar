@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../utils/theme.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -7,6 +8,7 @@ import '../../providers/user_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/comment_model.dart';
 import '../../models/price_model.dart';
+import '../add_price/add_price_screen.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -223,74 +225,53 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return Scaffold(
           body: CustomScrollView(
             slivers: [
-              // ---------- App Bar with product image placeholder ----------
+              // ---------- App Bar with hero product image ----------
               SliverAppBar(
-                expandedHeight: 280,
+                expandedHeight: MediaQuery.of(context).size.height * 0.35,
                 pinned: true,
-                backgroundColor: AppColors.surface,
+                backgroundColor: Colors.grey[100],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          categoryColor.withOpacity(0.15),
-                          categoryColor.withOpacity(0.05),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      color: Colors.grey[100],
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(AppRadius.xl),
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 60),
-                        if (product.mainImage != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            child: Image.network(
-                              product.mainImage!,
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
-                                _iconForCategory(product.category),
-                                size: 80,
-                                color: categoryColor.withOpacity(0.4),
-                              ),
-                            ),
-                          )
-                        else
-                          Icon(
-                            _iconForCategory(product.category),
-                            size: 80,
-                            color: categoryColor.withOpacity(0.4),
-                          ),
-                        const SizedBox(height: AppSpacing.md),
-                        if (product.isTrending)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.circular(AppRadius.xl),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('\u{1F525}', style: TextStyle(fontSize: 14)),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Trend',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: kToolbarHeight + 24, bottom: 16),
+                        child: product.mainImage != null
+                            ? Image.network(
+                                product.mainImage!,
+                                fit: BoxFit.contain,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Shimmer.fromColors(
+                                    baseColor: Colors.grey[300]!,
+                                    highlightColor: Colors.grey[100]!,
+                                    child: Container(
+                                      width: 200,
+                                      height: 200,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => Icon(
+                                  _iconForCategory(product.category),
+                                  size: 100,
+                                  color: categoryColor.withOpacity(0.3),
                                 ),
-                              ],
-                            ),
-                          ),
-                      ],
+                              )
+                            : Icon(
+                                _iconForCategory(product.category),
+                                size: 100,
+                                color: categoryColor.withOpacity(0.3),
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -329,92 +310,108 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Category tag
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: categoryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Text(
-                          product.category,
-                          style: TextStyle(
-                            color: categoryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-
                       // Product name
                       Text(
                         product.name,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       if (product.brand.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.xs),
+                        const SizedBox(height: 4),
                         Text(
                           product.brand,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
+                          style: TextStyle(
+                            color: Colors.blueGrey[600],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // Category chip + Trend badge
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.xs,
+                        children: [
+                          Chip(
+                            avatar: Icon(
+                              _iconForCategory(product.category),
+                              size: 16,
+                              color: categoryColor,
+                            ),
+                            label: Text(
+                              product.category,
+                              style: TextStyle(
+                                color: categoryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            backgroundColor: categoryColor.withOpacity(0.1),
+                            side: BorderSide.none,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          if (product.isTrending)
+                            Chip(
+                              label: const Text(
+                                '\u{1F525} Trend',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              backgroundColor: AppColors.accent,
+                              side: BorderSide.none,
+                              padding: EdgeInsets.zero,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Stats row
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatItem(
+                              icon: Icons.price_change,
+                              value: '${product.priceEntryCount}',
+                              label: 'Fiyat Girisi',
+                              color: AppColors.primary,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 36,
+                              color: AppColors.outline,
+                            ),
+                            _buildStatItem(
+                              icon: Icons.visibility,
+                              value: '${product.viewCount}',
+                              label: 'Goruntuleme',
+                              color: AppColors.secondary,
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.md),
 
                       // Price card
                       _buildPriceCard(product),
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // Stats row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatItem(
-                            icon: Icons.price_change,
-                            value: '${product.priceEntryCount}',
-                            label: 'Fiyat Girisi',
-                            color: AppColors.primary,
-                          ),
-                          _buildStatItem(
-                            icon: Icons.visibility,
-                            value: '${product.viewCount}',
-                            label: 'Goruntuleme',
-                            color: AppColors.secondary,
-                          ),
-                          if (product.isTrending)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent.withOpacity(0.12),
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.md),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Text('\u{1F525}',
-                                      style: TextStyle(fontSize: 16)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Trend',
-                                    style: TextStyle(
-                                      color: AppColors.accentDark,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
 
                       const Divider(),
                       const SizedBox(height: AppSpacing.md),
@@ -498,6 +495,68 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildPriceCard(ProductModel product) {
+    // No price available — show prominent CTA
+    if (product.lastPrice == null) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.15),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.price_change_outlined,
+              size: 40,
+              color: AppColors.primary.withOpacity(0.5),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'Henuz fiyat girilmemis',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AddPriceScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Fiyat Gir',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -527,9 +586,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  product.lastPrice != null
-                      ? _formatPrice(product.lastPrice!)
-                      : 'Fiyat yok',
+                  _formatPrice(product.lastPrice!),
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
