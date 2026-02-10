@@ -1712,15 +1712,3 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: AppColors.textTertiary),
-        const SizedBox(width: 3),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
-      ],
-    );
-  }
-}
