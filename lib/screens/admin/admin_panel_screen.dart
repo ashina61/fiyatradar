@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:geocoding/geocoding.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
@@ -850,6 +853,22 @@ class _StoreManagementTab extends ConsumerStatefulWidget {
   ConsumerState<_StoreManagementTab> createState() => _StoreManagementTabState();
 }
 
+class _StoreLocationDraft {
+  final double lat;
+  final double lng;
+  final String city;
+  final String district;
+  final String neighborhood;
+
+  const _StoreLocationDraft({
+    required this.lat,
+    required this.lng,
+    this.city = '',
+    this.district = '',
+    this.neighborhood = '',
+  });
+}
+
 class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
   late String _statusFilter;
 
@@ -868,78 +887,230 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
   }
 
   void _showAddStoreDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final cityController = TextEditingController();
-    final districtController = TextEditingController();
-    final neighborhoodController = TextEditingController();
-    String? selectedBrandId;
+    _openStoreEditor(context: context, ref: ref);
+  }
 
-    final brandsAsync = ref.read(allBrandsProvider);
-    final brands = brandsAsync.valueOrNull ?? [];
+  Future<void> _openStoreEditor({
+    required BuildContext context,
+    required WidgetRef ref,
+    StoreModel? store,
+  }) async {
+    final isEdit = store != null;
+    final nameController = TextEditingController(text: store?.displayName ?? '');
+    final cityController = TextEditingController(text: store?.city ?? '');
+    final districtController = TextEditingController(text: store?.district ?? '');
+    final neighborhoodController = TextEditingController(text: store?.neighborhood ?? '');
+    String? selectedBrandId = store?.brandId;
+    double? selectedLat = (store != null && store.lat != 0) ? store.lat : null;
+    double? selectedLng = (store != null && store.lng != 0) ? store.lng : null;
 
-    showDialog(
+    final brands = ref.read(allBrandsProvider).valueOrNull ?? [];
+
+    await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: const Icon(Icons.add_business, color: AppColors.secondary, size: 20),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            const Expanded(child: Text('Yeni Sube Ekle', style: TextStyle(fontSize: 16))),
-          ]),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              DropdownButtonFormField<String>(
-                value: selectedBrandId,
-                decoration: const InputDecoration(labelText: 'Zincir (opsiyonel)', prefixIcon: Icon(Icons.business)),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Yerel / Bagimsiz')),
-                  ...brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))),
+        builder: (ctx, setDialogState) {
+          final canSave =
+              nameController.text.trim().isNotEmpty && selectedLat != null && selectedLng != null;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+            title: Text(isEdit ? 'Sube Duzenle' : 'Yeni Sube Ekle'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedBrandId,
+                    decoration: const InputDecoration(labelText: 'Zincir (opsiyonel)', prefixIcon: Icon(Icons.business)),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Yerel / Bagimsiz')),
+                      ...brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedBrandId = val),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Goruntuleme Adi', prefixIcon: Icon(Icons.store_outlined)),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.place_outlined),
+                    title: Text(selectedLat == null ? 'Konum sec (zorunlu)' : 'Konum secildi: ${selectedLat!.toStringAsFixed(5)}, ${selectedLng!.toStringAsFixed(5)}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () async {
+                      final picked = await _pickStoreLocation(
+                        context: context,
+                        initialLat: selectedLat,
+                        initialLng: selectedLng,
+                      );
+                      if (picked == null) return;
+                      setDialogState(() {
+                        selectedLat = picked.lat;
+                        selectedLng = picked.lng;
+                        if (cityController.text.trim().isEmpty) cityController.text = picked.city;
+                        if (districtController.text.trim().isEmpty) districtController.text = picked.district;
+                        if (neighborhoodController.text.trim().isEmpty) neighborhoodController.text = picked.neighborhood;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(controller: cityController, decoration: const InputDecoration(labelText: 'Il', prefixIcon: Icon(Icons.location_city))),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(controller: districtController, decoration: const InputDecoration(labelText: 'Ilce', prefixIcon: Icon(Icons.map_outlined))),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(controller: neighborhoodController, decoration: const InputDecoration(labelText: 'Mahalle', prefixIcon: Icon(Icons.holiday_village_outlined))),
                 ],
-                onChanged: (val) => setDialogState(() => selectedBrandId = val),
               ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Goruntuleme Adi', hintText: 'Orn: Cagri Market - Aydinlar', prefixIcon: Icon(Icons.store_outlined)),
-                autofocus: true,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: cityController, decoration: const InputDecoration(labelText: 'Il', prefixIcon: Icon(Icons.location_city))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: districtController, decoration: const InputDecoration(labelText: 'Ilce', prefixIcon: Icon(Icons.map_outlined))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: neighborhoodController, decoration: const InputDecoration(labelText: 'Mahalle', prefixIcon: Icon(Icons.holiday_village_outlined))),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty) return;
-                final store = StoreModel(
-                  id: '',
-                  brandId: selectedBrandId,
-                  displayName: nameController.text.trim(),
-                  city: cityController.text.trim(),
-                  district: districtController.text.trim(),
-                  neighborhood: neighborhoodController.text.trim(),
-                  lat: 0,
-                  lng: 0,
-                  status: StoreStatus.active,
-                  createdAt: DateTime.now(),
-                );
-                await ref.read(firestoreServiceProvider).addStore(store);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Ekle'),
             ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+              ElevatedButton(
+                onPressed: canSave
+                    ? () async {
+                        final payload = {
+                          'brandId': selectedBrandId,
+                          'displayName': nameController.text.trim(),
+                          'city': cityController.text.trim(),
+                          'district': districtController.text.trim(),
+                          'neighborhood': neighborhoodController.text.trim(),
+                          'lat': selectedLat,
+                          'lng': selectedLng,
+                          'status': store?.status.name ?? StoreStatus.active.name,
+                        };
+                        if (isEdit) {
+                          await ref.read(firestoreServiceProvider).updateStore(store!.id, payload);
+                        } else {
+                          await ref.read(firestoreServiceProvider).addStore(
+                            StoreModel(
+                              id: '',
+                              brandId: selectedBrandId,
+                              displayName: nameController.text.trim(),
+                              city: cityController.text.trim(),
+                              district: districtController.text.trim(),
+                              neighborhood: neighborhoodController.text.trim(),
+                              lat: selectedLat!,
+                              lng: selectedLng!,
+                              status: StoreStatus.active,
+                              createdAt: DateTime.now(),
+                            ),
+                          );
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      }
+                    : null,
+                child: Text(isEdit ? 'Kaydet' : 'Ekle'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<_StoreLocationDraft?> _pickStoreLocation({
+    required BuildContext context,
+    double? initialLat,
+    double? initialLng,
+  }) async {
+    LatLng marker = LatLng(initialLat ?? 41.0082, initialLng ?? 28.9784);
+    String city = '';
+    String district = '';
+    String neighborhood = '';
+    bool isResolving = false;
+
+    return showModalBottomSheet<_StoreLocationDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          Future<void> resolveAddress() async {
+            setModalState(() => isResolving = true);
+            try {
+              final placemarks = await placemarkFromCoordinates(marker.latitude, marker.longitude);
+              if (placemarks.isNotEmpty) {
+                final p = placemarks.first;
+                city = p.administrativeArea ?? p.locality ?? '';
+                district = p.subAdministrativeArea ?? p.locality ?? '';
+                neighborhood = p.subLocality ?? p.street ?? '';
+              }
+            } catch (_) {}
+            setModalState(() => isResolving = false);
+          }
+
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.82,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('Haritadan pin secin', style: TextStyle(fontWeight: FontWeight.w700))),
+                        TextButton(onPressed: () async => await resolveAddress(), child: const Text('Adresi Doldur')),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: marker,
+                        initialZoom: 14,
+                        onTap: (_, latLng) async {
+                          setModalState(() => marker = latLng);
+                          await resolveAddress();
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.fiyatradar.app',
+                        ),
+                        MarkerLayer(markers: [
+                          Marker(
+                            point: marker,
+                            width: 50,
+                            height: 50,
+                            child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
+                          ),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  ListTile(
+                    title: Text('Lat/Lng: ${marker.latitude.toStringAsFixed(5)}, ${marker.longitude.toStringAsFixed(5)}'),
+                    subtitle: Text(isResolving ? 'Adres cozuluyor...' : '$neighborhood / $district / $city'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(
+                            ctx,
+                            _StoreLocationDraft(
+                              lat: marker.latitude,
+                              lng: marker.longitude,
+                              city: city,
+                              district: district,
+                              neighborhood: neighborhood,
+                            ),
+                          );
+                        },
+                        child: const Text('Konumu Kaydet'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1091,6 +1262,35 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                             ),
                           ),
                         ],
+                        if (store.lat == 0 || store.lng == 0)
+                          SizedBox(
+                            height: 30,
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                final picked = await _pickStoreLocation(context: context);
+                                if (picked == null) return;
+                                await ref.read(firestoreServiceProvider).updateStore(store.id, {
+                                  'lat': picked.lat,
+                                  'lng': picked.lng,
+                                  if (store.city.isEmpty && picked.city.isNotEmpty) 'city': picked.city,
+                                  if (store.district.isEmpty && picked.district.isNotEmpty) 'district': picked.district,
+                                  if (store.neighborhood.isEmpty && picked.neighborhood.isNotEmpty) 'neighborhood': picked.neighborhood,
+                                });
+                              },
+                              icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+                              label: const Text('Konum Ekle', style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(foregroundColor: AppColors.warning, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                            ),
+                          ),
+                        SizedBox(
+                          height: 30,
+                          child: TextButton.icon(
+                            onPressed: () => _openStoreEditor(context: context, ref: ref, store: store),
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: const Text('Duzenle', style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          ),
+                        ),
                         SizedBox(
                           height: 30,
                           child: TextButton.icon(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../utils/theme.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -227,75 +229,50 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return Scaffold(
           body: CustomScrollView(
             slivers: [
-              // ---------- App Bar with product image placeholder ----------
+              // ---------- App Bar with premium hero image ----------
               SliverAppBar(
-                expandedHeight: 280,
+                expandedHeight: 320,
                 pinned: true,
                 backgroundColor: AppColors.surface,
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          categoryColor.withOpacity(0.15),
-                          categoryColor.withOpacity(0.05),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 60),
-                        SizedBox(
-                          width: 164,
-                          height: 164,
-                          child: AppNetworkImage(
-                            imageUrl: product.mainImage,
-                            cacheKey: 'product_detail_${product.id}',
-                            fit: BoxFit.contain,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildProductHeroImage(product),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x55000000), Colors.transparent, Color(0x45000000)],
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        if (product.isTrending)
-                          const AppBadge(
-                            text: 'Trend',
-                            icon: Icons.local_fire_department,
-                            backgroundColor: Color(0x22CD853F),
-                            foregroundColor: AppColors.accentDark,
-                          ),
-                      ],
-                    ),
+                      ),
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top + 8,
+                        right: 8,
+                        child: Row(
+                          children: [
+                            _buildHeroAction(
+                              icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
+                              active: isSaved,
+                              onTap: () async {
+                                await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(isSaved ? 'Urun kaldirildi' : 'Urun kaydedildi'), behavior: SnackBarBehavior.floating),
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHeroAction(icon: Icons.share, onTap: () {}),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  IconButton(
-                    icon: Icon(
-                      isSaved ? Icons.bookmark : Icons.bookmark_border,
-                      color: isSaved ? AppColors.primary : null,
-                    ),
-                    onPressed: () async {
-                      await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(isSaved ? 'Urun kaldirildi' : 'Urun kaydedildi'),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.share),
-                    onPressed: () {},
-                  ),
-                ],
               ),
 
               // ---------- Content ----------
@@ -564,6 +541,75 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeroAction({required IconData icon, required VoidCallback onTap, bool active = false}) {
+    return Material(
+      color: Colors.black.withOpacity(0.25),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: active ? AppColors.primaryLight : Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductHeroImage(ProductModel product) {
+    final imageUrl = _resolveProductImageUrl(product);
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildPremiumImagePlaceholder(product.name);
+    }
+
+    return SizedBox.expand(
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => Shimmer.fromColors(
+          baseColor: AppColors.surfaceVariant,
+          highlightColor: AppColors.surface,
+          child: Container(color: AppColors.surfaceVariant),
+        ),
+        errorWidget: (_, __, ___) => _buildPremiumImagePlaceholder(product.name),
+      ),
+    );
+  }
+
+  String? _resolveProductImageUrl(ProductModel product) {
+    if ((product.mainImage ?? '').trim().isNotEmpty) return product.mainImage!.trim();
+    if (product.imageUrls.isNotEmpty) {
+      return product.imageUrls.firstWhere(
+        (url) => url.trim().isNotEmpty,
+        orElse: () => '',
+      );
+    }
+    return null;
+  }
+
+  Widget _buildPremiumImagePlaceholder(String productName) {
+    final initial = productName.isNotEmpty ? productName[0].toUpperCase() : '?';
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary.withOpacity(0.22), AppColors.secondary.withOpacity(0.18)],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(initial, style: const TextStyle(fontSize: 92, fontWeight: FontWeight.w800, color: Colors.white70)),
+            const SizedBox(height: 8),
+            const Text('Görsel bulunamadı', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

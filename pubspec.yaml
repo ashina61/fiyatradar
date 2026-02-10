@@ -39,6 +39,8 @@ dependencies:
   uuid: ^4.3.3
   http: ^1.2.2
   timeago: ^3.6.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   # Navigation
   go_router: ^13.2.0

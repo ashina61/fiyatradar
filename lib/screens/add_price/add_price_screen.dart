@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -375,7 +376,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 onPressed: () => _loadUserPosition(requestPermission: true),
                 style: TextButton.styleFrom(padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
                 child: const Text(
-                  'Konum izni ver → mesafeyi gösterelim',
+                  'Yakın mağazaları görmek için konum izni gerekli • İzin ver',
                   style: TextStyle(fontSize: 12, color: AppColors.warning),
                 ),
               ),
@@ -412,13 +413,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       return double.infinity;
     }
 
-    return Geolocator.distanceBetween(
-      _userPosition!.latitude,
-      _userPosition!.longitude,
-      store.lat,
-      store.lng,
-    );
+    const earthRadius = 6371000.0;
+    final dLat = _toRadians(store.lat - _userPosition!.latitude);
+    final dLng = _toRadians(store.lng - _userPosition!.longitude);
+    final startLat = _toRadians(_userPosition!.latitude);
+    final endLat = _toRadians(store.lat);
+
+    final a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(startLat) * cos(endLat) * (sin(dLng / 2) * sin(dLng / 2));
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
   }
+
+  double _toRadians(double degree) => degree * pi / 180.0;
 
   String _distanceText(StoreModel store) {
     if (_isStoreLocationMissing(store)) {
