@@ -156,8 +156,8 @@ class BasketRepository {
   }
 
   String _marketId(PriceModel price) {
-    final storeId = price.storeId?.trim();
-    if (storeId != null && storeId.isNotEmpty) {
+    final storeId = price.storeId.trim();
+    if (storeId.isNotEmpty) {
       return storeId;
     }
     return price.storeName.trim();

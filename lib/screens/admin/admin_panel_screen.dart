@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
+import '../../models/brand_model.dart';
+import '../../models/store_model.dart';
 import 'report_detail_screen.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
@@ -11,7 +13,6 @@ import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
-
 
 import '../../widgets/barcode_scanner_sheet.dart';
 
@@ -29,7 +30,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -80,7 +81,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           tabs: const [
             Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
-            Tab(text: 'Magazalar', icon: Icon(Icons.store_outlined)),
+            Tab(text: 'Zincirler', icon: Icon(Icons.business_outlined)),
+            Tab(text: 'Subeler', icon: Icon(Icons.store_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
@@ -93,6 +95,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         controller: _tabController,
         children: const [
           _ProductManagementTab(),
+          _BrandManagementTab(),
           _StoreManagementTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
@@ -460,79 +463,130 @@ class _InfoChip extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 2: Magaza Yonetimi
+// Tab 2: Zincir (Brand) Yonetimi
 // ---------------------------------------------------------------------------
-class _StoreManagementTab extends ConsumerWidget {
-  const _StoreManagementTab();
+class _BrandManagementTab extends ConsumerWidget {
+  const _BrandManagementTab();
 
-  void _showAddStoreDialog(BuildContext context, WidgetRef ref) {
+  void _showAddBrandDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    BrandType selectedType = BrandType.chain;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.store_outlined, color: AppColors.secondary, size: 20),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: const Icon(Icons.business_outlined, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Text('Yeni Zincir Ekle'),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Zincir Adi', hintText: 'Orn: A-101, BIM, Migros', prefixIcon: Icon(Icons.business)),
+                autofocus: true,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DropdownButtonFormField<BrandType>(
+                value: selectedType,
+                decoration: const InputDecoration(labelText: 'Tur', prefixIcon: Icon(Icons.category_outlined)),
+                items: const [
+                  DropdownMenuItem(value: BrandType.chain, child: Text('Zincir')),
+                  DropdownMenuItem(value: BrandType.online, child: Text('Online')),
+                  DropdownMenuItem(value: BrandType.local, child: Text('Yerel')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => selectedType = val);
+                },
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Yeni Magaza Ekle'),
-        ]),
-        content: TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Magaza Adi', prefixIcon: Icon(Icons.storefront_outlined)), autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) return;
-              await ref.read(firestoreServiceProvider).addStore(nameController.text);
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Ekle'),
-          ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) return;
+                final brand = BrandModel(
+                  id: '',
+                  name: nameController.text.trim(),
+                  type: selectedType,
+                  createdAt: DateTime.now(),
+                );
+                await ref.read(firestoreServiceProvider).addBrand(brand);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Color _typeColor(BrandType type) {
+    switch (type) {
+      case BrandType.chain: return AppColors.primary;
+      case BrandType.online: return AppColors.info;
+      case BrandType.local: return AppColors.accent;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final storesAsync = ref.watch(storesProvider);
+    final brandsAsync = ref.watch(allBrandsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_store',
-        onPressed: () => _showAddStoreDialog(context, ref),
+        heroTag: 'fab_brand',
+        onPressed: () => _showAddBrandDialog(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('Magaza Ekle'),
+        label: const Text('Zincir Ekle'),
       ),
-      body: storesAsync.when(
-        data: (stores) {
-          if (stores.isEmpty) {
+      body: brandsAsync.when(
+        data: (brands) {
+          if (brands.isEmpty) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.store_outlined, size: 64, color: theme.hintColor),
+              Icon(Icons.business_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
-              Text('Henuz magaza yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+              Text('Henuz zincir yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
             ]));
           }
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
-            itemCount: stores.length,
+            itemCount: brands.length,
             itemBuilder: (context, index) {
-              final store = stores[index];
+              final brand = brands[index];
+              final color = _typeColor(brand.type);
               return Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
                   leading: Container(
                     width: 44, height: 44,
-                    decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
-                    child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
+                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    child: Icon(Icons.business, color: color, size: 22),
                   ),
-                  title: Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  title: Text(brand.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                        child: Text(brand.typeLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                      ),
+                    ]),
+                  ),
                   trailing: IconButton(
                     icon: Container(
                       padding: const EdgeInsets.all(6),
@@ -540,9 +594,9 @@ class _StoreManagementTab extends ConsumerWidget {
                       child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
                     ),
                     onPressed: () {
-                      ref.read(firestoreServiceProvider).deleteStore(store['id']);
+                      ref.read(firestoreServiceProvider).deleteBrand(brand.id);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${store['name']} silindi'), behavior: SnackBarBehavior.floating),
+                        SnackBar(content: Text('${brand.name} silindi'), behavior: SnackBarBehavior.floating),
                       );
                     },
                   ),
@@ -552,7 +606,287 @@ class _StoreManagementTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Magazalar yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Zincirler yuklenemedi')),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 3: Sube (Store) Yonetimi
+// ---------------------------------------------------------------------------
+class _StoreManagementTab extends ConsumerStatefulWidget {
+  const _StoreManagementTab();
+
+  @override
+  ConsumerState<_StoreManagementTab> createState() => _StoreManagementTabState();
+}
+
+class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
+  String _statusFilter = 'all';
+
+  Color _statusColor(StoreStatus status) {
+    switch (status) {
+      case StoreStatus.active: return AppColors.success;
+      case StoreStatus.hidden: return AppColors.textTertiary;
+      case StoreStatus.pending: return AppColors.accent;
+    }
+  }
+
+  void _showAddStoreDialog(BuildContext context, WidgetRef ref) {
+    final nameController = TextEditingController();
+    final cityController = TextEditingController();
+    final districtController = TextEditingController();
+    final neighborhoodController = TextEditingController();
+    String? selectedBrandId;
+
+    final brandsAsync = ref.read(allBrandsProvider);
+    final brands = brandsAsync.valueOrNull ?? [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: const Icon(Icons.add_business, color: AppColors.secondary, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Expanded(child: Text('Yeni Sube Ekle', style: TextStyle(fontSize: 16))),
+          ]),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<String>(
+                value: selectedBrandId,
+                decoration: const InputDecoration(labelText: 'Zincir (opsiyonel)', prefixIcon: Icon(Icons.business)),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Yerel / Bagimsiz')),
+                  ...brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))),
+                ],
+                onChanged: (val) => setDialogState(() => selectedBrandId = val),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Goruntuleme Adi', hintText: 'Orn: Cagri Market - Aydinlar', prefixIcon: Icon(Icons.store_outlined)),
+                autofocus: true,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: cityController, decoration: const InputDecoration(labelText: 'Il', prefixIcon: Icon(Icons.location_city))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: districtController, decoration: const InputDecoration(labelText: 'Ilce', prefixIcon: Icon(Icons.map_outlined))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: neighborhoodController, decoration: const InputDecoration(labelText: 'Mahalle', prefixIcon: Icon(Icons.holiday_village_outlined))),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) return;
+                final store = StoreModel(
+                  id: '',
+                  brandId: selectedBrandId,
+                  displayName: nameController.text.trim(),
+                  city: cityController.text.trim(),
+                  district: districtController.text.trim(),
+                  neighborhood: neighborhoodController.text.trim(),
+                  lat: 0,
+                  lng: 0,
+                  status: StoreStatus.active,
+                  createdAt: DateTime.now(),
+                );
+                await ref.read(firestoreServiceProvider).addStore(store);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMergeDialog(BuildContext context, WidgetRef ref, StoreModel source, List<StoreModel> allStores) {
+    final targets = allStores.where((s) => s.id != source.id && s.status == StoreStatus.active).toList();
+    if (targets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Birlestirmek icin aktif baska magaza yok'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: const Text('Magazayi Birlestir'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: targets.length,
+            itemBuilder: (context, index) {
+              final target = targets[index];
+              return ListTile(
+                title: Text(target.displayName),
+                subtitle: Text('${target.neighborhood}, ${target.district}'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(firestoreServiceProvider).mergeStores(source.id, target.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${source.displayName} -> ${target.displayName} birlestirildi'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final storesAsync = ref.watch(allStoresStreamProvider);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_store',
+        onPressed: () => _showAddStoreDialog(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('Sube Ekle'),
+      ),
+      body: storesAsync.when(
+        data: (stores) {
+          if (stores.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.store_outlined, size: 64, color: theme.hintColor),
+              const SizedBox(height: AppSpacing.md),
+              Text('Henuz sube yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+            ]));
+          }
+
+          final filteredStores = _statusFilter == 'all'
+              ? stores
+              : stores.where((s) => s.status.name == _statusFilter).toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
+            itemCount: filteredStores.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Wrap(
+                    spacing: AppSpacing.sm,
+                    children: [
+                      _StatusChip(label: 'Tumu', selected: _statusFilter == 'all', onTap: () => setState(() => _statusFilter = 'all')),
+                      _StatusChip(label: 'Aktif', selected: _statusFilter == 'active', onTap: () => setState(() => _statusFilter = 'active')),
+                      _StatusChip(label: 'Bekleyen', selected: _statusFilter == 'pending', onTap: () => setState(() => _statusFilter = 'pending')),
+                      _StatusChip(label: 'Gizli', selected: _statusFilter == 'hidden', onTap: () => setState(() => _statusFilter = 'hidden')),
+                    ],
+                  ),
+                );
+              }
+
+              final store = filteredStores[index - 1];
+              final color = _statusColor(store.status);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
+                          child: Icon(Icons.store, color: color, size: 22),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(store.displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Row(children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                              child: Text(store.statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                            ),
+                            if (store.neighborhood.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              _InfoChip(icon: Icons.location_on, label: '${store.neighborhood}, ${store.district}'),
+                            ],
+                          ]),
+                        ])),
+                      ]),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        if (store.status == StoreStatus.pending) ...[
+                          SizedBox(
+                            height: 30,
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                await ref.read(firestoreServiceProvider).approveStore(store.id);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Sube onaylandi'), behavior: SnackBarBehavior.floating),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.check_circle_outline, size: 16),
+                              label: const Text('Onayla', style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(foregroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                            ),
+                          ),
+                        ],
+                        SizedBox(
+                          height: 30,
+                          child: TextButton.icon(
+                            onPressed: () => _showMergeDialog(context, ref, store, stores),
+                            icon: const Icon(Icons.merge_type, size: 16),
+                            label: const Text('Birlestir', style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.info, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 30,
+                          child: IconButton(
+                            onPressed: () {
+                              ref.read(firestoreServiceProvider).deleteStore(store.id);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${store.displayName} silindi'), behavior: SnackBarBehavior.floating),
+                              );
+                            },
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            color: AppColors.error,
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Subeler yuklenemedi')),
       ),
     );
   }
@@ -1163,7 +1497,8 @@ class _StatisticsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final productsAsync = ref.watch(allProductsProvider);
-    final storesAsync = ref.watch(storesProvider);
+    final storesAsync = ref.watch(allStoresStreamProvider);
+    final brandsAsync = ref.watch(allBrandsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final bannersAsync = ref.watch(allBannersProvider);
     final usersAsync = ref.watch(allUsersProvider);
@@ -1172,6 +1507,7 @@ class _StatisticsTab extends ConsumerWidget {
 
     final productCount = productsAsync.valueOrNull?.length ?? 0;
     final storeCount = storesAsync.valueOrNull?.length ?? 0;
+    final brandCount = brandsAsync.valueOrNull?.length ?? 0;
     final categoryCount = categoriesAsync.valueOrNull?.length ?? 0;
     final bannerCount = bannersAsync.valueOrNull?.length ?? 0;
     final userCount = usersAsync.valueOrNull?.length ?? 0;
@@ -1188,8 +1524,9 @@ class _StatisticsTab extends ConsumerWidget {
 
     final stats = [
       _StatItem('Toplam Urun', productCount, Icons.inventory_2_outlined, AppColors.primary),
-      _StatItem('Toplam Magaza', storeCount, Icons.store_outlined, AppColors.secondary),
-      _StatItem('Toplam Kategori', categoryCount, Icons.category_outlined, AppColors.accent),
+      _StatItem('Toplam Zincir', brandCount, Icons.business_outlined, AppColors.secondary),
+      _StatItem('Toplam Sube', storeCount, Icons.store_outlined, AppColors.accent),
+      _StatItem('Toplam Kategori', categoryCount, Icons.category_outlined, const Color(0xFF6366F1)),
       _StatItem('Toplam Kullanici', userCount, Icons.people_outlined, AppColors.info),
       _StatItem('Toplam Fiyat Girisi', totalPriceEntries, Icons.price_change_outlined, const Color(0xFF10B981)),
       _StatItem('Toplam Rapor', reportCount, Icons.flag_outlined, AppColors.error),
@@ -1371,6 +1708,24 @@ class _StatusChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: AppColors.textTertiary),
+        const SizedBox(width: 3),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+      ],
     );
   }
 }

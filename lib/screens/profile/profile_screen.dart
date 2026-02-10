@@ -111,6 +111,37 @@ class ProfileScreen extends ConsumerWidget {
             ]),
             const SizedBox(height: AppSpacing.lg),
 
+            // Legal Disclaimer
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.info.withOpacity(0.15)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: AppColors.info.withOpacity(0.7)),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        AppConstants.priceDisclaimer,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary.withOpacity(0.8),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: AppSectionHeader(title: 'Destek'),

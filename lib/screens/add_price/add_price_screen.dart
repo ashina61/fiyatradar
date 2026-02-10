@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/price_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
+import '../../models/store_model.dart';
 import '../../utils/theme.dart';
 import '../../utils/constants.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
@@ -20,18 +23,31 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _productController = TextEditingController();
   final _priceController = TextEditingController();
-  final _storeController = TextEditingController();
 
-  String? _selectedStore;
+  StoreModel? _selectedStore;
   String? _selectedCategory;
   ProductModel? _selectedProduct;
   bool _isSubmitting = false;
+  Position? _userPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserPosition();
+  }
+
+  Future<void> _loadUserPosition() async {
+    final locationService = ref.read(locationServiceProvider);
+    final position = await locationService.getCurrentPosition();
+    if (mounted && position != null) {
+      setState(() => _userPosition = position);
+    }
+  }
 
   @override
   void dispose() {
     _productController.dispose();
     _priceController.dispose();
-    _storeController.dispose();
     super.dispose();
   }
 
@@ -145,12 +161,344 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
+  /// Show store picker bottom sheet - sorted by distance
+  void _showStorePicker() {
+    final storesAsync = ref.read(activeStoresProvider);
+
+    storesAsync.when(
+      loading: () => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Magazalar yukleniyor...'),
+            behavior: SnackBarBehavior.floating),
+      ),
+      error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
+      ),
+      data: (stores) {
+        // Sort by distance if user position is available
+        final sortedStores = List<StoreModel>.from(stores);
+        if (_userPosition != null) {
+          sortedStores.sort((a, b) {
+            final distA = Geolocator.distanceBetween(
+              _userPosition!.latitude, _userPosition!.longitude,
+              a.lat, a.lng,
+            );
+            final distB = Geolocator.distanceBetween(
+              _userPosition!.latitude, _userPosition!.longitude,
+              b.lat, b.lng,
+            );
+            return distA.compareTo(distB);
+          });
+        }
+
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+          ),
+          builder: (ctx) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.5,
+              maxChildSize: 0.85,
+              minChildSize: 0.3,
+              expand: false,
+              builder: (ctx, scrollController) {
+                return Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: AppSpacing.sm),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            'Magaza (Sube) Secin',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_userPosition != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.near_me, size: 14, color: AppColors.info),
+                              SizedBox(width: 6),
+                              Text(
+                                'Yakininizdaki magazalar listeleniyor',
+                                style: TextStyle(fontSize: 12, color: AppColors.info),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Expanded(
+                      child: sortedStores.isEmpty
+                          ? const Center(child: Text('Henuz magaza yok'))
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md),
+                              itemCount: sortedStores.length + 1,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                // Last item: "Bu magaza listede yok +"
+                                if (index == sortedStores.length) {
+                                  return _buildAddNewStoreItem(ctx);
+                                }
+
+                                final store = sortedStores[index];
+                                String? distanceText;
+                                if (_userPosition != null && store.lat != 0 && store.lng != 0) {
+                                  final dist = Geolocator.distanceBetween(
+                                    _userPosition!.latitude,
+                                    _userPosition!.longitude,
+                                    store.lat,
+                                    store.lng,
+                                  );
+                                  distanceText = dist < 1000
+                                      ? '${dist.round()} m'
+                                      : '${(dist / 1000).toStringAsFixed(1)} km';
+                                }
+
+                                return ListTile(
+                                  leading: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.secondary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                                    ),
+                                    child: const Icon(Icons.store,
+                                        color: AppColors.secondary, size: 22),
+                                  ),
+                                  title: Text(
+                                    store.displayName,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: store.neighborhood.isNotEmpty
+                                      ? Text(
+                                          '${store.neighborhood}, ${store.district}',
+                                          style: const TextStyle(fontSize: 12),
+                                        )
+                                      : null,
+                                  trailing: distanceText != null
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(AppRadius.sm),
+                                          ),
+                                          child: Text(
+                                            distanceText,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedStore = store;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAddNewStoreItem(BuildContext ctx) {
+    return ListTile(
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.accent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
+        ),
+        child: const Icon(Icons.add_business, color: AppColors.accent, size: 22),
+      ),
+      title: const Text(
+        'Bu magaza listede yok +',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: AppColors.accent,
+        ),
+      ),
+      subtitle: const Text(
+        'Yeni magaza onerisi gonder',
+        style: TextStyle(fontSize: 12),
+      ),
+      onTap: () {
+        Navigator.pop(ctx);
+        _showAddNewStoreDialog();
+      },
+    );
+  }
+
+  void _showAddNewStoreDialog() {
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: const Icon(Icons.add_business, color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Expanded(
+            child: Text('Yeni Magaza Oner', style: TextStyle(fontSize: 16)),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Magaza Adi',
+                hintText: 'Orn: Cagri Market',
+                prefixIcon: Icon(Icons.store_outlined),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.location_on, size: 14, color: AppColors.info),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Konum otomatik olarak alinacaktir. Magaza admin onayi sonrasi aktif olur.',
+                      style: TextStyle(fontSize: 11, color: AppColors.info),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Iptal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) return;
+
+              final firestoreService = ref.read(firestoreServiceProvider);
+              final locationService = ref.read(locationServiceProvider);
+              final position = await locationService.getCurrentPosition();
+
+              final store = StoreModel(
+                id: '',
+                displayName: nameController.text.trim(),
+                city: '',
+                district: '',
+                neighborhood: '',
+                lat: position?.latitude ?? 0,
+                lng: position?.longitude ?? 0,
+                status: StoreStatus.pending,
+                createdAt: DateTime.now(),
+              );
+
+              final storeId = await firestoreService.addStore(store);
+
+              if (ctx.mounted) Navigator.pop(ctx);
+
+              // Select the newly created store
+              setState(() {
+                _selectedStore = store.copyWith(id: storeId);
+              });
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Magaza onerisi gonderildi! Admin onayi bekleniyor.'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.sm)),
+                  ),
+                );
+              }
+            },
+            child: const Text('Gonder'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Lutfen bir urun secin'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm)),
+        ),
+      );
+      return;
+    }
+    if (_selectedStore == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Lutfen bir magaza (sube) secin'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -178,7 +526,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       final firestoreService = ref.read(firestoreServiceProvider);
       final priceText = _priceController.text.replaceAll(',', '.');
       final price = double.tryParse(priceText) ?? 0.0;
-      final storeName = _selectedStore ?? _storeController.text;
 
       final priceModel = PriceModel(
         id: '',
@@ -186,7 +533,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         userId: userModel.uid,
         userName: userModel.name,
         price: price,
-        storeName: storeName,
+        storeId: _selectedStore!.id,
+        storeName: _selectedStore!.displayName,
         createdAt: DateTime.now(),
       );
 
@@ -221,7 +569,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
         _productController.clear();
         _priceController.clear();
-        _storeController.clear();
         setState(() {
           _selectedProduct = null;
           _selectedStore = null;
@@ -269,7 +616,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final storesAsync = ref.watch(storesProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
@@ -338,7 +684,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              // Product field
+              // Step 1: Product field
               TextFormField(
                 controller: _productController,
                 decoration: InputDecoration(
@@ -422,7 +768,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Price field
+              // Step 2: Price field
               TextFormField(
                 controller: _priceController,
                 keyboardType:
@@ -448,77 +794,115 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
 
-              // Store selection
+              // Step 3: Store (Branch) selection
               Text(
-                'Magaza Secin',
+                'Magaza (Sube) Secin',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              storesAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Hata: $e'),
-                data: (stores) => Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: stores.map((store) {
-                    final storeName = store['name'] as String;
-                    return ChoiceChip(
-                      label: Text(storeName),
-                      selected: _selectedStore == storeName,
-                      selectedColor: AppColors.primary.withOpacity(0.15),
-                      labelStyle: TextStyle(
-                        color: _selectedStore == storeName
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
-                        fontWeight: _selectedStore == storeName
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedStore = selected ? storeName : null;
-                          if (selected) {
-                            _storeController.text = storeName;
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
+
+              // Store selection button
+              InkWell(
+                onTap: _showStorePicker,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _selectedStore != null
+                          ? AppColors.primary.withOpacity(0.5)
+                          : AppColors.outline,
+                      width: _selectedStore != null ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    color: _selectedStore != null
+                        ? AppColors.primary.withOpacity(0.05)
+                        : null,
+                  ),
+                  child: _selectedStore != null
+                      ? Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                              ),
+                              child: const Icon(Icons.store,
+                                  color: AppColors.primary, size: 20),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedStore!.displayName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (_selectedStore!.neighborhood.isNotEmpty)
+                                    Text(
+                                      '${_selectedStore!.neighborhood}, ${_selectedStore!.district}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  if (_selectedStore!.status == StoreStatus.pending)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accent.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                                      ),
+                                      child: const Text(
+                                        'Onay Bekliyor',
+                                        style: TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () {
+                                setState(() => _selectedStore = null);
+                              },
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined,
+                                color: AppColors.textSecondary),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Text(
+                                'Yakininizdaki bir magaza secin',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right,
+                                color: AppColors.textSecondary),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // Custom store field
-              TextFormField(
-                controller: _storeController,
-                decoration: const InputDecoration(
-                  labelText: 'veya Magaza Adi Yazin',
-                  hintText: 'Magaza adini yazin',
-                  prefixIcon: Icon(Icons.store_outlined),
-                ),
-                textInputAction: TextInputAction.done,
-                onChanged: (value) {
-                  if (_selectedStore != null && value != _selectedStore) {
-                    setState(() {
-                      _selectedStore = null;
-                    });
-                  }
-                },
-                validator: (value) {
-                  if ((value == null || value.isEmpty) &&
-                      _selectedStore == null) {
-                    return 'Magaza adi gerekli';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Disclaimer
+              // Legal Disclaimer
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
@@ -527,15 +911,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   border: Border.all(
                       color: AppColors.info.withOpacity(0.3), width: 1),
                 ),
-                child: const Row(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                    SizedBox(width: AppSpacing.sm),
+                    const Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Fiyatlar editör onayı sonrası yayınlanır.',
-                        style: TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary),
+                        AppConstants.priceDisclaimer,
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ),
                   ],

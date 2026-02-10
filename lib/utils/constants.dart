@@ -11,6 +11,13 @@ class AppConstants {
   static const String commentsCollection = 'comments';
   static const String notificationsCollection = 'notifications';
   static const String bannersCollection = 'banners';
+  static const String brandsCollection = 'brands';
+  static const String storesCollection = 'stores';
+
+  // Price Scoring
+  static const int trustedPriceThreshold = 10;
+  static const int autoHideScoreThreshold = -5;
+  static const int photoVoteWeight = 2;
 
   // Points System
   static const int pointsForPriceEntry = 10;
@@ -45,24 +52,11 @@ class AppConstants {
     'Diğer',
   ];
 
-  // Popular Stores
-  static const List<String> popularStores = [
-    'Migros',
-    'CarrefourSA',
-    'BİM',
-    'A101',
-    'ŞOK',
-    'File',
-    'Macro Center',
-    'Metro',
-    'Gratis',
-    'Watsons',
-    'LC Waikiki',
-    'Koçtaş',
-    'Teknosa',
-    'MediaMarkt',
-    'Diğer',
-  ];
+  // Legal Disclaimer
+  static const String priceDisclaimer =
+      'Fiyatlar kullanicilar tarafindan bildirilmektedir. '
+      'Uygulama fiyat dogrulugunu garanti etmez. '
+      'Fiyatlar magazaya ve zamana gore degisiklik gosterebilir.';
 
   // Image Settings
   static const int maxImageWidth = 1024;
