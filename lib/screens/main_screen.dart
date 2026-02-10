@@ -20,7 +20,6 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen>
     with SingleTickerProviderStateMixin {
-  static const int _middleIndex = 2;
   late final AnimationController _fabController;
   bool _isNavigating = false;
 
@@ -62,118 +61,125 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final screens = const [
       HomeScreen(),
       SearchScreen(),
-      SizedBox.shrink(),
       NotificationsScreen(),
       ProfileScreen(),
     ];
 
     return Scaffold(
       body: IndexedStack(index: currentTab, children: screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.4),
-            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: GestureDetector(
+        onTapDown: (_) => _fabController.forward(),
+        onTapUp: (_) => _fabController.reverse(),
+        onTapCancel: _fabController.reverse,
+        child: AnimatedBuilder(
+          animation: _fabController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 1 - _fabController.value,
+              child: child,
+            );
+          },
+          child: FloatingActionButton(
+            onPressed: _openAddPrice,
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.add, size: 26),
           ),
         ),
-        child: NavigationBar(
-          selectedIndex: currentTab,
-          animationDuration: const Duration(milliseconds: 240),
-          onDestinationSelected: (index) {
-            if (index == _middleIndex) {
-              _openAddPrice();
-              return;
-            }
-            ref.read(currentTabProvider.notifier).state = index;
-          },
-          destinations: [
-            _navDestination(
-                'Ana Sayfa', Icons.home_outlined, Icons.home, currentTab == 0),
-            _navDestination(
-                'Ara', Icons.search_outlined, Icons.search, currentTab == 1),
-            NavigationDestination(
-              icon: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openAddPrice,
-                onTapDown: (_) => _fabController.forward(),
-                onTapUp: (_) => _fabController.reverse(),
-                onTapCancel: _fabController.reverse,
-                child: SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Center(
-                    child: AnimatedBuilder(
-                      animation: _fabController,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: 1 - _fabController.value,
-                          child: child,
-                        );
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.gradient,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child:
-                            const Icon(Icons.add, color: Colors.white, size: 24),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              label: 'Fiyat Ekle',
-            ),
-            NavigationDestination(
-              icon: Badge(
-                isLabelVisible: unreadCount > 0,
-                label: Text('$unreadCount'),
-                child: _AnimatedNavIcon(
+      ),
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        child: SizedBox(
+          height: 72,
+          child: Row(
+            children: [
+              Expanded(child: _buildNavItem('Ana Sayfa', Icons.home_outlined, Icons.home, 0, currentTab)),
+              Expanded(child: _buildNavItem('Ara', Icons.search_outlined, Icons.search, 1, currentTab)),
+              const SizedBox(width: 48),
+              Expanded(
+                child: _buildNavItemWithBadge(
+                  label: 'Bildirimler',
                   icon: Icons.notifications_outlined,
-                  selected: currentTab == 3,
+                  selectedIcon: Icons.notifications,
+                  index: 2,
+                  currentTab: currentTab,
+                  badgeCount: unreadCount,
                 ),
               ),
-              selectedIcon: Badge(
-                isLabelVisible: unreadCount > 0,
-                label: Text('$unreadCount'),
-                child: _AnimatedNavIcon(
-                  icon: Icons.notifications,
-                  selected: currentTab == 3,
-                ),
-              ),
-              label: 'Bildirimler',
-            ),
-            _navDestination(
-                'Profil', Icons.person_outline, Icons.person, currentTab == 4),
-          ],
+              Expanded(child: _buildNavItem('Profil', Icons.person_outline, Icons.person, 3, currentTab)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  NavigationDestination _navDestination(
+  Widget _buildNavItem(
     String label,
     IconData icon,
     IconData selectedIcon,
-    bool selected,
+    int index,
+    int currentTab,
   ) {
-    return NavigationDestination(
-      icon: _AnimatedNavIcon(icon: icon, selected: selected),
-      selectedIcon: _AnimatedNavIcon(icon: selectedIcon, selected: selected),
-      label: label,
+    final selected = currentTab == index;
+    return InkWell(
+      onTap: () => ref.read(currentTabProvider.notifier).state = index,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _AnimatedNavIcon(icon: selected ? selectedIcon : icon, selected: selected),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).hintColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItemWithBadge({
+    required String label,
+    required IconData icon,
+    required IconData selectedIcon,
+    required int index,
+    required int currentTab,
+    required int badgeCount,
+  }) {
+    final selected = currentTab == index;
+    return InkWell(
+      onTap: () => ref.read(currentTabProvider.notifier).state = index,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Badge(
+            isLabelVisible: badgeCount > 0,
+            label: Text('$badgeCount'),
+            child: _AnimatedNavIcon(icon: selected ? selectedIcon : icon, selected: selected),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).hintColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
