@@ -1712,11 +1712,6 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoChip({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     return Row(
