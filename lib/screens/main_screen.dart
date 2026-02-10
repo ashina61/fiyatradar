@@ -20,7 +20,9 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen>
     with SingleTickerProviderStateMixin {
+  static const int _middleIndex = 2;
   late final AnimationController _fabController;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -39,6 +41,18 @@ class _MainScreenState extends ConsumerState<MainScreen>
     super.dispose();
   }
 
+  Future<void> _openAddPrice() async {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AddPriceScreen()),
+      );
+    } finally {
+      _isNavigating = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentTab = ref.watch(currentTabProvider);
@@ -48,7 +62,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final screens = const [
       HomeScreen(),
       SearchScreen(),
-      AddPriceScreen(),
+      SizedBox.shrink(),
       NotificationsScreen(),
       ProfileScreen(),
     ];
@@ -68,40 +82,56 @@ class _MainScreenState extends ConsumerState<MainScreen>
           selectedIndex: currentTab,
           animationDuration: const Duration(milliseconds: 240),
           onDestinationSelected: (index) {
+            if (index == _middleIndex) {
+              _openAddPrice();
+              return;
+            }
             ref.read(currentTabProvider.notifier).state = index;
           },
           destinations: [
-            _navDestination('Ana Sayfa', Icons.home_outlined, Icons.home, currentTab == 0),
-            _navDestination('Ara', Icons.search_outlined, Icons.search, currentTab == 1),
+            _navDestination(
+                'Ana Sayfa', Icons.home_outlined, Icons.home, currentTab == 0),
+            _navDestination(
+                'Ara', Icons.search_outlined, Icons.search, currentTab == 1),
             NavigationDestination(
               icon: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openAddPrice,
                 onTapDown: (_) => _fabController.forward(),
                 onTapUp: (_) => _fabController.reverse(),
                 onTapCancel: _fabController.reverse,
-                child: AnimatedBuilder(
-                  animation: _fabController,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: 1 - _fabController.value,
-                      child: child,
-                    );
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.gradient,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(currentTab == 2 ? 0.34 : 0.22),
-                          blurRadius: currentTab == 2 ? 14 : 8,
-                          offset: const Offset(0, 4),
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Center(
+                    child: AnimatedBuilder(
+                      animation: _fabController,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: 1 - _fabController.value,
+                          child: child,
+                        );
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.gradient,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
+                        child:
+                            const Icon(Icons.add, color: Colors.white, size: 24),
+                      ),
                     ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 20),
                   ),
                 ),
               ),
@@ -126,7 +156,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
               ),
               label: 'Bildirimler',
             ),
-            _navDestination('Profil', Icons.person_outline, Icons.person, currentTab == 4),
+            _navDestination(
+                'Profil', Icons.person_outline, Icons.person, currentTab == 4),
           ],
         ),
       ),

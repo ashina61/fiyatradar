@@ -7,7 +7,7 @@ class AppConstants {
   // Firestore Collections
   static const String usersCollection = 'users';
   static const String productsCollection = 'products';
-  static const String pricesCollection = 'prices';
+  static const String pricesCollection = 'priceReports';
   static const String commentsCollection = 'comments';
   static const String notificationsCollection = 'notifications';
   static const String bannersCollection = 'banners';
@@ -54,9 +54,9 @@ class AppConstants {
 
   // Legal Disclaimer
   static const String priceDisclaimer =
-      'Fiyatlar kullanicilar tarafindan bildirilmektedir. '
-      'Uygulama fiyat dogrulugunu garanti etmez. '
-      'Fiyatlar magazaya ve zamana gore degisiklik gosterebilir.';
+      'Fiyatlar kullanıcılar tarafından bildirilmektedir. '
+      'Uygulama fiyat doğruluğunu garanti etmez. '
+      'Fiyatlar mağazaya ve zamana göre değişiklik gösterebilir.';
 
   // Image Settings
   static const int maxImageWidth = 1024;

@@ -168,36 +168,49 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     storesAsync.when(
       loading: () => ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Magazalar yukleniyor...'),
-            behavior: SnackBarBehavior.floating),
+          content: Text('Magazalar yukleniyor...'),
+          behavior: SnackBarBehavior.floating,
+        ),
       ),
       error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
       ),
       data: (stores) {
-        // Sort by distance if user position is available
-        final sortedStores = List<StoreModel>.from(stores);
+        final nearbyStores = List<StoreModel>.from(stores);
         if (_userPosition != null) {
-          sortedStores.sort((a, b) {
+          nearbyStores.sort((a, b) {
             final distA = Geolocator.distanceBetween(
-              _userPosition!.latitude, _userPosition!.longitude,
-              a.lat, a.lng,
+              _userPosition!.latitude,
+              _userPosition!.longitude,
+              a.lat,
+              a.lng,
             );
             final distB = Geolocator.distanceBetween(
-              _userPosition!.latitude, _userPosition!.longitude,
-              b.lat, b.lng,
+              _userPosition!.latitude,
+              _userPosition!.longitude,
+              b.lat,
+              b.lng,
             );
             return distA.compareTo(distB);
           });
         }
 
+        final filteredStores = nearbyStores.where((store) {
+          if (_userPosition == null || store.lat == 0 || store.lng == 0) return true;
+          final distance = Geolocator.distanceBetween(
+            _userPosition!.latitude,
+            _userPosition!.longitude,
+            store.lat,
+            store.lng,
+          );
+          return distance <= 2000;
+        }).toList();
+
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
           shape: const RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
           ),
           builder: (ctx) {
             return DraggableScrollableSheet(
@@ -246,7 +259,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               Icon(Icons.near_me, size: 14, color: AppColors.info),
                               SizedBox(width: 6),
                               Text(
-                                'Yakininizdaki magazalar listeleniyor',
+                                'Yakınımdaki mağazalar listeleniyor',
                                 style: TextStyle(fontSize: 12, color: AppColors.info),
                               ),
                             ],
@@ -255,35 +268,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
-                      child: sortedStores.isEmpty
-                          ? const Center(child: Text('Henuz magaza yok'))
+                      child: filteredStores.isEmpty
+                          ? const Center(child: Text('Yakında magaza bulunamadi'))
                           : ListView.separated(
                               controller: scrollController,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.md),
-                              itemCount: sortedStores.length + 1,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                              itemCount: filteredStores.length + 1,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
                               itemBuilder: (context, index) {
-                                // Last item: "Bu magaza listede yok +"
-                                if (index == sortedStores.length) {
+                                if (index == filteredStores.length) {
                                   return _buildAddNewStoreItem(ctx);
                                 }
 
-                                final store = sortedStores[index];
-                                String? distanceText;
-                                if (_userPosition != null && store.lat != 0 && store.lng != 0) {
-                                  final dist = Geolocator.distanceBetween(
-                                    _userPosition!.latitude,
-                                    _userPosition!.longitude,
-                                    store.lat,
-                                    store.lng,
-                                  );
-                                  distanceText = dist < 1000
-                                      ? '${dist.round()} m'
-                                      : '${(dist / 1000).toStringAsFixed(1)} km';
-                                }
-
+                                final store = filteredStores[index];
+                                final distanceText = _distanceText(store);
                                 return ListTile(
                                   leading: Container(
                                     width: 44,
@@ -292,38 +290,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                       color: AppColors.secondary.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(AppRadius.sm),
                                     ),
-                                    child: const Icon(Icons.store,
-                                        color: AppColors.secondary, size: 22),
+                                    child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
                                   ),
                                   title: Text(
                                     store.displayName,
                                     style: const TextStyle(fontWeight: FontWeight.w600),
                                   ),
-                                  subtitle: store.neighborhood.isNotEmpty
-                                      ? Text(
-                                          '${store.neighborhood}, ${store.district}',
-                                          style: const TextStyle(fontSize: 12),
-                                        )
-                                      : null,
-                                  trailing: distanceText != null
-                                      ? Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(AppRadius.sm),
-                                          ),
-                                          child: Text(
-                                            distanceText,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        )
-                                      : null,
+                                  subtitle: Text(
+                                    '${store.neighborhood.isEmpty ? '-' : store.neighborhood} mah., ${store.district} • $distanceText',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                   onTap: () {
                                     setState(() {
                                       _selectedStore = store;
@@ -342,6 +318,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         );
       },
     );
+  }
+
+  String _distanceText(StoreModel store) {
+    if (_userPosition == null || store.lat == 0 || store.lng == 0) {
+      return 'mesafe bilinmiyor';
+    }
+    final dist = Geolocator.distanceBetween(
+      _userPosition!.latitude,
+      _userPosition!.longitude,
+      store.lat,
+      store.lng,
+    );
+    return dist < 1000 ? '${dist.round()} m' : '${(dist / 1000).toStringAsFixed(1)} km';
   }
 
   Widget _buildAddNewStoreItem(BuildContext ctx) {
@@ -376,108 +365,137 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   void _showAddNewStoreDialog() {
     final nameController = TextEditingController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: const Icon(Icons.add_business, color: AppColors.accent, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Expanded(
-            child: Text('Yeni Magaza Oner', style: TextStyle(fontSize: 16)),
-          ),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Magaza Adi',
-                hintText: 'Orn: Cagri Market',
-                prefixIcon: Icon(Icons.store_outlined),
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: AppSpacing.md),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.1),
+                color: AppColors.accent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.location_on, size: 14, color: AppColors.info),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Konum otomatik olarak alinacaktir. Magaza admin onayi sonrasi aktif olur.',
-                      style: TextStyle(fontSize: 11, color: AppColors.info),
-                    ),
-                  ),
-                ],
+              child: const Icon(Icons.add_business, color: AppColors.accent, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Expanded(
+              child: Text('Yeni Magaza Oner', style: TextStyle(fontSize: 16)),
+            ),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Magaza Adi',
+                  hintText: 'Orn: Cagri Market',
+                  prefixIcon: Icon(Icons.store_outlined),
+                ),
+                autofocus: true,
               ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: AppColors.info),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Konum otomatik olarak alinacaktir. Magaza admin onayi sonrasi aktif olur.',
+                        style: TextStyle(fontSize: 11, color: AppColors.info),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Iptal'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty) return;
+                      setDialogState(() => isSubmitting = true);
+
+                      try {
+                        final firestoreService = ref.read(firestoreServiceProvider);
+                        final locationService = ref.read(locationServiceProvider);
+                        final position = await locationService.getCurrentPosition();
+
+                        final suggestionId = await firestoreService.addStoreSuggestion(
+                          displayName: nameController.text.trim(),
+                          lat: position?.latitude ?? 0,
+                          lng: position?.longitude ?? 0,
+                        );
+
+                        if (!mounted) return;
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+
+                        setState(() {
+                          _selectedStore = StoreModel(
+                            id: suggestionId,
+                            displayName: nameController.text.trim(),
+                            city: '',
+                            district: '',
+                            neighborhood: '',
+                            lat: position?.latitude ?? 0,
+                            lng: position?.longitude ?? 0,
+                            status: StoreStatus.pending,
+                            createdAt: DateTime.now(),
+                          );
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Magaza onerisi gonderildi! Admin onayi bekleniyor.'),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Magaza onerisi gonderilemedi: $e'),
+                            backgroundColor: AppColors.error,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Gonder'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Iptal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-
-              final firestoreService = ref.read(firestoreServiceProvider);
-              final locationService = ref.read(locationServiceProvider);
-              final position = await locationService.getCurrentPosition();
-
-              final store = StoreModel(
-                id: '',
-                displayName: nameController.text.trim(),
-                city: '',
-                district: '',
-                neighborhood: '',
-                lat: position?.latitude ?? 0,
-                lng: position?.longitude ?? 0,
-                status: StoreStatus.pending,
-                createdAt: DateTime.now(),
-              );
-
-              final storeId = await firestoreService.addStore(store);
-
-              if (ctx.mounted) Navigator.pop(ctx);
-
-              // Select the newly created store
-              setState(() {
-                _selectedStore = store.copyWith(id: storeId);
-              });
-
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Magaza onerisi gonderildi! Admin onayi bekleniyor.'),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.sm)),
-                  ),
-                );
-              }
-            },
-            child: const Text('Gonder'),
-          ),
-        ],
       ),
     );
   }
@@ -535,10 +553,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         price: price,
         storeId: _selectedStore!.id,
         storeName: _selectedStore!.displayName,
-        createdAt: DateTime.now(),
+        barcode: _selectedProduct!.barcode,
+        reportedAt: DateTime.now(),
       );
 
-      await firestoreService.addPrice(priceModel);
+      await firestoreService.addPriceReport(priceModel);
       final authService = ref.read(authServiceProvider);
       await authService.incrementPriceEntries(userModel.uid);
       await authService.addPoints(
