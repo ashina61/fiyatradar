@@ -7,6 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/comment_model.dart';
 import '../../models/price_model.dart';
+import '../../utils/constants.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/app_section_header.dart';
@@ -344,6 +345,29 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                       // Price card
                       _buildPriceCard(product),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // Legal disclaimer
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, size: 13, color: AppColors.textTertiary.withOpacity(0.7)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                AppConstants.priceDisclaimer,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textTertiary.withOpacity(0.7),
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.lg),
 
                       // Stats row
@@ -647,7 +671,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 4),
                         Tooltip(
-                          message: '${price.storeName}\n${_formatPrice(price.price)}',
+                          message: '${price.storeName}\n${_formatPrice(price.price)}'
+                            '${price.isTrustedPrice ? '\nGuvenilir Fiyat' : ''}',
                           child: Container(
                             height: barHeight,
                             decoration: BoxDecoration(

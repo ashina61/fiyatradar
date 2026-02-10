@@ -3,6 +3,8 @@ import '../models/product_model.dart';
 import '../models/price_model.dart';
 import '../models/comment_model.dart';
 import '../models/notification_model.dart';
+import '../models/brand_model.dart';
+import '../models/store_model.dart';
 import '../utils/constants.dart';
 import '../models/banner_model.dart';
 import '../models/user_model.dart';
@@ -10,17 +12,173 @@ import '../models/user_model.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Products
+  // Collection references
   CollectionReference get _productsRef => _firestore.collection('products');
   CollectionReference get _pricesRef => _firestore.collection('prices');
   CollectionReference get _commentsRef => _firestore.collection('comments');
   CollectionReference get _notificationsRef => _firestore.collection('notifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
   CollectionReference get _usersRef => _firestore.collection('users');
+  CollectionReference get _brandsRef => _firestore.collection('brands');
+  CollectionReference get _storesRef => _firestore.collection('stores');
   DocumentReference get _maintenanceRef =>
       _firestore.collection('app_config').doc('maintenance');
 
-  // Get trending products (most price entries)
+  // =========================================================================
+  // BRANDS
+  // =========================================================================
+
+  Stream<List<BrandModel>> getAllBrands() {
+    return _brandsRef.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => BrandModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    });
+  }
+
+  Future<String> addBrand(BrandModel brand) async {
+    final doc = await _brandsRef.add(brand.toFirestore());
+    return doc.id;
+  }
+
+  Future<void> updateBrand(String brandId, Map<String, dynamic> data) async {
+    await _brandsRef.doc(brandId).update(data);
+  }
+
+  Future<void> deleteBrand(String brandId) async {
+    await _brandsRef.doc(brandId).delete();
+  }
+
+  Future<BrandModel?> getBrandById(String brandId) async {
+    final doc = await _brandsRef.doc(brandId).get();
+    if (!doc.exists) return null;
+    return BrandModel.fromFirestore(doc);
+  }
+
+  // =========================================================================
+  // STORES (Subeler)
+  // =========================================================================
+
+  Stream<List<StoreModel>> getAllStoresStream() {
+    return _storesRef.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StoreModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.displayName.compareTo(b.displayName));
+      return list;
+    });
+  }
+
+  Stream<List<StoreModel>> getActiveStores() {
+    return _storesRef
+        .where('status', isEqualTo: 'active')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StoreModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.displayName.compareTo(b.displayName));
+      return list;
+    });
+  }
+
+  Stream<List<StoreModel>> getPendingStores() {
+    return _storesRef
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StoreModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return list;
+    });
+  }
+
+  Future<String> addStore(StoreModel store) async {
+    final doc = await _storesRef.add(store.toFirestore());
+    return doc.id;
+  }
+
+  Future<void> updateStore(String storeId, Map<String, dynamic> data) async {
+    await _storesRef.doc(storeId).update(data);
+  }
+
+  Future<void> approveStore(String storeId) async {
+    await _storesRef.doc(storeId).update({'status': 'active'});
+  }
+
+  Future<void> hideStore(String storeId) async {
+    await _storesRef.doc(storeId).update({'status': 'hidden'});
+  }
+
+  Future<void> deleteStore(String storeId) async {
+    await _storesRef.doc(storeId).delete();
+  }
+
+  Future<StoreModel?> getStoreById(String storeId) async {
+    final doc = await _storesRef.doc(storeId).get();
+    if (!doc.exists) return null;
+    return StoreModel.fromFirestore(doc);
+  }
+
+  /// Merge two stores: move all priceReports from sourceId to targetId, then delete source
+  Future<void> mergeStores(String sourceId, String targetId) async {
+    final targetStore = await getStoreById(targetId);
+    if (targetStore == null) return;
+
+    // Update all prices referencing sourceId
+    final priceSnapshot = await _pricesRef
+        .where('storeId', isEqualTo: sourceId)
+        .get();
+
+    final batch = _firestore.batch();
+    for (final doc in priceSnapshot.docs) {
+      batch.update(doc.reference, {
+        'storeId': targetId,
+        'storeName': targetStore.displayName,
+      });
+    }
+    batch.delete(_storesRef.doc(sourceId));
+    await batch.commit();
+  }
+
+  // Legacy store methods (for backward compat during migration)
+  Stream<List<Map<String, dynamic>>> getStores() {
+    return _storesRef.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'name': data['displayName'] ?? data['name'] ?? '',
+        };
+      }).toList();
+      list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+      return list;
+    });
+  }
+
+  Future<String> addStoreLegacy(String name) async {
+    final doc = await _storesRef.add({
+      'displayName': name,
+      'name': name,
+      'city': '',
+      'district': '',
+      'neighborhood': '',
+      'lat': 0.0,
+      'lng': 0.0,
+      'status': 'active',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  // =========================================================================
+  // PRODUCTS
+  // =========================================================================
+
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
     return _productsRef
         .snapshots()
@@ -49,7 +207,6 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  // Get recommended products (by view count)
   Stream<List<ProductModel>> getRecommendedProducts({int limit = 10}) {
     return _productsRef
         .snapshots()
@@ -62,7 +219,6 @@ class FirestoreService {
         });
   }
 
-  // Get all products
   Stream<List<ProductModel>> getAllProducts() {
     return _productsRef
         .snapshots()
@@ -75,7 +231,6 @@ class FirestoreService {
         });
   }
 
-  // Search products
   Future<List<ProductModel>> searchProducts(String query) async {
     final queryLower = query.toLowerCase();
     final snapshot = await _productsRef.get();
@@ -88,7 +243,6 @@ class FirestoreService {
         .toList();
   }
 
-  // Get product by ID
   Future<ProductModel?> getProduct(String productId) async {
     final doc = await _productsRef.doc(productId).get();
     if (doc.exists) {
@@ -97,25 +251,29 @@ class FirestoreService {
     return null;
   }
 
-  // Increment view count
   Future<void> incrementViewCount(String productId) async {
     await _productsRef.doc(productId).update({
       'viewCount': FieldValue.increment(1),
     });
   }
 
-  // Add product
   Future<String> addProduct(ProductModel product) async {
     final doc = await _productsRef.add(product.toFirestore());
     return doc.id;
   }
 
-  // Update product
   Future<void> updateProduct(String productId, Map<String, dynamic> data) async {
     await _productsRef.doc(productId).update(data);
   }
 
-  // Prices
+  Future<void> deleteProduct(String productId) async {
+    await _productsRef.doc(productId).delete();
+  }
+
+  // =========================================================================
+  // PRICES
+  // =========================================================================
+
   Stream<List<PriceModel>> getPricesForProduct(String productId) {
     return _pricesRef
         .where('productId', isEqualTo: productId)
@@ -142,7 +300,6 @@ class FirestoreService {
     return prices.isNotEmpty ? prices.first : null;
   }
 
-  // Get latest prices across all products
   Stream<List<PriceModel>> getLatestPrices({int limit = 10}) {
     return _pricesRef
         .snapshots()
@@ -175,14 +332,52 @@ class FirestoreService {
       field: FieldValue.increment(1),
       'verifiedBy': FieldValue.arrayUnion([voterId]),
     });
-    // Give the voter +5 points for validating
     await _usersRef.doc(voterId).update({
       'validations': FieldValue.increment(1),
       'points': FieldValue.increment(AppConstants.pointsForValidation),
     });
   }
 
-  // Check if user already verified a price
+  /// Upvote a price report
+  Future<void> upVotePrice(String priceId, String voterId) async {
+    await _pricesRef.doc(priceId).update({
+      'upVotes': FieldValue.increment(1),
+      'score': FieldValue.increment(1),
+      'votedBy': FieldValue.arrayUnion([voterId]),
+    });
+  }
+
+  /// Downvote a price report
+  Future<void> downVotePrice(String priceId, String voterId) async {
+    await _pricesRef.doc(priceId).update({
+      'downVotes': FieldValue.increment(1),
+      'score': FieldValue.increment(-1),
+      'votedBy': FieldValue.arrayUnion([voterId]),
+    });
+
+    // Auto-hide if score drops below threshold
+    final doc = await _pricesRef.doc(priceId).get();
+    if (doc.exists) {
+      final data = doc.data() as Map<String, dynamic>;
+      final score = (data['score'] as num?)?.toDouble() ?? 0;
+      if (score <= AppConstants.autoHideScoreThreshold) {
+        await _pricesRef.doc(priceId).update({
+          'isApproved': false,
+          'isPending': false,
+        });
+      }
+    }
+  }
+
+  /// Check if user already voted on a price
+  Future<bool> hasUserVotedPrice(String priceId, String userId) async {
+    final doc = await _pricesRef.doc(priceId).get();
+    if (!doc.exists) return false;
+    final data = doc.data() as Map<String, dynamic>?;
+    final votedBy = List<String>.from(data?['votedBy'] ?? []);
+    return votedBy.contains(userId);
+  }
+
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
     final doc = await _pricesRef.doc(priceId).get();
     if (!doc.exists) return false;
@@ -191,7 +386,6 @@ class FirestoreService {
     return verifiedBy.contains(userId);
   }
 
-  // Report a price
   Future<void> reportPrice({
     required String priceId,
     required String userId,
@@ -214,7 +408,6 @@ class FirestoreService {
     });
   }
 
-  // Report a comment
   Future<void> reportComment({
     required String commentId,
     required String userId,
@@ -234,7 +427,6 @@ class FirestoreService {
     });
   }
 
-  // Pending prices for admin
   Stream<List<PriceModel>> getPendingPrices() {
     return _pricesRef
         .where('isPending', isEqualTo: true)
@@ -262,7 +454,10 @@ class FirestoreService {
     });
   }
 
-  // Comments
+  // =========================================================================
+  // COMMENTS
+  // =========================================================================
+
   Stream<List<CommentModel>> getComments(String productId) {
     return _commentsRef
         .where('productId', isEqualTo: productId)
@@ -301,7 +496,14 @@ class FirestoreService {
     }
   }
 
-  // Notifications
+  Future<void> deleteComment(String commentId) async {
+    await _commentsRef.doc(commentId).delete();
+  }
+
+  // =========================================================================
+  // NOTIFICATIONS
+  // =========================================================================
+
   Stream<List<NotificationModel>> getNotifications(String userId) {
     return _notificationsRef
         .where('userId', isEqualTo: userId)
@@ -347,7 +549,14 @@ class FirestoreService {
     await _notificationsRef.add(notification.toFirestore());
   }
 
-  // Banners
+  Future<void> deleteNotification(String notificationId) async {
+    await _notificationsRef.doc(notificationId).delete();
+  }
+
+  // =========================================================================
+  // BANNERS
+  // =========================================================================
+
   Stream<List<BannerModel>> getActiveBanners() {
     return _bannersRef
         .where('isActive', isEqualTo: true)
@@ -387,7 +596,10 @@ class FirestoreService {
     await _bannersRef.doc(bannerId).delete();
   }
 
-  // Users (for admin)
+  // =========================================================================
+  // USERS (admin)
+  // =========================================================================
+
   Stream<List<UserModel>> getAllUsers() {
     return _usersRef
         .snapshots()
@@ -413,7 +625,20 @@ class FirestoreService {
     });
   }
 
-  // Search history
+  Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
+    await _usersRef.doc(userId).update(data);
+  }
+
+  Future<UserModel?> getUserById(String userId) async {
+    final doc = await _usersRef.doc(userId).get();
+    if (!doc.exists) return null;
+    return UserModel.fromFirestore(doc);
+  }
+
+  // =========================================================================
+  // SEARCH HISTORY
+  // =========================================================================
+
   Future<void> saveSearchHistory(String userId, String query) async {
     final doc = _usersRef.doc(userId).collection('searchHistory').doc();
     await doc.set({
@@ -448,7 +673,10 @@ class FirestoreService {
     await batch.commit();
   }
 
-  // Saved products
+  // =========================================================================
+  // SAVED PRODUCTS
+  // =========================================================================
+
   Stream<List<ProductModel>> getSavedProducts(List<String> productIds) {
     if (productIds.isEmpty) {
       return Stream.value([]);
@@ -461,7 +689,10 @@ class FirestoreService {
             .toList());
   }
 
-  // Categories
+  // =========================================================================
+  // CATEGORIES
+  // =========================================================================
+
   CollectionReference get _categoriesRef => _firestore.collection('categories');
 
   Stream<List<Map<String, dynamic>>> getCategories() {
@@ -494,51 +725,10 @@ class FirestoreService {
     await _categoriesRef.doc(categoryId).delete();
   }
 
-  // Stores
-  CollectionReference get _storesRef => _firestore.collection('stores');
+  // =========================================================================
+  // BASKET
+  // =========================================================================
 
-  Stream<List<Map<String, dynamic>>> getStores() {
-    return _storesRef.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          'name': data['name'] ?? '',
-        };
-      }).toList();
-      list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
-      return list;
-    });
-  }
-
-  Future<String> addStore(String name) async {
-    final doc = await _storesRef.add({
-      'name': name,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    return doc.id;
-  }
-
-  Future<void> deleteStore(String storeId) async {
-    await _storesRef.doc(storeId).delete();
-  }
-
-  // Delete product
-  Future<void> deleteProduct(String productId) async {
-    await _productsRef.doc(productId).delete();
-  }
-
-  // Delete comment
-  Future<void> deleteComment(String commentId) async {
-    await _commentsRef.doc(commentId).delete();
-  }
-
-  // Delete notification
-  Future<void> deleteNotification(String notificationId) async {
-    await _notificationsRef.doc(notificationId).delete();
-  }
-
-  // Basket
   CollectionReference<Map<String, dynamic>> _basketRef(String userId) {
     return _usersRef.doc(userId).collection('basketItems');
   }
@@ -573,7 +763,10 @@ class FirestoreService {
     await _basketRef(userId).doc(productId).delete();
   }
 
-  // Reports
+  // =========================================================================
+  // REPORTS
+  // =========================================================================
+
   CollectionReference get _reportsRef => _firestore.collection('reports');
 
   Stream<List<Map<String, dynamic>>> getReports() {
@@ -630,12 +823,6 @@ class FirestoreService {
     return PriceModel.fromFirestore(doc);
   }
 
-  Future<UserModel?> getUserById(String userId) async {
-    final doc = await _usersRef.doc(userId).get();
-    if (!doc.exists) return null;
-    return UserModel.fromFirestore(doc);
-  }
-
   Future<List<PriceModel>> getPricesForProductIds(List<String> productIds) async {
     if (productIds.isEmpty) return [];
     final results = <PriceModel>[];
@@ -670,10 +857,5 @@ class FirestoreService {
       results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
     }
     return results;
-  }
-
-  // Update user profile
-  Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
-    await _usersRef.doc(userId).update(data);
   }
 }

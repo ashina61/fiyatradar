@@ -51,6 +51,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> addPrice({
     required String productId,
     required double price,
+    required String storeId,
     required String storeName,
     List<File>? images,
   }) async {
@@ -58,7 +59,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final currentUser = _authService.currentUser;
       if (currentUser == null) {
-        throw Exception('Kullanıcı oturumu bulunamadı');
+        throw Exception('Kullanici oturumu bulunamadi');
       }
 
       final userModel = await _authService.getUserModel(currentUser.uid);
@@ -82,6 +83,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         userId: currentUser.uid,
         userName: userModel?.name,
         price: price,
+        storeId: storeId,
         storeName: storeName,
         storeLocation: locationData?.address,
         geoPoint: locationData?.geoPoint,

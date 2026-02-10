@@ -3,6 +3,8 @@ import '../main.dart';
 import '../models/product_model.dart';
 import '../models/comment_model.dart';
 import '../models/price_model.dart';
+import '../models/brand_model.dart';
+import '../models/store_model.dart';
 import '../services/firestore_service.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
@@ -75,7 +77,7 @@ final categoriesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   return ref.watch(firestoreServiceProvider).getCategories();
 });
 
-// Stores
+/// @deprecated Use [allStoresStreamProvider] or [activeStoresProvider] instead.
 final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getStores();
@@ -117,4 +119,32 @@ final reportsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 final maintenanceModeProvider = StreamProvider<bool>((ref) {
   if (!firebaseInitialized) return Stream.value(false);
   return ref.watch(firestoreServiceProvider).getMaintenanceMode();
+});
+
+// =========================================================================
+// BRANDS
+// =========================================================================
+
+final allBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getAllBrands();
+});
+
+// =========================================================================
+// STORES (Subeler)
+// =========================================================================
+
+final allStoresStreamProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getAllStoresStream();
+});
+
+final activeStoresProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getActiveStores();
+});
+
+final pendingStoresProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getPendingStores();
 });
