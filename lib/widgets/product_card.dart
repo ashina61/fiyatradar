@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../models/product_model.dart';
+
 import '../models/price_model.dart';
+import '../models/product_model.dart';
 import '../providers/product_provider.dart';
 import '../utils/theme.dart';
+import 'app_badge.dart';
+import 'app_card.dart';
+import 'app_network_image.dart';
 
 class ProductCard extends ConsumerWidget {
   final ProductModel product;
@@ -21,247 +23,151 @@ class ProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currencyFormat = NumberFormat.currency(
-      locale: 'tr_TR',
-      symbol: '₺',
-      decimalDigits: 2,
-    );
-    final priceHistoryAsync =
-        ref.watch(productPriceHistoryProvider(product.id));
+    final priceHistoryAsync = ref.watch(productPriceHistoryProvider(product.id));
 
-    return GestureDetector(
+    return AppCard(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            Expanded(
-              flex: 3,
-              child: Stack(
-                children: [
-                  ClipRRect(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppRadius.lg),
                     ),
-                    child: product.mainImage != null
-                        ? Hero(
-                            tag: 'product_${product.id}',
-                            child: CachedNetworkImage(
-                              imageUrl: product.mainImage!,
-                              width: double.infinity,
-                              height: double.infinity,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Container(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceVariant,
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (context, url, error) =>
-                                  _buildPlaceholder(context),
-                            ),
-                          )
-                        : _buildPlaceholder(context),
                   ),
-                  if (showTrendBadge && product.isTrending)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '🔥',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Trend',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Hero(
+                    tag: 'product_${product.id}',
+                    child: AppNetworkImage(
+                      imageUrl: product.mainImage,
+                      cacheKey: 'product_card_${product.id}',
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
+                  ),
+                ),
+                if (showTrendBadge && product.isTrending)
+                  const Positioned(
+                    top: AppSpacing.sm,
+                    left: AppSpacing.sm,
+                    child: AppBadge(
+                      text: 'Trend',
+                      icon: Icons.local_fire_department,
+                      backgroundColor: Color(0x22CD853F),
+                      foregroundColor: AppColors.accentDark,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.brand.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  if (product.lastPrice != null)
+                    _PriceText(price: product.lastPrice!)
+                  else
+                    Text('Fiyat yok', style: Theme.of(context).textTheme.labelMedium),
+                  priceHistoryAsync.when(
+                    data: (prices) => _buildPriceChangeIndicator(context, prices),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
                 ],
               ),
             ),
-            // Content
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Brand
-                    Text(
-                      product.brand.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.primary,
-                        letterSpacing: 0.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    // Name
-                    Expanded(
-                      child: Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Price
-                    if (product.lastPrice != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            currencyFormat.format(product.lastPrice),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          priceHistoryAsync.when(
-                            data: (prices) =>
-                                _buildPriceChangeIndicator(context, prices),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                          priceHistoryAsync.when(
-                            data: (prices) =>
-                                _buildRelativeTimeText(context, prices),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                        ],
-                      )
-                    else
-                      Text(
-                        'Fiyat yok',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRelativeTimeText(
-      BuildContext context, List<PriceModel> prices) {
-    if (prices.isEmpty) return const SizedBox.shrink();
-    final latest = prices.first;
-    final text = _formatTimeAgo(latest.createdAt);
-    if (text.isEmpty) return const SizedBox.shrink();
-    return Text(
-      text,
-      style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
-    );
-  }
-
-  Widget _buildPriceChangeIndicator(
-      BuildContext context, List<PriceModel> prices) {
+  Widget _buildPriceChangeIndicator(BuildContext context, List<PriceModel> prices) {
     if (prices.length < 2) return const SizedBox.shrink();
 
-    final approved = prices.where((price) => price.isApproved).toList();
-    final source = approved.length >= 2 ? approved : prices;
-    if (source.length < 2) return const SizedBox.shrink();
-
-    final latest = source[0];
-    final previous = source[1];
+    final latest = prices[0];
+    final previous = prices[1];
     final diff = latest.price - previous.price;
-    if (diff == 0) return const SizedBox.shrink();
+    if (diff == 0 || previous.price == 0) return const SizedBox.shrink();
 
     final percent = (diff / previous.price) * 100;
     final isUp = diff > 0;
     final color = isUp ? AppColors.error : AppColors.success;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          isUp ? Icons.trending_up : Icons.trending_down,
-          size: 12,
-          color: color,
-        ),
-        const SizedBox(width: 2),
-        Text(
-          '${percent.abs().toStringAsFixed(1)}%',
-          style: TextStyle(fontSize: 11, color: color),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: AppBadge(
+        text: '${percent.abs().toStringAsFixed(1)}%',
+        icon: isUp ? Icons.trending_up : Icons.trending_down,
+        backgroundColor: color.withOpacity(0.14),
+        foregroundColor: color,
+      ),
     );
   }
+}
 
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+class _PriceText extends StatelessWidget {
+  final double price;
 
-    if (difference.inMinutes < 1) {
-      return 'az once';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} dk once';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} sa once';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} gun once';
-    } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    }
-  }
+  const _PriceText({required this.price});
 
-  Widget _buildPlaceholder(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Theme.of(context).colorScheme.surfaceVariant,
-      child: Icon(
-        Icons.image_outlined,
-        size: 48,
-        color: Theme.of(context).colorScheme.outline,
+  @override
+  Widget build(BuildContext context) {
+    final fixed = price.toStringAsFixed(2);
+    final parts = fixed.split('.');
+
+    return RichText(
+      text: TextSpan(
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+        children: [
+          TextSpan(text: '₺${parts[0]}'),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.top,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                ',${parts[1]}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -272,17 +178,9 @@ class ProductCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1,
-        ),
-      ),
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 3,
@@ -298,39 +196,15 @@ class ProductCardShimmer extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 10,
-                    width: 50,
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 12,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+                  Container(height: 10, width: 48, color: Theme.of(context).colorScheme.surfaceVariant),
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(height: 12, width: double.infinity, color: Theme.of(context).colorScheme.surfaceVariant),
                   const Spacer(),
-                  Container(
-                    height: 16,
-                    width: 70,
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+                  Container(height: 16, width: 72, color: Theme.of(context).colorScheme.surfaceVariant),
                 ],
               ),
             ),

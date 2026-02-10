@@ -283,12 +283,12 @@ class _LoginScreenState extends State<LoginScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildHero(theme),
-                            const SizedBox(height: AppSpacing.lg),
+            _buildHero(theme),
+            const SizedBox(height: AppSpacing.xl),
                             Material(
                               color: theme.cardColor,
-                              elevation: 4,
-                              shadowColor: Colors.black.withOpacity(0.05),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
                               borderRadius: BorderRadius.circular(AppRadius.xxl),
                               child: Padding(
                                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -514,16 +514,16 @@ class _LoginScreenState extends State<LoginScreen>
           FadeTransition(
             opacity: _iconFadeAnimation,
             child: Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: colorScheme.surface.withOpacity(0.92),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: colorScheme.outlineVariant),
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                border: Border.all(color: colorScheme.outline.withOpacity(0.7)),
               ),
               child: Image.asset(
                 'assets/images/app_logo.png',
-                width: 94,
-                height: 94,
+                width: 112,
+                height: 112,
                 fit: BoxFit.contain,
                 filterQuality: FilterQuality.high,
                 gaplessPlayback: true,
@@ -534,14 +534,14 @@ class _LoginScreenState extends State<LoginScreen>
           Text(
             'FiyatRadar',
             textAlign: TextAlign.center,
-            style: theme.textTheme.displaySmall?.copyWith(
+            style: theme.textTheme.headlineLarge?.copyWith(
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Akilli fiyat takibi',
+            'Market fiyatlarini akilli sekilde takip edin',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.textTheme.bodyMedium?.color?.withOpacity(0.68),
@@ -558,7 +558,7 @@ class _LoginScreenState extends State<LoginScreen>
       child: OutlinedButton(
         onPressed: _isGoogleLoading ? null : _signInWithGoogle,
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: theme.colorScheme.surface,
           side: BorderSide(color: theme.colorScheme.outlineVariant),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
