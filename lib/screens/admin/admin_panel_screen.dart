@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
@@ -164,8 +167,77 @@ class _StoreHubTabState extends State<_StoreHubTab>
 // ---------------------------------------------------------------------------
 // Tab 1: Urun Yonetimi
 // ---------------------------------------------------------------------------
+class _OpenFoodFactsResult {
+  final String? productName;
+  final String? brand;
+  final String? imageUrl;
+
+  const _OpenFoodFactsResult({this.productName, this.brand, this.imageUrl});
+}
+
+class _OpenFoodFactsService {
+  final Map<String, _OpenFoodFactsResult?> _cache = {};
+
+  Future<_OpenFoodFactsResult?> fetchByBarcode(String barcode) async {
+    final normalized = barcode.trim();
+    if (_cache.containsKey(normalized)) {
+      return _cache[normalized];
+    }
+
+    final uri = Uri.parse('https://world.openfoodfacts.org/api/v2/product/$normalized.json');
+
+    try {
+      final response = await http
+          .get(
+            uri,
+            headers: const {
+              'User-Agent': 'FiyatRadar/1.0 (admin-panel)',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 7));
+
+      if (response.statusCode != 200) {
+        _cache[normalized] = null;
+        return null;
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final product = body['product'] as Map<String, dynamic>?;
+      if (product == null) {
+        _cache[normalized] = null;
+        return null;
+      }
+
+      final selectedImages = product['selected_images'] as Map<String, dynamic>?;
+      final front = selectedImages?['front'] as Map<String, dynamic>?;
+      final display = front?['display'] as Map<String, dynamic>?;
+      final imageUrl = (product['image_front_url'] as String?) ??
+          (product['image_url'] as String?) ??
+          (display?['en'] as String?) ??
+          (display?['tr'] as String?);
+
+      final result = _OpenFoodFactsResult(
+        productName: product['product_name'] as String?,
+        brand: product['brands'] as String?,
+        imageUrl: imageUrl,
+      );
+      _cache[normalized] = result;
+      return result;
+    } on TimeoutException {
+      _cache[normalized] = null;
+      return null;
+    } catch (_) {
+      _cache[normalized] = null;
+      return null;
+    }
+  }
+}
+
 class _ProductManagementTab extends ConsumerWidget {
   const _ProductManagementTab();
+
+  static final _openFoodFactsService = _OpenFoodFactsService();
 
   IconData _categoryIcon(String category) {
     switch (category) {
@@ -193,11 +265,60 @@ class _ProductManagementTab extends ConsumerWidget {
     final picker = ImagePicker();
     bool isUploading = false;
     String? uploadError;
+    Timer? barcodeDebounce;
+    bool isFetchingBarcode = false;
+    String? barcodeHint;
+    String? openFoodFactsImageUrl;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) {
+          Future<void> fetchOpenFoodFacts(String input) async {
+            final barcode = input.trim();
+            if (barcode.length < 8) {
+              setDialogState(() {
+                isFetchingBarcode = false;
+                barcodeHint = null;
+                openFoodFactsImageUrl = null;
+              });
+              return;
+            }
+
+            setDialogState(() {
+              isFetchingBarcode = true;
+              barcodeHint = 'Barkoddan urun bilgisi aliniyor...';
+            });
+
+            final result = await _openFoodFactsService.fetchByBarcode(barcode);
+            if (!ctx.mounted) return;
+
+            setDialogState(() {
+              isFetchingBarcode = false;
+              if (result == null) {
+                barcodeHint = 'Urun bulunamadi, manuel ekleyebilirsiniz';
+                openFoodFactsImageUrl = null;
+                return;
+              }
+
+              if (result.productName != null && nameController.text.trim().isEmpty) {
+                nameController.text = result.productName!.trim();
+              }
+              if (result.brand != null && brandController.text.trim().isEmpty) {
+                final firstBrand = result.brand!.split(',').first.trim();
+                if (firstBrand.isNotEmpty) {
+                  brandController.text = firstBrand;
+                }
+              }
+
+              openFoodFactsImageUrl = result.imageUrl;
+              barcodeHint = openFoodFactsImageUrl == null
+                  ? 'Gorsel bulunamadi / Manuel ekle'
+                  : 'OpenFoodFacts gorseli bulundu';
+            });
+          }
+
+          return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
           title: Row(children: [
             Container(
@@ -223,6 +344,13 @@ class _ProductManagementTab extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: barcodeController,
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  barcodeDebounce?.cancel();
+                  barcodeDebounce = Timer(const Duration(milliseconds: 500), () {
+                    fetchOpenFoodFacts(value);
+                  });
+                },
                 decoration: InputDecoration(
                   labelText: 'Barkod (Opsiyonel)',
                   prefixIcon: const Icon(Icons.qr_code),
@@ -235,6 +363,7 @@ class _ProductManagementTab extends ConsumerWidget {
                       );
                       if (code != null) {
                         barcodeController.text = code;
+                        fetchOpenFoodFacts(code);
                       }
                     },
                   ),
@@ -341,6 +470,43 @@ class _ProductManagementTab extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (isFetchingBarcode) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const LinearProgressIndicator(minHeight: 2),
+              ],
+              if (barcodeHint != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    barcodeHint!,
+                    style: TextStyle(
+                      color: barcodeHint!.contains('bulunamadi') || barcodeHint!.contains('Manuel')
+                          ? AppColors.warning
+                          : AppColors.success,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+              if (openFoodFactsImageUrl != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  child: Image.network(
+                    openFoodFactsImageUrl!,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 120,
+                      alignment: Alignment.center,
+                      color: Colors.black12,
+                      child: const Text('Gorsel bulunamadi / Manuel ekle'),
+                    ),
+                  ),
+                ),
+              ],
               if (uploadError != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(uploadError!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
@@ -348,7 +514,7 @@ class _ProductManagementTab extends ConsumerWidget {
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            TextButton(onPressed: () { barcodeDebounce?.cancel(); Navigator.pop(ctx); }, child: const Text('Iptal')),
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.isEmpty || selectedCategory == null || isUploading) return;
@@ -367,7 +533,7 @@ class _ProductManagementTab extends ConsumerWidget {
                     description: descriptionController.text.isEmpty
                         ? null
                         : descriptionController.text,
-                    imageUrls: const [],
+                    imageUrls: openFoodFactsImageUrl != null ? [openFoodFactsImageUrl!] : const [],
                     createdAt: DateTime.now(),
                     updatedAt: DateTime.now(),
                   ));
@@ -382,12 +548,19 @@ class _ProductManagementTab extends ConsumerWidget {
                     imageUrls.addAll(urls);
                   }
 
+                  final allImageUrls = <String>[];
+                  if (openFoodFactsImageUrl != null) {
+                    allImageUrls.add(openFoodFactsImageUrl!);
+                  }
+                  allImageUrls.addAll(imageUrls);
+
                   await service.updateProduct(productId, {
-                    if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
-                    if (imageUrls.isNotEmpty) 'mainImage': imageUrls.first,
+                    if (allImageUrls.isNotEmpty) 'imageUrls': allImageUrls,
+                    if (allImageUrls.isNotEmpty) 'mainImage': allImageUrls.first,
                     'updatedAt': DateTime.now(),
                   });
 
+                  barcodeDebounce?.cancel();
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
                   setDialogState(() {
@@ -406,7 +579,8 @@ class _ProductManagementTab extends ConsumerWidget {
                   : const Text('Ekle'),
             ),
           ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -889,6 +1063,10 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                             if (store.neighborhood.isNotEmpty) ...[
                               const SizedBox(width: 6),
                               _InfoChip(icon: Icons.location_on, label: '${store.neighborhood}, ${store.district}'),
+                            ],
+                            if (store.lat == 0 || store.lng == 0) ...[
+                              const SizedBox(width: 6),
+                              const _InfoChip(icon: Icons.warning_amber_rounded, label: 'Konum eksik'),
                             ],
                           ]),
                         ])),

@@ -211,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Avatar + Greeting
         GestureDetector(
           onTap: () {
-            ref.read(currentTabProvider.notifier).state = 4;
+            ref.read(currentTabProvider.notifier).state = 3;
           },
           child: Container(
             width: 44,
@@ -305,7 +305,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Notification bell
         GestureDetector(
           onTap: () {
-            ref.read(currentTabProvider.notifier).state = 3;
+            ref.read(currentTabProvider.notifier).state = 2;
           },
           child: SizedBox(
             width: 42,
