@@ -235,6 +235,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           return distance <= 2000;
         }).toList();
 
+        if (_userPosition != null && filteredStores.isNotEmpty) {
+          final nearestStore = filteredStores.first;
+          final nearestDistance = _distanceInMeters(nearestStore);
+          if (nearestDistance <= 30) {
+            setState(() => _selectedStore = nearestStore);
+          }
+        }
+
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
@@ -554,20 +562,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         if (dialogContext.mounted) {
                           Navigator.pop(dialogContext);
                         }
-
-                        setState(() {
-                          _selectedStore = StoreModel(
-                            id: suggestionId,
-                            displayName: nameController.text.trim(),
-                            city: '',
-                            district: '',
-                            neighborhood: '',
-                            lat: position?.latitude ?? 0,
-                            lng: position?.longitude ?? 0,
-                            status: StoreStatus.pending,
-                            createdAt: DateTime.now(),
-                          );
-                        });
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -980,19 +974,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  if (_selectedStore!.status == StoreStatus.pending)
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 4),
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accent.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(AppRadius.xs),
-                                      ),
-                                      child: const Text(
-                                        'Onay Bekliyor',
-                                        style: TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                 ],

@@ -12,6 +12,7 @@ import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
 import '../../models/store_model.dart';
+import '../../models/store_suggestion_model.dart';
 import 'report_detail_screen.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
@@ -36,7 +37,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -88,6 +89,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           tabs: const [
             Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
             Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
+            Tab(text: 'Magaza Onerileri', icon: Icon(Icons.lightbulb_outline)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
@@ -101,6 +103,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         children: const [
           _ProductManagementTab(),
           _StoreHubTab(),
+          _StoreSuggestionsTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
           _ReportsManagementTab(),
@@ -128,7 +131,7 @@ class _StoreHubTabState extends State<_StoreHubTab>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -148,7 +151,6 @@ class _StoreHubTabState extends State<_StoreHubTab>
             tabs: const [
               Tab(text: 'Zincirler'),
               Tab(text: 'Subeler'),
-              Tab(text: 'Oneriler'),
             ],
           ),
         ),
@@ -158,7 +160,6 @@ class _StoreHubTabState extends State<_StoreHubTab>
             children: const [
               _BrandManagementTab(),
               _StoreManagementTab(initialFilter: 'active'),
-              _StoreManagementTab(initialFilter: 'pending'),
             ],
           ),
         ),
@@ -1326,6 +1327,209 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const Center(child: Text('Subeler yuklenemedi')),
       ),
+    );
+  }
+}
+
+
+
+class _SuggestionCluster {
+  final StoreModel? nearestActiveStore;
+  final List<StoreSuggestionModel> suggestions;
+  final double centerLat;
+  final double centerLng;
+
+  const _SuggestionCluster({
+    required this.suggestions,
+    required this.centerLat,
+    required this.centerLng,
+    this.nearestActiveStore,
+  });
+}
+
+class _StoreSuggestionsTab extends ConsumerWidget {
+  const _StoreSuggestionsTab();
+
+  static const double _clusterRadiusMeters = 20;
+
+  double _distanceInMeters(double lat1, double lon1, double lat2, double lon2) {
+    const earthRadius = 6371000.0;
+    final dLat = (lat2 - lat1) * pi / 180.0;
+    final dLon = (lon2 - lon1) * pi / 180.0;
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180.0) *
+            cos(lat2 * pi / 180.0) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  List<_SuggestionCluster> _buildClusters(List<StoreSuggestionModel> suggestions, List<StoreModel> activeStores) {
+    final clusters = <_SuggestionCluster>[];
+
+    for (final suggestion in suggestions) {
+      int matchedIndex = -1;
+      for (int i = 0; i < clusters.length; i++) {
+        final c = clusters[i];
+        final distance = _distanceInMeters(c.centerLat, c.centerLng, suggestion.lat, suggestion.lng);
+        if (distance <= _clusterRadiusMeters) {
+          matchedIndex = i;
+          break;
+        }
+      }
+
+      if (matchedIndex == -1) {
+        clusters.add(_SuggestionCluster(
+          suggestions: [suggestion],
+          centerLat: suggestion.lat,
+          centerLng: suggestion.lng,
+        ));
+      } else {
+        final current = clusters[matchedIndex];
+        final merged = [...current.suggestions, suggestion];
+        final avgLat = merged.map((e) => e.lat).reduce((a, b) => a + b) / merged.length;
+        final avgLng = merged.map((e) => e.lng).reduce((a, b) => a + b) / merged.length;
+        clusters[matchedIndex] = _SuggestionCluster(
+          suggestions: merged,
+          centerLat: avgLat,
+          centerLng: avgLng,
+        );
+      }
+    }
+
+    final withNearest = clusters.map((cluster) {
+      StoreModel? nearest;
+      double min = double.infinity;
+      for (final store in activeStores) {
+        if (store.lat == 0 || store.lng == 0) continue;
+        final d = _distanceInMeters(cluster.centerLat, cluster.centerLng, store.lat, store.lng);
+        if (d < min) {
+          min = d;
+          nearest = store;
+        }
+      }
+      return _SuggestionCluster(
+        suggestions: cluster.suggestions,
+        centerLat: cluster.centerLat,
+        centerLng: cluster.centerLng,
+        nearestActiveStore: nearest,
+      );
+    }).toList();
+
+    withNearest.sort((a, b) => b.suggestions.length.compareTo(a.suggestions.length));
+    return withNearest;
+  }
+
+  Future<void> _showMergeDialog(BuildContext context, WidgetRef ref, StoreSuggestionModel suggestion, List<StoreModel> activeStores) async {
+    if (activeStores.isEmpty) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mevcut Magaza ile Birlestir'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: activeStores.length,
+            itemBuilder: (_, i) {
+              final target = activeStores[i];
+              return ListTile(
+                title: Text(target.displayName),
+                subtitle: Text('${target.neighborhood}, ${target.district}'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(firestoreServiceProvider).mergeStoreSuggestion(
+                        suggestionId: suggestion.id,
+                        targetStoreId: target.id,
+                      );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final suggestionsAsync = ref.watch(pendingStoreSuggestionsProvider);
+    final activeStoresAsync = ref.watch(activeStoresProvider);
+
+    return activeStoresAsync.when(
+      data: (activeStores) => suggestionsAsync.when(
+        data: (suggestions) {
+          if (suggestions.isEmpty) {
+            return const Center(child: Text('Bekleyen magaza onerisi yok'));
+          }
+          final clusters = _buildClusters(suggestions, activeStores);
+          return ListView.builder(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            itemCount: clusters.length,
+            itemBuilder: (_, index) {
+              final cluster = clusters[index];
+              final first = cluster.suggestions.first;
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${cluster.suggestions.length} onerinin merkezi (±20m)',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Konum: ${cluster.centerLat.toStringAsFixed(5)}, ${cluster.centerLng.toStringAsFixed(5)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      if (cluster.nearestActiveStore != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'En yakin aktif: ${cluster.nearestActiveStore!.displayName}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.info),
+                          ),
+                        ),
+                      const Divider(height: AppSpacing.lg),
+                      ...cluster.suggestions.map((s) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(s.displayName),
+                            subtitle: Text('${s.neighborhood} ${s.district}'),
+                            trailing: Wrap(
+                              spacing: 4,
+                              children: [
+                                TextButton(
+                                  onPressed: () => ref.read(firestoreServiceProvider).approveStoreSuggestion(s.id),
+                                  child: const Text('Onayla'),
+                                ),
+                                TextButton(
+                                  onPressed: () => _showMergeDialog(context, ref, s, activeStores),
+                                  child: const Text('Birlestir'),
+                                ),
+                                TextButton(
+                                  onPressed: () => ref.read(firestoreServiceProvider).rejectStoreSuggestion(s.id),
+                                  child: const Text('Reddet'),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Magaza onerileri yuklenemedi')),
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Magazalar yuklenemedi')),
     );
   }
 }

@@ -9,6 +9,7 @@ import '../models/store_model.dart';
 import '../utils/constants.dart';
 import '../models/banner_model.dart';
 import '../models/user_model.dart';
+import '../models/store_suggestion_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,6 +23,8 @@ class FirestoreService {
   CollectionReference get _usersRef => _firestore.collection('users');
   CollectionReference get _brandsRef => _firestore.collection('brands');
   CollectionReference get _storesRef => _firestore.collection('stores');
+  CollectionReference get _storeSuggestionsRef =>
+      _firestore.collection('storeSuggestions');
   DocumentReference get _maintenanceRef =>
       _firestore.collection('app_config').doc('maintenance');
 
@@ -106,13 +109,13 @@ class FirestoreService {
         .toList();
   }
 
-  Stream<List<StoreModel>> getPendingStores() {
-    return _storesRef
+  Stream<List<StoreSuggestionModel>> getPendingStoreSuggestions() {
+    return _storeSuggestionsRef
         .where('status', isEqualTo: 'pending')
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
-          .map((doc) => StoreModel.fromFirestore(doc))
+          .map((doc) => StoreSuggestionModel.fromFirestore(doc))
           .toList();
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return list;
@@ -132,7 +135,7 @@ class FirestoreService {
     String district = '',
     String neighborhood = '',
   }) async {
-    final doc = await _storesRef.add({
+    final doc = await _storeSuggestionsRef.add({
       'displayName': displayName,
       'city': city,
       'district': district,
@@ -140,9 +143,48 @@ class FirestoreService {
       'lat': lat,
       'lng': lng,
       'status': 'pending',
+      'resolvedStoreId': null,
       'createdAt': FieldValue.serverTimestamp(),
     });
     return doc.id;
+  }
+
+  Future<void> approveStoreSuggestion(String suggestionId) async {
+    final suggestionDoc = await _storeSuggestionsRef.doc(suggestionId).get();
+    if (!suggestionDoc.exists) return;
+    final suggestion = StoreSuggestionModel.fromFirestore(suggestionDoc);
+
+    final storeRef = await _storesRef.add({
+      'displayName': suggestion.displayName,
+      'city': suggestion.city,
+      'district': suggestion.district,
+      'neighborhood': suggestion.neighborhood,
+      'lat': suggestion.lat,
+      'lng': suggestion.lng,
+      'status': 'active',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await _storeSuggestionsRef.doc(suggestionId).update({
+      'status': 'approved',
+      'resolvedStoreId': storeRef.id,
+    });
+  }
+
+  Future<void> mergeStoreSuggestion({
+    required String suggestionId,
+    required String targetStoreId,
+  }) async {
+    await _storeSuggestionsRef.doc(suggestionId).update({
+      'status': 'merged',
+      'resolvedStoreId': targetStoreId,
+    });
+  }
+
+  Future<void> rejectStoreSuggestion(String suggestionId) async {
+    await _storeSuggestionsRef.doc(suggestionId).update({
+      'status': 'rejected',
+    });
   }
 
   Future<void> updateStore(String storeId, Map<String, dynamic> data) async {
