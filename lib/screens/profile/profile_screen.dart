@@ -11,6 +11,8 @@ import '../../providers/price_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_section_header.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -28,31 +30,33 @@ class ProfileScreen extends ConsumerWidget {
     final bool isAdmin = user?.isAdmin ?? false;
 
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildProfileHeader(context, ref, user),
             Transform.translate(
-              offset: const Offset(0, -36),
+              offset: const Offset(0, -20),
               child: _buildStatsRow(context, theme, user),
             ),
-
-            // Badges
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-              child: Text(
-                'Rozetler',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: AppSectionHeader(
+                title: 'Rozetler',
+                subtitle: 'Ilerlemeni takip et',
               ),
             ),
+            const SizedBox(height: AppSpacing.sm),
             _buildBadgesSection(context, user),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.xl),
 
-            // Menu Group 1
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: AppSectionHeader(title: 'Kisayollar'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _buildMenuCard(context, theme, items: [
               _MenuItem(
                 icon: Icons.bookmark_outline,
@@ -80,9 +84,13 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => _showSettings(context, ref),
               ),
             ]),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
 
-            // Menu Group 2
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: AppSectionHeader(title: 'Ayarlar'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _buildMenuCard(context, theme, items: [
               _MenuItem(
                 icon: Icons.dark_mode_outlined,
@@ -101,9 +109,13 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => _showNotificationSettings(context),
               ),
             ]),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
 
-            // Menu Group 3
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: AppSectionHeader(title: 'Destek'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _buildMenuCard(context, theme, items: [
               _MenuItem(
                 icon: Icons.help_outline,
@@ -121,19 +133,15 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => _showAboutDialog(context),
               ),
             ]),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
 
             if (isAdmin) _buildAdminSection(context, theme),
 
             // Sign Out
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  side: BorderSide(color: AppColors.error.withOpacity(0.2)),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: AppCard(
+                padding: EdgeInsets.zero,
                 child: ListTile(
                   leading: const Icon(Icons.logout, color: AppColors.error),
                   title: const Text(
@@ -185,7 +193,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
 
             Center(
               child: Text(
@@ -193,9 +201,10 @@ class ProfileScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 12, color: theme.hintColor),
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.lg),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1016,8 +1025,8 @@ class ProfileScreen extends ConsumerWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + AppSpacing.lg,
-        bottom: AppSpacing.xxl + 12,
+        top: MediaQuery.of(context).padding.top + AppSpacing.md,
+        bottom: AppSpacing.xxl,
         left: AppSpacing.lg,
         right: AppSpacing.lg,
       ),
@@ -1045,8 +1054,8 @@ class ProfileScreen extends ConsumerWidget {
                   alignment: Alignment.bottomRight,
                   children: [
                     Container(
-                      width: 100,
-                      height: 100,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: photoUrl == null
@@ -1079,7 +1088,7 @@ class ProfileScreen extends ConsumerWidget {
                               child: Text(
                                 initial,
                                 style: const TextStyle(
-                                  fontSize: 40,
+                                  fontSize: 30,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
@@ -1088,8 +1097,8 @@ class ProfileScreen extends ConsumerWidget {
                           : null,
                     ),
                     Container(
-                      width: 30,
-                      height: 30,
+                      width: 26,
+                      height: 26,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -1103,7 +1112,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       child: const Icon(
                         Icons.photo_camera_outlined,
-                        size: 16,
+                        size: 14,
                         color: AppColors.primary,
                       ),
                     ),
@@ -1114,7 +1123,7 @@ class ProfileScreen extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text(displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
                   if (isAdmin) ...[
                     const SizedBox(width: 6),
                     const Icon(Icons.verified, color: Colors.lightBlueAccent, size: 22),
@@ -1122,7 +1131,7 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text(email, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+              Text(email, style: const TextStyle(fontSize: 13, color: Colors.white70)),
             ]),
           ),
         ],
@@ -1139,7 +1148,7 @@ class ProfileScreen extends ConsumerWidget {
     final points = user?.points ?? 0;
     final validations = user?.validations ?? 0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(children: [
         Expanded(child: _buildStatCard(context, cardColor, value: '$priceEntries', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
         const SizedBox(width: AppSpacing.sm),
@@ -1154,16 +1163,16 @@ class ProfileScreen extends ConsumerWidget {
     required String value, required String label, required IconData icon, required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm + 2, horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: color, size: 24),
+        Icon(icon, color: color, size: 20),
         const SizedBox(height: AppSpacing.xs),
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
         const SizedBox(height: 2),
         Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
       ]),
@@ -1209,15 +1218,19 @@ class ProfileScreen extends ConsumerWidget {
       ),
     ];
 
-    return SizedBox(
-      height: 130,
+    final previewBadges = badges.take(4).toList();
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 124,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        itemCount: badges.length,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            itemCount: previewBadges.length,
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (context, index) {
-          final badge = badges[index];
+              final badge = previewBadges[index];
           final earned = badge.isEarned;
           return GestureDetector(
             onTap: !earned ? () {
@@ -1275,6 +1288,49 @@ class ProfileScreen extends ConsumerWidget {
           );
         },
       ),
+        ),
+        TextButton(
+          onPressed: () => _showAllBadges(context, badges),
+          child: const Text('Tum rozetleri gor'),
+        ),
+      ],
+    );
+  }
+
+  void _showAllBadges(BuildContext context, List<_BadgeItem> badges) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Rozetler', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.md),
+              ...badges.map(
+                (badge) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Text(badge.emoji, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          '${badge.name} • ${badge.description}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1283,7 +1339,7 @@ class ProfileScreen extends ConsumerWidget {
   // ===========================================================================
   Widget _buildMenuCard(BuildContext context, ThemeData theme, {required List<_MenuItem> items}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
         decoration: BoxDecoration(
           color: theme.cardColor,

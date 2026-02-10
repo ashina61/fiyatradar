@@ -7,6 +7,9 @@ import '../../providers/user_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/comment_model.dart';
 import '../../models/price_model.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_network_image.dart';
+import '../../widgets/app_section_header.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -244,51 +247,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 60),
-                        if (product.mainImage != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            child: Image.network(
-                              product.mainImage!,
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
-                                _iconForCategory(product.category),
-                                size: 80,
-                                color: categoryColor.withOpacity(0.4),
-                              ),
-                            ),
-                          )
-                        else
-                          Icon(
-                            _iconForCategory(product.category),
-                            size: 80,
-                            color: categoryColor.withOpacity(0.4),
+                        SizedBox(
+                          width: 164,
+                          height: 164,
+                          child: AppNetworkImage(
+                            imageUrl: product.mainImage,
+                            cacheKey: 'product_detail_${product.id}',
+                            fit: BoxFit.contain,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
                           ),
+                        ),
                         const SizedBox(height: AppSpacing.md),
                         if (product.isTrending)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.circular(AppRadius.xl),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('\u{1F525}', style: TextStyle(fontSize: 14)),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Trend',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          const AppBadge(
+                            text: 'Trend',
+                            icon: Icons.local_fire_department,
+                            backgroundColor: Color(0x22CD853F),
+                            foregroundColor: AppColors.accentDark,
                           ),
                       ],
                     ),
@@ -416,15 +391,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
-                      const Divider(),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Price history section
-                      Text(
-                        'Fiyat Gecmisi',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                      const AppSectionHeader(
+                        title: 'Fiyat Gecmisi',
+                        subtitle: 'Son fiyat hareketlerini takip edin',
                       ),
                       const SizedBox(height: AppSpacing.md),
 
@@ -449,15 +418,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
-                      const Divider(),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Community validation
-                      Text(
-                        'Topluluk Dogrulamasi',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                      const SizedBox(height: AppSpacing.lg),
+                      const AppSectionHeader(
+                        title: 'Topluluk Dogrulamasi',
+                        subtitle: 'Son fiyatin guven durumunu degerlendirin',
                       ),
                       const SizedBox(height: AppSpacing.md),
 
@@ -468,15 +432,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
-                      const Divider(),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Comments
-                      Text(
-                        'Yorumlar',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                      const SizedBox(height: AppSpacing.lg),
+                      const AppSectionHeader(
+                        title: 'Yorumlar',
+                        subtitle: 'Toplulugun urun hakkindaki gorusleri',
                       ),
                       const SizedBox(height: AppSpacing.md),
 
