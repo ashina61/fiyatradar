@@ -85,7 +85,7 @@ class BasketRepository {
       if (marketId.isEmpty || price.price <= 0) {
         continue;
       }
-      marketNames[marketId] = price.storeName.isNotEmpty ? price.storeName : marketId;
+      marketNames[marketId] = price.storeName?.isNotEmpty == true ? price.storeName! : marketId;
 
       for (final descriptor in descriptorByKey.values) {
         if (_matchesDescriptor(price, descriptor)) {
@@ -160,7 +160,7 @@ class BasketRepository {
     if (storeId.isNotEmpty) {
       return storeId;
     }
-    return price.storeName.trim();
+    return (price.storeName ?? '').trim();
   }
 
   String _normalizeName(String value) {

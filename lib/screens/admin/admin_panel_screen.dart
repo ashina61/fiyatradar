@@ -1249,7 +1249,9 @@ class _BannerManagementTab extends ConsumerWidget {
 // Tab 5: Rapor Yonetimi
 // ---------------------------------------------------------------------------
 class _ReportsManagementTab extends ConsumerStatefulWidget {
-  const _ReportsManagementTab();
+  final String? initialFilter;
+
+  const _ReportsManagementTab({this.initialFilter});
 
   @override
   ConsumerState<_ReportsManagementTab> createState() =>
@@ -1262,7 +1264,7 @@ class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
   @override
   void initState() {
     super.initState();
-    _statusFilter = widget.initialFilter;
+    _statusFilter = widget.initialFilter ?? 'all';
   }
 
   Color _statusColor(String status) {

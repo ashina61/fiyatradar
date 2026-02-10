@@ -664,7 +664,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               child: const Icon(Icons.price_change, color: AppColors.primary, size: 20),
             ),
-            title: Text(price.storeName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(price.storeName ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(price.userName ?? 'Anonim', style: const TextStyle(fontSize: 12)),
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
