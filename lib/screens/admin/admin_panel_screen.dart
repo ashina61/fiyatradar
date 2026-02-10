@@ -30,7 +30,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -81,8 +81,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           tabs: const [
             Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
-            Tab(text: 'Zincirler', icon: Icon(Icons.business_outlined)),
-            Tab(text: 'Subeler', icon: Icon(Icons.store_outlined)),
+            Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
@@ -95,8 +94,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         controller: _tabController,
         children: const [
           _ProductManagementTab(),
-          _BrandManagementTab(),
-          _StoreManagementTab(),
+          _StoreHubTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
           _ReportsManagementTab(),
@@ -104,6 +102,61 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _StatisticsTab(),
         ],
       ),
+    );
+  }
+}
+
+
+
+class _StoreHubTab extends StatefulWidget {
+  const _StoreHubTab();
+
+  @override
+  State<_StoreHubTab> createState() => _StoreHubTabState();
+}
+
+class _StoreHubTabState extends State<_StoreHubTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Zincirler'),
+              Tab(text: 'Subeler'),
+              Tab(text: 'Oneriler'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: const [
+              _BrandManagementTab(),
+              _StoreManagementTab(initialFilter: 'active'),
+              _StoreManagementTab(initialFilter: 'pending'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -616,14 +669,21 @@ class _BrandManagementTab extends ConsumerWidget {
 // Tab 3: Sube (Store) Yonetimi
 // ---------------------------------------------------------------------------
 class _StoreManagementTab extends ConsumerStatefulWidget {
-  const _StoreManagementTab();
+  final String initialFilter;
+  const _StoreManagementTab({this.initialFilter = 'all'});
 
   @override
   ConsumerState<_StoreManagementTab> createState() => _StoreManagementTabState();
 }
 
 class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
-  String _statusFilter = 'all';
+  late String _statusFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusFilter = widget.initialFilter;
+  }
 
   Color _statusColor(StoreStatus status) {
     switch (status) {
@@ -1197,7 +1257,13 @@ class _ReportsManagementTab extends ConsumerStatefulWidget {
 }
 
 class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
-  String _statusFilter = 'all';
+  late String _statusFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusFilter = widget.initialFilter;
+  }
 
   Color _statusColor(String status) {
     switch (status) {

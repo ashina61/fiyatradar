@@ -3,49 +3,56 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PriceModel {
   final String id;
   final String productId;
-  final String? productName;
-  final String? productBarcode;
+  final String? barcode;
   final String userId;
-  final String? userName;
   final double price;
   final String storeId;
-  final String storeName;
-  final String? storeLocation;
-  final GeoPoint? geoPoint;
   final String currency;
-  final List<String> images;
-  final DateTime createdAt;
-  final int verifiedCount;
-  final int unverifiedCount;
+  final DateTime reportedAt;
+  final String? photoUrl;
   final int upVotes;
   final int downVotes;
   final double score;
+
+  // Backward compatible UI fields
+  final String? productName;
+  final String? userName;
+  final String? storeName;
+  final String? storeLocation;
+  final GeoPoint? geoPoint;
+  final List<String> images;
+  final int verifiedCount;
+  final int unverifiedCount;
   final bool isApproved;
   final bool isPending;
 
   PriceModel({
     required this.id,
     required this.productId,
-    this.productName,
-    this.productBarcode,
+    this.barcode,
     required this.userId,
-    this.userName,
     required this.price,
     required this.storeId,
-    required this.storeName,
-    this.storeLocation,
-    this.geoPoint,
     this.currency = 'TRY',
-    this.images = const [],
-    required this.createdAt,
-    this.verifiedCount = 0,
-    this.unverifiedCount = 0,
+    required this.reportedAt,
+    this.photoUrl,
     this.upVotes = 0,
     this.downVotes = 0,
     this.score = 0,
+    this.productName,
+    this.userName,
+    this.storeName,
+    this.storeLocation,
+    this.geoPoint,
+    this.images = const [],
+    this.verifiedCount = 0,
+    this.unverifiedCount = 0,
     this.isApproved = false,
     this.isPending = true,
   });
+
+  DateTime get createdAt => reportedAt;
+  String? get productBarcode => barcode;
 
   double get verificationRate {
     final total = verifiedCount + unverifiedCount;
@@ -53,65 +60,74 @@ class PriceModel {
     return (verifiedCount / total) * 100;
   }
 
-  bool get hasPhotos => images.isNotEmpty;
+  bool get hasPhotos => photoUrl != null || images.isNotEmpty;
   int get photoBonus => hasPhotos ? 2 : 1;
-
-  /// Net score = upVotes - downVotes (weighted by photoBonus)
   double get netScore => (upVotes - downVotes) * photoBonus.toDouble();
-
-  /// "Guvenilir Fiyat" badge when net score > 10
   bool get isTrustedPrice => netScore > 10;
-
-  /// Auto-hide when score drops below -5
   bool get shouldAutoHide => netScore < -5;
 
   factory PriceModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final photo = data['photoUrl'] as String?;
+    final imageList = List<String>.from(data['images'] ?? []);
+
     return PriceModel(
       id: doc.id,
       productId: data['productId'] ?? '',
-      productName: data['productName'] ?? data['name'],
-      productBarcode: data['productBarcode'] ?? data['barcode'],
+      barcode: data['barcode'] ?? data['productBarcode'],
       userId: data['userId'] ?? '',
-      userName: data['userName'],
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
       storeId: data['storeId'] ?? '',
-      storeName: data['storeName'] ?? '',
-      storeLocation: data['storeLocation'],
-      geoPoint: data['geoPoint'] as GeoPoint?,
       currency: data['currency'] ?? 'TRY',
-      images: List<String>.from(data['images'] ?? []),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      verifiedCount: data['verifiedCount'] ?? 0,
-      unverifiedCount: data['unverifiedCount'] ?? 0,
+      reportedAt:
+          (data['reportedAt'] as Timestamp?)?.toDate() ??
+          (data['createdAt'] as Timestamp?)?.toDate() ??
+          DateTime.now(),
+      photoUrl: photo ?? (imageList.isNotEmpty ? imageList.first : null),
       upVotes: data['upVotes'] ?? 0,
       downVotes: data['downVotes'] ?? 0,
       score: (data['score'] as num?)?.toDouble() ?? 0,
+      productName: data['productName'] ?? data['name'],
+      userName: data['userName'],
+      storeName: data['storeName'],
+      storeLocation: data['storeLocation'],
+      geoPoint: data['geoPoint'] as GeoPoint?,
+      images: imageList,
+      verifiedCount: data['verifiedCount'] ?? 0,
+      unverifiedCount: data['unverifiedCount'] ?? 0,
       isApproved: data['isApproved'] ?? false,
       isPending: data['isPending'] ?? true,
     );
   }
 
   Map<String, dynamic> toFirestore() {
+    final mergedImages = [
+      if (photoUrl != null && photoUrl!.isNotEmpty) photoUrl!,
+      ...images,
+    ].toSet().toList();
+
     return {
       'productId': productId,
-      'productName': productName,
-      'productBarcode': productBarcode,
+      'barcode': barcode,
       'userId': userId,
-      'userName': userName,
       'price': price,
       'storeId': storeId,
-      'storeName': storeName,
-      'storeLocation': storeLocation,
-      'geoPoint': geoPoint,
       'currency': currency,
-      'images': images,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'verifiedCount': verifiedCount,
-      'unverifiedCount': unverifiedCount,
+      'reportedAt': Timestamp.fromDate(reportedAt),
+      'photoUrl': photoUrl,
       'upVotes': upVotes,
       'downVotes': downVotes,
       'score': score,
+      // backward-compatible extras
+      'productName': productName,
+      'userName': userName,
+      'storeName': storeName,
+      'storeLocation': storeLocation,
+      'geoPoint': geoPoint,
+      'images': mergedImages,
+      'createdAt': Timestamp.fromDate(reportedAt),
+      'verifiedCount': verifiedCount,
+      'unverifiedCount': unverifiedCount,
       'isApproved': isApproved,
       'isPending': isPending,
     };
@@ -120,46 +136,48 @@ class PriceModel {
   PriceModel copyWith({
     String? id,
     String? productId,
-    String? productName,
-    String? productBarcode,
+    String? barcode,
     String? userId,
-    String? userName,
     double? price,
     String? storeId,
-    String? storeName,
-    String? storeLocation,
-    GeoPoint? geoPoint,
     String? currency,
-    List<String>? images,
-    DateTime? createdAt,
-    int? verifiedCount,
-    int? unverifiedCount,
+    DateTime? reportedAt,
+    String? photoUrl,
     int? upVotes,
     int? downVotes,
     double? score,
+    String? productName,
+    String? userName,
+    String? storeName,
+    String? storeLocation,
+    GeoPoint? geoPoint,
+    List<String>? images,
+    int? verifiedCount,
+    int? unverifiedCount,
     bool? isApproved,
     bool? isPending,
   }) {
     return PriceModel(
       id: id ?? this.id,
       productId: productId ?? this.productId,
-      productName: productName ?? this.productName,
-      productBarcode: productBarcode ?? this.productBarcode,
+      barcode: barcode ?? this.barcode,
       userId: userId ?? this.userId,
-      userName: userName ?? this.userName,
       price: price ?? this.price,
       storeId: storeId ?? this.storeId,
-      storeName: storeName ?? this.storeName,
-      storeLocation: storeLocation ?? this.storeLocation,
-      geoPoint: geoPoint ?? this.geoPoint,
       currency: currency ?? this.currency,
-      images: images ?? this.images,
-      createdAt: createdAt ?? this.createdAt,
-      verifiedCount: verifiedCount ?? this.verifiedCount,
-      unverifiedCount: unverifiedCount ?? this.unverifiedCount,
+      reportedAt: reportedAt ?? this.reportedAt,
+      photoUrl: photoUrl ?? this.photoUrl,
       upVotes: upVotes ?? this.upVotes,
       downVotes: downVotes ?? this.downVotes,
       score: score ?? this.score,
+      productName: productName ?? this.productName,
+      userName: userName ?? this.userName,
+      storeName: storeName ?? this.storeName,
+      storeLocation: storeLocation ?? this.storeLocation,
+      geoPoint: geoPoint ?? this.geoPoint,
+      images: images ?? this.images,
+      verifiedCount: verifiedCount ?? this.verifiedCount,
+      unverifiedCount: unverifiedCount ?? this.unverifiedCount,
       isApproved: isApproved ?? this.isApproved,
       isPending: isPending ?? this.isPending,
     );

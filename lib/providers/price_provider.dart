@@ -88,11 +88,11 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         storeLocation: locationData?.address,
         geoPoint: locationData?.geoPoint,
         images: imageUrls,
-        createdAt: DateTime.now(),
+        reportedAt: DateTime.now(),
         isPending: true,
       );
 
-      await _firestoreService.addPrice(priceModel);
+      await _firestoreService.addPriceReport(priceModel);
 
       // Update user stats
       await _authService.incrementPriceEntries(currentUser.uid);

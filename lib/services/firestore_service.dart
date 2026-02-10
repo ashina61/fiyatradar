@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/product_model.dart';
 import '../models/price_model.dart';
@@ -14,7 +15,7 @@ class FirestoreService {
 
   // Collection references
   CollectionReference get _productsRef => _firestore.collection('products');
-  CollectionReference get _pricesRef => _firestore.collection('prices');
+  CollectionReference get _pricesRef => _firestore.collection('priceReports');
   CollectionReference get _commentsRef => _firestore.collection('comments');
   CollectionReference get _notificationsRef => _firestore.collection('notifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
@@ -84,6 +85,27 @@ class FirestoreService {
     });
   }
 
+  Future<List<StoreModel>> getNearbyActiveStores({
+    required double userLat,
+    required double userLng,
+    double maxDistanceMeters = 2000,
+  }) async {
+    final snapshot = await _storesRef.where('status', isEqualTo: 'active').get();
+    final stores = snapshot.docs.map((doc) => StoreModel.fromFirestore(doc)).toList();
+    stores.sort((a, b) {
+      final aDistance = _distanceInMeters(userLat, userLng, a.lat, a.lng);
+      final bDistance = _distanceInMeters(userLat, userLng, b.lat, b.lng);
+      return aDistance.compareTo(bDistance);
+    });
+    return stores
+        .where((store) =>
+            store.lat != 0 &&
+            store.lng != 0 &&
+            _distanceInMeters(userLat, userLng, store.lat, store.lng) <=
+                maxDistanceMeters)
+        .toList();
+  }
+
   Stream<List<StoreModel>> getPendingStores() {
     return _storesRef
         .where('status', isEqualTo: 'pending')
@@ -99,6 +121,27 @@ class FirestoreService {
 
   Future<String> addStore(StoreModel store) async {
     final doc = await _storesRef.add(store.toFirestore());
+    return doc.id;
+  }
+
+  Future<String> addStoreSuggestion({
+    required String displayName,
+    required double lat,
+    required double lng,
+    String city = '',
+    String district = '',
+    String neighborhood = '',
+  }) async {
+    final doc = await _storesRef.add({
+      'displayName': displayName,
+      'city': city,
+      'district': district,
+      'neighborhood': neighborhood,
+      'lat': lat,
+      'lng': lng,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
     return doc.id;
   }
 
@@ -136,10 +179,7 @@ class FirestoreService {
 
     final batch = _firestore.batch();
     for (final doc in priceSnapshot.docs) {
-      batch.update(doc.reference, {
-        'storeId': targetId,
-        'storeName': targetStore.displayName,
-      });
+      batch.update(doc.reference, {'storeId': targetId, 'storeName': targetStore.displayName});
     }
     batch.delete(_storesRef.doc(sourceId));
     await batch.commit();
@@ -313,6 +353,10 @@ class FirestoreService {
   }
 
   Future<String> addPrice(PriceModel price) async {
+    return addPriceReport(price);
+  }
+
+  Future<String> addPriceReport(PriceModel price) async {
     final doc = await _pricesRef.add(price.toFirestore());
 
     // Update product's price entry count
@@ -325,6 +369,26 @@ class FirestoreService {
 
     return doc.id;
   }
+
+  double _distanceInMeters(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            (sin(dLon / 2) * sin(dLon / 2));
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degree) => degree * 0.017453292519943295;
 
   Future<void> verifyPrice(String priceId, String voterId, bool isVerified) async {
     final field = isVerified ? 'verifiedCount' : 'unverifiedCount';
