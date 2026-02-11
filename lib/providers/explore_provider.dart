@@ -35,6 +35,7 @@ class ExploreFeedItem {
   final StoreModel? store;
   final double? distanceMeters;
   final double dropPercent;
+  final double? priceChangePercent;
   final List<StorePrice> onlineCheapest3;
   final bool isPrimaryOnlineCheapest;
 
@@ -44,6 +45,7 @@ class ExploreFeedItem {
     required this.store,
     required this.distanceMeters,
     required this.dropPercent,
+    required this.priceChangePercent,
     required this.onlineCheapest3,
     required this.isPrimaryOnlineCheapest,
   });
@@ -360,6 +362,10 @@ class ExploreController extends StateNotifier<ExploreState> {
             store: store,
             distanceMeters: _distanceFromUser(state.userLocation, store, price),
             dropPercent: dropPercent,
+            priceChangePercent: _computeSignedPriceChangePercent(
+              pricesByProduct[price.productId] ?? const [],
+              price,
+            ),
             onlineCheapest3: onlineCheapest3,
             isPrimaryOnlineCheapest: onlineCheapest3.isNotEmpty && onlineCheapest3.first.storeId == price.branchStoreId,
           );
@@ -415,6 +421,23 @@ class ExploreController extends StateNotifier<ExploreState> {
     final previous = sorted[currentIndex + 1];
     if (previous.price <= 0 || currentPrice.price >= previous.price) return 0;
     return ((previous.price - currentPrice.price) / previous.price) * 100;
+  }
+
+  double? _computeSignedPriceChangePercent(
+    List<PriceModel> productPrices,
+    PriceModel currentPrice,
+  ) {
+    if (productPrices.length < 2) return null;
+    final sorted = [...productPrices]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final currentIndex = sorted.indexWhere((p) => p.id == currentPrice.id);
+    if (currentIndex < 0 || currentIndex == sorted.length - 1) return null;
+
+    final previous = sorted[currentIndex + 1];
+    if (previous.price <= 0) return null;
+
+    final percent = ((currentPrice.price - previous.price) / previous.price) * 100;
+    if (percent.abs() < 0.5) return null;
+    return percent;
   }
 
   bool _isLocalStore(StoreModel? store, PriceModel price) {
