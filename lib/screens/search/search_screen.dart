@@ -6,6 +6,7 @@ import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/theme.dart';
+import '../../widgets/price_change_badge.dart';
 import '../product/product_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -366,7 +367,7 @@ class _ExplorePriceCard extends StatelessWidget {
                   _buildImage(),
                   Positioned(
                     top: 10,
-                    right: 10,
+                    left: 10,
                     child: _Badge(
                       label: '⏱ ${_timeAgo(item.price.createdAt)}',
                       color: Colors.black.withOpacity(0.55),
@@ -376,8 +377,8 @@ class _ExplorePriceCard extends StatelessWidget {
                   if (item.priceChangePercent != null)
                     Positioned(
                       top: 10,
-                      left: 10,
-                      child: _PriceChangeBadge(percent: item.priceChangePercent!),
+                      right: 10,
+                      child: PriceChangeBadge(percent: item.priceChangePercent!),
                     ),
                 ],
               ),
@@ -452,7 +453,7 @@ class _ExplorePriceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (hasLocation) ...[
+                  if (item.isLocalStore) ...[
                     Divider(
                       height: 14,
                       thickness: 0.6,
@@ -464,7 +465,7 @@ class _ExplorePriceCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            locationText,
+                            hasLocation ? locationText : 'Konum izni gerekli',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
@@ -482,6 +483,7 @@ class _ExplorePriceCard extends StatelessWidget {
                             child: Text(
                               distanceText,
                               maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w800,
@@ -599,46 +601,6 @@ class _OnlineCheapestSummaryRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriceChangeBadge extends StatelessWidget {
-  final double percent;
-
-  const _PriceChangeBadge({required this.percent});
-
-  @override
-  Widget build(BuildContext context) {
-    final isUp = percent > 0;
-    final color = isUp ? AppColors.error : AppColors.success;
-    final sign = isUp ? '+' : '-';
-    final rounded = percent.abs().round();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-            size: 12,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '$sign%$rounded',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
           ),
         ],
       ),

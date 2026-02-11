@@ -9,6 +9,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../widgets/price_change_badge.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -1049,35 +1050,7 @@ class _ProductCard extends ConsumerWidget {
     if (diff == 0) return const SizedBox.shrink();
 
     final percent = (diff / previous.price) * 100;
-    final isUp = diff > 0;
-    final color = isUp ? AppColors.error : AppColors.success;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isUp ? Icons.trending_up : Icons.trending_down,
-            color: Colors.white,
-            size: 12,
-          ),
-          const SizedBox(width: 3),
-          Text(
-            '${percent.abs().toStringAsFixed(1)}%',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
+    return PriceChangeBadge(percent: percent);
   }
 
   Widget _buildRelativeTimeText(List<PriceModel> prices) {
