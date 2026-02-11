@@ -9,12 +9,12 @@ import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../widgets/price_change_badge.dart';
-import '../../utils/formatters.dart';
+import '../../widgets/home_product_card.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../campaign/campaign_basket_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -350,6 +350,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _onBannerTap(BannerModel banner) {
+    final actionType = banner.actionType?.toLowerCase();
+    if (actionType == 'campaign' && (banner.targetId?.isNotEmpty ?? false)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CampaignBasketScreen(
+            campaignId: banner.targetId!,
+            banner: banner,
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (actionType == 'product') {
+      final productId = banner.targetId ?? banner.productId;
+      if (productId != null && productId.isNotEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
+        );
+      }
+    }
+  }
+
   Widget _buildBannerCarousel(List<BannerModel> banners) {
     if (banners.isEmpty) return _buildBannerEmpty();
 
@@ -367,7 +391,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final banner = banners[index];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: Container(
+                child: GestureDetector(
+                  onTap: () => _onBannerTap(banner),
+                  child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                     gradient: LinearGradient(
@@ -423,6 +449,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                     ],
                   ),
+                ),
                 ),
               );
             },
@@ -587,7 +614,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm + 4),
             itemBuilder: (context, index) {
               final product = products[index];
-              return _ProductCard(
+              return HomeProductCard(
                 product: product,
                 width: 165,
                 onTap: () {
@@ -824,263 +851,3 @@ class _CategoryChip extends StatelessWidget {
 // ============================================================
 // Product Card (horizontal scroll card)
 // ============================================================
-
-class _ProductCard extends ConsumerWidget {
-  final ProductModel product;
-  final double width;
-  final VoidCallback? onTap;
-
-  const _ProductCard({
-    required this.product,
-    required this.width,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final categoryColor = _colorForCategory(product.category);
-    final hasPrice = product.lastPrice != null;
-    final priceHistoryAsync =
-        ref.watch(productPriceHistoryProvider(product.id));
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: width,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.outline, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image placeholder with price change badge
-            Stack(
-              children: [
-                Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.08),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(AppRadius.lg),
-                      topRight: Radius.circular(AppRadius.lg),
-                    ),
-                    image: product.mainImage != null
-                        ? DecorationImage(
-                            image: NetworkImage(product.mainImage!),
-                            fit: BoxFit.contain,
-                            onError: (_, __) {},
-                          )
-                        : null,
-                  ),
-                  child: product.mainImage == null
-                      ? Center(
-                          child: Icon(
-                            _iconForCategory(product.category),
-                            size: 36,
-                            color: categoryColor.withOpacity(0.5),
-                          ),
-                        )
-                      : null,
-                ),
-                if (product.priceEntryCount >= 2 && product.lastPrice != null)
-                  Positioned(
-                    top: 6, right: 6,
-                    child: priceHistoryAsync.when(
-                      data: (prices) => _buildPriceChangeBadge(prices),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ),
-              ],
-            ),
-            // Details
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm + 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Category chip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: categoryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppRadius.xs),
-                      ),
-                      child: Text(
-                        product.category,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: categoryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Product name
-                    Expanded(
-                      child: Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    // Price row
-                    if (hasPrice)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _formatPrice(product.lastPrice!),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          priceHistoryAsync.when(
-                            data: (prices) => _buildRelativeTimeText(prices),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 2),
-                    // Store
-                    if (product.lastStore != null)
-                      Text(
-                        product.lastStore!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _colorForCategory(String category) {
-    switch (category) {
-      case 'Elektronik':
-        return AppColors.primary;
-      case 'Gida':
-        return AppColors.secondary;
-      case 'Temizlik':
-        return AppColors.info;
-      case 'Kisisel Bakim':
-        return AppColors.accent;
-      case 'Ev & Yasam':
-        return AppColors.secondaryDark;
-      case 'Giyim':
-        return AppColors.error;
-      case 'Spor':
-        return AppColors.primaryDark;
-      case 'Oyuncak':
-        return AppColors.accentDark;
-      case 'Kitap':
-        return AppColors.primaryLight;
-      case 'Otomotiv':
-        return AppColors.secondaryLight;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  IconData _iconForCategory(String category) {
-    switch (category) {
-      case 'Elektronik':
-        return Icons.devices;
-      case 'Gida':
-        return Icons.restaurant;
-      case 'Temizlik':
-        return Icons.cleaning_services;
-      case 'Kisisel Bakim':
-        return Icons.face;
-      case 'Ev & Yasam':
-        return Icons.home;
-      case 'Giyim':
-        return Icons.checkroom;
-      case 'Spor':
-        return Icons.sports;
-      case 'Oyuncak':
-        return Icons.toys;
-      case 'Kitap':
-        return Icons.book;
-      case 'Otomotiv':
-        return Icons.directions_car;
-      default:
-        return Icons.category;
-    }
-  }
-
-  Widget _buildPriceChangeBadge(List<PriceModel> prices) {
-    if (prices.length < 2) return const SizedBox.shrink();
-    final approved = prices.where((price) => price.isApproved).toList();
-    final source = approved.length >= 2 ? approved : prices;
-    if (source.length < 2) return const SizedBox.shrink();
-
-    final latest = source[0];
-    final previous = source[1];
-    final diff = latest.price - previous.price;
-    if (diff == 0) return const SizedBox.shrink();
-
-    final percent = (diff / previous.price) * 100;
-    return PriceChangeBadge(percent: percent);
-  }
-
-  Widget _buildRelativeTimeText(List<PriceModel> prices) {
-    if (prices.isEmpty) return const SizedBox.shrink();
-    final text = _formatTimeAgo(prices.first.createdAt);
-    if (text.isEmpty) return const SizedBox.shrink();
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
-    );
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return 'az once';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} dk once';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} sa once';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} gun once';
-    } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    }
-  }
-
-  String _formatPrice(double price) => formatTRY(price);
-}

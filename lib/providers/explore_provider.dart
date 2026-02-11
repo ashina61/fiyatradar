@@ -38,6 +38,11 @@ class ExploreFeedItem {
   final double? priceChangePercent;
   final List<StorePrice> onlineCheapest3;
   final bool isPrimaryOnlineCheapest;
+  final double recencyMinutes;
+  final double distScore;
+  final double dropScore;
+  final double recencyScore;
+  final double heatScore;
 
   const ExploreFeedItem({
     required this.product,
@@ -48,6 +53,11 @@ class ExploreFeedItem {
     required this.priceChangePercent,
     required this.onlineCheapest3,
     required this.isPrimaryOnlineCheapest,
+    required this.recencyMinutes,
+    required this.distScore,
+    required this.dropScore,
+    required this.recencyScore,
+    required this.heatScore,
   });
 
   double get displayPrice => price.price;
@@ -122,6 +132,8 @@ class ExploreFeedItem {
   }
 
   bool get isNearby => (distanceMeters ?? double.infinity) <= 30;
+
+  bool get isVeryNearby => (distanceMeters ?? double.infinity) <= 100;
 
   String? get storeUrl {
     final raw = store?.address?.trim();
@@ -367,12 +379,19 @@ class ExploreController extends StateNotifier<ExploreState> {
             return null;
           }
 
+          final distanceMeters = _distanceFromUser(state.userLocation, store, price);
+          final recencyMinutes = DateTime.now().difference(price.createdAt).inMinutes.toDouble();
+          final distScore = _clamp01(1 - ((distanceMeters ?? 999999) / 2000));
+          final dropScore = _clamp01(dropPercent / 30);
+          final recencyScore = _clamp01(1 - (recencyMinutes / 1440));
+          final heatScore = (0.55 * distScore) + (0.30 * dropScore) + (0.15 * recencyScore);
+
           final onlineCheapest3 = cheapestCache[price.productId] ?? const [];
           return ExploreFeedItem(
             product: product,
             price: price,
             store: store,
-            distanceMeters: _distanceFromUser(state.userLocation, store, price),
+            distanceMeters: distanceMeters,
             dropPercent: dropPercent,
             priceChangePercent: _computeSignedPriceChangePercent(
               pricesByProduct[price.productId] ?? const [],
@@ -380,6 +399,11 @@ class ExploreController extends StateNotifier<ExploreState> {
             ),
             onlineCheapest3: onlineCheapest3,
             isPrimaryOnlineCheapest: onlineCheapest3.isNotEmpty && onlineCheapest3.first.storeId == price.branchStoreId,
+            recencyMinutes: recencyMinutes,
+            distScore: distScore,
+            dropScore: dropScore,
+            recencyScore: recencyScore,
+            heatScore: heatScore,
           );
         })
         .whereType<ExploreFeedItem>()
@@ -397,32 +421,29 @@ class ExploreController extends StateNotifier<ExploreState> {
 
   void _sortItems(List<ExploreFeedItem> items) {
     if (state.selectedMode == ExploreMode.online) {
-      items.sort((a, b) => a.displayPrice.compareTo(b.displayPrice));
+      items.sort((a, b) {
+        final dropCompare = b.dropScore.compareTo(a.dropScore);
+        if (dropCompare != 0) return dropCompare;
+        final recencyCompare = b.recencyScore.compareTo(a.recencyScore);
+        if (recencyCompare != 0) return recencyCompare;
+        return a.product.name.toLowerCase().compareTo(b.product.name.toLowerCase());
+      });
       return;
     }
 
     if (state.selectedMode == ExploreMode.drops) {
-      items.sort((a, b) => b.dropPercent.compareTo(a.dropPercent));
+      items.sort((a, b) {
+        final dropCompare = b.dropScore.compareTo(a.dropScore);
+        if (dropCompare != 0) return dropCompare;
+        return b.distScore.compareTo(a.distScore);
+      });
       return;
     }
 
-    items.sort((a, b) {
-      final ad = a.distanceMeters;
-      final bd = b.distanceMeters;
-
-      if (state.userLocation != null) {
-        if (ad != null && bd != null) {
-          final distanceCompare = ad.compareTo(bd);
-          if (distanceCompare != 0) return distanceCompare;
-          return b.price.createdAt.compareTo(a.price.createdAt);
-        }
-        if (ad != null) return -1;
-        if (bd != null) return 1;
-      }
-
-      return b.price.createdAt.compareTo(a.price.createdAt);
-    });
+    items.sort((a, b) => b.heatScore.compareTo(a.heatScore));
   }
+
+  double _clamp01(double value) => value.clamp(0, 1).toDouble();
 
   double _computeDropPercent(List<PriceModel> productPrices, PriceModel currentPrice) {
     if (productPrices.length < 2) return 0;

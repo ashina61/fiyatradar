@@ -7,6 +7,9 @@ class BannerModel {
   final String imageUrl;
   final String? actionUrl;
   final String? productId;
+  final String? actionType;
+  final String? targetId;
+  final List<String> targetProductIds;
   final bool isActive;
   final int order;
   final DateTime createdAt;
@@ -19,6 +22,9 @@ class BannerModel {
     required this.imageUrl,
     this.actionUrl,
     this.productId,
+    this.actionType,
+    this.targetId,
+    this.targetProductIds = const [],
     this.isActive = true,
     this.order = 0,
     required this.createdAt,
@@ -41,6 +47,9 @@ class BannerModel {
       imageUrl: data['imageUrl'] ?? '',
       actionUrl: data['actionUrl'],
       productId: data['productId'],
+      actionType: data['actionType']?.toString(),
+      targetId: data['targetId']?.toString(),
+      targetProductIds: List<String>.from(data['targetProductIds'] ?? const []),
       isActive: data['isActive'] ?? true,
       order: data['order'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -55,6 +64,9 @@ class BannerModel {
       'imageUrl': imageUrl,
       'actionUrl': actionUrl,
       'productId': productId,
+      'actionType': actionType,
+      'targetId': targetId,
+      'targetProductIds': targetProductIds,
       'isActive': isActive,
       'order': order,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -69,6 +81,9 @@ class BannerModel {
     String? imageUrl,
     String? actionUrl,
     String? productId,
+    String? actionType,
+    String? targetId,
+    List<String>? targetProductIds,
     bool? isActive,
     int? order,
     DateTime? createdAt,
@@ -81,6 +96,9 @@ class BannerModel {
       imageUrl: imageUrl ?? this.imageUrl,
       actionUrl: actionUrl ?? this.actionUrl,
       productId: productId ?? this.productId,
+      actionType: actionType ?? this.actionType,
+      targetId: targetId ?? this.targetId,
+      targetProductIds: targetProductIds ?? this.targetProductIds,
       isActive: isActive ?? this.isActive,
       order: order ?? this.order,
       createdAt: createdAt ?? this.createdAt,
