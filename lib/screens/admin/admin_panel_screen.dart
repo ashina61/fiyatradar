@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
@@ -323,6 +325,100 @@ class _ProductManagementTab extends ConsumerWidget {
             });
           }
 
+
+          Future<void> submitProduct() async {
+            debugPrint('ProductAdd pressed');
+            if (isUploading) return;
+
+            if (nameController.text.trim().isEmpty || selectedCategory == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Urun adi ve kategori zorunludur'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
+
+            setDialogState(() {
+              isUploading = true;
+              uploadError = null;
+            });
+
+            try {
+              final service = ref.read(firestoreServiceProvider);
+              final productId = await service.addProduct(ProductModel(
+                id: '',
+                name: nameController.text.trim(),
+                brand: brandController.text.trim().isEmpty ? 'Genel' : brandController.text.trim(),
+                category: selectedCategory!,
+                barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
+                description: descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
+                imageUrls: openFoodFactsImageUrl != null ? [openFoodFactsImageUrl!] : const [],
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ));
+
+              final List<String> imageUrls = [];
+              if (selectedImages.isNotEmpty) {
+                final storageService = StorageService();
+                final urls = await storageService.uploadMultipleImages(
+                  files: selectedImages,
+                  folder: 'products/$productId',
+                );
+                imageUrls.addAll(urls);
+              }
+
+              final allImageUrls = <String>[];
+              if (openFoodFactsImageUrl != null) {
+                allImageUrls.add(openFoodFactsImageUrl!);
+              }
+              allImageUrls.addAll(imageUrls);
+
+              await service.updateProduct(productId, {
+                if (allImageUrls.isNotEmpty) 'imageUrls': allImageUrls,
+                if (allImageUrls.isNotEmpty) 'mainImage': allImageUrls.first,
+                'updatedAt': DateTime.now(),
+              });
+
+              nameController.clear();
+              brandController.clear();
+              barcodeController.clear();
+              descriptionController.clear();
+              selectedImages.clear();
+              selectedCategory = null;
+              barcodeDebounce?.cancel();
+
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Urun basariyla eklendi'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } catch (e) {
+              setDialogState(() {
+                uploadError = 'Yukleme basarisiz: $e';
+              });
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Urun eklenemedi: $e'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } finally {
+              if (ctx.mounted) {
+                setDialogState(() => isUploading = false);
+              } else {
+                isUploading = false;
+              }
+            }
+          }
+
           return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
           title: Row(children: [
@@ -520,61 +616,8 @@ class _ProductManagementTab extends ConsumerWidget {
           ),
           actions: [
             TextButton(onPressed: () { barcodeDebounce?.cancel(); Navigator.pop(ctx); }, child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty || selectedCategory == null || isUploading) return;
-                setDialogState(() {
-                  isUploading = true;
-                  uploadError = null;
-                });
-                try {
-                  final service = ref.read(firestoreServiceProvider);
-                  final productId = await service.addProduct(ProductModel(
-                    id: '',
-                    name: nameController.text,
-                    brand: brandController.text.isEmpty ? 'Genel' : brandController.text,
-                    category: selectedCategory!,
-                    barcode: barcodeController.text.isEmpty ? null : barcodeController.text,
-                    description: descriptionController.text.isEmpty
-                        ? null
-                        : descriptionController.text,
-                    imageUrls: openFoodFactsImageUrl != null ? [openFoodFactsImageUrl!] : const [],
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
-                  ));
-
-                  final List<String> imageUrls = [];
-                  if (selectedImages.isNotEmpty) {
-                    final storageService = StorageService();
-                    final urls = await storageService.uploadMultipleImages(
-                      files: selectedImages,
-                      folder: 'products/$productId',
-                    );
-                    imageUrls.addAll(urls);
-                  }
-
-                  final allImageUrls = <String>[];
-                  if (openFoodFactsImageUrl != null) {
-                    allImageUrls.add(openFoodFactsImageUrl!);
-                  }
-                  allImageUrls.addAll(imageUrls);
-
-                  await service.updateProduct(productId, {
-                    if (allImageUrls.isNotEmpty) 'imageUrls': allImageUrls,
-                    if (allImageUrls.isNotEmpty) 'mainImage': allImageUrls.first,
-                    'updatedAt': DateTime.now(),
-                  });
-
-                  barcodeDebounce?.cancel();
-                  if (ctx.mounted) Navigator.pop(ctx);
-                } catch (e) {
-                  setDialogState(() {
-                    uploadError = 'Yukleme basarisiz: $e';
-                  });
-                } finally {
-                  setDialogState(() => isUploading = false);
-                }
-              },
+            FilledButton(
+              onPressed: isUploading ? null : submitProduct,
               child: isUploading
                   ? const SizedBox(
                       width: 18,
@@ -600,7 +643,10 @@ class _ProductManagementTab extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_product',
-        onPressed: () => _showAddProductDialog(context, ref, categoriesAsync.valueOrNull ?? []),
+        onPressed: () {
+          debugPrint('ProductAdd pressed');
+          _showAddProductDialog(context, ref, categoriesAsync.valueOrNull ?? []);
+        },
         icon: const Icon(Icons.add),
         label: const Text('Urun Ekle'),
       ),
@@ -979,8 +1025,8 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                           'city': cityController.text.trim(),
                           'district': districtController.text.trim(),
                           'neighborhood': neighborhoodController.text.trim(),
-                          'lat': selectedLat,
-                          'lng': selectedLng,
+                          'lat': selectedLat!.toDouble(),
+                          'lng': selectedLng!.toDouble(),
                           'status': store?.status.name ?? StoreStatus.active.name,
                         };
                         if (isEdit) {
@@ -994,8 +1040,8 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                               city: cityController.text.trim(),
                               district: districtController.text.trim(),
                               neighborhood: neighborhoodController.text.trim(),
-                              lat: selectedLat!,
-                              lng: selectedLng!,
+                              lat: selectedLat!.toDouble(),
+                              lng: selectedLng!.toDouble(),
                               status: StoreStatus.active,
                               createdAt: DateTime.now(),
                             ),
@@ -1018,11 +1064,37 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
     double? initialLat,
     double? initialLng,
   }) async {
+    final mapController = MapController();
     LatLng marker = LatLng(initialLat ?? 41.0082, initialLng ?? 28.9784);
     String city = '';
     String district = '';
     String neighborhood = '';
     bool isResolving = false;
+    bool isProgrammaticMapMove = false;
+
+    final latController = TextEditingController(text: marker.latitude.toStringAsFixed(6));
+    final lngController = TextEditingController(text: marker.longitude.toStringAsFixed(6));
+    final pasteController = TextEditingController();
+    Timer? debounce;
+    String? coordinateError;
+
+    LatLng? parseLatLng(String input) {
+      final normalized = input.trim().replaceAll(';', ',').replaceAll(' ', '');
+      if (normalized.isEmpty) return null;
+      final parts = normalized.split(',');
+      if (parts.length != 2) return null;
+      final lat = double.tryParse(parts[0]);
+      final lng = double.tryParse(parts[1]);
+      if (lat == null || lng == null) return null;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+      return LatLng(lat, lng);
+    }
+
+    void syncControllersFromMarker() {
+      latController.text = marker.latitude.toStringAsFixed(6);
+      lngController.text = marker.longitude.toStringAsFixed(6);
+      coordinateError = null;
+    }
 
     return showModalBottomSheet<_StoreLocationDraft>(
       context: context,
@@ -1040,12 +1112,84 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                 neighborhood = p.subLocality ?? p.street ?? '';
               }
             } catch (_) {}
-            setModalState(() => isResolving = false);
+            if (ctx.mounted) {
+              setModalState(() => isResolving = false);
+            }
           }
+
+          void moveMarkerFromText() {
+            debounce?.cancel();
+            debounce = Timer(const Duration(milliseconds: 300), () {
+              final lat = double.tryParse(latController.text.trim());
+              final lng = double.tryParse(lngController.text.trim());
+              if (lat == null || lng == null) {
+                if (ctx.mounted) {
+                  setModalState(() => coordinateError = 'Gecerli sayisal enlem/boylam girin');
+                }
+                return;
+              }
+              if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                if (ctx.mounted) {
+                  setModalState(() => coordinateError = 'Enlem -90..90, boylam -180..180 olmali');
+                }
+                return;
+              }
+
+              final newMarker = LatLng(lat, lng);
+              if (ctx.mounted) {
+                setModalState(() {
+                  marker = newMarker;
+                  coordinateError = null;
+                  isProgrammaticMapMove = true;
+                });
+              }
+              mapController.move(newMarker, mapController.camera.zoom);
+              unawaited(resolveAddress());
+            });
+          }
+
+          Future<void> pasteFromClipboard() async {
+            final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+            final text = clipboard?.text ?? '';
+            pasteController.text = text;
+            final parsed = parseLatLng(text);
+            if (parsed == null) {
+              if (ctx.mounted) {
+                setModalState(() => coordinateError = 'Panodaki metin "Lat,Lng" formatinda degil');
+              }
+              return;
+            }
+            if (ctx.mounted) {
+              setModalState(() {
+                marker = parsed;
+                syncControllersFromMarker();
+                isProgrammaticMapMove = true;
+              });
+            }
+            mapController.move(parsed, mapController.camera.zoom);
+            unawaited(resolveAddress());
+          }
+
+          Future<void> openInGoogleMaps() async {
+            final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${marker.latitude},${marker.longitude}');
+            final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+            if (!launched && ctx.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Google Maps acilamadi'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+
+          final canSave = coordinateError == null &&
+              double.tryParse(latController.text.trim()) != null &&
+              double.tryParse(lngController.text.trim()) != null;
 
           return SafeArea(
             child: SizedBox(
-              height: MediaQuery.of(ctx).size.height * 0.82,
+              height: MediaQuery.of(ctx).size.height * 0.88,
               child: Column(
                 children: [
                   Padding(
@@ -1057,14 +1201,32 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                       ],
                     ),
                   ),
-                  Expanded(
+                  SizedBox(
+                    height: 300,
                     child: FlutterMap(
+                      mapController: mapController,
                       options: MapOptions(
                         initialCenter: marker,
                         initialZoom: 14,
-                        onTap: (_, latLng) async {
-                          setModalState(() => marker = latLng);
-                          await resolveAddress();
+                        onTap: (_, latLng) {
+                          setModalState(() {
+                            marker = latLng;
+                            syncControllersFromMarker();
+                          });
+                          unawaited(resolveAddress());
+                        },
+                        onPositionChanged: (position, hasGesture) {
+                          if (!hasGesture) return;
+                          if (isProgrammaticMapMove) {
+                            isProgrammaticMapMove = false;
+                            return;
+                          }
+                          final center = position.center;
+                          if (center == null) return;
+                          setModalState(() {
+                            marker = center;
+                            syncControllersFromMarker();
+                          });
                         },
                       ),
                       children: [
@@ -1083,27 +1245,119 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                       ],
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: latController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Enlem (Lat)',
+                                  hintText: '41.00820',
+                                ),
+                                onChanged: (_) => moveMarkerFromText(),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: TextField(
+                                controller: lngController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Boylam (Lng)',
+                                  hintText: '28.97840',
+                                ),
+                                onChanged: (_) => moveMarkerFromText(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        TextField(
+                          controller: pasteController,
+                          keyboardType: TextInputType.text,
+                          decoration: const InputDecoration(
+                            labelText: 'Lat,Lng yapistir',
+                            hintText: '41.00820,28.97840',
+                          ),
+                          onSubmitted: (value) {
+                            final parsed = parseLatLng(value);
+                            if (parsed == null) {
+                              setModalState(() => coordinateError = 'Gecersiz format. Ornek: 41.00820,28.97840');
+                              return;
+                            }
+                            setModalState(() {
+                              marker = parsed;
+                              syncControllersFromMarker();
+                              isProgrammaticMapMove = true;
+                            });
+                            mapController.move(parsed, mapController.camera.zoom);
+                            unawaited(resolveAddress());
+                          },
+                        ),
+                        if (coordinateError != null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              coordinateError!,
+                              style: const TextStyle(color: AppColors.error, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   ListTile(
-                    title: Text('Lat/Lng: ${marker.latitude.toStringAsFixed(5)}, ${marker.longitude.toStringAsFixed(5)}'),
+                    title: Text('Lat/Lng: ${marker.latitude.toStringAsFixed(6)}, ${marker.longitude.toStringAsFixed(6)}'),
                     subtitle: Text(isResolving ? 'Adres cozuluyor...' : '$neighborhood / $district / $city'),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: openInGoogleMaps,
+                            child: const Text("Google Maps'te Ac"),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: pasteFromClipboard,
+                            child: const Text("Google Maps'ten Yapistir"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(
-                            ctx,
-                            _StoreLocationDraft(
-                              lat: marker.latitude,
-                              lng: marker.longitude,
-                              city: city,
-                              district: district,
-                              neighborhood: neighborhood,
-                            ),
-                          );
-                        },
+                        onPressed: canSave
+                            ? () {
+                                final lat = double.tryParse(latController.text.trim());
+                                final lng = double.tryParse(lngController.text.trim());
+                                if (lat == null || lng == null) return;
+                                Navigator.pop(
+                                  ctx,
+                                  _StoreLocationDraft(
+                                    lat: lat,
+                                    lng: lng,
+                                    city: city,
+                                    district: district,
+                                    neighborhood: neighborhood,
+                                  ),
+                                );
+                              }
+                            : null,
                         child: const Text('Konumu Kaydet'),
                       ),
                     ),
@@ -1114,7 +1368,12 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
           );
         },
       ),
-    );
+    ).whenComplete(() {
+      debounce?.cancel();
+      latController.dispose();
+      lngController.dispose();
+      pasteController.dispose();
+    });
   }
 
   void _showMergeDialog(BuildContext context, WidgetRef ref, StoreModel source, List<StoreModel> allStores) {
@@ -2362,4 +2621,3 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
-
