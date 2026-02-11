@@ -221,7 +221,12 @@ class FirestoreService {
 
     final batch = _firestore.batch();
     for (final doc in priceSnapshot.docs) {
-      batch.update(doc.reference, {'storeId': targetId, 'storeName': targetStore.displayName});
+      batch.update(doc.reference, {
+        'storeId': targetId,
+        'branchStoreId': targetId,
+        'storeName': targetStore.displayName,
+        'chainId': targetStore.brandId,
+      });
     }
     batch.delete(_storesRef.doc(sourceId));
     await batch.commit();

@@ -51,7 +51,8 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> addPrice({
     required String productId,
     required double price,
-    required String storeId,
+    required String branchStoreId,
+    String? chainId,
     required String storeName,
     List<File>? images,
   }) async {
@@ -83,7 +84,8 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         userId: currentUser.uid,
         userName: userModel?.name,
         price: price,
-        storeId: storeId,
+        branchStoreId: branchStoreId,
+        chainId: chainId,
         storeName: storeName,
         storeLocation: locationData?.address,
         geoPoint: locationData?.geoPoint,

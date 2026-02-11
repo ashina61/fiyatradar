@@ -873,7 +873,7 @@ class _ProductCard extends ConsumerWidget {
                     image: product.mainImage != null
                         ? DecorationImage(
                             image: NetworkImage(product.mainImage!),
-                            fit: BoxFit.cover,
+                            fit: BoxFit.contain,
                             onError: (_, __) {},
                           )
                         : null,

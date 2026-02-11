@@ -12,6 +12,7 @@ import '../../providers/user_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/comment_model.dart';
 import '../../models/price_model.dart';
+import '../../models/store_model.dart';
 import '../../services/location_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_badge.dart';
@@ -132,24 +133,46 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     });
   }
 
-  _StoreCoordinates? _resolveStoreCoordinates(
-    ProductModel product,
+  _BranchStoreData? _resolveBranchStoreData(
     List<PriceModel>? priceHistory,
+    List<StoreModel> stores,
   ) {
-    if (product.lastStore == null || priceHistory == null || priceHistory.isEmpty) {
+    if (priceHistory == null || priceHistory.isEmpty) {
       return null;
     }
 
-    for (final price in priceHistory) {
-      if (price.storeName == product.lastStore && price.geoPoint != null) {
-        return _StoreCoordinates(
-          lat: price.geoPoint!.latitude,
-          lng: price.geoPoint!.longitude,
-        );
+    final latestPrice = priceHistory.first;
+    if (latestPrice.branchStoreId.isEmpty) {
+      return _BranchStoreData(
+        branchStoreId: '',
+        chainId: latestPrice.chainId,
+        displayName: latestPrice.storeName,
+      );
+    }
+
+    StoreModel? matched;
+    for (final store in stores) {
+      if (store.id == latestPrice.branchStoreId) {
+        matched = store;
+        break;
       }
     }
 
-    return null;
+    if (matched == null) {
+      return _BranchStoreData(
+        branchStoreId: latestPrice.branchStoreId,
+        chainId: latestPrice.chainId,
+        displayName: latestPrice.storeName,
+      );
+    }
+
+    return _BranchStoreData(
+      branchStoreId: matched.id,
+      chainId: matched.brandId ?? latestPrice.chainId,
+      displayName: matched.displayName,
+      lat: matched.lat,
+      lng: matched.lng,
+    );
   }
 
   double _calculateHaversineMeters({
@@ -174,25 +197,41 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   double _degreesToRadians(double degree) => degree * (math.pi / 180);
 
-  bool _isWithinNearbyRange(_StoreCoordinates storeCoordinates) {
+  bool _isWithinNearbyRange(_BranchStoreData branchStore) {
     if (_userLat == null || _userLng == null) return false;
 
     final distance = _calculateHaversineMeters(
       startLat: _userLat!,
       startLng: _userLng!,
-      endLat: storeCoordinates.lat,
-      endLng: storeCoordinates.lng,
+      endLat: branchStore.lat!,
+      endLng: branchStore.lng!,
     );
 
     return distance <= 30;
   }
 
-  Future<void> _onStoreChipTap(_StoreCoordinates? storeCoordinates) async {
-    if (storeCoordinates == null) {
+  Future<void> _onStoreChipTap(_BranchStoreData? branchStore) async {
+    debugPrint('[StoreChipTap] selectedChainId=${branchStore?.chainId} selectedBranchStoreId=${branchStore?.branchStoreId} branchLat=${branchStore?.lat} branchLng=${branchStore?.lng}');
+
+    if (branchStore == null || branchStore.branchStoreId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bu mağaza için konum eklenmemiş'),
+          content: const Text('Şube seçilmemiş'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (branchStore.lat == null || branchStore.lng == null || branchStore.lat == 0 || branchStore.lng == 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bu şube için konum eklenmemiş'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -203,7 +242,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     final mapsUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${storeCoordinates.lat},${storeCoordinates.lng}&travelmode=driving',
+      'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}&travelmode=driving',
     );
 
     await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
@@ -298,6 +337,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productAsync = ref.watch(productByIdProvider(widget.productId));
     final commentsAsync = ref.watch(productCommentsProvider(widget.productId));
     final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
+    final storesAsync = ref.watch(allStoresStreamProvider);
     final isSaved = ref.watch(isProductSavedProvider(widget.productId));
 
     return productAsync.when(
@@ -319,8 +359,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
         final categoryColor = _colorForCategory(product.category);
         final priceHistory = priceHistoryAsync.valueOrNull;
-        final storeCoordinates = _resolveStoreCoordinates(product, priceHistory);
-        final isNearbyStore = storeCoordinates != null && _isWithinNearbyRange(storeCoordinates);
+        final stores = storesAsync.valueOrNull ?? const <StoreModel>[];
+        final branchStore = _resolveBranchStoreData(priceHistory, stores);
+        final isNearbyStore = branchStore != null && branchStore.hasCoordinates && _isWithinNearbyRange(branchStore);
 
         return Scaffold(
           body: CustomScrollView(
@@ -419,7 +460,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       // Price card
                       _buildPriceCard(
                         product,
-                        storeCoordinates: storeCoordinates,
+                        branchStore: branchStore,
                         showNearbyGlow: isNearbyStore,
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -559,7 +600,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildPriceCard(
     ProductModel product, {
-    required _StoreCoordinates? storeCoordinates,
+    required _BranchStoreData? branchStore,
     required bool showNearbyGlow,
   }) {
     return Container(
@@ -603,7 +644,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ],
             ),
           ),
-          if (product.lastStore != null)
+          if (branchStore?.displayName != null && branchStore!.displayName!.isNotEmpty)
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -622,7 +663,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: () => _onStoreChipTap(storeCoordinates),
+                        onTap: () => _onStoreChipTap(branchStore),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -641,14 +682,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 : null,
                           ),
                           child: Opacity(
-                            opacity: storeCoordinates != null ? 1 : 0.7,
+                            opacity: (branchStore?.branchStoreId.isNotEmpty ?? false) ? 1 : 0.7,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.store, size: 16, color: AppColors.textSecondary),
                                 const SizedBox(width: 4),
                                 Text(
-                                  product.lastStore!,
+                                  branchStore!.displayName!,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -715,7 +756,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     return SizedBox.expand(
       child: CachedNetworkImage(
         imageUrl: imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         placeholder: (_, __) => Shimmer.fromColors(
           baseColor: AppColors.surfaceVariant,
           highlightColor: AppColors.surface,
@@ -1424,9 +1465,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 }
 
-class _StoreCoordinates {
-  final double lat;
-  final double lng;
+class _BranchStoreData {
+  final String branchStoreId;
+  final String? chainId;
+  final String? displayName;
+  final double? lat;
+  final double? lng;
 
-  const _StoreCoordinates({required this.lat, required this.lng});
+  const _BranchStoreData({
+    required this.branchStoreId,
+    this.chainId,
+    this.displayName,
+    this.lat,
+    this.lng,
+  });
+
+  bool get hasCoordinates =>
+      lat != null &&
+      lng != null &&
+      lat != 0 &&
+      lng != 0;
 }
