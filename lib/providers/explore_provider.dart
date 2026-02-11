@@ -102,6 +102,18 @@ class ExploreFeedItem {
     return '';
   }
 
+  String get neighborhoodLabel {
+    final rawNeighborhood = store?.neighborhood.trim();
+    if (rawNeighborhood == null || rawNeighborhood.isEmpty) return '—';
+
+    final normalized = rawNeighborhood.toLowerCase();
+    if (normalized.endsWith('mah.') || normalized.endsWith('mah')) {
+      return rawNeighborhood;
+    }
+
+    return '$rawNeighborhood mah.';
+  }
+
   String? get distanceLabel {
     final distance = distanceMeters;
     if (distance == null) return null;

@@ -279,7 +279,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         maxCrossAxisExtent: 260,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.72,
       ),
       itemBuilder: (context, index) {
         final item = state.items[index];
@@ -339,10 +339,8 @@ class _ExplorePriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final locationText = item.locationLabel.trim();
-    final hasLocation = locationText.isNotEmpty;
-    final distanceText = item.distanceLabel?.trim();
-    final hasDistance = distanceText != null && distanceText.isNotEmpty;
+    final neighborhoodText = item.neighborhoodLabel;
+    final distanceText = item.distanceLabel?.trim() ?? '—';
     final primaryCategory = item.product.categories.isNotEmpty ? item.product.categories.first : null;
     final extraCategoryCount = item.product.categories.length > 1 ? item.product.categories.length - 1 : 0;
 
@@ -454,41 +452,49 @@ class _ExplorePriceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (item.isLocalStore) ...[
-                    const SizedBox(height: 6),
-                    Divider(
-                      height: 12,
-                      thickness: 0.7,
-                      color: Colors.black.withOpacity(0.08),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            hasLocation ? locationText : 'Konum izni gerekli',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 84),
-                          child: Text(
-                            hasDistance ? distanceText : '',
-                            textAlign: TextAlign.right,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
+                  const SizedBox(height: 6),
+                  Divider(
+                    height: 12,
+                    thickness: 0.7,
+                    color: Colors.black.withOpacity(0.08),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 13,
                               color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w800,
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                neighborhoodText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        distanceText,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                   if (mode == ExploreMode.online) ...[
                     const SizedBox(height: 8),
                     _OnlineCheapestSummaryRow(stores: item.onlineCheapest3),
