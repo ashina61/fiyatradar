@@ -1,7 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -175,36 +174,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  double _calculateHaversineMeters({
-    required double startLat,
-    required double startLng,
-    required double endLat,
-    required double endLng,
-  }) {
-    const earthRadius = 6371000.0;
-    final dLat = _degreesToRadians(endLat - startLat);
-    final dLng = _degreesToRadians(endLng - startLng);
-
-    final sinLat = math.sin(dLat / 2);
-    final sinLng = math.sin(dLng / 2);
-    final a = (sinLat * sinLat) +
-        math.cos(_degreesToRadians(startLat)) *
-            math.cos(_degreesToRadians(endLat)) *
-            (sinLng * sinLng);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _degreesToRadians(double degree) => degree * (math.pi / 180);
-
   bool _isWithinNearbyRange(_BranchStoreData branchStore) {
     if (_userLat == null || _userLng == null) return false;
 
-    final distance = _calculateHaversineMeters(
-      startLat: _userLat!,
-      startLng: _userLng!,
-      endLat: branchStore.lat!,
-      endLng: branchStore.lng!,
+    final distance = Geolocator.distanceBetween(
+      _userLat!,
+      _userLng!,
+      branchStore.lat!,
+      branchStore.lng!,
     );
 
     return distance <= 30;
@@ -231,7 +208,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bu şube için konum eklenmemiş'),
+          content: const Text('Bu mağaza için konum eklenmemiş'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -242,7 +219,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     final mapsUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}&travelmode=driving',
+      'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}',
     );
 
     await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
@@ -673,9 +650,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             boxShadow: showNearbyGlow
                                 ? [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.16),
-                                      blurRadius: 8,
-                                      spreadRadius: 0.5,
+                                      color: AppColors.primary.withOpacity(0.35),
+                                      blurRadius: 18,
+                                      spreadRadius: 1,
                                       offset: const Offset(0, 2),
                                     ),
                                   ]
