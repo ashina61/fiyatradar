@@ -9,20 +9,51 @@ import '../services/location_service.dart';
 import 'price_provider.dart';
 import 'product_provider.dart';
 
+enum ExploreMode { nearby, online, drops }
+
+class StorePrice {
+  final String storeId;
+  final String storeName;
+  final String? logoUrl;
+  final String? url;
+  final double price;
+
+  const StorePrice({
+    required this.storeId,
+    required this.storeName,
+    required this.logoUrl,
+    required this.url,
+    required this.price,
+  });
+}
+
 class ExploreFeedItem {
   final ProductModel product;
   final PriceModel price;
   final StoreModel? store;
   final double? distanceMeters;
+  final double dropPercent;
+  final List<StorePrice> onlineCheapest3;
+  final bool isPrimaryOnlineCheapest;
 
   const ExploreFeedItem({
     required this.product,
     required this.price,
     required this.store,
     required this.distanceMeters,
+    required this.dropPercent,
+    required this.onlineCheapest3,
+    required this.isPrimaryOnlineCheapest,
   });
 
   double get displayPrice => price.price;
+
+  bool get isLocalStore => !_isOnlineStore;
+
+  bool get _isOnlineStore {
+    if (store == null) return false;
+    return store!.lat == 0 && store!.lng == 0;
+  }
 
   String get storeName {
     final fromPrice = price.storeName?.trim();
@@ -56,7 +87,12 @@ class ExploreFeedItem {
 
     final storeLocation = price.storeLocation?.trim();
     if (storeLocation != null && storeLocation.isNotEmpty) {
-      return storeLocation.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).take(2).join(', ');
+      return storeLocation
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .take(2)
+          .join(', ');
     }
 
     return '';
@@ -70,6 +106,13 @@ class ExploreFeedItem {
   }
 
   bool get isNearby => (distanceMeters ?? double.infinity) <= 30;
+
+  String? get storeUrl {
+    final raw = store?.address?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return null;
+  }
 }
 
 class ExploreState {
@@ -80,6 +123,8 @@ class ExploreState {
   final String selectedCategory;
   final String searchQuery;
   final List<String> categories;
+  final ExploreMode selectedMode;
+  final Map<String, List<StorePrice>> cheapestCache;
 
   const ExploreState({
     required this.loading,
@@ -89,6 +134,8 @@ class ExploreState {
     required this.selectedCategory,
     required this.searchQuery,
     required this.categories,
+    required this.selectedMode,
+    required this.cheapestCache,
   });
 
   const ExploreState.initial()
@@ -98,7 +145,9 @@ class ExploreState {
         userLocation = null,
         selectedCategory = 'Tumu',
         searchQuery = '',
-        categories = const ['Tumu', 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida'];
+        categories = const ['Tumu', 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida'],
+        selectedMode = ExploreMode.nearby,
+        cheapestCache = const {};
 
   ExploreState copyWith({
     bool? loading,
@@ -110,6 +159,8 @@ class ExploreState {
     String? selectedCategory,
     String? searchQuery,
     List<String>? categories,
+    ExploreMode? selectedMode,
+    Map<String, List<StorePrice>>? cheapestCache,
   }) {
     return ExploreState(
       loading: loading ?? this.loading,
@@ -119,6 +170,8 @@ class ExploreState {
       selectedCategory: selectedCategory ?? this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
       categories: categories ?? this.categories,
+      selectedMode: selectedMode ?? this.selectedMode,
+      cheapestCache: cheapestCache ?? this.cheapestCache,
     );
   }
 }
@@ -218,6 +271,11 @@ class ExploreController extends StateNotifier<ExploreState> {
     _recompute();
   }
 
+  void updateMode(ExploreMode mode) {
+    state = state.copyWith(selectedMode: mode, clearError: true);
+    _recompute();
+  }
+
   void retry() {
     ref.invalidate(allProductsProvider);
     ref.invalidate(exploreLatestPricesProvider);
@@ -230,6 +288,35 @@ class ExploreController extends StateNotifier<ExploreState> {
     final storeMap = {for (final store in _stores) store.id: store};
     final query = state.searchQuery.trim().toLowerCase();
 
+    final pricesByProduct = <String, List<PriceModel>>{};
+    for (final price in _prices) {
+      pricesByProduct.putIfAbsent(price.productId, () => []).add(price);
+    }
+
+    final cheapestCache = <String, List<StorePrice>>{};
+    for (final entry in pricesByProduct.entries) {
+      final productPrices = entry.value.where((p) {
+        final store = storeMap[p.branchStoreId];
+        return _isOnlineStore(store);
+      }).toList();
+
+      if (productPrices.isEmpty) continue;
+
+      productPrices.sort((a, b) => a.price.compareTo(b.price));
+      cheapestCache[entry.key] = productPrices.take(3).map((price) {
+        final store = storeMap[price.branchStoreId];
+        return StorePrice(
+          storeId: price.branchStoreId,
+          storeName: price.storeName?.trim().isNotEmpty == true
+              ? price.storeName!.trim()
+              : (store?.displayName.trim().isNotEmpty == true ? store!.displayName.trim() : 'Magaza'),
+          logoUrl: null,
+          url: _onlineStoreUrl(store),
+          price: price.price,
+        );
+      }).toList();
+    }
+
     final items = _prices
         .map((price) {
           final product = productMap[price.productId];
@@ -240,6 +327,13 @@ class ExploreController extends StateNotifier<ExploreState> {
           }
 
           final store = storeMap[price.branchStoreId];
+          if (state.selectedMode == ExploreMode.nearby && !_isLocalStore(store, price)) {
+            return null;
+          }
+          if (state.selectedMode == ExploreMode.online && !_isOnlineStore(store)) {
+            return null;
+          }
+
           final searchable = [
             product.name,
             product.category,
@@ -252,15 +346,45 @@ class ExploreController extends StateNotifier<ExploreState> {
             return null;
           }
 
+          final dropPercent = _computeDropPercent(pricesByProduct[price.productId] ?? const [], price);
+          if (state.selectedMode == ExploreMode.drops && dropPercent <= 0) {
+            return null;
+          }
+
+          final onlineCheapest3 = cheapestCache[price.productId] ?? const [];
           return ExploreFeedItem(
             product: product,
             price: price,
             store: store,
             distanceMeters: _distanceFromUser(state.userLocation, store, price),
+            dropPercent: dropPercent,
+            onlineCheapest3: onlineCheapest3,
+            isPrimaryOnlineCheapest: onlineCheapest3.isNotEmpty && onlineCheapest3.first.storeId == price.branchStoreId,
           );
         })
         .whereType<ExploreFeedItem>()
         .toList();
+
+    _sortItems(items);
+
+    state = state.copyWith(
+      loading: false,
+      clearError: true,
+      items: items,
+      cheapestCache: cheapestCache,
+    );
+  }
+
+  void _sortItems(List<ExploreFeedItem> items) {
+    if (state.selectedMode == ExploreMode.online) {
+      items.sort((a, b) => a.displayPrice.compareTo(b.displayPrice));
+      return;
+    }
+
+    if (state.selectedMode == ExploreMode.drops) {
+      items.sort((a, b) => b.dropPercent.compareTo(a.dropPercent));
+      return;
+    }
 
     items.sort((a, b) {
       final ad = a.distanceMeters;
@@ -278,12 +402,35 @@ class ExploreController extends StateNotifier<ExploreState> {
 
       return b.price.createdAt.compareTo(a.price.createdAt);
     });
+  }
 
-    state = state.copyWith(
-      loading: false,
-      clearError: true,
-      items: items,
-    );
+  double _computeDropPercent(List<PriceModel> productPrices, PriceModel currentPrice) {
+    if (productPrices.length < 2) return 0;
+    final sorted = [...productPrices]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final currentIndex = sorted.indexWhere((p) => p.id == currentPrice.id);
+    if (currentIndex < 0 || currentIndex == sorted.length - 1) return 0;
+
+    final previous = sorted[currentIndex + 1];
+    if (previous.price <= 0 || currentPrice.price >= previous.price) return 0;
+    return ((previous.price - currentPrice.price) / previous.price) * 100;
+  }
+
+  bool _isLocalStore(StoreModel? store, PriceModel price) {
+    if (store != null) return !_isOnlineStore(store);
+    final point = price.geoPoint;
+    return point != null && point.latitude != 0 && point.longitude != 0;
+  }
+
+  bool _isOnlineStore(StoreModel? store) {
+    if (store == null) return false;
+    return store.lat == 0 && store.lng == 0;
+  }
+
+  String? _onlineStoreUrl(StoreModel? store) {
+    final address = store?.address?.trim();
+    if (address == null || address.isEmpty) return null;
+    if (address.startsWith('http://') || address.startsWith('https://')) return address;
+    return null;
   }
 
   double? _distanceFromUser(LocationData? locationData, StoreModel? store, PriceModel price) {
