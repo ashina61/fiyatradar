@@ -6,7 +6,8 @@ class PriceModel {
   final String? barcode;
   final String userId;
   final double price;
-  final String storeId;
+  final String branchStoreId;
+  final String? chainId;
   final String currency;
   final DateTime reportedAt;
   final String? photoUrl;
@@ -32,7 +33,8 @@ class PriceModel {
     this.barcode,
     required this.userId,
     required this.price,
-    required this.storeId,
+    required this.branchStoreId,
+    this.chainId,
     this.currency = 'TRY',
     required this.reportedAt,
     this.photoUrl,
@@ -77,7 +79,8 @@ class PriceModel {
       barcode: data['barcode'] ?? data['productBarcode'],
       userId: data['userId'] ?? '',
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
-      storeId: data['storeId'] ?? '',
+      branchStoreId: data['branchStoreId'] ?? data['storeId'] ?? '',
+      chainId: data['chainId'],
       currency: data['currency'] ?? 'TRY',
       reportedAt:
           (data['reportedAt'] as Timestamp?)?.toDate() ??
@@ -111,7 +114,10 @@ class PriceModel {
       'barcode': barcode,
       'userId': userId,
       'price': price,
-      'storeId': storeId,
+      'branchStoreId': branchStoreId,
+      'chainId': chainId,
+      // Legacy field kept for backward-compatibility with existing queries.
+      'storeId': branchStoreId,
       'currency': currency,
       'reportedAt': Timestamp.fromDate(reportedAt),
       'photoUrl': photoUrl,
@@ -139,7 +145,8 @@ class PriceModel {
     String? barcode,
     String? userId,
     double? price,
-    String? storeId,
+    String? branchStoreId,
+    String? chainId,
     String? currency,
     DateTime? reportedAt,
     String? photoUrl,
@@ -163,7 +170,8 @@ class PriceModel {
       barcode: barcode ?? this.barcode,
       userId: userId ?? this.userId,
       price: price ?? this.price,
-      storeId: storeId ?? this.storeId,
+      branchStoreId: branchStoreId ?? this.branchStoreId,
+      chainId: chainId ?? this.chainId,
       currency: currency ?? this.currency,
       reportedAt: reportedAt ?? this.reportedAt,
       photoUrl: photoUrl ?? this.photoUrl,
@@ -182,4 +190,7 @@ class PriceModel {
       isPending: isPending ?? this.isPending,
     );
   }
+
+  /// Backward-compatible alias for older usages.
+  String get storeId => branchStoreId;
 }
