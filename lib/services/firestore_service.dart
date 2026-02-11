@@ -92,11 +92,11 @@ class FirestoreService {
   Stream<List<StoreModel>> getNearbyActiveStoresStream() {
     return _storesRef
         .where('status', isEqualTo: 'active')
-        .where('type', isEqualTo: StoreType.local.name)
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
           .map((doc) => StoreModel.fromFirestore(doc))
+          .where((store) => !store.isOnline)
           .toList();
       list.sort((a, b) => a.displayName.compareTo(b.displayName));
       return list;
@@ -106,11 +106,11 @@ class FirestoreService {
   Stream<List<StoreModel>> getOnlineActiveStoresStream() {
     return _storesRef
         .where('status', isEqualTo: 'active')
-        .where('type', isEqualTo: StoreType.online.name)
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
           .map((doc) => StoreModel.fromFirestore(doc))
+          .where((store) => store.isOnline)
           .toList();
       list.sort((a, b) => a.displayName.compareTo(b.displayName));
       return list;
@@ -131,6 +131,7 @@ class FirestoreService {
     });
     return stores
         .where((store) =>
+            !store.isOnline &&
             store.lat != 0 &&
             store.lng != 0 &&
             _distanceInMeters(userLat, userLng, store.lat, store.lng) <=
@@ -185,12 +186,15 @@ class FirestoreService {
 
     final storeRef = await _storesRef.add({
       'displayName': suggestion.displayName,
+      'name': suggestion.displayName,
       'city': suggestion.city,
       'district': suggestion.district,
       'neighborhood': suggestion.neighborhood,
       'lat': suggestion.lat,
       'lng': suggestion.lng,
       'status': 'active',
+      'type': StoreType.local.name,
+      'isOnline': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
 

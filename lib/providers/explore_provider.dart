@@ -322,7 +322,7 @@ class ExploreController extends StateNotifier<ExploreState> {
           final product = productMap[price.productId];
           if (product == null) return null;
 
-          if (state.selectedCategory != 'Tumu' && product.category != state.selectedCategory) {
+          if (state.selectedCategory != 'Tumu' && !product.categories.contains(state.selectedCategory)) {
             return null;
           }
 
@@ -336,7 +336,7 @@ class ExploreController extends StateNotifier<ExploreState> {
 
           final searchable = [
             product.name,
-            product.category,
+            product.categories.join(' '),
             product.brand,
             price.storeName ?? '',
             store?.displayName ?? '',
