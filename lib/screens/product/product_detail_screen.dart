@@ -192,41 +192,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _onStoreChipTap(_BranchStoreData? branchStore) async {
-    debugPrint('[StoreChipTap] selectedChainId=${branchStore?.chainId} selectedBranchStoreId=${branchStore?.branchStoreId} branchLat=${branchStore?.lat} branchLng=${branchStore?.lng}');
-
-    if (branchStore == null || branchStore.branchStoreId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Şube seçilmemiş'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (branchStore.lat == null || branchStore.lng == null || branchStore.lat == 0 || branchStore.lng == 0) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Bu mağaza için konum eklenmemiş'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-        ),
-      );
+    if (branchStore == null || !branchStore.hasCoordinates) {
       return;
     }
 
     final mapsUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}',
+      'https://www.google.com/maps/search/?api=1&query=${branchStore.lat},${branchStore.lng}',
     );
 
-    await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Harita acilamadi'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
+      );
+    }
   }
 
   void _showAddCommentDialog(BuildContext context) {
@@ -345,7 +330,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final isNearbyStore = branchStore != null && branchStore.hasCoordinates && _isWithinNearbyRange(branchStore);
 
         return Scaffold(
-          bottomNavigationBar: _buildStickyCtaBar(),
           body: CustomScrollView(
             slivers: [
               // ---------- App Bar with premium hero image ----------
@@ -593,33 +577,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
 
-  Widget _buildStickyCtaBar() {
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Fiyat Ekle'),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
-              },
-              icon: const Icon(Icons.notifications_active_outlined),
-              label: const Text('Takip Et'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMetaChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -649,7 +606,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     return Row(
       children: [
-        Expanded(child: _buildMiniStatBox('Son fiyat', latest)),
+        Expanded(child: _buildMiniStatBox('Son Fiyat', latest)),
         const SizedBox(width: AppSpacing.sm),
         Expanded(child: _buildMiniStatBox('En ucuz', cheapest)),
         const SizedBox(width: AppSpacing.sm),
@@ -671,7 +628,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         children: [
           Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(value == null ? '-' : _formatPriceShort(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          Text(value == null ? '-' : formatTRY(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -811,7 +768,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: null,
+                        onTap: branchStore.hasCoordinates ? () => _onStoreChipTap(branchStore) : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -830,7 +787,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 : null,
                           ),
                           child: Opacity(
-                            opacity: (branchStore?.branchStoreId.isNotEmpty ?? false) ? 1 : 0.7,
+                            opacity: branchStore.hasCoordinates ? 1 : 0.7,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1540,32 +1497,35 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  String _formatPrice(double price) {
-    if (price >= 1000) {
-      final parts = price.toStringAsFixed(2).split('.');
-      final intPart = parts[0];
-      final decPart = parts[1];
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = intPart.length - 1; i >= 0; i--) {
-        buffer.write(intPart[i]);
-        count++;
-        if (count == 3 && i > 0) {
-          buffer.write('.');
-          count = 0;
-        }
-      }
-      return '\u20BA${buffer.toString().split('').reversed.join()},$decPart';
+  String formatTRY(num value) {
+    final fixed = value.toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final intPart = int.parse(parts[0]);
+    final decimal = parts[1];
+
+    final groupedInt = _groupThousands(intPart);
+    if (decimal == '00') {
+      return '$groupedInt₺';
     }
-    return '\u20BA${price.toStringAsFixed(2).replaceAll('.', ',')}';
+
+    return '$groupedInt,$decimal₺';
   }
 
-  String _formatPriceShort(double price) {
-    if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(1)}K';
+  String _groupThousands(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) {
+        buffer.write('.');
+      }
+      buffer.write(digits[i]);
     }
-    return price.toStringAsFixed(0);
+    return buffer.toString();
   }
+
+  String _formatPrice(double price) => formatTRY(price);
+
+  String _formatPriceShort(double price) => formatTRY(price);
 
   Color _colorForCategory(String category) {
     switch (category) {
