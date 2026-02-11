@@ -54,6 +54,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         final user = await service.getUserById(targetId);
         return {'user': user};
       case 'priceEntry':
+      case 'price':
         final price = await service.getPriceById(targetId);
         final productId = contextId ?? price?.productId;
         final product = productId != null ? await service.getProduct(productId) : null;
@@ -130,7 +131,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                   _ProductTargetCard(product: data?['product'] as ProductModel?),
                 if (targetType == 'user')
                   _UserTargetCard(user: data?['user'] as UserModel?),
-                if (targetType == 'priceEntry')
+                if (targetType == 'priceEntry' || targetType == 'price')
                   _PriceTargetCard(
                     price: data?['price'] as PriceModel?,
                     product: data?['product'] as ProductModel?,

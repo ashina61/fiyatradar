@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -411,7 +412,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   ) {
     return storesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Hata: $e')),
+      error: (e, st) {
+        debugPrint('Online stores load error: $e');
+        debugPrintStack(stackTrace: st);
+        if (e is FirebaseException && e.code == 'failed-precondition') {
+          return const Center(
+            child: Text('Online mağazalar yüklenemedi, tekrar deneyin'),
+          );
+        }
+        return const Center(
+          child: Text('Online mağazalar yüklenemedi, tekrar deneyin'),
+        );
+      },
       data: (stores) {
         final onlineStores = List<StoreModel>.from(stores)
           ..sort((a, b) => a.displayName.compareTo(b.displayName));

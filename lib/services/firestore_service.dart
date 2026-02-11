@@ -107,12 +107,13 @@ class FirestoreService {
     return _storesRef
         .where('status', isEqualTo: 'active')
         .where('type', isEqualTo: StoreType.online.name)
-        .orderBy('name')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => StoreModel.fromFirestore(doc))
           .toList();
+      list.sort((a, b) => a.displayName.compareTo(b.displayName));
+      return list;
     });
   }
 
