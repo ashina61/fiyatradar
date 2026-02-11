@@ -1708,7 +1708,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   void _shareProduct(ProductModel product) {
     final last = formatTRY(product.lastPrice ?? 0);
-    final lowest = formatTRY(product.minPrice ?? product.lastPrice ?? 0);
+    final lowest = formatTRY(product.lastPrice ?? 0);
     Share.share('${product.name} • Son: $last • En ucuz: $lowest');
   }
 
