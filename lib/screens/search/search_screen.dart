@@ -480,14 +480,19 @@ class _ExplorePriceCard extends StatelessWidget {
                         ),
                         if (hasDistance) ...[
                           const SizedBox(width: 8),
-                          Flexible(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: AppColors.outline),
+                            ),
                             child: Text(
                               distanceText,
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
+                              style: theme.textTheme.labelSmall?.copyWith(
                                 color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
