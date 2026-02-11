@@ -176,6 +176,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       branchStoreId: matched.id,
       chainId: matched.brandId ?? latestPrice.chainId,
       displayName: matched.displayName,
+      neighborhood: matched.neighborhood,
+      district: matched.district,
+      city: matched.city,
       lat: matched.lat,
       lng: matched.lng,
       isOnline: matched.isOnline,
@@ -196,12 +199,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _onStoreChipTap(_BranchStoreData? branchStore) async {
-    if (branchStore == null || !branchStore.hasCoordinates) {
+    if (branchStore == null || !branchStore.hasMapsQuery) {
       return;
     }
 
+    final encodedStoreQuery = Uri.encodeComponent(branchStore.mapsQuery);
     final mapsUri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${branchStore.lat},${branchStore.lng}',
+      'https://www.google.com/maps/search/?api=1&query=$encodedStoreQuery',
     );
 
     final launched = await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
@@ -922,7 +926,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: branchStore.hasCoordinates ? () => _onStoreChipTap(branchStore) : null,
+                        onTap: branchStore.hasMapsQuery ? () => _onStoreChipTap(branchStore) : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -941,7 +945,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 : null,
                           ),
                           child: Opacity(
-                            opacity: branchStore.hasCoordinates ? 1 : 0.7,
+                            opacity: branchStore.hasMapsQuery ? 1 : 0.7,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -955,7 +959,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                if (!branchStore.isOnline && branchStore.hasCoordinates) ...[
+                                if (branchStore.hasMapsQuery) ...[
                                   const SizedBox(width: 4),
                                   const Icon(Icons.open_in_new, size: 14, color: AppColors.primary),
                                 ],
@@ -1784,6 +1788,9 @@ class _BranchStoreData {
   final String branchStoreId;
   final String? chainId;
   final String? displayName;
+  final String? neighborhood;
+  final String? district;
+  final String? city;
   final double? lat;
   final double? lng;
   final bool isOnline;
@@ -1792,6 +1799,9 @@ class _BranchStoreData {
     required this.branchStoreId,
     this.chainId,
     this.displayName,
+    this.neighborhood,
+    this.district,
+    this.city,
     this.lat,
     this.lng,
     this.isOnline = false,
@@ -1802,4 +1812,17 @@ class _BranchStoreData {
       lng != null &&
       lat != 0 &&
       lng != 0;
+
+  String get mapsQuery {
+    if (isOnline) return '';
+
+    final queryParts = [displayName, neighborhood, district, city]
+        .where((part) => part != null && part!.trim().isNotEmpty)
+        .map((part) => part!.trim())
+        .toList();
+
+    return queryParts.join(' ');
+  }
+
+  bool get hasMapsQuery => mapsQuery.isNotEmpty;
 }
