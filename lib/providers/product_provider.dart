@@ -145,6 +145,17 @@ final activeStoresProvider = StreamProvider<List<StoreModel>>((ref) {
   return ref.watch(firestoreServiceProvider).getActiveStores();
 });
 
+
+final nearbyStoresProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getNearbyActiveStoresStream();
+});
+
+final onlineStoresProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getOnlineActiveStoresStream();
+});
+
 final pendingStoreSuggestionsProvider =
     StreamProvider<List<StoreSuggestionModel>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);

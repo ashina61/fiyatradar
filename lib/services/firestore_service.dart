@@ -88,6 +88,34 @@ class FirestoreService {
     });
   }
 
+
+  Stream<List<StoreModel>> getNearbyActiveStoresStream() {
+    return _storesRef
+        .where('status', isEqualTo: 'active')
+        .where('type', isEqualTo: StoreType.local.name)
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StoreModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.displayName.compareTo(b.displayName));
+      return list;
+    });
+  }
+
+  Stream<List<StoreModel>> getOnlineActiveStoresStream() {
+    return _storesRef
+        .where('status', isEqualTo: 'active')
+        .where('type', isEqualTo: StoreType.online.name)
+        .orderBy('name')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => StoreModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
   Future<List<StoreModel>> getNearbyActiveStores({
     required double userLat,
     required double userLng,

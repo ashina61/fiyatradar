@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum StoreStatus { active, hidden, pending }
+enum StoreType { local, online }
 
 class StoreModel {
   final String id;
@@ -13,6 +14,7 @@ class StoreModel {
   final double lat;
   final double lng;
   final StoreStatus status;
+  final StoreType type;
   final DateTime createdAt;
 
   StoreModel({
@@ -26,6 +28,7 @@ class StoreModel {
     required this.lat,
     required this.lng,
     this.status = StoreStatus.active,
+    this.type = StoreType.local,
     required this.createdAt,
   });
 
@@ -44,6 +47,7 @@ class StoreModel {
       lat: (data['lat'] as num?)?.toDouble() ?? 0.0,
       lng: (data['lng'] as num?)?.toDouble() ?? 0.0,
       status: _parseStatus(data['status']),
+      type: _parseType(data['type']),
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -60,8 +64,19 @@ class StoreModel {
       'lat': lat,
       'lng': lng,
       'status': status.name,
+      'type': type.name,
       'createdAt': Timestamp.fromDate(createdAt),
     };
+  }
+
+  static StoreType _parseType(String? value) {
+    switch (value) {
+      case 'online':
+        return StoreType.online;
+      case 'local':
+      default:
+        return StoreType.local;
+    }
   }
 
   static StoreStatus _parseStatus(String? value) {
@@ -99,6 +114,7 @@ class StoreModel {
     double? lat,
     double? lng,
     StoreStatus? status,
+    StoreType? type,
     DateTime? createdAt,
   }) {
     return StoreModel(
@@ -112,7 +128,10 @@ class StoreModel {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       status: status ?? this.status,
+      type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  bool get isOnline => type == StoreType.online;
 }
