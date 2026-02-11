@@ -5,6 +5,7 @@ import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
+import '../../utils/formatters.dart';
 import 'basket_pricing.dart';
 import 'basket_view_model.dart';
 
@@ -602,5 +603,5 @@ class _StickyCalculateBar extends StatelessWidget {
 }
 
 String _formatPrice(double value) {
-  return '${value.toStringAsFixed(2)} TL';
+  return formatTRY(value);
 }

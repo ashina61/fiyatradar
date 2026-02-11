@@ -11,6 +11,7 @@ import '../../providers/price_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_section_header.dart';
 import '../admin/admin_panel_screen.dart';
@@ -286,7 +287,7 @@ class ProfileScreen extends ConsumerWidget {
                           child: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
                         ),
                         title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text('${p.lastStore ?? ''} - ${p.lastPrice?.toStringAsFixed(2) ?? '?'} TL'),
+                        subtitle: Text('${p.lastStore ?? ''} - ${p.lastPrice != null ? formatTRY(p.lastPrice!) : '?'}'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
@@ -335,7 +336,7 @@ class ProfileScreen extends ConsumerWidget {
                           child: const Icon(Icons.history, color: AppColors.secondary),
                         ),
                         title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text('${p.lastPrice?.toStringAsFixed(2) ?? '?'} TL'),
+                        subtitle: Text(p.lastPrice != null ? formatTRY(p.lastPrice!) : '?'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),

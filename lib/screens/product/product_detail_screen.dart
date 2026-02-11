@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
 import '../../providers/product_provider.dart';
@@ -15,6 +16,7 @@ import '../../models/price_model.dart';
 import '../../models/store_model.dart';
 import '../../services/location_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/app_section_header.dart';
@@ -313,10 +315,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       return;
     }
 
-    final watchlistRef = FirebaseFirestore.instance
+    final followedRef = FirebaseFirestore.instance
         .collection('users')
         .doc(userModel.uid)
-        .collection('watchlist')
+        .collection('followedProducts')
         .doc(widget.productId);
 
     showModalBottomSheet(
@@ -327,11 +329,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       builder: (ctx) {
         return FutureBuilder<DocumentSnapshot>(
-          future: watchlistRef.get(),
+          future: followedRef.get(),
           builder: (ctx, snapshot) {
             final data = snapshot.data?.data() as Map<String, dynamic>?;
-            bool priceDropEnabled = data?['priceDropEnabled'] ?? false;
-            bool newPriceEnabled = data?['newPriceEnabled'] ?? false;
+            bool priceDropEnabled = data?['notifyOnPriceDrop'] ?? false;
+            bool newPriceEnabled = data?['notifyOnNewPrice'] ?? false;
 
             return StatefulBuilder(
               builder: (ctx, setSheetState) {
@@ -390,11 +392,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         onPressed: () async {
                           try {
                             if (!priceDropEnabled && !newPriceEnabled) {
-                              await watchlistRef.delete();
+                              await followedRef.delete();
                             } else {
-                              await watchlistRef.set({
-                                'priceDropEnabled': priceDropEnabled,
-                                'newPriceEnabled': newPriceEnabled,
+                              await followedRef.set({
+                                'notifyOnPriceDrop': priceDropEnabled,
+                                'notifyOnNewPrice': newPriceEnabled,
                                 'createdAt': FieldValue.serverTimestamp(),
                               });
                             }
@@ -519,7 +521,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               },
                             ),
                             const SizedBox(width: 8),
-                            _buildHeroAction(icon: Icons.share, onTap: () {}),
+                            _buildHeroAction(
+                              icon: Icons.share,
+                              onTap: () => _shareProduct(product),
+                            ),
                             const SizedBox(width: 8),
                             _buildHeroAction(
                               icon: Icons.notifications_active_outlined,
@@ -577,6 +582,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         branchStore: branchStore,
                         showNearbyGlow: isNearbyStore,
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildFollowSection(),
                       const SizedBox(height: AppSpacing.sm),
 
                       // Legal disclaimer
@@ -1638,6 +1645,73 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+  Widget _buildFollowSection() {
+    final user = ref.watch(authStateProvider).valueOrNull;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: ref.watch(firestoreServiceProvider).followedProductStream(
+            userId: user.uid,
+            productId: widget.productId,
+          ),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final notifyOnNewPrice = data?['notifyOnNewPrice'] == true;
+        final notifyOnPriceDrop = data?['notifyOnPriceDrop'] == true;
+
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.outline),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Fiyat Haberi Al',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Yeni fiyat eklenince'),
+                value: notifyOnNewPrice,
+                onChanged: (value) async {
+                  await ref.read(firestoreServiceProvider).setFollowedProduct(
+                        userId: user.uid,
+                        productId: widget.productId,
+                        notifyOnNewPrice: value,
+                        notifyOnPriceDrop: notifyOnPriceDrop,
+                      );
+                },
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Fiyat düşünce'),
+                value: notifyOnPriceDrop,
+                onChanged: (value) async {
+                  await ref.read(firestoreServiceProvider).setFollowedProduct(
+                        userId: user.uid,
+                        productId: widget.productId,
+                        notifyOnNewPrice: notifyOnNewPrice,
+                        notifyOnPriceDrop: value,
+                      );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _shareProduct(ProductModel product) {
+    final last = formatTRY(product.lastPrice ?? 0);
+    final lowest = formatTRY(product.minPrice ?? product.lastPrice ?? 0);
+    Share.share('${product.name} • Son: $last • En ucuz: $lowest');
+  }
+
   // ---- Helpers ----
 
   String _formatTimeAgo(DateTime dateTime) {
@@ -1653,32 +1727,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     } else {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
-  }
-
-  String formatTRY(num value) {
-    final fixed = value.toStringAsFixed(2);
-    final parts = fixed.split('.');
-    final intPart = int.parse(parts[0]);
-    final decimal = parts[1];
-
-    final groupedInt = _groupThousands(intPart);
-    if (decimal == '00') {
-      return '$groupedInt₺';
-    }
-
-    return '$groupedInt,$decimal₺';
-  }
-
-  String _groupThousands(int value) {
-    final digits = value.toString();
-    final buffer = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) {
-        buffer.write('.');
-      }
-      buffer.write(digits[i]);
-    }
-    return buffer.toString();
   }
 
   String _formatPrice(double price) => formatTRY(price);

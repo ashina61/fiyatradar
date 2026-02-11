@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
-import '../../features/basket/basket_screen.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/notification_model.dart';
+import '../product/product_detail_screen.dart';
 
 /// Filter categories for notification types.
 enum _NotificationFilter {
   all('Tumu'),
   priceDrop('Fiyat Dususu'),
   newPrice('Yeni Fiyat'),
-  achievement('Basarim'),
   system('Sistem');
 
   final String label;
@@ -27,19 +26,16 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
-    with TickerProviderStateMixin {
+ {
   _NotificationFilter _selectedFilter = _NotificationFilter.all;
-  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -50,12 +46,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     return notifications.where((n) {
       switch (_selectedFilter) {
         case _NotificationFilter.priceDrop:
-          return n.type == NotificationType.priceDropped;
+          return n.type == NotificationType.priceDrop;
         case _NotificationFilter.newPrice:
-          return n.type == NotificationType.priceVerified ||
-              n.type == NotificationType.priceApproved;
-        case _NotificationFilter.achievement:
-          return n.type == NotificationType.newBadge;
+          return n.type == NotificationType.newPrice;
         case _NotificationFilter.system:
           return n.type == NotificationType.system;
         default:
@@ -99,6 +92,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
 
   void _onNotificationTap(NotificationModel notification) {
     _markAsRead(notification.id);
+    if (notification.productId != null && notification.productId!.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(productId: notification.productId!),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -117,13 +120,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bildirimler'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Bildirimler'),
-            Tab(text: 'Fiyat Sepeti'),
-          ],
-        ),
         actions: [
           notificationsAsync.when(
             data: (notifications) {
@@ -144,27 +140,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          Column(
-            children: [
-              _buildFilterBar(theme),
-              Expanded(
-                child: notificationsAsync.when(
-                  data: (notifications) {
-                    final filtered = _filterNotifications(notifications);
-                    return filtered.isEmpty
-                        ? _buildEmptyState(theme)
-                        : _buildNotificationList(filtered, theme);
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => _buildEmptyState(theme),
-                ),
-              ),
-            ],
+          _buildFilterBar(theme),
+          Expanded(
+            child: notificationsAsync.when(
+              data: (notifications) {
+                final filtered = _filterNotifications(notifications);
+                return filtered.isEmpty
+                    ? _buildEmptyState(theme)
+                    : _buildNotificationList(filtered, theme);
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => _buildEmptyState(theme),
+            ),
           ),
-          const BasketScreen(),
         ],
       ),
     );
@@ -489,17 +479,10 @@ class _NotificationCard extends StatelessWidget {
 
   _IconConfig _iconConfigForType(NotificationType type) {
     switch (type) {
-      case NotificationType.priceDropped:
+      case NotificationType.priceDrop:
         return const _IconConfig(Icons.trending_down, AppColors.success);
-      case NotificationType.priceVerified:
-      case NotificationType.priceApproved:
+      case NotificationType.newPrice:
         return const _IconConfig(Icons.new_releases, AppColors.info);
-      case NotificationType.newBadge:
-        return const _IconConfig(Icons.emoji_events, Color(0xFFF59E0B));
-      case NotificationType.priceRejected:
-        return const _IconConfig(Icons.thumb_down_alt, AppColors.error);
-      case NotificationType.newComment:
-        return const _IconConfig(Icons.chat_bubble_outline, AppColors.primary);
       case NotificationType.system:
         return const _IconConfig(Icons.info_outline, AppColors.textTertiary);
     }
@@ -612,17 +595,10 @@ class _NotificationDetailSheet extends StatelessWidget {
 
   _IconConfig _iconConfigForType(NotificationType type) {
     switch (type) {
-      case NotificationType.priceDropped:
+      case NotificationType.priceDrop:
         return const _IconConfig(Icons.trending_down, AppColors.success);
-      case NotificationType.priceVerified:
-      case NotificationType.priceApproved:
+      case NotificationType.newPrice:
         return const _IconConfig(Icons.new_releases, AppColors.info);
-      case NotificationType.newBadge:
-        return const _IconConfig(Icons.emoji_events, Color(0xFFF59E0B));
-      case NotificationType.priceRejected:
-        return const _IconConfig(Icons.thumb_down_alt, AppColors.error);
-      case NotificationType.newComment:
-        return const _IconConfig(Icons.chat_bubble_outline, AppColors.primary);
       case NotificationType.system:
         return const _IconConfig(Icons.info_outline, AppColors.textTertiary);
     }

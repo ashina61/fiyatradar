@@ -18,13 +18,16 @@ class FirestoreService {
   CollectionReference get _productsRef => _firestore.collection('products');
   CollectionReference get _pricesRef => _firestore.collection('priceReports');
   CollectionReference get _commentsRef => _firestore.collection('comments');
-  CollectionReference get _notificationsRef => _firestore.collection('notifications');
+  CollectionReference get _notificationsRef =>
+      _firestore.collection('inAppNotifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
   CollectionReference get _usersRef => _firestore.collection('users');
   CollectionReference get _brandsRef => _firestore.collection('brands');
   CollectionReference get _storesRef => _firestore.collection('stores');
   CollectionReference get _storeSuggestionsRef =>
       _firestore.collection('storeSuggestions');
+  CollectionReference get _productSuggestionsRef =>
+      _firestore.collection('productSuggestions');
   DocumentReference get _maintenanceRef =>
       _firestore.collection('app_config').doc('maintenance');
 
@@ -437,6 +440,10 @@ class FirestoreService {
   }
 
   Future<String> addPriceReport(PriceModel price) async {
+    final productDoc = await _productsRef.doc(price.productId).get();
+    final productData = productDoc.data() as Map<String, dynamic>?;
+    final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
+
     final doc = await _pricesRef.add(price.toFirestore());
 
     // Update product's price entry count
@@ -447,7 +454,183 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
+    await _createFollowerNotifications(
+      productId: price.productId,
+      priceReporterId: price.userId,
+      productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
+      oldPrice: oldPrice,
+      newPrice: price.price,
+      storeName: price.storeName,
+    );
+
     return doc.id;
+  }
+
+  Future<void> _createFollowerNotifications({
+    required String productId,
+    required String priceReporterId,
+    required String productName,
+    required double? oldPrice,
+    required double newPrice,
+    String? storeName,
+  }) async {
+    final followersSnapshot = await _usersRef.get();
+    final isDrop = oldPrice != null && newPrice < oldPrice;
+    final percentChange =
+        oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;
+
+    final batch = _firestore.batch();
+    for (final userDoc in followersSnapshot.docs) {
+      final uid = userDoc.id;
+      if (uid == priceReporterId) continue;
+
+      final followDoc = await _usersRef
+          .doc(uid)
+          .collection('followedProducts')
+          .doc(productId)
+          .get();
+      if (!followDoc.exists) continue;
+      final followData = followDoc.data() as Map<String, dynamic>? ?? {};
+      final notifyOnNewPrice = followData['notifyOnNewPrice'] == true;
+      final notifyOnPriceDrop = followData['notifyOnPriceDrop'] == true;
+
+      if (notifyOnNewPrice) {
+        final ref = _notificationsRef.doc();
+        batch.set(ref, {
+          'id': ref.id,
+          'userId': uid,
+          'type': 'new_price',
+          'productId': productId,
+          'title': '$productName icin yeni fiyat',
+          'body': storeName == null || storeName.isEmpty
+              ? 'Yeni fiyat girildi: ${newPrice.toStringAsFixed(2)}₺'
+              : '$storeName magazasinda yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',
+          'createdAt': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'meta': {
+            'oldPrice': oldPrice,
+            'newPrice': newPrice,
+            'storeName': storeName,
+            'percentChange': percentChange,
+          },
+        });
+      }
+
+      if (isDrop && notifyOnPriceDrop) {
+        final ref = _notificationsRef.doc();
+        batch.set(ref, {
+          'id': ref.id,
+          'userId': uid,
+          'type': 'price_drop',
+          'productId': productId,
+          'title': '$productName fiyat dustu',
+          'body': '${oldPrice!.toStringAsFixed(2)}₺ → ${newPrice.toStringAsFixed(2)}₺',
+          'createdAt': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'meta': {
+            'oldPrice': oldPrice,
+            'newPrice': newPrice,
+            'storeName': storeName,
+            'percentChange': percentChange,
+          },
+        });
+      }
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> setFollowedProduct({
+    required String userId,
+    required String productId,
+    required bool notifyOnNewPrice,
+    required bool notifyOnPriceDrop,
+  }) async {
+    final docRef = _usersRef.doc(userId).collection('followedProducts').doc(productId);
+    if (!notifyOnNewPrice && !notifyOnPriceDrop) {
+      await docRef.delete();
+      return;
+    }
+
+    await docRef.set({
+      'notifyOnNewPrice': notifyOnNewPrice,
+      'notifyOnPriceDrop': notifyOnPriceDrop,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> followedProductStream({
+    required String userId,
+    required String productId,
+  }) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('followedProducts')
+        .doc(productId)
+        .snapshots();
+  }
+
+  Future<String> addProductSuggestion({
+    required String name,
+    String? barcode,
+    String? category,
+    String? photoUrl,
+    required String userId,
+  }) async {
+    final doc = await _productSuggestionsRef.add({
+      'name': name,
+      'barcode': barcode,
+      'category': category,
+      'photoUrl': photoUrl,
+      'userId': userId,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  Stream<QuerySnapshot> getPendingProductSuggestions() {
+    return _productSuggestionsRef
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  Future<void> approveProductSuggestion(String suggestionId) async {
+    final suggestionDoc = await _productSuggestionsRef.doc(suggestionId).get();
+    if (!suggestionDoc.exists) return;
+    final data = suggestionDoc.data() as Map<String, dynamic>? ?? {};
+    final name = (data['name'] ?? '').toString().trim();
+    if (name.isEmpty) return;
+
+    final category = (data['category'] ?? '').toString();
+    final productRef = await _productsRef.add({
+      'name': name,
+      'brand': '',
+      'category': category,
+      'categories': category.isEmpty ? <String>[] : <String>[category],
+      'barcode': data['barcode'],
+      'imageUrl': data['photoUrl'],
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'priceEntryCount': 0,
+      'viewCount': 0,
+      'isActive': true,
+    });
+
+    await _productSuggestionsRef.doc(suggestionId).update({
+      'status': 'approved',
+      'resolvedProductId': productRef.id,
+      'resolvedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> rejectProductSuggestion(String suggestionId) async {
+    await _productSuggestionsRef.doc(suggestionId).update({
+      'status': 'rejected',
+      'resolvedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   double _distanceInMeters(
@@ -651,12 +834,12 @@ class FirestoreService {
   Stream<List<NotificationModel>> getNotifications(String userId) {
     return _notificationsRef
         .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
               .map((doc) => NotificationModel.fromFirestore(doc))
               .toList();
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
   }
