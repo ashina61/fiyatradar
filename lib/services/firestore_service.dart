@@ -375,6 +375,31 @@ class FirestoreService {
     return null;
   }
 
+
+  Future<List<ProductModel>> getProductsByIds(List<String> productIds) async {
+    if (productIds.isEmpty) return const [];
+
+    final uniqueIds = productIds.toSet().toList();
+    final futures = uniqueIds.map((id) => _productsRef.doc(id).get());
+    final docs = await Future.wait(futures);
+    final productMap = <String, ProductModel>{};
+    for (final doc in docs) {
+      if (!doc.exists) continue;
+      final model = ProductModel.fromFirestore(doc);
+      productMap[model.id] = model;
+    }
+
+    return uniqueIds.where(productMap.containsKey).map((id) => productMap[id]!).toList();
+  }
+
+  Future<List<String>> getCampaignProductIdsForBanner(String bannerId) async {
+    final sub = await _bannersRef.doc(bannerId).collection('campaignProducts').get();
+    return sub.docs
+        .map((doc) => (doc.data()['productId'] ?? doc.id).toString())
+        .where((id) => id.trim().isNotEmpty)
+        .toList();
+  }
+
   Future<void> incrementViewCount(String productId) async {
     await _productsRef.doc(productId).update({
       'viewCount': FieldValue.increment(1),

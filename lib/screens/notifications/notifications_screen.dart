@@ -5,6 +5,7 @@ import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/notification_model.dart';
 import '../product/product_detail_screen.dart';
+import '../../features/basket/basket_screen.dart';
 
 /// Filter categories for notification types.
 enum _NotificationFilter {
@@ -117,49 +118,61 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     final theme = Theme.of(context);
     final notificationsAsync = ref.watch(notificationsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bildirimler'),
-        actions: [
-          notificationsAsync.when(
-            data: (notifications) {
-              final hasUnread = notifications.any((n) => !n.isRead);
-              if (hasUnread) {
-                return TextButton(
-                  onPressed: _markAllAsRead,
-                  child: const Text(
-                    'Tumunu Okundu Isaretle',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bildirimler'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Bildirimler'),
+              Tab(text: 'Fiyat Sepeti'),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildFilterBar(theme),
-          Expanded(
-            child: notificationsAsync.when(
+          actions: [
+            notificationsAsync.when(
               data: (notifications) {
-                final filtered = _filterNotifications(notifications);
-                return filtered.isEmpty
-                    ? _buildEmptyState(theme)
-                    : _buildNotificationList(filtered, theme);
+                final hasUnread = notifications.any((n) => !n.isRead);
+                if (hasUnread) {
+                  return TextButton(
+                    onPressed: _markAllAsRead,
+                    child: const Text(
+                      'Tumunu Okundu Isaretle',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => _buildEmptyState(theme),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
             ),
-          ),
-        ],
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            Column(
+              children: [
+                _buildFilterBar(theme),
+                Expanded(
+                  child: notificationsAsync.when(
+                    data: (notifications) {
+                      final filtered = _filterNotifications(notifications);
+                      return filtered.isEmpty
+                          ? _buildEmptyState(theme)
+                          : _buildNotificationList(filtered, theme);
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => _buildEmptyState(theme),
+                  ),
+                ),
+              ],
+            ),
+            const BasketScreen(),
+          ],
+        ),
       ),
     );
-  }
-
   Widget _buildFilterBar(ThemeData theme) {
     return Container(
       width: double.infinity,
