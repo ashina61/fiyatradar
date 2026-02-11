@@ -31,6 +31,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   StoreModel? _selectedStore;
   String? _selectedCategory;
   ProductModel? _selectedProduct;
+  List<ProductModel> _productSuggestions = const [];
+  bool _showProductSuggestions = false;
   bool _isSubmitting = false;
   Position? _userPosition;
   bool _isResolvingUserPosition = false;
@@ -92,6 +94,66 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     _productController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+
+  void _selectProduct(ProductModel product) {
+    setState(() {
+      _selectedProduct = product;
+      _productController.text = product.name;
+      _selectedCategory = product.categories.isNotEmpty ? product.categories.first : null;
+      _showProductSuggestions = false;
+      _productSuggestions = const [];
+    });
+  }
+
+  void _updateProductSuggestions(List<ProductModel> allProducts, String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.length < 2) {
+      setState(() {
+        _showProductSuggestions = false;
+        _productSuggestions = const [];
+      });
+      return;
+    }
+
+    final suggestions = allProducts.where((product) {
+      return product.name.toLowerCase().contains(query) ||
+          product.brand.toLowerCase().contains(query) ||
+          (product.barcode?.toLowerCase().contains(query) ?? false);
+    }).take(8).toList();
+
+    setState(() {
+      _showProductSuggestions = suggestions.isNotEmpty;
+      _productSuggestions = suggestions;
+    });
+  }
+
+  void _matchScannedBarcode(String code, List<ProductModel> allProducts) {
+    final normalized = code.trim().toLowerCase();
+    final match = allProducts.where((p) {
+      return (p.barcode?.trim().toLowerCase() ?? '') == normalized;
+    }).firstOrNull;
+
+    if (match != null) {
+      _selectProduct(match);
+      return;
+    }
+
+    setState(() {
+      _selectedProduct = null;
+      _productController.text = code;
+      _showProductSuggestions = false;
+      _productSuggestions = const [];
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Barkodla eslesen urun bulunamadi. Listeden secim yapabilirsiniz.'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+      ),
+    );
   }
 
   void _showProductPicker() {
@@ -183,11 +245,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                         )
                                       : null,
                                   onTap: () {
-                                    setState(() {
-                                      _selectedProduct = product;
-                                      _productController.text = product.name;
-                                      _selectedCategory = product.category;
-                                    });
+                                    _selectProduct(product);
                                     Navigator.pop(context);
                                   },
                                 );
@@ -738,7 +796,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Lutfen bir urun secin'),
+          content: const Text('Lutfen bir urun secin. Listeden sec veya oneriden dokun.'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -870,6 +928,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final productsAsync = ref.watch(allProductsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -955,7 +1014,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             title: 'Barkod Tara',
                           );
                           if (!mounted || code == null) return;
-                          _productController.text = code;
+                          productsAsync.whenData((products) {
+                            _matchScannedBarcode(code, products);
+                          });
                         },
                       ),
                       IconButton(
@@ -965,6 +1026,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ],
                   ),
                 ),
+                onChanged: (value) {
+                  productsAsync.whenData((products) {
+                    _updateProductSuggestions(products, value);
+                  });
+                  if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
+                    setState(() => _selectedProduct = null);
+                  }
+                },
                 textInputAction: TextInputAction.next,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -973,6 +1042,34 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   return null;
                 },
               ),
+              if (_showProductSuggestions)
+                Container(
+                  margin: const EdgeInsets.only(top: AppSpacing.xs),
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.outline),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _productSuggestions.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final product = _productSuggestions[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(product.name),
+                        subtitle: Text(
+                          [product.brand, if (product.barcode != null) product.barcode!]
+                              .where((item) => item.trim().isNotEmpty)
+                              .join(' • '),
+                        ),
+                        onTap: () => _selectProduct(product),
+                      );
+                    },
+                  ),
+                ),
               if (_selectedProduct != null)
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.sm),
@@ -984,6 +1081,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       setState(() {
                         _selectedProduct = null;
                         _productController.clear();
+                        _showProductSuggestions = false;
+                        _productSuggestions = const [];
                       });
                     },
                   ),

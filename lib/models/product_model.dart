@@ -4,7 +4,7 @@ class ProductModel {
   final String id;
   final String name;
   final String brand;
-  final String category;
+  final List<String> categories;
   final String? mainImage;
   final List<String> imageUrls;
   final String? description;
@@ -20,7 +20,7 @@ class ProductModel {
     required this.id,
     required this.name,
     required this.brand,
-    required this.category,
+    this.categories = const [],
     this.mainImage,
     this.imageUrls = const [],
     this.description,
@@ -35,13 +35,17 @@ class ProductModel {
 
   bool get isTrending => priceEntryCount >= 10 || viewCount >= 100;
 
+  String get category => categories.isNotEmpty ? categories.first : '';
+
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final parsedCategories = _parseCategories(data);
+
     return ProductModel(
       id: doc.id,
       name: data['name'] ?? '',
       brand: data['brand'] ?? '',
-      category: data['category'] ?? '',
+      categories: parsedCategories,
       mainImage: data['mainImage'],
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
       description: data['description'],
@@ -59,6 +63,7 @@ class ProductModel {
     return {
       'name': name,
       'brand': brand,
+      'categories': categories,
       'category': category,
       'mainImage': mainImage,
       'imageUrls': imageUrls,
@@ -77,7 +82,7 @@ class ProductModel {
     String? id,
     String? name,
     String? brand,
-    String? category,
+    List<String>? categories,
     String? mainImage,
     List<String>? imageUrls,
     String? description,
@@ -93,7 +98,7 @@ class ProductModel {
       id: id ?? this.id,
       name: name ?? this.name,
       brand: brand ?? this.brand,
-      category: category ?? this.category,
+      categories: categories ?? this.categories,
       mainImage: mainImage ?? this.mainImage,
       imageUrls: imageUrls ?? this.imageUrls,
       description: description ?? this.description,
@@ -105,5 +110,22 @@ class ProductModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  static List<String> _parseCategories(Map<String, dynamic> data) {
+    final rawCategories = data['categories'];
+    if (rawCategories is List) {
+      final parsed = rawCategories
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+      if (parsed.isNotEmpty) return parsed;
+    }
+
+    final legacyCategory = data['category']?.toString().trim() ?? '';
+    if (legacyCategory.isNotEmpty) {
+      return [legacyCategory];
+    }
+    return const [];
   }
 }

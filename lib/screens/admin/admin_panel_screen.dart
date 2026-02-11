@@ -268,7 +268,7 @@ class _ProductManagementTab extends ConsumerWidget {
     final brandController = TextEditingController();
     final barcodeController = TextEditingController();
     final descriptionController = TextEditingController();
-    String? selectedCategory;
+    final Set<String> selectedCategories = <String>{};
     final List<File> selectedImages = [];
     final picker = ImagePicker();
     bool isUploading = false;
@@ -331,10 +331,10 @@ class _ProductManagementTab extends ConsumerWidget {
             debugPrint('ProductAdd pressed');
             if (isUploading) return;
 
-            if (nameController.text.trim().isEmpty || selectedCategory == null) {
+            if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Urun adi ve kategori zorunludur'),
+                  content: Text('Urun adi ve en az bir kategori zorunludur'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -352,7 +352,7 @@ class _ProductManagementTab extends ConsumerWidget {
                 id: '',
                 name: nameController.text.trim(),
                 brand: brandController.text.trim().isEmpty ? 'Genel' : brandController.text.trim(),
-                category: selectedCategory!,
+                categories: selectedCategories.toList(),
                 barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
                 description: descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                 imageUrls: openFoodFactsImageUrl != null ? [openFoodFactsImageUrl!] : const [],
@@ -387,7 +387,7 @@ class _ProductManagementTab extends ConsumerWidget {
               barcodeController.clear();
               descriptionController.clear();
               selectedImages.clear();
-              selectedCategory = null;
+              selectedCategories.clear();
               barcodeDebounce?.cancel();
 
               if (ctx.mounted) {
@@ -477,11 +477,35 @@ class _ProductManagementTab extends ConsumerWidget {
                 decoration: const InputDecoration(labelText: 'Marka', prefixIcon: Icon(Icons.branding_watermark)),
               ),
               const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<String>(
-                value: selectedCategory,
-                decoration: const InputDecoration(labelText: 'Kategori', prefixIcon: Icon(Icons.category_outlined)),
-                items: categories.map((c) => DropdownMenuItem(value: c['name'] as String, child: Text(c['name'] as String))).toList(),
-                onChanged: (val) => setDialogState(() => selectedCategory = val),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Kategoriler',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: categories
+                    .map((c) => c['name'] as String)
+                    .map(
+                      (name) => FilterChip(
+                        label: Text(name),
+                        selected: selectedCategories.contains(name),
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            if (selected) {
+                              selectedCategories.add(name);
+                            } else {
+                              selectedCategories.remove(name);
+                            }
+                          });
+                        },
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: AppSpacing.md),
               Align(
@@ -645,7 +669,7 @@ class _ProductManagementTab extends ConsumerWidget {
     final brandController = TextEditingController(text: product.brand);
     final barcodeController = TextEditingController(text: product.barcode ?? '');
     final descriptionController = TextEditingController(text: product.description ?? '');
-    String? selectedCategory = product.category.isEmpty ? null : product.category;
+    final Set<String> selectedCategories = {...product.categories};
     bool isSaving = false;
 
     showDialog(
@@ -666,13 +690,32 @@ class _ProductManagementTab extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.md),
                 TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Marka')),
                 const SizedBox(height: AppSpacing.md),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(labelText: 'Kategori'),
-                  items: categories
-                      .map((c) => DropdownMenuItem(value: c['name'] as String, child: Text(c['name'] as String)))
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Kategoriler', style: Theme.of(context).textTheme.titleSmall),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: categories
+                      .map((c) => c['name'] as String)
+                      .map(
+                        (name) => FilterChip(
+                          label: Text(name),
+                          selected: selectedCategories.contains(name),
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              if (selected) {
+                                selectedCategories.add(name);
+                              } else {
+                                selectedCategories.remove(name);
+                              }
+                            });
+                          },
+                        ),
+                      )
                       .toList(),
-                  onChanged: (val) => setDialogState(() => selectedCategory = val),
                 ),
               ],
             ),
@@ -687,7 +730,7 @@ class _ProductManagementTab extends ConsumerWidget {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun ID bulunamadi')));
                         return;
                       }
-                      if (nameController.text.trim().isEmpty || selectedCategory == null) {
+                      if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun adi ve kategori zorunludur')));
                         return;
                       }
@@ -699,7 +742,8 @@ class _ProductManagementTab extends ConsumerWidget {
                           'brand': brandController.text.trim().isEmpty ? 'Genel' : brandController.text.trim(),
                           'barcode': barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
                           'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
-                          'category': selectedCategory,
+                          'categories': selectedCategories.toList(),
+                          'category': selectedCategories.first,
                           'updatedAt': DateTime.now(),
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -788,7 +832,7 @@ class _ProductManagementTab extends ConsumerWidget {
                         Text(product.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 4),
                         Row(children: [
-                          _InfoChip(icon: Icons.category_outlined, label: product.category),
+                          _InfoChip(icon: Icons.category_outlined, label: product.categories.join(', ')),
                           const SizedBox(width: AppSpacing.xs),
                           if (product.lastStore != null) _InfoChip(icon: Icons.store_outlined, label: product.lastStore!),
                         ]),
@@ -1051,6 +1095,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
     String? selectedBrandId = store?.brandId;
     double? selectedLat = (store != null && store.lat != 0) ? store.lat : null;
     double? selectedLng = (store != null && store.lng != 0) ? store.lng : null;
+    StoreType selectedType = store?.type ?? StoreType.local;
 
     final brands = ref.read(allBrandsProvider).valueOrNull ?? [];
 
@@ -1058,8 +1103,9 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final canSave =
-              nameController.text.trim().isNotEmpty && selectedLat != null && selectedLng != null;
+          final hasName = nameController.text.trim().isNotEmpty;
+          final hasLocation = selectedType == StoreType.online || (selectedLat != null && selectedLng != null);
+          final canSave = hasName && hasLocation;
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -1078,13 +1124,34 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                     onChanged: (val) => setDialogState(() => selectedBrandId = val),
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Yerel Sube'),
+                          selected: selectedType == StoreType.local,
+                          onSelected: (_) => setDialogState(() => selectedType = StoreType.local),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Online Magaza'),
+                          selected: selectedType == StoreType.online,
+                          onSelected: (_) => setDialogState(() => selectedType = StoreType.online),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(labelText: 'Goruntuleme Adi', prefixIcon: Icon(Icons.store_outlined)),
                     onChanged: (_) => setDialogState(() {}),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  ListTile(
+                  if (selectedType == StoreType.local) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.place_outlined),
                     title: Text(selectedLat == null ? 'Konum sec (zorunlu)' : 'Konum secildi: ${selectedLat!.toStringAsFixed(5)}, ${selectedLng!.toStringAsFixed(5)}'),
@@ -1109,8 +1176,9 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                   TextField(controller: cityController, decoration: const InputDecoration(labelText: 'Il', prefixIcon: Icon(Icons.location_city))),
                   const SizedBox(height: AppSpacing.md),
                   TextField(controller: districtController, decoration: const InputDecoration(labelText: 'Ilce', prefixIcon: Icon(Icons.map_outlined))),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(controller: neighborhoodController, decoration: const InputDecoration(labelText: 'Mahalle', prefixIcon: Icon(Icons.holiday_village_outlined))),
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(controller: neighborhoodController, decoration: const InputDecoration(labelText: 'Mahalle', prefixIcon: Icon(Icons.holiday_village_outlined))),
+                  ],
                 ],
               ),
             ),
@@ -1122,12 +1190,15 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                         final payload = {
                           'brandId': selectedBrandId,
                           'displayName': nameController.text.trim(),
-                          'city': cityController.text.trim(),
-                          'district': districtController.text.trim(),
-                          'neighborhood': neighborhoodController.text.trim(),
-                          'lat': selectedLat!.toDouble(),
-                          'lng': selectedLng!.toDouble(),
+                          'name': nameController.text.trim(),
+                          'city': selectedType == StoreType.online ? '' : cityController.text.trim(),
+                          'district': selectedType == StoreType.online ? '' : districtController.text.trim(),
+                          'neighborhood': selectedType == StoreType.online ? '' : neighborhoodController.text.trim(),
+                          'lat': selectedType == StoreType.online ? 0.0 : selectedLat!.toDouble(),
+                          'lng': selectedType == StoreType.online ? 0.0 : selectedLng!.toDouble(),
                           'status': store?.status.name ?? StoreStatus.active.name,
+                          'type': selectedType.name,
+                          'isOnline': selectedType == StoreType.online,
                         };
                         if (isEdit) {
                           await ref.read(firestoreServiceProvider).updateStore(store!.id, payload);
@@ -1137,12 +1208,13 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                               id: '',
                               brandId: selectedBrandId,
                               displayName: nameController.text.trim(),
-                              city: cityController.text.trim(),
-                              district: districtController.text.trim(),
-                              neighborhood: neighborhoodController.text.trim(),
-                              lat: selectedLat!.toDouble(),
-                              lng: selectedLng!.toDouble(),
+                              city: selectedType == StoreType.online ? '' : cityController.text.trim(),
+                              district: selectedType == StoreType.online ? '' : districtController.text.trim(),
+                              neighborhood: selectedType == StoreType.online ? '' : neighborhoodController.text.trim(),
+                              lat: selectedType == StoreType.online ? 0.0 : selectedLat!.toDouble(),
+                              lng: selectedType == StoreType.online ? 0.0 : selectedLng!.toDouble(),
                               status: StoreStatus.active,
+                              type: selectedType,
                               createdAt: DateTime.now(),
                             ),
                           );
@@ -1984,7 +2056,7 @@ class _CategoryManagementTab extends ConsumerWidget {
               final cat = categories[index];
               final catName = cat['name'] ?? '';
               final color = _categoryColor(index);
-              final productCount = products.where((p) => p.category == catName).length;
+              final productCount = products.where((p) => p.categories.contains(catName)).length;
 
               return Card(
                 child: Stack(children: [

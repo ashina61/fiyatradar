@@ -15,6 +15,7 @@ class StoreModel {
   final double lng;
   final StoreStatus status;
   final StoreType type;
+  final bool? legacyIsOnline;
   final DateTime createdAt;
 
   StoreModel({
@@ -29,6 +30,7 @@ class StoreModel {
     required this.lng,
     this.status = StoreStatus.active,
     this.type = StoreType.local,
+    this.legacyIsOnline,
     required this.createdAt,
   });
 
@@ -39,7 +41,7 @@ class StoreModel {
     return StoreModel(
       id: doc.id,
       brandId: data['brandId'],
-      displayName: data['displayName'] ?? data['name'] ?? '',
+      displayName: _parseDisplayName(data),
       city: data['city'] ?? '',
       district: data['district'] ?? '',
       neighborhood: data['neighborhood'] ?? '',
@@ -48,6 +50,7 @@ class StoreModel {
       lng: (data['lng'] as num?)?.toDouble() ?? 0.0,
       status: _parseStatus(data['status']),
       type: _parseType(data['type']),
+      legacyIsOnline: data['isOnline'] as bool?,
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -57,6 +60,7 @@ class StoreModel {
     return {
       'brandId': brandId,
       'displayName': displayName,
+      'name': displayName,
       'city': city,
       'district': district,
       'neighborhood': neighborhood,
@@ -65,12 +69,14 @@ class StoreModel {
       'lng': lng,
       'status': status.name,
       'type': type.name,
+      'isOnline': type == StoreType.online,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  static StoreType _parseType(String? value) {
-    switch (value) {
+  static StoreType _parseType(dynamic value) {
+    final normalized = value?.toString();
+    switch (normalized) {
       case 'online':
         return StoreType.online;
       case 'local':
@@ -115,6 +121,7 @@ class StoreModel {
     double? lng,
     StoreStatus? status,
     StoreType? type,
+    bool? legacyIsOnline,
     DateTime? createdAt,
   }) {
     return StoreModel(
@@ -129,9 +136,16 @@ class StoreModel {
       lng: lng ?? this.lng,
       status: status ?? this.status,
       type: type ?? this.type,
+      legacyIsOnline: legacyIsOnline ?? this.legacyIsOnline,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 
-  bool get isOnline => type == StoreType.online;
+  bool get isOnline => type == StoreType.online || legacyIsOnline == true;
+
+  static String _parseDisplayName(Map<String, dynamic> data) {
+    final displayName = data['displayName']?.toString().trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+    return data['name']?.toString().trim() ?? '';
+  }
 }
