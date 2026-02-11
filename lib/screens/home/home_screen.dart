@@ -10,6 +10,8 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/price_change_badge.dart';
+import '../../utils/formatters.dart';
+import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -674,7 +676,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
-                '${price.price.toStringAsFixed(2)} TL',
+                formatTRY(price.price),
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 14),
               ),
             ),
@@ -1080,23 +1082,5 @@ class _ProductCard extends ConsumerWidget {
     }
   }
 
-  String _formatPrice(double price) {
-    if (price >= 1000) {
-      final parts = price.toStringAsFixed(2).split('.');
-      final intPart = parts[0];
-      final decPart = parts[1];
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = intPart.length - 1; i >= 0; i--) {
-        buffer.write(intPart[i]);
-        count++;
-        if (count == 3 && i > 0) {
-          buffer.write('.');
-          count = 0;
-        }
-      }
-      return 'TL${buffer.toString().split('').reversed.join()},$decPart';
-    }
-    return 'TL${price.toStringAsFixed(2).replaceAll('.', ',')}';
-  }
+  String _formatPrice(double price) => formatTRY(price);
 }

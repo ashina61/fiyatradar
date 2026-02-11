@@ -1,12 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum NotificationType {
-  priceVerified,
-  priceDropped,
-  newBadge,
-  priceApproved,
-  priceRejected,
-  newComment,
+  priceDrop,
+  newPrice,
   system,
 }
 
@@ -39,12 +35,22 @@ class NotificationModel {
 
   factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final rawType = (data['type'] ?? '').toString();
     return NotificationModel(
       id: doc.id,
       userId: data['userId'] ?? '',
       type: NotificationType.values.firstWhere(
-        (e) => e.name == data['type'],
-        orElse: () => NotificationType.system,
+        (e) => e.name == rawType,
+        orElse: () {
+          switch (rawType) {
+            case 'price_drop':
+              return NotificationType.priceDrop;
+            case 'new_price':
+              return NotificationType.newPrice;
+            default:
+              return NotificationType.system;
+          }
+        },
       ),
       title: data['title'] ?? '',
       body: data['body'] ?? '',
@@ -53,14 +59,20 @@ class NotificationModel {
       imageUrl: data['imageUrl'],
       isRead: data['isRead'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      data: data['data'] as Map<String, dynamic>?,
+      data: data['meta'] as Map<String, dynamic>? ?? data['data'] as Map<String, dynamic>?,
     );
   }
 
   Map<String, dynamic> toFirestore() {
+    final typeValue = switch (type) {
+      NotificationType.priceDrop => 'price_drop',
+      NotificationType.newPrice => 'new_price',
+      NotificationType.system => 'system',
+    };
+
     return {
       'userId': userId,
-      'type': type.name,
+      'type': typeValue,
       'title': title,
       'body': body,
       'productId': productId,
@@ -68,7 +80,7 @@ class NotificationModel {
       'imageUrl': imageUrl,
       'isRead': isRead,
       'createdAt': Timestamp.fromDate(createdAt),
-      'data': data,
+      'meta': data,
     };
   }
 
@@ -102,18 +114,10 @@ class NotificationModel {
 
   String get icon {
     switch (type) {
-      case NotificationType.priceVerified:
-        return '✅';
-      case NotificationType.priceDropped:
+      case NotificationType.priceDrop:
         return '📉';
-      case NotificationType.newBadge:
-        return '🏆';
-      case NotificationType.priceApproved:
-        return '👍';
-      case NotificationType.priceRejected:
-        return '👎';
-      case NotificationType.newComment:
-        return '💬';
+      case NotificationType.newPrice:
+        return '💸';
       case NotificationType.system:
         return '📢';
     }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +42,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
   }
 
   @override
@@ -94,6 +95,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
             Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
             Tab(text: 'Magaza Onerileri', icon: Icon(Icons.lightbulb_outline)),
+            Tab(text: 'Urun Onerileri', icon: Icon(Icons.playlist_add_check_circle_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
@@ -108,6 +110,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _ProductManagementTab(),
           _StoreHubTab(),
           _StoreSuggestionsTab(),
+          _ProductSuggestionsTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
           _ReportsManagementTab(),
@@ -3056,6 +3059,69 @@ class _StatusChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProductSuggestionsTab extends ConsumerWidget {
+  const _ProductSuggestionsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stream = ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final docs = snapshot.data!.docs;
+        if (docs.isEmpty) {
+          return const Center(child: Text('Bekleyen ürün önerisi yok.'));
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          itemCount: docs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final doc = docs[index];
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            return Card(
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(AppSpacing.md),
+                title: Text((data['name'] ?? 'İsimsiz ürün').toString()),
+                subtitle: Text(
+                  [
+                    if ((data['barcode'] ?? '').toString().isNotEmpty) 'Barkod: ${data['barcode']}',
+                    if ((data['category'] ?? '').toString().isNotEmpty) 'Kategori: ${data['category']}',
+                  ].join('\n'),
+                ),
+                trailing: Wrap(
+                  spacing: 6,
+                  children: [
+                    IconButton(
+                      tooltip: 'Reddet',
+                      onPressed: () async {
+                        await ref.read(firestoreServiceProvider).rejectProductSuggestion(doc.id);
+                      },
+                      icon: const Icon(Icons.close, color: AppColors.error),
+                    ),
+                    IconButton(
+                      tooltip: 'Onayla',
+                      onPressed: () async {
+                        await ref.read(firestoreServiceProvider).approveProductSuggestion(doc.id);
+                      },
+                      icon: const Icon(Icons.check, color: AppColors.success),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

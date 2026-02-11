@@ -58,6 +58,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final currentTab = ref.watch(currentTabProvider);
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
     final unreadCount = unreadCountAsync.valueOrNull ?? 0;
+    final unreadLabel = unreadCount > 99 ? '99+' : '$unreadCount';
 
     final screens = const [
       HomeScreen(),
@@ -137,7 +138,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
             NavigationDestination(
               icon: Badge(
                 isLabelVisible: unreadCount > 0,
-                label: Text('$unreadCount'),
+                label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
                   icon: Icons.notifications_outlined,
                   selected: currentTab == 3,
@@ -145,7 +146,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
               ),
               selectedIcon: Badge(
                 isLabelVisible: unreadCount > 0,
-                label: Text('$unreadCount'),
+                label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
                   icon: Icons.notifications,
                   selected: currentTab == 3,

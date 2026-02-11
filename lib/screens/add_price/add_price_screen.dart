@@ -1,9 +1,11 @@
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_provider.dart';
@@ -12,6 +14,7 @@ import '../../models/price_model.dart';
 import '../../models/store_model.dart';
 import '../../utils/theme.dart';
 import '../../utils/constants.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
@@ -33,6 +36,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   ProductModel? _selectedProduct;
   List<ProductModel> _productSuggestions = const [];
   bool _showProductSuggestions = false;
+  String _productQuery = '';
   bool _isSubmitting = false;
   Position? _userPosition;
   bool _isResolvingUserPosition = false;
@@ -127,6 +131,105 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _showProductSuggestions = suggestions.isNotEmpty;
       _productSuggestions = suggestions;
     });
+  }
+
+  Future<void> _showProductSuggestionDialog() async {
+    final user = ref.read(userModelStreamProvider).value;
+    if (user == null) return;
+
+    final nameController = TextEditingController(text: _productController.text.trim());
+    final barcodeController = TextEditingController();
+    final categoryController = TextEditingController(text: _selectedCategory ?? '');
+    XFile? selectedImage;
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Ürün öner'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Ürün adı *'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: barcodeController,
+                      decoration: const InputDecoration(labelText: 'Barkod (opsiyonel)'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: categoryController,
+                      decoration: const InputDecoration(labelText: 'Kategori (opsiyonel)'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+                        if (image == null) return;
+                        setDialogState(() => selectedImage = image);
+                      },
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: Text(selectedImage == null ? 'Foto ekle (opsiyonel)' : 'Foto seçildi'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) return;
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            String? photoUrl;
+                            if (selectedImage != null) {
+                              photoUrl = await ref.read(storageServiceProvider).uploadImage(
+                                    file: File(selectedImage!.path),
+                                    folder: 'product_suggestions',
+                                  );
+                            }
+
+                            await ref.read(firestoreServiceProvider).addProductSuggestion(
+                                  name: name,
+                                  barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
+                                  category: categoryController.text.trim().isEmpty ? null : categoryController.text.trim(),
+                                  photoUrl: photoUrl,
+                                  userId: user.uid,
+                                );
+
+                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Ürün önerisi gönderildi.')),
+                              );
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => isSubmitting = false);
+                            }
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Gönder'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _matchScannedBarcode(String code, List<ProductModel> allProducts) {
@@ -905,25 +1008,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     }
   }
 
-  String _formatPrice(double price) {
-    if (price >= 1000) {
-      final parts = price.toStringAsFixed(2).split('.');
-      final intPart = parts[0];
-      final decPart = parts[1];
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = intPart.length - 1; i >= 0; i--) {
-        buffer.write(intPart[i]);
-        count++;
-        if (count == 3 && i > 0) {
-          buffer.write('.');
-          count = 0;
-        }
-      }
-      return '\u20BA${buffer.toString().split('').reversed.join()},$decPart';
-    }
-    return '\u20BA${price.toStringAsFixed(2).replaceAll('.', ',')}';
-  }
+  String _formatPrice(double price) => formatTRY(price);
 
   @override
   Widget build(BuildContext context) {
@@ -1027,6 +1112,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   ),
                 ),
                 onChanged: (value) {
+                  setState(() => _productQuery = value.trim());
                   productsAsync.whenData((products) {
                     _updateProductSuggestions(products, value);
                   });
@@ -1069,6 +1155,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       );
                     },
                   ),
+                ),
+              if (_productQuery.length >= 2 && _productSuggestions.isEmpty)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  title: const Text('Bu ürün yok +', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('Ürün öner'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: _showProductSuggestionDialog,
                 ),
               if (_selectedProduct != null)
                 Padding(

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../utils/formatters.dart';
 import '../../utils/theme.dart';
 import '../../widgets/price_change_badge.dart';
 import '../product/product_detail_screen.dart';
@@ -409,7 +410,7 @@ class _ExplorePriceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '₺${_formatPrice(item.displayPrice)}',
+                    formatTRY(item.displayPrice),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleLarge?.copyWith(
@@ -461,8 +462,6 @@ class _ExplorePriceCard extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.location_on, size: 16, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             hasLocation ? locationText : 'Konum izni gerekli',
@@ -472,25 +471,17 @@ class _ExplorePriceCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: AppColors.outline),
-                          ),
-                          child: Text(
-                            hasDistance
-                                ? distanceText
-                                : _storeHasCoordinates(item)
-                                    ? '\u2014'
-                                    : 'Konum yok',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        Text(
+                          hasDistance
+                              ? distanceText
+                              : _storeHasCoordinates(item)
+                                  ? '\u2014'
+                                  : 'Konum yok',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],
@@ -581,7 +572,7 @@ class _OnlineCheapestSummaryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final summary = stores
         .take(3)
-        .map((store) => '${store.storeName} ₺${_formatPrice(store.price)}')
+        .map((store) => '${store.storeName} ${formatTRY(store.price)}')
         .join(' • ');
 
     return Container(
@@ -648,19 +639,4 @@ String _timeAgo(DateTime date) {
   if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
   if (diff.inHours < 24) return '${diff.inHours} sa önce';
   return '${diff.inDays} gün önce';
-}
-
-String _formatPrice(double price) {
-  if (price >= 1000) {
-    final parts = price.toStringAsFixed(2).split('.');
-    final intPart = parts[0];
-    final decPart = parts[1];
-    final buffer = StringBuffer();
-    for (var i = 0; i < intPart.length; i++) {
-      if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(intPart[i]);
-    }
-    return '$buffer,$decPart';
-  }
-  return price.toStringAsFixed(2).replaceAll('.', ',');
 }

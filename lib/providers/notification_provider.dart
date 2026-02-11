@@ -76,6 +76,7 @@ class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
       productName: productName,
       imageUrl: imageUrl,
       createdAt: DateTime.now(),
+      data: null,
     );
 
     await _firestoreService.addNotification(notification);
