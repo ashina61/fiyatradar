@@ -277,7 +277,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.78,
+        childAspectRatio: 0.74,
       ),
       itemBuilder: (context, index) {
         final item = state.items[index];
@@ -356,168 +356,179 @@ class _ExplorePriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final locationText = item.locationLabel.trim();
+    final hasLocation = locationText.isNotEmpty;
+    final distanceText = item.distanceLabel?.trim();
+    final hasDistance = distanceText != null && distanceText.isNotEmpty;
 
-    return Material(
+    return Card(
       color: AppColors.surface,
-      elevation: 3,
-      borderRadius: BorderRadius.circular(18),
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.outline),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.outline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildImage(),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _Badge(
-                          label: '⏱ ${_timeAgo(item.price.createdAt)}',
-                          color: Colors.black.withOpacity(0.55),
-                          textColor: Colors.white,
-                        ),
-                      ),
-                      if (item.dropPercent > 0)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: _Badge(
-                            label: '▼ %${item.dropPercent.round()}',
-                            color: AppColors.primary.withOpacity(0.9),
-                            textColor: AppColors.textOnPrimary,
-                          ),
-                        ),
-                    ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildImage(),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _Badge(
+                      label: '⏱ ${_timeAgo(item.price.createdAt)}',
+                      color: Colors.black.withOpacity(0.55),
+                      textColor: Colors.white,
+                    ),
                   ),
-                ),
+                  if (item.dropPercent > 0)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: _Badge(
+                        label: '▼ %${item.dropPercent.round()}',
+                        color: AppColors.primary.withOpacity(0.9),
+                        textColor: AppColors.textOnPrimary,
+                      ),
+                    ),
+                ],
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '₺${_formatPrice(item.displayPrice)}',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      GestureDetector(
-                        onTap: onStoreTap,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: AppColors.outline),
-                            boxShadow: mode == ExploreMode.nearby && item.isNearby
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.35),
-                                      blurRadius: 18,
-                                      spreadRadius: 1,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.storefront_rounded, size: 14, color: AppColors.textSecondary),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  item.storeName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '₺${_formatPrice(item.displayPrice)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: onStoreTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.outline),
+                        boxShadow: mode == ExploreMode.nearby && item.isNearby
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.35),
+                                  blurRadius: 18,
+                                  spreadRadius: 1,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                              ]
+                            : null,
                       ),
-                      const SizedBox(height: 6),
-                      Row(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
-                          const SizedBox(width: 4),
-                          Expanded(
+                          const Icon(Icons.storefront_rounded, size: 14, color: AppColors.textSecondary),
+                          const SizedBox(width: 6),
+                          Flexible(
                             child: Text(
-                              item.locationLabel,
+                              item.storeName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
                         ],
                       ),
-                      if (mode == ExploreMode.nearby && item.distanceLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                    ),
+                  ),
+                  if (hasLocation) ...[
+                    Divider(
+                      height: 14,
+                      thickness: 0.6,
+                      color: Colors.black.withOpacity(0.08),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Expanded(
                           child: Text(
-                            item.distanceLabel!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w700,
+                            locationText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ),
+                        if (hasDistance) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              distanceText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                      if (mode == ExploreMode.online) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'En ucuz 3',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: item.onlineCheapest3
-                                .map(
-                                  (storePrice) => Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: _OnlineStoreChip(
-                                      storePrice: storePrice,
-                                      isBest: item.onlineCheapest3.isNotEmpty && item.onlineCheapest3.first == storePrice,
-                                      onTap: storePrice.url == null ? null : () => onOnlineStoreTap(storePrice),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
+                    ),
+                  ],
+                  if (mode == ExploreMode.online) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'En ucuz 3',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: item.onlineCheapest3
+                            .map(
+                              (storePrice) => Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: _OnlineStoreChip(
+                                  storePrice: storePrice,
+                                  isBest: item.onlineCheapest3.isNotEmpty && item.onlineCheapest3.first == storePrice,
+                                  onTap: storePrice.url == null ? null : () => onOnlineStoreTap(storePrice),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
