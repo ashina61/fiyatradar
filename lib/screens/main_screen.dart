@@ -92,7 +92,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
             _navDestination(
                 'Ana Sayfa', Icons.home_outlined, Icons.home, currentTab == 0),
             _navDestination(
-                'Ara', Icons.search_outlined, Icons.search, currentTab == 1),
+                'Keşfet', Icons.search_outlined, Icons.search, currentTab == 1),
             NavigationDestination(
               icon: GestureDetector(
                 behavior: HitTestBehavior.opaque,
