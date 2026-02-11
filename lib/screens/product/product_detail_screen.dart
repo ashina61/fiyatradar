@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -9,6 +12,7 @@ import '../../providers/user_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/comment_model.dart';
 import '../../models/price_model.dart';
+import '../../services/location_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_network_image.dart';
@@ -30,6 +34,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
   bool _isSubmittingComment = false;
   bool _viewCounted = false;
+  double? _userLat;
+  double? _userLng;
 
   @override
   void initState() {
@@ -40,6 +46,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ref.read(firestoreServiceProvider).incrementViewCount(widget.productId);
       }
     });
+    _loadUserLocation();
   }
 
   @override
@@ -114,6 +121,92 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         setState(() => _isSubmittingComment = false);
       }
     }
+  }
+
+  Future<void> _loadUserLocation() async {
+    final position = await LocationService().getCurrentPosition();
+    if (!mounted) return;
+    setState(() {
+      _userLat = position?.latitude;
+      _userLng = position?.longitude;
+    });
+  }
+
+  _StoreCoordinates? _resolveStoreCoordinates(
+    ProductModel product,
+    List<PriceModel>? priceHistory,
+  ) {
+    if (product.lastStore == null || priceHistory == null || priceHistory.isEmpty) {
+      return null;
+    }
+
+    for (final price in priceHistory) {
+      if (price.storeName == product.lastStore && price.geoPoint != null) {
+        return _StoreCoordinates(
+          lat: price.geoPoint!.latitude,
+          lng: price.geoPoint!.longitude,
+        );
+      }
+    }
+
+    return null;
+  }
+
+  double _calculateHaversineMeters({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+  }) {
+    const earthRadius = 6371000.0;
+    final dLat = _degreesToRadians(endLat - startLat);
+    final dLng = _degreesToRadians(endLng - startLng);
+
+    final sinLat = math.sin(dLat / 2);
+    final sinLng = math.sin(dLng / 2);
+    final a = (sinLat * sinLat) +
+        math.cos(_degreesToRadians(startLat)) *
+            math.cos(_degreesToRadians(endLat)) *
+            (sinLng * sinLng);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degreesToRadians(double degree) => degree * (math.pi / 180);
+
+  bool _isWithinNearbyRange(_StoreCoordinates storeCoordinates) {
+    if (_userLat == null || _userLng == null) return false;
+
+    final distance = _calculateHaversineMeters(
+      startLat: _userLat!,
+      startLng: _userLng!,
+      endLat: storeCoordinates.lat,
+      endLng: storeCoordinates.lng,
+    );
+
+    return distance <= 30;
+  }
+
+  Future<void> _onStoreChipTap(_StoreCoordinates? storeCoordinates) async {
+    if (storeCoordinates == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bu mağaza için konum eklenmemiş'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final mapsUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${storeCoordinates.lat},${storeCoordinates.lng}&travelmode=driving',
+    );
+
+    await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
   }
 
   void _showAddCommentDialog(BuildContext context) {
@@ -225,6 +318,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         }
 
         final categoryColor = _colorForCategory(product.category);
+        final priceHistory = priceHistoryAsync.valueOrNull;
+        final storeCoordinates = _resolveStoreCoordinates(product, priceHistory);
+        final isNearbyStore = storeCoordinates != null && _isWithinNearbyRange(storeCoordinates);
 
         return Scaffold(
           body: CustomScrollView(
@@ -321,7 +417,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       const SizedBox(height: AppSpacing.md),
 
                       // Price card
-                      _buildPriceCard(product),
+                      _buildPriceCard(
+                        product,
+                        storeCoordinates: storeCoordinates,
+                        showNearbyGlow: isNearbyStore,
+                      ),
                       const SizedBox(height: AppSpacing.sm),
 
                       // Legal disclaimer
@@ -457,7 +557,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildPriceCard(ProductModel product) {
+  Widget _buildPriceCard(
+    ProductModel product, {
+    required _StoreCoordinates? storeCoordinates,
+    required bool showNearbyGlow,
+  }) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -511,32 +615,74 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: AppColors.outline),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.store,
-                          size: 16,
-                          color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        product.lastStore!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        onTap: () => _onStoreChipTap(storeCoordinates),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.outline),
+                            boxShadow: showNearbyGlow
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.16),
+                                      blurRadius: 8,
+                                      spreadRadius: 0.5,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Opacity(
+                            opacity: storeCoordinates != null ? 1 : 0.7,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.store, size: 16, color: AppColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  product.lastStore!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.north_east, size: 14, color: AppColors.textSecondary),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (showNearbyGlow) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+                        ),
+                        child: const Text(
+                          'Buradasın',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1276,4 +1422,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return Icons.category;
     }
   }
+}
+
+class _StoreCoordinates {
+  final double lat;
+  final double lng;
+
+  const _StoreCoordinates({required this.lat, required this.lng});
 }
