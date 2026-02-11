@@ -20,10 +20,14 @@ import '../../widgets/app_section_header.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
+  final String? highlightedCommentId;
+  final String? highlightedPriceId;
 
   const ProductDetailScreen({
     super.key,
     required this.productId,
+    this.highlightedCommentId,
+    this.highlightedPriceId,
   });
 
   @override
@@ -510,6 +514,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
+                      if (widget.highlightedPriceId != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(color: AppColors.info.withOpacity(0.4)),
+                          ),
+                          child: Text(
+                            'Raporlanan fiyat kaydı odaklandi: ${widget.highlightedPriceId}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.info),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
                       const AppSectionHeader(
                         title: 'Fiyat Gecmisi',
                         subtitle: 'Son fiyat hareketlerini takip edin',
@@ -561,7 +583,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       commentsAsync.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
                         error: (e, _) => Text('Hata: $e'),
-                        data: (comments) => _buildCommentsSection(context, comments),
+                        data: (comments) => _buildCommentsSection(
+                          context,
+                          comments,
+                          highlightedCommentId: widget.highlightedCommentId,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
                     ],
@@ -1199,7 +1225,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildCommentsSection(BuildContext context, List<CommentModel> comments) {
+  Widget _buildCommentsSection(
+    BuildContext context,
+    List<CommentModel> comments, {
+    String? highlightedCommentId,
+  }) {
     return Column(
       children: [
         if (comments.isEmpty)
@@ -1220,13 +1250,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           )
         else
-          ...comments.map((comment) => Container(
+          ...comments.map((comment) {
+            final isHighlighted = highlightedCommentId != null && comment.id == highlightedCommentId;
+            return Container(
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: isHighlighted ? AppColors.primary.withOpacity(0.06) : AppColors.surface,
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(color: AppColors.outline),
+                  border: Border.all(
+                    color: isHighlighted ? AppColors.primary : AppColors.outline,
+                    width: isHighlighted ? 1.5 : 1,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1320,7 +1355,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ],
                 ),
-              )),
+              );
+          }),
 
         // Add comment button
         const SizedBox(height: AppSpacing.sm),

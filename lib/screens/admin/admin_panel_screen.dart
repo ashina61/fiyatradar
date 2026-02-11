@@ -17,6 +17,7 @@ import '../../models/brand_model.dart';
 import '../../models/store_model.dart';
 import '../../models/store_suggestion_model.dart';
 import 'report_detail_screen.dart';
+import '../product/product_detail_screen.dart';
 import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
@@ -633,6 +634,95 @@ class _ProductManagementTab extends ConsumerWidget {
     );
   }
 
+
+  void _showEditProductDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ProductModel product,
+    List<Map<String, dynamic>> categories,
+  ) {
+    final nameController = TextEditingController(text: product.name);
+    final brandController = TextEditingController(text: product.brand);
+    final barcodeController = TextEditingController(text: product.barcode ?? '');
+    final descriptionController = TextEditingController(text: product.description ?? '');
+    String? selectedCategory = product.category.isEmpty ? null : product.category;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: const Text('Urun Duzenle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Urun Adi')),
+                const SizedBox(height: AppSpacing.md),
+                TextField(controller: descriptionController, maxLines: 2, decoration: const InputDecoration(labelText: 'Aciklama (Opsiyonel)')),
+                const SizedBox(height: AppSpacing.md),
+                TextField(controller: barcodeController, decoration: const InputDecoration(labelText: 'Barkod (Opsiyonel)')),
+                const SizedBox(height: AppSpacing.md),
+                TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Marka')),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Kategori'),
+                  items: categories
+                      .map((c) => DropdownMenuItem(value: c['name'] as String, child: Text(c['name'] as String)))
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedCategory = val),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            FilledButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (product.id.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun ID bulunamadi')));
+                        return;
+                      }
+                      if (nameController.text.trim().isEmpty || selectedCategory == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun adi ve kategori zorunludur')));
+                        return;
+                      }
+
+                      setDialogState(() => isSaving = true);
+                      try {
+                        await ref.read(firestoreServiceProvider).updateProduct(product.id, {
+                          'name': nameController.text.trim(),
+                          'brand': brandController.text.trim().isEmpty ? 'Genel' : brandController.text.trim(),
+                          'barcode': barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
+                          'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
+                          'category': selectedCategory,
+                          'updatedAt': DateTime.now(),
+                        });
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Urun basariyla guncellendi'), behavior: SnackBarBehavior.floating),
+                        );
+                        ref.invalidate(allProductsProvider);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Urun guncellenemedi: $e')));
+                      } finally {
+                        if (ctx.mounted) setDialogState(() => isSaving = false);
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(allProductsProvider);
@@ -703,7 +793,17 @@ class _ProductManagementTab extends ConsumerWidget {
                           if (product.lastStore != null) _InfoChip(icon: Icons.store_outlined, label: product.lastStore!),
                         ]),
                       ])),
-                      Icon(Icons.chevron_left, color: theme.hintColor, size: 20),
+                      IconButton(
+                        onPressed: () => _showEditProductDialog(
+                          context,
+                          ref,
+                          product,
+                          categoriesAsync.valueOrNull ?? const [],
+                        ),
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        color: theme.hintColor,
+                        tooltip: 'Duzenle',
+                      ),
                     ]),
                   ),
                 ),
@@ -2148,6 +2248,72 @@ class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
     }
   }
 
+
+  Future<void> _openReportedContent(Map<String, dynamic> report) async {
+    final targetType = (report['targetType'] as String? ?? '').toLowerCase();
+    final targetId = report['targetId'] as String? ?? '';
+    final contextId = report['contextId'] as String?;
+    final service = ref.read(firestoreServiceProvider);
+
+    try {
+      if (targetType == 'comment') {
+        final comment = await service.getCommentById(targetId);
+        final productId = contextId ?? comment?.productId;
+        if (productId != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductDetailScreen(
+                productId: productId,
+                highlightedCommentId: targetId,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (targetType == 'priceentry' || targetType == 'price') {
+        final price = await service.getPriceById(targetId);
+        final productId = contextId ?? price?.productId;
+        if (productId != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductDetailScreen(
+                productId: productId,
+                highlightedPriceId: targetId,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (targetType == 'product' && targetId.isNotEmpty && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: targetId)),
+        );
+        return;
+      }
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ReportDetailScreen(report: report)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ReportDetailScreen(report: report)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final reportsAsync = ref.watch(reportsProvider);
@@ -2208,14 +2374,7 @@ class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
             return Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReportDetailScreen(report: report),
-                    ),
-                  );
-                },
+                onTap: () => _openReportedContent(report),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
