@@ -360,6 +360,8 @@ class _ExplorePriceCard extends StatelessWidget {
     final hasLocation = locationText.isNotEmpty;
     final distanceText = item.distanceLabel?.trim();
     final hasDistance = distanceText != null && distanceText.isNotEmpty;
+    final primaryCategory = item.product.categories.isNotEmpty ? item.product.categories.first : null;
+    final extraCategoryCount = item.product.categories.length > 1 ? item.product.categories.length - 1 : 0;
 
     return Card(
       color: AppColors.surface,
@@ -408,6 +410,18 @@ class _ExplorePriceCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (primaryCategory != null && primaryCategory.trim().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        _CategoryChip(label: primaryCategory.trim()),
+                        if (extraCategoryCount > 0) ...[
+                          const SizedBox(width: 6),
+                          _CategoryChip(label: '+$extraCategoryCount'),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
                   Text(
                     item.product.name,
                     maxLines: 2,
@@ -558,6 +572,35 @@ class _ExplorePriceCard extends StatelessWidget {
         color: Colors.grey.shade200,
         child: const Center(
           child: Icon(Icons.shopping_bag_outlined, size: 42, color: AppColors.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+
+  const _CategoryChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

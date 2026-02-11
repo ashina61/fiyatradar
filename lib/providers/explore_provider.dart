@@ -11,6 +11,8 @@ import 'product_provider.dart';
 
 enum ExploreMode { nearby, online, drops }
 
+const _allCategoriesLabel = 'Tumu';
+
 class StorePrice {
   final String storeId;
   final String storeName;
@@ -143,9 +145,9 @@ class ExploreState {
         error = null,
         items = const [],
         userLocation = null,
-        selectedCategory = 'Tumu',
+        selectedCategory = _allCategoriesLabel,
         searchQuery = '',
-        categories = const ['Tumu', 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida'],
+        categories = const [_allCategoriesLabel, 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida'],
         selectedMode = ExploreMode.nearby,
         cheapestCache = const {};
 
@@ -242,7 +244,7 @@ class ExploreController extends StateNotifier<ExploreState> {
               .map((category) => (category['name'] ?? '').toString().trim())
               .where((name) => name.isNotEmpty)
               .toList();
-          final merged = <String>['Tumu', 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida', ...dynamicCategories]
+          final merged = <String>[_allCategoriesLabel, 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida', ...dynamicCategories]
               .toSet()
               .toList();
           state = state.copyWith(categories: merged);
@@ -322,7 +324,7 @@ class ExploreController extends StateNotifier<ExploreState> {
           final product = productMap[price.productId];
           if (product == null) return null;
 
-          if (state.selectedCategory != 'Tumu' && !product.categories.contains(state.selectedCategory)) {
+          if (!_matchesCategoryFilter(product.categories, state.selectedCategory)) {
             return null;
           }
 
@@ -447,6 +449,47 @@ class ExploreController extends StateNotifier<ExploreState> {
       lng,
     );
   }
+}
+
+bool _matchesCategoryFilter(List<String> productCategories, String selectedCategory) {
+  if (_isAllCategoriesSelected(selectedCategory)) {
+    return true;
+  }
+
+  if (productCategories.isEmpty) {
+    return false;
+  }
+
+  final normalizedSelected = _normalizeCategory(selectedCategory);
+  if (normalizedSelected.isEmpty) {
+    return false;
+  }
+
+  return productCategories
+      .map(_normalizeCategory)
+      .any((category) => category == normalizedSelected);
+}
+
+bool _isAllCategoriesSelected(String value) => _normalizeCategory(value) == _normalizeCategory(_allCategoriesLabel);
+
+String _normalizeCategory(String value) {
+  final lower = value.trim().toLowerCase();
+  if (lower.isEmpty) return '';
+
+  return lower
+      .replaceAll('ı', 'i')
+      .replaceAll('İ', 'i')
+      .replaceAll('ş', 's')
+      .replaceAll('Ş', 's')
+      .replaceAll('ğ', 'g')
+      .replaceAll('Ğ', 'g')
+      .replaceAll('ü', 'u')
+      .replaceAll('Ü', 'u')
+      .replaceAll('ö', 'o')
+      .replaceAll('Ö', 'o')
+      .replaceAll('ç', 'c')
+      .replaceAll('Ç', 'c')
+      .replaceAll(RegExp(r'\s+'), ' ');
 }
 
 final exploreControllerProvider =

@@ -64,7 +64,7 @@ class ProductModel {
       'name': name,
       'brand': brand,
       'categories': categories,
-      'category': category,
+      'category': categories.isNotEmpty ? categories.first : null,
       'mainImage': mainImage,
       'imageUrls': imageUrls,
       'description': description,
