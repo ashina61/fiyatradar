@@ -6,6 +6,7 @@ import '../models/price_model.dart';
 import '../models/brand_model.dart';
 import '../models/store_model.dart';
 import '../models/store_suggestion_model.dart';
+import '../models/product_suggestion_model.dart';
 import '../services/firestore_service.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
@@ -160,4 +161,11 @@ final pendingStoreSuggestionsProvider =
     StreamProvider<List<StoreSuggestionModel>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPendingStoreSuggestions();
+});
+
+
+final pendingProductSuggestionsProvider =
+    StreamProvider<List<ProductSuggestionModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
 });

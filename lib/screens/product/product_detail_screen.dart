@@ -527,11 +527,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             _buildHeroAction(
-                              icon: Icons.notifications_active_outlined,
-                              onTap: () => _showPriceAlertSheet(context),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildHeroAction(
                               icon: Icons.flag_outlined,
                               onTap: () {
                                 final latest = priceHistoryAsync.valueOrNull;
@@ -583,9 +578,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         showNearbyGlow: isNearbyStore,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      _buildFollowSection(),
-                      const SizedBox(height: AppSpacing.sm),
-
                       // Legal disclaimer
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2),

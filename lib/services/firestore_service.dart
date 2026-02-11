@@ -10,6 +10,7 @@ import '../utils/constants.dart';
 import '../models/banner_model.dart';
 import '../models/user_model.dart';
 import '../models/store_suggestion_model.dart';
+import '../models/product_suggestion_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -454,7 +455,7 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    await _createFollowerNotifications(
+    final notificationCount = await _createFollowerNotifications(
       productId: price.productId,
       priceReporterId: price.userId,
       productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
@@ -463,10 +464,13 @@ class FirestoreService {
       storeName: price.storeName,
     );
 
+    // ignore: avoid_print
+    print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
+
     return doc.id;
   }
 
-  Future<void> _createFollowerNotifications({
+  Future<int> _createFollowerNotifications({
     required String productId,
     required String priceReporterId,
     required String productName,
@@ -474,23 +478,24 @@ class FirestoreService {
     required double newPrice,
     String? storeName,
   }) async {
-    final followersSnapshot = await _usersRef.get();
     final isDrop = oldPrice != null && newPrice < oldPrice;
     final percentChange =
         oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;
 
-    final batch = _firestore.batch();
-    for (final userDoc in followersSnapshot.docs) {
-      final uid = userDoc.id;
-      if (uid == priceReporterId) continue;
+    final followedSnapshot = await _firestore
+        .collectionGroup('followedProducts')
+        .where(FieldPath.documentId, isEqualTo: productId)
+        .get();
 
-      final followDoc = await _usersRef
-          .doc(uid)
-          .collection('followedProducts')
-          .doc(productId)
-          .get();
-      if (!followDoc.exists) continue;
-      final followData = followDoc.data() as Map<String, dynamic>? ?? {};
+    final batch = _firestore.batch();
+    var notificationCount = 0;
+
+    for (final followDoc in followedSnapshot.docs) {
+      final userRef = followDoc.reference.parent.parent;
+      final uid = userRef?.id;
+      if (uid == null || uid.isEmpty || uid == priceReporterId) continue;
+
+      final followData = followDoc.data();
       final notifyOnNewPrice = followData['notifyOnNewPrice'] == true;
       final notifyOnPriceDrop = followData['notifyOnPriceDrop'] == true;
 
@@ -514,6 +519,7 @@ class FirestoreService {
             'percentChange': percentChange,
           },
         });
+        notificationCount += 1;
       }
 
       if (isDrop && notifyOnPriceDrop) {
@@ -534,10 +540,15 @@ class FirestoreService {
             'percentChange': percentChange,
           },
         });
+        notificationCount += 1;
       }
     }
 
-    await batch.commit();
+    if (notificationCount > 0) {
+      await batch.commit();
+    }
+
+    return notificationCount;
   }
 
   Future<void> setFollowedProduct({
@@ -575,6 +586,7 @@ class FirestoreService {
     required String name,
     String? barcode,
     String? category,
+    String? brand,
     String? photoUrl,
     required String userId,
   }) async {
@@ -582,7 +594,9 @@ class FirestoreService {
       'name': name,
       'barcode': barcode,
       'category': category,
+      'brand': brand,
       'photoUrl': photoUrl,
+      'imageUrl': photoUrl,
       'userId': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
@@ -590,11 +604,17 @@ class FirestoreService {
     return doc.id;
   }
 
-  Stream<QuerySnapshot> getPendingProductSuggestions() {
+  Stream<List<ProductSuggestionModel>> getPendingProductSuggestions() {
     return _productSuggestionsRef
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => ProductSuggestionModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<void> approveProductSuggestion(String suggestionId) async {
@@ -605,13 +625,15 @@ class FirestoreService {
     if (name.isEmpty) return;
 
     final category = (data['category'] ?? '').toString();
+    final brand = (data['brand'] ?? '').toString();
+    final imageUrl = ((data['imageUrl'] ?? data['photoUrl']) ?? '').toString();
     final productRef = await _productsRef.add({
       'name': name,
-      'brand': '',
+      'brand': brand,
       'category': category,
       'categories': category.isEmpty ? <String>[] : <String>[category],
       'barcode': data['barcode'],
-      'imageUrl': data['photoUrl'],
+      'imageUrl': imageUrl.isEmpty ? null : imageUrl,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'priceEntryCount': 0,
@@ -834,12 +856,12 @@ class FirestoreService {
   Stream<List<NotificationModel>> getNotifications(String userId) {
     return _notificationsRef
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
               .map((doc) => NotificationModel.fromFirestore(doc))
               .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
   }
