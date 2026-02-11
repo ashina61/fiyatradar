@@ -42,7 +42,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -94,8 +94,6 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           tabs: const [
             Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
             Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
-            Tab(text: 'Magaza Onerileri', icon: Icon(Icons.lightbulb_outline)),
-            Tab(text: 'Urun Onerileri', icon: Icon(Icons.playlist_add_check_circle_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
@@ -107,10 +105,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
       body: TabBarView(
         controller: _tabController,
         children: const [
-          _ProductManagementTab(),
+          _ProductHubTab(),
           _StoreHubTab(),
-          _StoreSuggestionsTab(),
-          _ProductSuggestionsTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
           _ReportsManagementTab(),
@@ -118,6 +114,57 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _StatisticsTab(),
         ],
       ),
+    );
+  }
+}
+
+class _ProductHubTab extends StatefulWidget {
+  const _ProductHubTab();
+
+  @override
+  State<_ProductHubTab> createState() => _ProductHubTabState();
+}
+
+class _ProductHubTabState extends State<_ProductHubTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Urunler'),
+              Tab(text: 'Oneriler'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: const [
+              _ProductManagementTab(),
+              _ProductSuggestionsTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -156,8 +203,8 @@ class _StoreHubTabState extends State<_StoreHubTab>
           child: TabBar(
             controller: _tabController,
             tabs: const [
-              Tab(text: 'Zincirler'),
-              Tab(text: 'Subeler'),
+              Tab(text: 'Magazalar'),
+              Tab(text: 'Oneriler'),
             ],
           ),
         ),
@@ -165,8 +212,8 @@ class _StoreHubTabState extends State<_StoreHubTab>
           child: TabBarView(
             controller: _tabController,
             children: const [
-              _BrandManagementTab(),
               _StoreManagementTab(initialFilter: 'active'),
+              _StoreSuggestionsTab(),
             ],
           ),
         ),
@@ -3068,34 +3115,45 @@ class _ProductSuggestionsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stream = ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
-    return StreamBuilder<QuerySnapshot>(
-      stream: stream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final docs = snapshot.data!.docs;
-        if (docs.isEmpty) {
+    final suggestionsAsync = ref.watch(pendingProductSuggestionsProvider);
+    return suggestionsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Urun onerileri yuklenemedi')),
+      data: (suggestions) {
+        if (suggestions.isEmpty) {
           return const Center(child: Text('Bekleyen ürün önerisi yok.'));
         }
 
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: docs.length,
+          itemCount: suggestions.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
-            final doc = docs[index];
-            final data = doc.data() as Map<String, dynamic>? ?? {};
+            final suggestion = suggestions[index];
             return Card(
               child: ListTile(
                 contentPadding: const EdgeInsets.all(AppSpacing.md),
-                title: Text((data['name'] ?? 'İsimsiz ürün').toString()),
+                leading: suggestion.imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          suggestion.imageUrl,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Icon(Icons.inventory_2_outlined),
+                      ),
+                title: Text(suggestion.name.isEmpty ? 'İsimsiz ürün' : suggestion.name),
                 subtitle: Text(
                   [
-                    if ((data['barcode'] ?? '').toString().isNotEmpty) 'Barkod: ${data['barcode']}',
-                    if ((data['category'] ?? '').toString().isNotEmpty) 'Kategori: ${data['category']}',
+                    if (suggestion.barcode.isNotEmpty) 'Barkod: ${suggestion.barcode}',
+                    if (suggestion.category.isNotEmpty) 'Kategori: ${suggestion.category}',
+                    if (suggestion.brand.isNotEmpty) 'Marka: ${suggestion.brand}',
                   ].join('\n'),
                 ),
                 trailing: Wrap(
@@ -3104,14 +3162,14 @@ class _ProductSuggestionsTab extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Reddet',
                       onPressed: () async {
-                        await ref.read(firestoreServiceProvider).rejectProductSuggestion(doc.id);
+                        await ref.read(firestoreServiceProvider).rejectProductSuggestion(suggestion.id);
                       },
                       icon: const Icon(Icons.close, color: AppColors.error),
                     ),
                     IconButton(
                       tooltip: 'Onayla',
                       onPressed: () async {
-                        await ref.read(firestoreServiceProvider).approveProductSuggestion(doc.id);
+                        await ref.read(firestoreServiceProvider).approveProductSuggestion(suggestion.id);
                       },
                       icon: const Icon(Icons.check, color: AppColors.success),
                     ),

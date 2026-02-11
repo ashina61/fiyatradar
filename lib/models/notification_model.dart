@@ -58,7 +58,7 @@ class NotificationModel {
       productName: data['productName'],
       imageUrl: data['imageUrl'],
       isRead: data['isRead'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
       data: data['meta'] as Map<String, dynamic>? ?? data['data'] as Map<String, dynamic>?,
     );
   }

@@ -455,11 +455,13 @@ class _ExplorePriceCard extends StatelessWidget {
                     ),
                   ),
                   if (item.isLocalStore) ...[
+                    const SizedBox(height: 6),
                     Divider(
-                      height: 14,
-                      thickness: 0.6,
+                      height: 12,
+                      thickness: 0.7,
                       color: Colors.black.withOpacity(0.08),
                     ),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         Expanded(
@@ -470,18 +472,18 @@ class _ExplorePriceCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          hasDistance
-                              ? distanceText
-                              : _storeHasCoordinates(item)
-                                  ? '\u2014'
-                                  : 'Konum yok',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w800,
+                        const SizedBox(width: 10),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 84),
+                          child: Text(
+                            hasDistance ? distanceText : '',
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ],
@@ -500,13 +502,6 @@ class _ExplorePriceCard extends StatelessWidget {
       ),
     );
   }
-
-  bool _storeHasCoordinates(ExploreFeedItem item) {
-    final lat = item.store?.lat ?? item.price.geoPoint?.latitude;
-    final lng = item.store?.lng ?? item.price.geoPoint?.longitude;
-    return lat != null && lng != null && lat != 0 && lng != 0;
-  }
-
   Widget _buildImage() {
     final imageUrl =
         item.product.mainImage ?? (item.product.imageUrls.isNotEmpty ? item.product.imageUrls.first : null);
