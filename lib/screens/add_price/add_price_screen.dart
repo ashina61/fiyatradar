@@ -20,6 +20,8 @@ class AddPriceScreen extends ConsumerStatefulWidget {
   ConsumerState<AddPriceScreen> createState() => _AddPriceScreenState();
 }
 
+enum StorePickerTab { nearby, online }
+
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _productController = TextEditingController();
@@ -201,58 +203,29 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  /// Show store picker bottom sheet - sorted by distance
+  /// Show store picker bottom sheet with nearby/online tabs
   Future<void> _showStorePicker() async {
     if (_userPosition == null && !_isResolvingUserPosition) {
       await _loadUserPosition(requestPermission: false);
     }
 
-    final storesAsync = ref.read(activeStoresProvider);
-
-    storesAsync.when(
-      loading: () => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Magazalar yukleniyor...'),
-          behavior: SnackBarBehavior.floating,
-        ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e'), behavior: SnackBarBehavior.floating),
-      ),
-      data: (stores) {
-        final nearbyStores = List<StoreModel>.from(stores);
-        if (_userPosition != null) {
-          nearbyStores.sort((a, b) {
-            final distA = _distanceInMeters(a);
-            final distB = _distanceInMeters(b);
-            return distA.compareTo(distB);
-          });
-        }
+      builder: (ctx) {
+        StorePickerTab activeTab = StorePickerTab.nearby;
 
-        final filteredStores = nearbyStores.where((store) {
-          if (_userPosition == null || _isStoreLocationMissing(store)) return true;
-          final distance = _distanceInMeters(store);
-          return distance <= 2000;
-        }).toList();
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final nearbyStoresAsync = ref.watch(nearbyStoresProvider);
+            final onlineStoresAsync = ref.watch(onlineStoresProvider);
 
-        if (_userPosition != null && filteredStores.isNotEmpty) {
-          final nearestStore = filteredStores.first;
-          final nearestDistance = _distanceInMeters(nearestStore);
-          if (nearestDistance <= 30) {
-            setState(() => _selectedStore = nearestStore);
-          }
-        }
-
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-          ),
-          builder: (ctx) {
             return DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              maxChildSize: 0.85,
+              initialChildSize: 0.6,
+              maxChildSize: 0.9,
               minChildSize: 0.3,
               expand: false,
               builder: (ctx, scrollController) {
@@ -284,61 +257,27 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      child: _buildLocationStatusBanner(),
+                      child: _buildStorePickerTabs(
+                        activeTab: activeTab,
+                        onChanged: (tab) => setModalState(() => activeTab = tab),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
+                    if (activeTab == StorePickerTab.nearby)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        child: _buildLocationStatusBanner(),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        child: _buildOnlineInfoBanner(),
+                      ),
+                    const SizedBox(height: AppSpacing.sm),
                     Expanded(
-                      child: filteredStores.isEmpty
-                          ? Center(child: Text(_userPosition == null ? 'Magaza bulunamadi' : 'Size yakin magaza bulunamadi'))
-                          : ListView.separated(
-                              controller: scrollController,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                              itemCount: filteredStores.length + 1,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                if (index == filteredStores.length) {
-                                  return _buildAddNewStoreItem(ctx);
-                                }
-
-                                final store = filteredStores[index];
-                                final distanceText = _distanceText(store);
-                                return ListTile(
-                                  leading: Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.secondary.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    ),
-                                    child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
-                                  ),
-                                  title: Text(
-                                    store.displayName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${store.neighborhood.isEmpty ? '-' : store.neighborhood} mah., ${store.district} • $distanceText',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      if (_isStoreLocationMissing(store))
-                                        const Text(
-                                          'Admin uyarisi: Bu sube icin konum bilgisi eksik.',
-                                          style: TextStyle(fontSize: 11, color: AppColors.error),
-                                        ),
-                                    ],
-                                  ),
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedStore = store;
-                                    });
-                                    Navigator.pop(context);
-                                  },
-                                );
-                              },
-                            ),
+                      child: activeTab == StorePickerTab.nearby
+                          ? _buildNearbyStoreList(nearbyStoresAsync, scrollController, ctx)
+                          : _buildOnlineStoreList(onlineStoresAsync, scrollController, ctx),
                     ),
                   ],
                 );
@@ -347,6 +286,187 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildStorePickerTabs({
+    required StorePickerTab activeTab,
+    required ValueChanged<StorePickerTab> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: ChoiceChip(
+            label: const Text('📍 Yakınımda'),
+            selected: activeTab == StorePickerTab.nearby,
+            onSelected: (_) => onChanged(StorePickerTab.nearby),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: ChoiceChip(
+            label: const Text('🌐 Online'),
+            selected: activeTab == StorePickerTab.online,
+            onSelected: (_) => onChanged(StorePickerTab.online),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNearbyStoreList(
+    AsyncValue<List<StoreModel>> storesAsync,
+    ScrollController scrollController,
+    BuildContext ctx,
+  ) {
+    return storesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Hata: $e')),
+      data: (stores) {
+        final nearbyStores = List<StoreModel>.from(stores);
+        if (_userPosition != null) {
+          nearbyStores.sort((a, b) => _distanceInMeters(a).compareTo(_distanceInMeters(b)));
+        }
+
+        final filteredStores = nearbyStores.where((store) {
+          if (_userPosition == null || _isStoreLocationMissing(store)) return true;
+          return _distanceInMeters(store) <= 2000;
+        }).toList();
+
+        if (_userPosition != null && filteredStores.isNotEmpty) {
+          final nearestStore = filteredStores.first;
+          if (_distanceInMeters(nearestStore) <= 30 && _selectedStore == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() => _selectedStore = nearestStore);
+            });
+          }
+        }
+
+        if (filteredStores.isEmpty) {
+          return const Center(child: Text('Yakınında mağaza yok. Haritadan pin seç.'));
+        }
+
+        return ListView.separated(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          itemCount: filteredStores.length + 1,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            if (index == filteredStores.length) {
+              return _buildAddNewStoreItem(ctx);
+            }
+
+            final store = filteredStores[index];
+            final distanceText = _distanceText(store);
+            return ListTile(
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
+              ),
+              title: Text(
+                store.displayName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${store.neighborhood.isEmpty ? '-' : store.neighborhood} mah.',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  if (_isStoreLocationMissing(store))
+                    const Text(
+                      'Admin uyarisi: Bu sube icin konum bilgisi eksik.',
+                      style: TextStyle(fontSize: 11, color: AppColors.error),
+                    ),
+                ],
+              ),
+              trailing: Text(
+                distanceText,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                setState(() {
+                  _selectedStore = store;
+                });
+                Navigator.pop(context);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOnlineStoreList(
+    AsyncValue<List<StoreModel>> storesAsync,
+    ScrollController scrollController,
+    BuildContext ctx,
+  ) {
+    return storesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Hata: $e')),
+      data: (stores) {
+        final onlineStores = List<StoreModel>.from(stores)
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+        if (onlineStores.isEmpty) {
+          return const Center(child: Text('Henüz online mağaza eklenmemiş.'));
+        }
+
+        return ListView.separated(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          itemCount: onlineStores.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final store = onlineStores[index];
+            return ListTile(
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.language, color: AppColors.info, size: 22),
+              ),
+              title: Text(
+                '🌐 ${store.displayName}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+              onTap: () {
+                setState(() {
+                  _selectedStore = store.copyWith(type: StoreType.online);
+                });
+                Navigator.pop(context);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOnlineInfoBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.info.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: const Text(
+        '🌐 Online mağazalar konumdan bağımsızdır',
+        style: TextStyle(fontSize: 12, color: AppColors.info),
+      ),
     );
   }
 
@@ -954,8 +1074,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                 color: AppColors.primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(AppRadius.sm),
                               ),
-                              child: const Icon(Icons.store,
-                                  color: AppColors.primary, size: 20),
+                              child: Icon(
+                                  _selectedStore!.isOnline ? Icons.language : Icons.store,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
                             ),
                             const SizedBox(width: AppSpacing.md),
                             Expanded(
@@ -963,13 +1086,23 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _selectedStore!.displayName,
+                                    _selectedStore!.isOnline
+                                        ? '🌐 ${_selectedStore!.displayName}'
+                                        : _selectedStore!.displayName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
                                     ),
                                   ),
-                                  if (_selectedStore!.neighborhood.isNotEmpty)
+                                  if (_selectedStore!.isOnline)
+                                    const Text(
+                                      'Online mağaza • Konum gerektirmez',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    )
+                                  else if (_selectedStore!.neighborhood.isNotEmpty)
                                     Text(
                                       '${_selectedStore!.neighborhood}, ${_selectedStore!.district}',
                                       style: const TextStyle(
@@ -995,7 +1128,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             const SizedBox(width: AppSpacing.md),
                             Expanded(
                               child: Text(
-                                'Yakininizdaki bir magaza secin',
+                                'Yakındaki veya online bir mağaza seçin',
                                 style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 14,
