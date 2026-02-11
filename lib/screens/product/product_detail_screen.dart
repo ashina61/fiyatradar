@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
@@ -175,6 +176,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       displayName: matched.displayName,
       lat: matched.lat,
       lng: matched.lng,
+      isOnline: matched.isOnline,
     );
   }
 
@@ -298,6 +300,154 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+  void _showPriceAlertSheet(BuildContext context) {
+    final userModel = ref.read(userModelStreamProvider).value;
+    if (userModel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Fiyat alarmi icin giris yapmalisiniz'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+        ),
+      );
+      return;
+    }
+
+    final watchlistRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userModel.uid)
+        .collection('watchlist')
+        .doc(widget.productId);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<DocumentSnapshot>(
+          future: watchlistRef.get(),
+          builder: (ctx, snapshot) {
+            final data = snapshot.data?.data() as Map<String, dynamic>?;
+            bool priceDropEnabled = data?['priceDropEnabled'] ?? false;
+            bool newPriceEnabled = data?['newPriceEnabled'] ?? false;
+
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    top: AppSpacing.md,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.outlineVariant,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Fiyat Alarmi',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Bu urun icin bildirim tercihlerinizi secin',
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Fiyat dusunce bildir', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text('Fiyat dususe gectiginde bildirim al', style: TextStyle(fontSize: 12)),
+                        value: priceDropEnabled,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) => setSheetState(() => priceDropEnabled = val),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Yeni fiyat eklenince bildir', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text('Yeni bir fiyat girisi yapildiginda bildirim al', style: TextStyle(fontSize: 12)),
+                        value: newPriceEnabled,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) => setSheetState(() => newPriceEnabled = val),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      ElevatedButton(
+                        onPressed: () async {
+                          try {
+                            if (!priceDropEnabled && !newPriceEnabled) {
+                              await watchlistRef.delete();
+                            } else {
+                              await watchlistRef.set({
+                                'priceDropEnabled': priceDropEnabled,
+                                'newPriceEnabled': newPriceEnabled,
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    priceDropEnabled || newPriceEnabled ? 'Fiyat alarmi kaydedildi' : 'Fiyat alarmi kaldirildi',
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Hata: $e'),
+                                  backgroundColor: AppColors.error,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                        ),
+                        child: const Text(
+                          'Kaydet',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productByIdProvider(widget.productId));
@@ -370,6 +520,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             _buildHeroAction(icon: Icons.share, onTap: () {}),
+                            const SizedBox(width: 8),
+                            _buildHeroAction(
+                              icon: Icons.notifications_active_outlined,
+                              onTap: () => _showPriceAlertSheet(context),
+                            ),
                             const SizedBox(width: 8),
                             _buildHeroAction(
                               icon: Icons.flag_outlined,
@@ -801,7 +956,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-
+                                if (!branchStore.isOnline && branchStore.hasCoordinates) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.open_in_new, size: 14, color: AppColors.primary),
+                                ],
                               ],
                             ),
                           ),
@@ -1588,6 +1746,7 @@ class _BranchStoreData {
   final String? displayName;
   final double? lat;
   final double? lng;
+  final bool isOnline;
 
   const _BranchStoreData({
     required this.branchStoreId,
@@ -1595,6 +1754,7 @@ class _BranchStoreData {
     this.displayName,
     this.lat,
     this.lng,
+    this.isOnline = false,
   });
 
   bool get hasCoordinates =>

@@ -306,7 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Notification bell
         GestureDetector(
           onTap: () {
-            ref.read(currentTabProvider.notifier).state = 2;
+            ref.read(currentTabProvider.notifier).state = 3;
           },
           child: SizedBox(
             width: 42,

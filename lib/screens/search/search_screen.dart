@@ -471,26 +471,28 @@ class _ExplorePriceCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
                           ),
                         ),
-                        if (hasDistance) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceVariant,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: AppColors.outline),
-                            ),
-                            child: Text(
-                              distanceText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w800,
-                              ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.outline),
+                          ),
+                          child: Text(
+                            hasDistance
+                                ? distanceText
+                                : _storeHasCoordinates(item)
+                                    ? '\u2014'
+                                    : 'Konum yok',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ],
@@ -506,6 +508,12 @@ class _ExplorePriceCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  bool _storeHasCoordinates(ExploreFeedItem item) {
+    final lat = item.store?.lat ?? item.price.geoPoint?.latitude;
+    final lng = item.store?.lng ?? item.price.geoPoint?.longitude;
+    return lat != null && lng != null && lat != 0 && lng != 0;
   }
 
   Widget _buildImage() {

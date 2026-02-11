@@ -1995,31 +1995,210 @@ class _CategoryManagementTab extends ConsumerWidget {
 
   void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    File? selectedImage;
+    bool isUploading = false;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.category_outlined, color: AppColors.accent, size: 20),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: const Icon(Icons.category_outlined, color: AppColors.accent, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Text('Yeni Kategori Ekle'),
+          ]),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)),
+                  autofocus: true,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, imageQuality: 80);
+                    if (picked != null) {
+                      setDialogState(() => selectedImage = File(picked.path));
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.outline),
+                    ),
+                    child: selectedImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            child: Image.file(selectedImage!, fit: BoxFit.cover),
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.textSecondary),
+                              SizedBox(height: 4),
+                              Text('Kategori Gorseli Yukle', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                  ),
+                ),
+                if (isUploading) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  const LinearProgressIndicator(),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Yeni Kategori Ekle'),
-        ]),
-        content: TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)), autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) return;
-              await ref.read(firestoreServiceProvider).addCategory(nameController.text, 'category');
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Ekle'),
+          actions: [
+            TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: isUploading ? null : () async {
+                if (nameController.text.isEmpty) return;
+                setDialogState(() => isUploading = true);
+                try {
+                  String? imageUrl;
+                  String? imagePath;
+                  final storageService = StorageService();
+
+                  if (selectedImage != null) {
+                    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: tempId);
+                    imageUrl = result.downloadUrl;
+                    imagePath = result.storagePath;
+                  }
+
+                  await ref.read(firestoreServiceProvider).addCategory(
+                    nameController.text,
+                    'category',
+                    imageUrl: imageUrl,
+                    imagePath: imagePath,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  setDialogState(() => isUploading = false);
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Hata: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
+              child: isUploading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Ekle'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditImageDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> cat) {
+    File? selectedImage;
+    bool isUploading = false;
+    final currentImageUrl = cat['imageUrl'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Text('${cat['name']} - Gorsel Guncelle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, imageQuality: 80);
+                    if (picked != null) {
+                      setDialogState(() => selectedImage = File(picked.path));
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.outline),
+                    ),
+                    child: selectedImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            child: Image.file(selectedImage!, fit: BoxFit.cover),
+                          )
+                        : currentImageUrl != null && currentImageUrl.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                child: Image.network(currentImageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 32)),
+                              )
+                            : const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.textSecondary),
+                                  SizedBox(height: 4),
+                                  Text('Gorsel Sec', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                  ),
+                ),
+                if (isUploading) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  const LinearProgressIndicator(),
+                ],
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: isUploading || selectedImage == null ? null : () async {
+                setDialogState(() => isUploading = true);
+                try {
+                  final storageService = StorageService();
+                  final oldPath = cat['imagePath'] as String?;
+                  if (oldPath != null && oldPath.isNotEmpty) {
+                    await storageService.deleteByPath(oldPath);
+                  }
+                  final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: cat['id']);
+                  await ref.read(firestoreServiceProvider).updateCategory(cat['id'], {
+                    'imageUrl': result.downloadUrl,
+                    'imagePath': result.storagePath,
+                  });
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Gorsel guncellendi'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                } catch (e) {
+                  setDialogState(() => isUploading = false);
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Hata: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
+              child: isUploading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Guncelle'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2057,6 +2236,7 @@ class _CategoryManagementTab extends ConsumerWidget {
               final catName = cat['name'] ?? '';
               final color = _categoryColor(index);
               final productCount = products.where((p) => p.categories.contains(catName)).length;
+              final catImageUrl = cat['imageUrl'] as String?;
 
               return Card(
                 child: Stack(children: [
@@ -2065,14 +2245,34 @@ class _CategoryManagementTab extends ConsumerWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                       Container(
                         width: 44, height: 44,
-                        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppRadius.md)),
-                        child: Icon(_categoryIcon(catName), color: color, size: 24),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          image: catImageUrl != null && catImageUrl.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(catImageUrl), fit: BoxFit.cover, onError: (_, __) {})
+                              : null,
+                        ),
+                        child: catImageUrl == null || catImageUrl.isEmpty
+                            ? Icon(_categoryIcon(catName), color: color, size: 24)
+                            : null,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text('$productCount urun', style: TextStyle(fontSize: 12, color: theme.hintColor)),
                     ]),
+                  ),
+                  Positioned(
+                    top: 4, right: 30,
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
+                        child: const Icon(Icons.image_outlined, color: AppColors.primary, size: 14),
+                      ),
+                      iconSize: 22,
+                      onPressed: () => _showEditImageDialog(context, ref, cat),
+                    ),
                   ),
                   Positioned(
                     top: 4, right: 4,
@@ -2083,11 +2283,18 @@ class _CategoryManagementTab extends ConsumerWidget {
                         child: const Icon(Icons.close, color: AppColors.error, size: 14),
                       ),
                       iconSize: 22,
-                      onPressed: () {
+                      onPressed: () async {
+                        final storageService = StorageService();
+                        final oldPath = cat['imagePath'] as String?;
+                        if (oldPath != null && oldPath.isNotEmpty) {
+                          await storageService.deleteByPath(oldPath);
+                        }
                         ref.read(firestoreServiceProvider).deleteCategory(cat['id']);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$catName silindi'), behavior: SnackBarBehavior.floating),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('$catName silindi'), behavior: SnackBarBehavior.floating),
+                          );
+                        }
                       },
                     ),
                   ),
