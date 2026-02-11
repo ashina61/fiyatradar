@@ -511,7 +511,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 '🌐 ${store.displayName}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+              trailing: const Icon(Icons.chevron_right, size: 18, color: AppColors.textSecondary),
               onTap: () {
                 setState(() {
                   _selectedStore = store.copyWith(type: StoreType.online);
@@ -1095,9 +1095,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 error: (e, _) => Text('Hata: $e'),
                 data: (categories) => DropdownButtonFormField<String>(
                   value: _selectedCategory,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Kategori',
-                    prefixIcon: Icon(Icons.category_outlined),
+                    helperText: _selectedProduct != null ? 'Kategori ürünle birlikte kilitlendi' : null,
+                    prefixIcon: const Icon(Icons.category_outlined),
                   ),
                   items: categories
                       .map((cat) => DropdownMenuItem(
@@ -1105,11 +1106,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             child: Text(cat['name'] as String),
                           ))
                       .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCategory = value;
-                    });
-                  },
+                  onChanged: _selectedProduct != null
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _selectedCategory = value;
+                          });
+                        },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Kategori secin';

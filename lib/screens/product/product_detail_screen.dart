@@ -345,6 +345,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final isNearbyStore = branchStore != null && branchStore.hasCoordinates && _isWithinNearbyRange(branchStore);
 
         return Scaffold(
+          bottomNavigationBar: _buildStickyCtaBar(),
           body: CustomScrollView(
             slivers: [
               // ---------- App Bar with premium hero image ----------
@@ -385,6 +386,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             _buildHeroAction(icon: Icons.share, onTap: () {}),
+                            const SizedBox(width: 8),
+                            _buildHeroAction(
+                              icon: Icons.flag_outlined,
+                              onTap: () {
+                                final latest = priceHistoryAsync.valueOrNull;
+                                if (latest != null && latest.isNotEmpty) {
+                                  _showReportPriceDialog(latest.first);
+                                }
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -400,42 +411,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Category tag
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: categoryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Text(
-                          product.category,
-                          style: TextStyle(
-                            color: categoryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // Product name
                       Text(
                         product.name,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
                       ),
-                      if (product.brand.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          product.brand,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (product.brand.isNotEmpty) _buildMetaChip(product.brand, categoryColor),
+                          if (product.category.isNotEmpty) _buildMetaChip(product.category, categoryColor),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildMiniStatRow(priceHistory ?? const []),
                       const SizedBox(height: AppSpacing.md),
 
                       // Price card
@@ -532,33 +526,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                       ],
-                      const AppSectionHeader(
+                      _buildSectionCard(
                         title: 'Fiyat Gecmisi',
-                        subtitle: 'Son fiyat hareketlerini takip edin',
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Price chart from Firebase
-                      priceHistoryAsync.when(
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Hata: $e'),
-                        data: (prices) => Column(
-                          children: [
-                            _buildPriceChart(prices),
-                            if (prices.isNotEmpty)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  onPressed: () => _showReportPriceDialog(prices.first),
-                                  icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
-                                  label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                        trailing: 'Son 30 gün',
+                        child: priceHistoryAsync.when(
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Text('Hata: $e'),
+                          data: (prices) => Column(
+                            children: [
+                              _buildPriceChart(prices),
+                              if (prices.isNotEmpty)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: () => _showReportPriceDialog(prices.first),
+                                    icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
+                                    label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
+                      _buildCheapestStoresSection(priceHistory ?? const []),
                       const SizedBox(height: AppSpacing.lg),
                       const AppSectionHeader(
                         title: 'Topluluk Dogrulamasi',
@@ -598,6 +589,160 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
         );
       },
+    );
+  }
+
+
+  Widget _buildStickyCtaBar() {
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Fiyat Ekle'),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
+              },
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('Takip Et'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniStatRow(List<PriceModel> prices) {
+    final values = prices.map((p) => p.price).toList();
+    final latest = values.isNotEmpty ? values.first : null;
+    final cheapest = values.isNotEmpty ? values.reduce((a, b) => a < b ? a : b) : null;
+    final average = values.isNotEmpty ? values.reduce((a, b) => a + b) / values.length : null;
+
+    return Row(
+      children: [
+        Expanded(child: _buildMiniStatBox('Son fiyat', latest)),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(child: _buildMiniStatBox('En ucuz', cheapest)),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(child: _buildMiniStatBox('Ortalama', average)),
+      ],
+    );
+  }
+
+  Widget _buildMiniStatBox(String title, double? value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(value == null ? '-' : _formatPriceShort(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required String title, String? trailing, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.65)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+              if (trailing != null)
+                Text(trailing, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            height: 1,
+            color: AppColors.outlineVariant.withOpacity(0.45),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheapestStoresSection(List<PriceModel> prices) {
+    final sorted = [...prices]..sort((a, b) => a.price.compareTo(b.price));
+    final cheapest = sorted.take(3).toList();
+
+    return _buildSectionCard(
+      title: 'En ucuz mağazalar',
+      child: cheapest.isEmpty
+          ? const Text('Henüz mağaza fiyatı yok')
+          : Column(
+              children: cheapest
+                  .map(
+                    (price) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              price.storeName?.trim().isNotEmpty == true ? price.storeName!.trim() : 'Mağaza',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatPrice(price.price),
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
     );
   }
 
@@ -666,7 +811,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: () => _onStoreChipTap(branchStore),
+                        onTap: null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -699,8 +844,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.north_east, size: 14, color: AppColors.textSecondary),
+
                               ],
                             ),
                           ),

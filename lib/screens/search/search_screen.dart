@@ -273,11 +273,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
       itemCount: state.items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 260,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        mainAxisExtent: 310,
+        childAspectRatio: 0.8,
       ),
       itemBuilder: (context, index) {
         final item = state.items[index];
@@ -290,7 +290,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
           ),
           onStoreTap: () => _handleStoreTap(context, item),
-          onOnlineStoreTap: (storePrice) => _openUrl(context, storePrice.url),
         );
       },
     );
@@ -314,23 +313,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       return;
     }
 
-    await _openUrl(context, item.storeUrl);
-  }
-
-  Future<void> _openUrl(BuildContext context, String? rawUrl) async {
-    if (rawUrl == null || rawUrl.trim().isEmpty) {
-      _showSnack(context, 'Bağlantı bulunamadı');
-      return;
-    }
-    final uri = Uri.tryParse(rawUrl.trim());
-    if (uri == null) {
-      _showSnack(context, 'Bağlantı geçersiz');
-      return;
-    }
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && context.mounted) {
-      _showSnack(context, 'Bağlantı açılamadı');
-    }
+    _showSnack(context, 'Online mağaza bilgisi ürün detayında gösterilir');
   }
 
   void _showSnack(BuildContext context, String message) {
@@ -343,14 +326,12 @@ class _ExplorePriceCard extends StatelessWidget {
   final ExploreMode mode;
   final VoidCallback onTap;
   final VoidCallback onStoreTap;
-  final ValueChanged<StorePrice> onOnlineStoreTap;
 
   const _ExplorePriceCard({
     required this.item,
     required this.mode,
     required this.onTap,
     required this.onStoreTap,
-    required this.onOnlineStoreTap,
   });
 
   @override
@@ -384,32 +365,29 @@ class _ExplorePriceCard extends StatelessWidget {
                 children: [
                   _buildImage(),
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 10,
+                    right: 10,
                     child: _Badge(
                       label: '⏱ ${_timeAgo(item.price.createdAt)}',
                       color: Colors.black.withOpacity(0.55),
                       textColor: Colors.white,
                     ),
                   ),
-                  if (item.dropPercent > 0)
+                  if (item.priceChangePercent != null)
                     Positioned(
-                      top: 8,
-                      left: 8,
-                      child: _Badge(
-                        label: '▼ %${item.dropPercent.round()}',
-                        color: AppColors.primary.withOpacity(0.9),
-                        textColor: AppColors.textOnPrimary,
-                      ),
+                      top: 10,
+                      left: 10,
+                      child: _PriceChangeBadge(percent: item.priceChangePercent!),
                     ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   if (primaryCategory != null && primaryCategory.trim().isNotEmpty) ...[
                     Row(
                       children: [
@@ -515,36 +493,11 @@ class _ExplorePriceCard extends StatelessWidget {
                     ),
                   ],
                   if (mode == ExploreMode.online) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'En ucuz 3',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: item.onlineCheapest3
-                            .map(
-                              (storePrice) => Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: _OnlineStoreChip(
-                                  storePrice: storePrice,
-                                  isBest: item.onlineCheapest3.isNotEmpty && item.onlineCheapest3.first == storePrice,
-                                  onTap: storePrice.url == null ? null : () => onOnlineStoreTap(storePrice),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    _OnlineCheapestSummaryRow(stores: item.onlineCheapest3),
                   ],
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -607,45 +560,87 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-class _OnlineStoreChip extends StatelessWidget {
-  final StorePrice storePrice;
-  final bool isBest;
-  final VoidCallback? onTap;
 
-  const _OnlineStoreChip({required this.storePrice, required this.isBest, required this.onTap});
+class _OnlineCheapestSummaryRow extends StatelessWidget {
+  final List<StorePrice> stores;
+
+  const _OnlineCheapestSummaryRow({required this.stores});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: onTap == null
-              ? AppColors.surfaceVariant.withOpacity(0.5)
-              : isBest
-                  ? AppColors.primary.withOpacity(0.08)
-                  : AppColors.surfaceVariant,
-          border: Border.all(
-            color: isBest ? AppColors.primary.withOpacity(0.2) : AppColors.outline,
+    final summary = stores
+        .take(3)
+        .map((store) => '${store.storeName} ₺${_formatPrice(store.price)}')
+        .join(' • ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'En ucuz 3',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.store_mall_directory_rounded, size: 13),
-            const SizedBox(width: 4),
-            Text(
-              '${storePrice.storeName} ₺${_formatPrice(storePrice.price)}',
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              summary.isEmpty ? 'Veri yok' : summary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.north_east_rounded, size: 12, color: onTap == null ? AppColors.textSecondary : AppColors.primary),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PriceChangeBadge extends StatelessWidget {
+  final double percent;
+
+  const _PriceChangeBadge({required this.percent});
+
+  @override
+  Widget build(BuildContext context) {
+    final isUp = percent > 0;
+    final color = isUp ? AppColors.error : AppColors.success;
+    final sign = isUp ? '+' : '-';
+    final rounded = percent.abs().round();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            size: 12,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$sign%$rounded',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
       ),
     );
   }
