@@ -89,6 +89,31 @@ class StorageService {
     );
   }
 
+  Future<({String downloadUrl, String storagePath})> uploadCategoryImage({
+    required File file,
+    required String categoryId,
+  }) async {
+    final storagePath = 'categories/$categoryId.jpg';
+    final ref = _storage.ref().child(storagePath);
+    final uploadTask = ref.putFile(
+      file,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
+      ),
+    );
+    final snapshot = await uploadTask;
+    final downloadUrl = await snapshot.ref.getDownloadURL();
+    return (downloadUrl: downloadUrl, storagePath: storagePath);
+  }
+
+  Future<void> deleteByPath(String path) async {
+    try {
+      final ref = _storage.ref().child(path);
+      await ref.delete();
+    } catch (_) {}
+  }
+
   Future<void> deleteImage(String url) async {
     try {
       final ref = _storage.refFromURL(url);

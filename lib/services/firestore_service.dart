@@ -848,6 +848,8 @@ class FirestoreService {
           'name': data['name'] ?? '',
           'iconName': data['iconName'] ?? 'category',
           'order': data['order'] ?? 0,
+          'imageUrl': data['imageUrl'],
+          'imagePath': data['imagePath'],
         };
       }).toList();
       list.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
@@ -855,14 +857,20 @@ class FirestoreService {
     });
   }
 
-  Future<String> addCategory(String name, String iconName) async {
+  Future<String> addCategory(String name, String iconName, {String? imageUrl, String? imagePath}) async {
     final doc = await _categoriesRef.add({
       'name': name,
       'iconName': iconName,
       'order': 0,
       'createdAt': FieldValue.serverTimestamp(),
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imagePath != null) 'imagePath': imagePath,
     });
     return doc.id;
+  }
+
+  Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
+    await _categoriesRef.doc(categoryId).update(data);
   }
 
   Future<void> deleteCategory(String categoryId) async {
