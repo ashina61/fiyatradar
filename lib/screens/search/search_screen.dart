@@ -194,7 +194,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
             crossAxisCount: 2,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.69,
           ),
           itemBuilder: (context, index) {
             final item = state.items[index];
@@ -222,9 +222,11 @@ class _ExploreMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDistance = mode == ExploreMode.online || (item.distanceLabel?.trim().isNotEmpty ?? false);
+    if (!hasDistance) return const SizedBox.shrink();
+
     final neighborhoodText = item.neighborhoodLabel;
-    final distanceText = mode == ExploreMode.online ? 'Online' : (item.distanceLabel?.trim() ?? '—');
-    final highlightNearby = item.isVeryNearby && mode == ExploreMode.nearby;
+    final distanceText = mode == ExploreMode.online ? 'Online' : item.distanceLabel!.trim();
 
     return Column(
       children: [
@@ -241,17 +243,6 @@ class _ExploreMetaRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            if (highlightNearby)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.outline),
-                ),
-                child: const Text('🔥', style: TextStyle(fontSize: 10)),
-              ),
-            const SizedBox(width: 4),
             Flexible(
               child: Text(
                 distanceText,
@@ -260,7 +251,7 @@ class _ExploreMetaRow extends StatelessWidget {
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.textSecondary,
-                      fontWeight: highlightNearby ? FontWeight.w900 : FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
               ),
             ),

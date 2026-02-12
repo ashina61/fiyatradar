@@ -351,12 +351,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onBannerTap(BannerModel banner) {
-    final actionType = banner.actionType?.toLowerCase();
-    if (actionType == 'campaign' && (banner.targetId?.isNotEmpty ?? false)) {
+    final campaignId = banner.targetBasketId ?? banner.targetId;
+    if (campaignId != null && campaignId.isNotEmpty) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CampaignBasketScreen(
-            campaignId: banner.targetId!,
+            campaignId: campaignId,
             banner: banner,
           ),
         ),
@@ -364,6 +364,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
+    final actionType = banner.actionType?.toLowerCase();
     if (actionType == 'product') {
       final productId = banner.targetId ?? banner.productId;
       if (productId != null && productId.isNotEmpty) {
@@ -380,7 +381,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 180,
+          height: 186,
           child: PageView.builder(
             controller: _bannerController,
             onPageChanged: (index) {
@@ -389,74 +390,98 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             itemCount: banners.length,
             itemBuilder: (context, index) {
               final banner = banners[index];
+              final subtitle = (banner.subtitle ?? banner.description ?? '').trim();
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: GestureDetector(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
                   onTap: () => _onBannerTap(banner),
                   child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primary.withOpacity(0.75),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    image: banner.imageUrl.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(banner.imageUrl),
-                            fit: BoxFit.cover,
-                            colorFilter: ColorFilter.mode(
-                              AppColors.primary.withOpacity(0.35),
-                              BlendMode.darken,
-                            ),
-                            onError: (_, __) {},
-                          )
-                        : null,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF8C5A2B),
+                          Color(0xFFB98542),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        banner.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          shadows: [Shadow(blurRadius: 6, color: Colors.black45)],
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.22),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      if (banner.description != null)
-                        Text(
-                          banner.description!,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 14,
-                            shadows: const [Shadow(blurRadius: 6, color: Colors.black45)],
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                banner.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              if (subtitle.isNotEmpty) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  subtitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.92),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                    ],
+                        const SizedBox(width: AppSpacing.sm),
+                        Container(
+                          width: 92,
+                          height: 92,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: banner.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  banner.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.local_offer,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.shopping_basket_rounded,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               );
             },
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        // Page indicator dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
@@ -507,7 +532,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'FiyatRadar\'a Hosgeldiniz!',
+            'Haftanin Kampanya Sepeti',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -516,7 +541,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           SizedBox(height: AppSpacing.xs),
           Text(
-            'En iyi fiyatlari kesfetmeye baslayin',
+            'Admin tarafindan secilen premium sepetleri kacirmayin',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,

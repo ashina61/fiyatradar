@@ -138,6 +138,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
             NavigationDestination(
               icon: Badge(
                 isLabelVisible: unreadCount > 0,
+                backgroundColor: AppColors.error,
                 label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
                   icon: Icons.notifications_outlined,
@@ -146,6 +147,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
               ),
               selectedIcon: Badge(
                 isLabelVisible: unreadCount > 0,
+                backgroundColor: AppColors.error,
                 label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
                   icon: Icons.notifications,

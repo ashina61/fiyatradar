@@ -199,14 +199,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _onStoreChipTap(_BranchStoreData? branchStore) async {
-    if (branchStore == null || !branchStore.hasMapsQuery) {
+    if (branchStore == null) {
       return;
     }
 
-    final encodedStoreQuery = Uri.encodeComponent(branchStore.mapsQuery);
-    final mapsUri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$encodedStoreQuery',
-    );
+    Uri? mapsUri;
+    if (branchStore.hasCoordinates) {
+      mapsUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}&travelmode=driving',
+      );
+    } else if (branchStore.hasMapsQuery) {
+      final encodedStoreQuery = Uri.encodeComponent(branchStore.mapsQuery);
+      mapsUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$encodedStoreQuery',
+      );
+    }
+
+    if (mapsUri == null) return;
 
     final launched = await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
@@ -926,7 +935,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: branchStore.hasMapsQuery ? () => _onStoreChipTap(branchStore) : null,
+                        onTap: (branchStore.hasMapsQuery || branchStore.hasCoordinates)
+                            ? () => _onStoreChipTap(branchStore)
+                            : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -945,11 +956,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 : null,
                           ),
                           child: Opacity(
-                            opacity: branchStore.hasMapsQuery ? 1 : 0.7,
+                            opacity: (branchStore.hasMapsQuery || branchStore.hasCoordinates) ? 1 : 0.7,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.store, size: 16, color: AppColors.textSecondary),
+                                const Icon(Icons.storefront, size: 16, color: AppColors.textSecondary),
                                 const SizedBox(width: 4),
                                 Text(
                                   branchStore!.displayName!,
@@ -959,9 +970,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                if (branchStore.hasMapsQuery) ...[
+                                if (branchStore.hasMapsQuery || branchStore.hasCoordinates) ...[
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.open_in_new, size: 14, color: AppColors.primary),
+                                  const Icon(Icons.map_outlined, size: 14, color: AppColors.primary),
                                 ],
                               ],
                             ),
@@ -1638,67 +1649,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildFollowSection() {
-    final user = ref.watch(authStateProvider).valueOrNull;
-    if (user == null) return const SizedBox.shrink();
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: ref.watch(firestoreServiceProvider).followedProductStream(
-            userId: user.uid,
-            productId: widget.productId,
-          ),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data();
-        final notifyOnNewPrice = data?['notifyOnNewPrice'] == true;
-        final notifyOnPriceDrop = data?['notifyOnPriceDrop'] == true;
-
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.outline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Fiyat Haberi Al',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Yeni fiyat eklenince'),
-                value: notifyOnNewPrice,
-                onChanged: (value) async {
-                  await ref.read(firestoreServiceProvider).setFollowedProduct(
-                        userId: user.uid,
-                        productId: widget.productId,
-                        notifyOnNewPrice: value,
-                        notifyOnPriceDrop: notifyOnPriceDrop,
-                      );
-                },
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Fiyat düşünce'),
-                value: notifyOnPriceDrop,
-                onChanged: (value) async {
-                  await ref.read(firestoreServiceProvider).setFollowedProduct(
-                        userId: user.uid,
-                        productId: widget.productId,
-                        notifyOnNewPrice: notifyOnNewPrice,
-                        notifyOnPriceDrop: value,
-                      );
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
