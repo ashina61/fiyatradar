@@ -1658,10 +1658,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productName = product.name.trim().isEmpty ? 'Ürün' : product.name.trim();
     final currentPrice = product.lastPrice != null ? formatTRY(product.lastPrice!) : 'Fiyat yok';
     final store = (product.lastStore ?? '').trim().isNotEmpty ? product.lastStore!.trim() : 'Mağaza bilinmiyor';
-    final message = '$productName
-Güncel fiyat: $currentPrice
-Mağaza: $store
-FiyatRadar';
+    final message = '$productName\n'
+        'Güncel fiyat: $currentPrice\n'
+        'Mağaza: $store\n'
+        'FiyatRadar';
 
     Share.share(message);
   }
