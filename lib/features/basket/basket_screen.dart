@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/basket_item_model.dart';
-import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
-import '../../utils/formatters.dart';
-import 'basket_pricing.dart';
 import 'basket_view_model.dart';
+import 'widgets/basket_header_card.dart';
+import 'widgets/basket_item_tile.dart';
+import 'widgets/basket_result_panel.dart';
+import 'widgets/basket_sticky_bar.dart';
 
 class BasketScreen extends ConsumerStatefulWidget {
   const BasketScreen({super.key});
@@ -20,9 +22,9 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
   @override
   void initState() {
     super.initState();
-    ref.listen<BasketViewModel>(basketViewModelProvider, (previous, next) {
+    ref.listenManual<BasketViewModel>(basketViewModelProvider, (previous, next) {
       final error = next.errorMessage;
-      if (error != null && error != previous?.errorMessage) {
+      if (error != null && error != previous?.errorMessage && mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -41,14 +43,13 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-    final viewModel = ref.watch(basketViewModelProvider);
-    final theme = Theme.of(context);
 
     return authState.when(
       data: (user) {
         if (user == null) {
-          return _buildLoginPrompt(theme);
+          return _buildLoginPrompt(context);
         }
+        final viewModel = ref.watch(basketViewModelProvider);
         return Stack(
           children: [
             ListView(
@@ -56,43 +57,43 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                 AppSpacing.md,
                 AppSpacing.md,
                 AppSpacing.md,
-                120,
+                130,
               ),
               children: [
-                _HeaderCard(itemCount: viewModel.items.length),
+                BasketHeaderCard(itemCount: viewModel.items.length),
                 const SizedBox(height: AppSpacing.md),
-                _ActionRow(
-                  onAdd: () => _showProductPicker(context, viewModel),
-                  onCalculate: viewModel.items.isEmpty ? null : viewModel.calculate,
-                ),
-                const SizedBox(height: AppSpacing.md),
+                _ActionRow(onAdd: () => _showProductPicker(context, viewModel)),
+                const SizedBox(height: AppSpacing.lg),
                 if (viewModel.isLoadingItems)
                   const Center(child: CircularProgressIndicator())
                 else if (viewModel.items.isEmpty)
                   _EmptyBasketCard(onAdd: () => _showProductPicker(context, viewModel))
-                else ...[
-                  Text('Sepetindeki Urunler', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: AppSpacing.sm),
-                  ...viewModel.items.map(
-                    (item) => _BasketItemTile(
-                      item: item,
-                      product: viewModel.productMap[item.productId],
-                      onQuantityChanged: (qty) =>
-                          viewModel.updateQuantity(item.productId, qty),
-                    ),
-                  ),
-                ],
+                else
+                  _BasketItemsSection(viewModel: viewModel),
                 const SizedBox(height: AppSpacing.lg),
-                if (viewModel.pricingSummary != null)
-                  _PricingResults(
-                    items: viewModel.items,
-                    productMap: viewModel.productMap,
-                    summary: viewModel.pricingSummary!,
-                    marketNames: viewModel.marketNames,
-                  ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final offset = Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(animation);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(position: offset, child: child),
+                    );
+                  },
+                  child: viewModel.pricingSummary == null
+                      ? const SizedBox.shrink()
+                      : BasketResultPanel(
+                          key: const ValueKey('result-panel'),
+                          summary: viewModel.pricingSummary!,
+                          marketNames: viewModel.marketNames,
+                        ),
+                ),
               ],
             ),
-            _StickyCalculateBar(
+            BasketStickyBar(
+              itemCount: viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity),
               isLoading: viewModel.isCalculating,
               isEnabled: viewModel.items.isNotEmpty,
               onPressed: viewModel.items.isEmpty ? null : viewModel.calculate,
@@ -105,7 +106,8 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
     );
   }
 
-  Widget _buildLoginPrompt(ThemeData theme) {
+  Widget _buildLoginPrompt(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -114,10 +116,10 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           children: [
             const Icon(Icons.lock_outline, size: 48, color: AppColors.textSecondary),
             const SizedBox(height: AppSpacing.sm),
-            const Text('Sepet icin giris yapmalisiniz.'),
+            const Text('Sepet için giriş yapmalısınız.'),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Urun eklemek ve fiyatlari hesaplamak icin hesap gerekli.',
+              'Ürün eklemek ve fiyatları hesaplamak için hesap gerekli.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -162,7 +164,7 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                     controller: controller,
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
-                      hintText: 'Urun ara',
+                      hintText: 'Ürün ara',
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -204,81 +206,20 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  final int itemCount;
-
-  const _HeaderCard({required this.itemCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        gradient: AppColors.gradientWarm,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cardShadow.withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.shopping_basket_outlined, color: Colors.white, size: 32),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Fiyat Sepeti',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$itemCount urun ile en uygun marketleri saniyeler icinde bul.',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ActionRow extends StatelessWidget {
   final VoidCallback onAdd;
-  final VoidCallback? onCalculate;
 
-  const _ActionRow({required this.onAdd, required this.onCalculate});
+  const _ActionRow({required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
-            label: const Text('Urun Ekle'),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: onCalculate,
-            child: const Text('Hesapla'),
-          ),
-        ),
-      ],
+    return SizedBox(
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
+        label: const Text('Ürün Ekle'),
+      ),
     );
   }
 }
@@ -291,21 +232,35 @@ class _EmptyBasketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: AppColors.outline.withOpacity(0.8)),
       ),
       child: Column(
         children: [
-          const Icon(Icons.shopping_basket_outlined, size: 48, color: AppColors.textSecondary),
-          const SizedBox(height: AppSpacing.sm),
-          const Text('Sepetin bos. Urun ekleyerek baslayin.'),
-          const SizedBox(height: AppSpacing.sm),
-          ElevatedButton.icon(
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+            child: const Icon(Icons.shopping_basket_outlined, size: 36, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Sepetin boş', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Ürün ekleyerek en uygun marketi hemen karşılaştır.',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          FilledButton.icon(
             onPressed: onAdd,
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('Urun Ekle'),
+            icon: const Icon(Icons.add),
+            label: const Text('Ürün ekle'),
           ),
         ],
       ),
@@ -313,295 +268,40 @@ class _EmptyBasketCard extends StatelessWidget {
   }
 }
 
-class _BasketItemTile extends StatelessWidget {
-  final BasketItemModel item;
-  final ProductModel? product;
-  final ValueChanged<int> onQuantityChanged;
+class _BasketItemsSection extends StatelessWidget {
+  final BasketViewModel viewModel;
 
-  const _BasketItemTile({
-    required this.item,
-    required this.product,
-    required this.onQuantityChanged,
-  });
+  const _BasketItemsSection({required this.viewModel});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              child: product?.mainImage != null
-                  ? Image.network(
-                      product!.mainImage!,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.inventory_2_outlined),
-                    )
-                  : const Icon(Icons.inventory_2_outlined, size: 32),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(product?.name ?? 'Urun', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(
-                    product?.brand ?? '',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove, size: 18),
-                    onPressed: () => onQuantityChanged(item.quantity - 1),
-                  ),
-                  Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 18),
-                    onPressed: () => onQuantityChanged(item.quantity + 1),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PricingResults extends StatelessWidget {
-  final List<BasketItemModel> items;
-  final Map<String, ProductModel> productMap;
-  final BasketPricingSummary summary;
-  final Map<String, String> marketNames;
-
-  const _PricingResults({
-    required this.items,
-    required this.productMap,
-    required this.summary,
-    required this.marketNames,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bestSingle = summary.bestSingleMarket;
-    final mixed = summary.mixedResult;
-    final saveAmount = bestSingle != null
-        ? (bestSingle.total - mixed.total)
-            .clamp(0, double.infinity)
-            .toDouble()
-        : null;
-    final marketEntries = summary.perMarketTotals.entries.toList()
-      ..sort((a, b) => a.value.total.compareTo(b.value.total));
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Sonuclar', style: theme.textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
-        _ResultCard(
-          title: 'En Iyi Tek Market',
-          subtitle: bestSingle != null
-              ? '${bestSingle.marketName} • ${_formatPrice(bestSingle.total)}'
-              : 'Hicbir markette tum urunler yok',
-          icon: Icons.storefront_outlined,
+        Text(
+          'Sepetindeki Ürünler',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _ResultCard(
-          title: 'En Ucuz Karma',
-          subtitle: '${_formatPrice(mixed.total)}',
-          detail: saveAmount != null ? 'Save ${_formatPrice(saveAmount)}' : 'Save -',
-          icon: Icons.auto_awesome,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Text('Market Karsilastirmasi', style: theme.textTheme.titleSmall),
-        const SizedBox(height: AppSpacing.xs),
-        if (marketEntries.isEmpty)
-          const Text('Market fiyati bulunamadi.')
-        else
-          ...marketEntries.map((entry) {
-            final missingCount = entry.value.missingKeys.length;
-            final subtitle =
-                missingCount == 0 ? 'Tum urunlerde fiyat var' : '$missingCount urun eksik';
-            return Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: ListTile(
-                leading: const Icon(Icons.storefront_outlined, color: AppColors.primary),
-                title: Text(marketNames[entry.key] ?? entry.key),
-                subtitle: Text(subtitle),
-                trailing: Text(
-                  _formatPrice(entry.value.total),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          child: Column(
+            key: ValueKey(viewModel.items.length),
+            children: [
+              for (final item in viewModel.items)
+                BasketItemTile(
+                  item: item,
+                  product: viewModel.productMap[item.productId],
+                  onQuantityChanged: (qty) => viewModel.updateQuantity(item.productId, qty),
+                  onRemove: () => viewModel.updateQuantity(item.productId, 0),
                 ),
-              ),
-            );
-          }),
-        const SizedBox(height: AppSpacing.md),
-        Text('Parca Parca En Ucuz', style: theme.textTheme.titleSmall),
-        const SizedBox(height: AppSpacing.xs),
-        ...items.map((item) {
-          final product = productMap[item.productId];
-          final key = item.productId;
-          final choice = mixed.perItemChoice[key];
-          if (choice == null) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: Text('${product?.name ?? 'Urun'}: fiyat bulunamadi'),
-            );
-          }
-          return Card(
-            margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: ListTile(
-              title: Text(product?.name ?? 'Urun'),
-              subtitle: Text('${choice.marketName} • ${_formatPrice(choice.unitPrice)}'),
-              trailing: Text(_formatPrice(choice.lineTotal)),
-            ),
-          );
-        }),
-        if (mixed.missingKeys.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Fiyat bulunamadi',
-            style: theme.textTheme.titleSmall?.copyWith(color: AppColors.warning),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          ...mixed.missingKeys.map((key) {
-            final product = productMap[key];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: Text(
-                product?.name ?? key,
-                style: const TextStyle(color: AppColors.warning),
-              ),
-            );
-          }),
-        ],
+        ),
       ],
     );
   }
-}
-
-class _ResultCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String? detail;
-  final IconData icon;
-
-  const _ResultCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.detail,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Icon(icon, color: AppColors.primary),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-          if (detail != null)
-            Text(
-              detail!,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.success),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StickyCalculateBar extends StatelessWidget {
-  final bool isLoading;
-  final bool isEnabled;
-  final VoidCallback? onPressed;
-
-  const _StickyCalculateBar({
-    required this.isLoading,
-    required this.isEnabled,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.cardShadow.withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: ElevatedButton(
-            onPressed: isEnabled && !isLoading ? onPressed : null,
-            child: isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('Hesapla'),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _formatPrice(double value) {
-  return formatTRY(value);
 }
