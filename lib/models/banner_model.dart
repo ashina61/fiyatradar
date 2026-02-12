@@ -11,6 +11,8 @@ class BannerModel {
   final String? actionType;
   final String? targetType;
   final String? targetId;
+  final String? ctaText;
+  final String? aspectRatio;
   final String? targetBasketId;
   final String? actionLabel;
   final List<String> targetProductIds;
@@ -30,6 +32,8 @@ class BannerModel {
     this.actionType,
     this.targetType,
     this.targetId,
+    this.ctaText,
+    this.aspectRatio,
     this.targetBasketId,
     this.actionLabel,
     this.targetProductIds = const [],
@@ -57,8 +61,10 @@ class BannerModel {
       actionUrl: data['actionUrl'],
       productId: data['productId'],
       actionType: data['actionType']?.toString(),
-      targetType: data['targetType']?.toString(),
+      targetType: data['targetType']?.toString() ?? 'none',
       targetId: data['targetId']?.toString(),
+      ctaText: data['ctaText']?.toString(),
+      aspectRatio: data['aspectRatio']?.toString() ?? 'wide',
       targetBasketId:
           data['targetBasketId']?.toString() ?? data['targetId']?.toString(),
       actionLabel: data['actionLabel']?.toString(),
@@ -81,6 +87,8 @@ class BannerModel {
       'actionType': actionType,
       'targetType': targetType,
       'targetId': targetId,
+      'ctaText': ctaText,
+      'aspectRatio': aspectRatio,
       'targetBasketId': targetBasketId,
       'actionLabel': actionLabel,
       'targetProductIds': targetProductIds,
@@ -102,6 +110,8 @@ class BannerModel {
     String? actionType,
     String? targetType,
     String? targetId,
+    String? ctaText,
+    String? aspectRatio,
     String? targetBasketId,
     String? actionLabel,
     List<String>? targetProductIds,
@@ -121,6 +131,8 @@ class BannerModel {
       actionType: actionType ?? this.actionType,
       targetType: targetType ?? this.targetType,
       targetId: targetId ?? this.targetId,
+      ctaText: ctaText ?? this.ctaText,
+      aspectRatio: aspectRatio ?? this.aspectRatio,
       targetBasketId: targetBasketId ?? this.targetBasketId,
       actionLabel: actionLabel ?? this.actionLabel,
       targetProductIds: targetProductIds ?? this.targetProductIds,

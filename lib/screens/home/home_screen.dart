@@ -13,7 +13,9 @@ import '../../widgets/home_product_card.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
-import '../campaign/campaign_basket_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import '../campaign/campaign_detail_screen.dart';
 import '../product/product_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -351,42 +353,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onBannerTap(BannerModel banner) {
-    debugPrint('BANNER_TAP: ${banner.id}');
+    final targetType = (banner.targetType ?? 'none').toLowerCase();
+    final campaignId = (banner.targetId ?? '').trim();
 
-    final targetType = (banner.targetType ?? '').toLowerCase();
-    final campaignId = (banner.targetId ?? banner.targetBasketId ?? '').trim();
-
-    if (targetType == 'campaign_basket' || targetType.isEmpty) {
+    if (targetType == 'campaign' && campaignId.isNotEmpty) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => CampaignBasketScreen(
-            campaignId: campaignId,
-            banner: banner,
-          ),
+          builder: (_) => CampaignDetailScreen(campaignId: campaignId),
         ),
       );
       return;
     }
 
-    if (targetType == 'category' || targetType == 'product_list') {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CampaignBasketScreen(
-            campaignId: campaignId,
-            banner: banner,
-          ),
-        ),
-      );
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CampaignBasketScreen(
-          campaignId: campaignId,
-          banner: banner,
-        ),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Yakinda')),
     );
   }
 
@@ -396,7 +376,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 186,
+          height: 188,
           child: PageView.builder(
             controller: _bannerController,
             onPageChanged: (index) {
@@ -408,45 +388,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final subtitle = (banner.subtitle ?? banner.description ?? '').trim();
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _onBannerTap(banner),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppRadius.xl),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF8C5A2B),
-                          Color(0xFFB98542),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.22),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
+                child: Material(
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _onBannerTap(banner),
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        Expanded(
+                        if (banner.imageUrl.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: banner.imageUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(color: AppColors.surfaceVariant),
+                          )
+                        else
+                          Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF8C5A2B), Color(0xFFB98542)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                          ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.black.withOpacity(0.08), Colors.black.withOpacity(0.58)],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Text(
                                 banner.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                ),
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                               ),
                               if (subtitle.isNotEmpty) ...[
                                 const SizedBox(height: AppSpacing.xs),
@@ -454,39 +439,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   subtitle,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.92),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: TextStyle(color: Colors.white.withOpacity(0.95), fontWeight: FontWeight.w500),
                                 ),
                               ],
+                              const SizedBox(height: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(AppRadius.full),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Text(
+                                  banner.ctaText ?? 'Keşfet',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Container(
-                          width: 92,
-                          height: 92,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.16),
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: banner.imageUrl.isNotEmpty
-                              ? Image.network(
-                                  banner.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.local_offer,
-                                    color: Colors.white,
-                                    size: 36,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.shopping_basket_rounded,
-                                  color: Colors.white,
-                                  size: 36,
-                                ),
                         ),
                       ],
                     ),
@@ -507,9 +477,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: _currentBannerPage == index ? 20 : 7,
               height: 7,
               decoration: BoxDecoration(
-                color: _currentBannerPage == index
-                    ? AppColors.primary
-                    : AppColors.outlineVariant,
+                color: _currentBannerPage == index ? AppColors.primary : AppColors.outlineVariant,
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
             ),

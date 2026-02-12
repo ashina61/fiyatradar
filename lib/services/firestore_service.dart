@@ -9,6 +9,7 @@ import '../models/store_model.dart';
 import '../utils/constants.dart';
 import '../models/banner_model.dart';
 import '../models/user_model.dart';
+import '../models/campaign_basket_model.dart';
 import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
 
@@ -22,6 +23,7 @@ class FirestoreService {
   CollectionReference get _notificationsRef =>
       _firestore.collection('inAppNotifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
+  CollectionReference get _campaignBasketsRef => _firestore.collection('campaignBaskets');
   CollectionReference get _usersRef => _firestore.collection('users');
   CollectionReference get _brandsRef => _firestore.collection('brands');
   CollectionReference get _storesRef => _firestore.collection('stores');
@@ -401,34 +403,77 @@ class FirestoreService {
   }
 
 
-  Future<Map<String, dynamic>?> getCampaignBasket(String basketId) async {
-    if (basketId.trim().isEmpty) return null;
-    final doc = await _firestore.collection('campaignBaskets').doc(basketId).get();
+  Future<CampaignBasketModel?> getCampaignById(String id) async {
+    if (id.trim().isEmpty) return null;
+    final doc = await _campaignBasketsRef.doc(id).get();
     if (!doc.exists) return null;
-    return doc.data();
+    return CampaignBasketModel.fromFirestore(doc);
+  }
+
+  Stream<List<CampaignBasketModel>> getAllCampaigns() {
+    return _campaignBasketsRef.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => CampaignBasketModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) {
+        final aOrder = a.sortOrder ?? 999999;
+        final bOrder = b.sortOrder ?? 999999;
+        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+        return b.createdAt.compareTo(a.createdAt);
+      });
+      return list;
+    });
+  }
+
+  Stream<List<CampaignBasketModel>> getActiveCampaigns() {
+    return _campaignBasketsRef
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => CampaignBasketModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) {
+        final aOrder = a.sortOrder ?? 999999;
+        final bOrder = b.sortOrder ?? 999999;
+        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+        return b.createdAt.compareTo(a.createdAt);
+      });
+      return list;
+    });
+  }
+
+  Future<String> addCampaign(CampaignBasketModel campaign) async {
+    final doc = await _campaignBasketsRef.add({
+      ...campaign.toFirestore(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  Future<void> updateCampaign(String id, Map<String, dynamic> data) async {
+    await _campaignBasketsRef.doc(id).update({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteCampaign(String id) async {
+    await _campaignBasketsRef.doc(id).delete();
+  }
+
+  @Deprecated('Use getCampaignById')
+  Future<Map<String, dynamic>?> getCampaignBasket(String basketId) async {
+    final model = await getCampaignById(basketId);
+    if (model == null) return null;
+    return model.toFirestore();
   }
 
   Future<List<ProductModel>> getCampaignBasketProducts(String basketId) async {
-    final data = await getCampaignBasket(basketId);
-    if (data == null) return const [];
-
-    final items = (data['items'] as List?) ?? const [];
-    final productIds = items
-        .map((item) {
-          if (item is Map<String, dynamic>) {
-            return item['productId']?.toString() ?? '';
-          }
-          if (item is Map) {
-            return item['productId']?.toString() ?? '';
-          }
-          return '';
-        })
-        .where((id) => id.trim().isNotEmpty)
-        .cast<String>()
-        .toList();
-
-    if (productIds.isEmpty) return const [];
-    return getProductsByIds(productIds);
+    final campaign = await getCampaignById(basketId);
+    if (campaign == null || campaign.itemProductIds.isEmpty) return const [];
+    return getProductsByIds(campaign.itemProductIds);
   }
 
 
@@ -1087,13 +1132,23 @@ class FirestoreService {
     if (productIds.isEmpty) {
       return Stream.value([]);
     }
-    return _productsRef
-        .where(FieldPath.documentId, whereIn: productIds)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList());
+
+    final uniqueIds = productIds.toSet().toList();
+    return _productsRef.snapshots().map((snapshot) {
+      final productMap = <String, ProductModel>{};
+      for (final doc in snapshot.docs) {
+        final product = ProductModel.fromFirestore(doc);
+        if (uniqueIds.contains(product.id)) {
+          productMap[product.id] = product;
+        }
+      }
+      return uniqueIds
+          .where(productMap.containsKey)
+          .map((id) => productMap[id]!)
+          .toList();
+    });
   }
+
 
   // =========================================================================
   // CATEGORIES

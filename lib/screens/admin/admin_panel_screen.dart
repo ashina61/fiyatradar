@@ -20,8 +20,10 @@ import '../../models/store_suggestion_model.dart';
 import 'report_detail_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../models/banner_model.dart';
+import '../../models/campaign_basket_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
+import '../../providers/campaign_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
@@ -42,7 +44,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -96,6 +98,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
+            Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
             Tab(text: 'Kullanicilar', icon: Icon(Icons.people_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
@@ -109,6 +112,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _StoreHubTab(),
           _CategoryManagementTab(),
           _BannerManagementTab(),
+          _CampaignManagementTab(),
           _ReportsManagementTab(),
           _UserManagementTab(),
           _StatisticsTab(),
@@ -2366,86 +2370,128 @@ class _CategoryManagementTab extends ConsumerWidget {
 class _BannerManagementTab extends ConsumerWidget {
   const _BannerManagementTab();
 
-  void _showAddBannerDialog(BuildContext context, WidgetRef ref) {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final imageUrlController = TextEditingController();
-    final targetIdController = TextEditingController();
-    String selectedTargetType = 'campaign_basket';
+  void _showBannerDialog(BuildContext context, WidgetRef ref, {BannerModel? banner}) {
+    final titleController = TextEditingController(text: banner?.title ?? '');
+    final descriptionController = TextEditingController(text: banner?.description ?? '');
+    final imageUrlController = TextEditingController(text: banner?.imageUrl ?? '');
+    final ctaController = TextEditingController(text: banner?.ctaText ?? 'Keşfet');
+
+    String selectedTargetType = (banner?.targetType ?? 'none').toLowerCase();
+    if (!const ['campaign', 'category', 'search', 'none'].contains(selectedTargetType)) {
+      selectedTargetType = 'none';
+    }
+    String? selectedCampaignId = banner?.targetId;
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: const Icon(Icons.view_carousel_outlined, color: AppColors.primary, size: 20),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text('Yeni Banner Ekle'),
-          ]),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama', prefixIcon: Icon(Icons.subtitles_outlined))),
-              const SizedBox(height: AppSpacing.md),
-              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
-              const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<String>(
-                value: selectedTargetType,
-                decoration: const InputDecoration(
-                  labelText: 'Hedef Turu',
-                  prefixIcon: Icon(Icons.ads_click_outlined),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final campaignsAsync = ref.watch(activeCampaignsProvider);
+          return StatefulBuilder(
+            builder: (context, setModalState) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              title: Text(banner == null ? 'Yeni Banner Ekle' : 'Banner Duzenle'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik')),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama')),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL')),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(controller: ctaController, decoration: const InputDecoration(labelText: 'CTA Text')),
+                    const SizedBox(height: AppSpacing.sm),
+                    DropdownButtonFormField<String>(
+                      value: selectedTargetType,
+                      decoration: const InputDecoration(labelText: 'Hedef Turu'),
+                      items: const [
+                        DropdownMenuItem(value: 'campaign', child: Text('Kampanya')),
+                        DropdownMenuItem(value: 'category', child: Text('Kategori')),
+                        DropdownMenuItem(value: 'search', child: Text('Arama')),
+                        DropdownMenuItem(value: 'none', child: Text('Yok')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() {
+                          selectedTargetType = value;
+                          if (value != 'campaign') {
+                            selectedCampaignId = null;
+                          }
+                        });
+                      },
+                    ),
+                    if (selectedTargetType == 'campaign') ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      campaignsAsync.when(
+                        data: (campaigns) {
+                          final hasSelected = selectedCampaignId != null && campaigns.any((c) => c.id == selectedCampaignId);
+                          if (!hasSelected) selectedCampaignId = null;
+                          return DropdownButtonFormField<String>(
+                            value: selectedCampaignId,
+                            decoration: const InputDecoration(labelText: 'Kampanya Sec'),
+                            items: campaigns
+                                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title, overflow: TextOverflow.ellipsis)))
+                                .toList(),
+                            onChanged: (value) => setModalState(() => selectedCampaignId = value),
+                          );
+                        },
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                        error: (_, __) => const Text('Kampanyalar yuklenemedi'),
+                      ),
+                    ],
+                  ],
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'campaign_basket',
-                    child: Text('Kampanya Sepeti'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setModalState(() => selectedTargetType = value);
-                },
               ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: targetIdController,
-                decoration: const InputDecoration(
-                  labelText: 'Hedef ID',
-                  prefixIcon: Icon(Icons.tag_outlined),
-                  hintText: 'campaign basket doc id',
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (titleController.text.trim().isEmpty) return;
+                    if (selectedTargetType == 'campaign' && (selectedCampaignId ?? '').isEmpty) return;
+
+                    final payload = {
+                      'title': titleController.text.trim(),
+                      'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
+                      'imageUrl': imageUrlController.text.trim(),
+                      'ctaText': ctaController.text.trim().isEmpty ? 'Keşfet' : ctaController.text.trim(),
+                      'targetType': selectedTargetType,
+                      'targetId': selectedTargetType == 'campaign' ? selectedCampaignId : null,
+                      'isActive': banner?.isActive ?? true,
+                      'order': banner?.order ?? 0,
+                      'aspectRatio': 'wide',
+                    };
+
+                    if (banner == null) {
+                      final model = BannerModel(
+                        id: '',
+                        title: payload['title']! as String,
+                        description: payload['description'] as String?,
+                        imageUrl: payload['imageUrl']! as String,
+                        targetType: payload['targetType']! as String,
+                        targetId: payload['targetId'] as String?,
+                        ctaText: payload['ctaText']! as String,
+                        aspectRatio: 'wide',
+                        isActive: true,
+                        createdAt: DateTime.now(),
+                      );
+                      await ref.read(firestoreServiceProvider).addBanner(model);
+                    } else {
+                      await ref.read(firestoreServiceProvider).updateBanner(banner.id, payload);
+                    }
+
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Kaydet'),
                 ),
-              ),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () async {
-                if (titleController.text.isEmpty) return;
-                final banner = BannerModel(
-                  id: '',
-                  title: titleController.text,
-                  description: descriptionController.text.isEmpty ? null : descriptionController.text,
-                  imageUrl: imageUrlController.text.isEmpty ? '' : imageUrlController.text,
-                  targetType: selectedTargetType,
-                  targetId: targetIdController.text.trim().isEmpty ? null : targetIdController.text.trim(),
-                  actionLabel: 'Kampanya Sepetine Git',
-                  isActive: true,
-                  createdAt: DateTime.now(),
-                );
-                await ref.read(firestoreServiceProvider).addBanner(banner);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Ekle'),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -2453,92 +2499,57 @@ class _BannerManagementTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bannersAsync = ref.watch(allBannersProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_banner',
-        onPressed: () => _showAddBannerDialog(context, ref),
+        onPressed: () => _showBannerDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Banner Ekle'),
       ),
       body: bannersAsync.when(
         data: (banners) {
-          if (banners.isEmpty) {
-            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.view_carousel_outlined, size: 64, color: theme.hintColor),
-              const SizedBox(height: AppSpacing.md),
-              Text('Henuz banner yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]));
-          }
+          if (banners.isEmpty) return const Center(child: Text('Henuz banner yok'));
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
             itemCount: banners.length,
             itemBuilder: (context, index) {
               final banner = banners[index];
-              return Container(
+              return Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4))],
-                ),
-                child: Column(children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withOpacity(0.75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-                      image: banner.imageUrl.isNotEmpty ? DecorationImage(
-                        image: NetworkImage(banner.imageUrl),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(AppColors.primary.withOpacity(0.3), BlendMode.darken),
-                        onError: (_, __) {},
-                      ) : null,
+                child: ListTile(
+                  onTap: () => _showBannerDialog(context, ref, banner: banner),
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    child: SizedBox(
+                      width: 84,
+                      height: 48,
+                      child: banner.imageUrl.isNotEmpty
+                          ? Image.network(banner.imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined))
+                          : const Icon(Icons.image_not_supported_outlined),
                     ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      if (!banner.isActive)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(AppRadius.xs)),
-                          child: const Text('PASIF', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
-                      Text(banner.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-                      if (banner.description != null && banner.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(banner.description!, style: const TextStyle(color: Colors.white70, fontSize: 13, shadows: [Shadow(blurRadius: 4, color: Colors.black38)])),
-                      ],
-                    ]),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                    child: Row(children: [
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: () {
-                          ref.read(bannerNotifierProvider.notifier).toggleBannerActive(banner.id, !banner.isActive);
-                        },
-                        icon: Icon(banner.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                        label: Text(banner.isActive ? 'Gizle' : 'Goster'),
+                  title: Text(banner.title),
+                  subtitle: Text('${banner.targetType ?? 'none'} • ${banner.targetId ?? '-'}'),
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      IconButton(
+                        icon: Icon(banner.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                        onPressed: () => ref.read(bannerNotifierProvider.notifier).toggleBannerActive(banner.id, !banner.isActive),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                        onPressed: () {
-                          ref.read(bannerNotifierProvider.notifier).deleteBanner(banner.id);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: const Text('Banner silindi'), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm))),
-                          );
-                        },
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _showBannerDialog(context, ref, banner: banner),
                       ),
-                    ]),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                        onPressed: () => ref.read(bannerNotifierProvider.notifier).deleteBanner(banner.id),
+                      ),
+                    ],
                   ),
-                ]),
+                ),
               );
             },
           );
@@ -2550,6 +2561,213 @@ class _BannerManagementTab extends ConsumerWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Tab 5: Kampanya Yonetimi
+// ---------------------------------------------------------------------------
+class _CampaignManagementTab extends ConsumerWidget {
+  const _CampaignManagementTab();
+
+  void _showCampaignDialog(BuildContext context, WidgetRef ref, List<ProductModel> allProducts, {CampaignBasketModel? campaign}) {
+    final titleController = TextEditingController(text: campaign?.title ?? '');
+    final descriptionController = TextEditingController(text: campaign?.description ?? '');
+    final imageUrlController = TextEditingController(text: campaign?.imageUrl ?? '');
+    bool isActive = campaign?.isActive ?? true;
+    final selectedIds = <String>{...campaign?.itemProductIds ?? const []};
+    String search = '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final filtered = allProducts.where((p) {
+            if (search.trim().isEmpty) return true;
+            final q = search.toLowerCase();
+            return p.name.toLowerCase().contains(q) ||
+                p.brand.toLowerCase().contains(q) ||
+                (p.barcode?.contains(search) ?? false);
+          }).take(30).toList();
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+            title: Text(campaign == null ? 'Kampanya Ekle' : 'Kampanya Duzenle'),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik')),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama')),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Gorsel URL')),
+                    const SizedBox(height: AppSpacing.sm),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: isActive,
+                      onChanged: (v) => setModalState(() => isActive = v),
+                      title: const Text('Aktif'),
+                    ),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Urun ara (isim/marka/barkod)'),
+                      onChanged: (v) => setModalState(() => search = v),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: selectedIds
+                          .map((id) {
+                            for (final product in allProducts) {
+                              if (product.id == id) return product;
+                            }
+                            return null;
+                          })
+                          .whereType<ProductModel>()
+                          .map((p) => InputChip(
+                                label: Text(p.name, overflow: TextOverflow.ellipsis),
+                                onDeleted: () => setModalState(() => selectedIds.remove(p.id)),
+                              ))
+                          .toList(),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    SizedBox(
+                      height: 220,
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final p = filtered[i];
+                          final isSelected = selectedIds.contains(p.id);
+                          return ListTile(
+                            dense: true,
+                            title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(p.brand),
+                            trailing: Icon(isSelected ? Icons.check_circle : Icons.add_circle_outline),
+                            onTap: () => setModalState(() {
+                              if (isSelected) {
+                                selectedIds.remove(p.id);
+                              } else {
+                                selectedIds.add(p.id);
+                              }
+                            }),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+              ElevatedButton(
+                onPressed: () async {
+                  if (titleController.text.trim().isEmpty) return;
+                  final data = {
+                    'title': titleController.text.trim(),
+                    'description': descriptionController.text.trim(),
+                    'imageUrl': imageUrlController.text.trim().isEmpty ? null : imageUrlController.text.trim(),
+                    'isActive': isActive,
+                    'itemProductIds': selectedIds.toList(),
+                  };
+
+                  if (campaign == null) {
+                    await ref.read(firestoreServiceProvider).addCampaign(
+                          CampaignBasketModel(
+                            id: '',
+                            title: titleController.text.trim(),
+                            description: descriptionController.text.trim(),
+                            imageUrl: imageUrlController.text.trim().isEmpty ? null : imageUrlController.text.trim(),
+                            isActive: isActive,
+                            itemProductIds: selectedIds.toList(),
+                            createdAt: DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          ),
+                        );
+                  } else {
+                    await ref.read(firestoreServiceProvider).updateCampaign(campaign.id, data);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Kaydet'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final campaignsAsync = ref.watch(allCampaignsProvider);
+    final productsAsync = ref.watch(allProductsProvider);
+
+    return Scaffold(
+      floatingActionButton: productsAsync.valueOrNull == null
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'fab_campaign',
+              onPressed: () => _showCampaignDialog(context, ref, productsAsync.valueOrNull ?? const []),
+              icon: const Icon(Icons.add),
+              label: const Text('Kampanya Ekle'),
+            ),
+      body: campaignsAsync.when(
+        data: (campaigns) {
+          if (campaigns.isEmpty) return const Center(child: Text('Kampanya bulunamadi'));
+          final products = productsAsync.valueOrNull ?? const <ProductModel>[];
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 90),
+            itemCount: campaigns.length,
+            itemBuilder: (context, index) {
+              final c = campaigns[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: SizedBox(
+                        width: 90,
+                        child: c.imageUrl != null && c.imageUrl!.isNotEmpty
+                            ? Image.network(c.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.campaign_outlined))
+                            : Container(color: AppColors.surfaceVariant, child: const Icon(Icons.campaign_outlined)),
+                      ),
+                    ),
+                  ),
+                  title: Text(c.title),
+                  subtitle: Text('${c.itemProductIds.length} urun'),
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      Chip(label: Text(c.isActive ? 'Aktif' : 'Pasif')),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _showCampaignDialog(context, ref, products, campaign: c),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                        onPressed: () => ref.read(firestoreServiceProvider).deleteCampaign(c.id),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Kampanyalar yuklenemedi')),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab 6: Rapor Yonetimi
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Tab 5: Rapor Yonetimi
 // ---------------------------------------------------------------------------
