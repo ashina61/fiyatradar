@@ -147,6 +147,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
                   showCheckmark: false,
                   selectedColor: AppColors.primary,
                   backgroundColor: AppColors.surface,
+                  labelStyle: TextStyle(
+                    color: state.selectedMode == mode.key
+                        ? AppColors.textOnPrimary
+                        : AppColors.textPrimary,
+                    fontWeight: state.selectedMode == mode.key ? FontWeight.w700 : FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -172,6 +178,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
             onSelected: (_) => ref.read(exploreControllerProvider.notifier).updateCategory(label),
             selectedColor: AppColors.primary,
             backgroundColor: AppColors.surface,
+            labelStyle: TextStyle(
+              color: selected ? AppColors.textOnPrimary : AppColors.textPrimary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            ),
             showCheckmark: false,
           );
         },
@@ -194,7 +204,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
             crossAxisCount: 2,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.69,
+            childAspectRatio: 0.72,
           ),
           itemBuilder: (context, index) {
             final item = state.items[index];
@@ -222,11 +232,12 @@ class _ExploreMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasDistance = mode == ExploreMode.online || (item.distanceLabel?.trim().isNotEmpty ?? false);
-    if (!hasDistance) return const SizedBox.shrink();
-
     final neighborhoodText = item.neighborhoodLabel;
-    final distanceText = mode == ExploreMode.online ? 'Online' : item.distanceLabel!.trim();
+    final distanceText = mode == ExploreMode.online
+        ? 'Online'
+        : (item.distanceLabel?.trim().isNotEmpty ?? false)
+            ? item.distanceLabel!.trim()
+            : '—';
 
     return Column(
       children: [

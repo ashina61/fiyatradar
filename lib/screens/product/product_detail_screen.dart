@@ -205,8 +205,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     Uri? mapsUri;
     if (branchStore.hasCoordinates) {
+      final destination = '${branchStore.lat},${branchStore.lng}';
+      final query = Uri.encodeComponent(branchStore.displayName ?? 'Mağaza');
       mapsUri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${branchStore.lat},${branchStore.lng}&travelmode=driving',
+        'https://www.google.com/maps/dir/?api=1&destination=$destination&destination_place_id=&query=$query&travelmode=driving',
       );
     } else if (branchStore.hasMapsQuery) {
       final encodedStoreQuery = Uri.encodeComponent(branchStore.mapsQuery);
@@ -1653,9 +1655,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   void _shareProduct(ProductModel product) {
-    final last = formatTRY(product.lastPrice ?? 0);
-    final lowest = formatTRY(product.lastPrice ?? 0);
-    Share.share('${product.name} • Son: $last • En ucuz: $lowest');
+    final productName = product.name.trim().isEmpty ? 'Ürün' : product.name.trim();
+    final currentPrice = product.lastPrice != null ? formatTRY(product.lastPrice!) : 'Fiyat yok';
+    final store = (product.lastStore ?? '').trim().isNotEmpty ? product.lastStore!.trim() : 'Mağaza bilinmiyor';
+    final message = '$productName
+Güncel fiyat: $currentPrice
+Mağaza: $store
+FiyatRadar';
+
+    Share.share(message);
   }
 
   // ---- Helpers ----

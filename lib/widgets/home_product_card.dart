@@ -91,7 +91,7 @@ class HomeProductCard extends ConsumerWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm + 2, AppSpacing.sm + 2, AppSpacing.sm + 2, AppSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -111,17 +111,15 @@ class HomeProductCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Expanded(
-                      child: Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          height: 1.3,
-                        ),
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        height: 1.25,
                       ),
                     ),
                     if (hasPrice)
@@ -132,16 +130,17 @@ class HomeProductCard extends ConsumerWidget {
                             children: [
                               Expanded(
                                 child: Text(
-                                  _formatPriceTrailingTry(product.lastPrice!),
+                                  formatTRY(product.lastPrice!),
                                   style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
                                     color: AppColors.primary,
                                   ),
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 2),
                           priceHistoryAsync.when(
                             data: (prices) => _buildRelativeTimeText(prices),
                             loading: () => const SizedBox.shrink(),
@@ -149,7 +148,7 @@ class HomeProductCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                    const SizedBox(height: 2),
+                    const Spacer(),
                     if (showStore && product.lastStore != null)
                       Text(
                         product.lastStore!,
@@ -208,10 +207,6 @@ class HomeProductCard extends ConsumerWidget {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
-  String _formatPriceTrailingTry(double price) {
-    final formatted = formatTRY(price).replaceAll('₺', '').trim();
-    return '${formatted}₺';
-  }
 }
 
 Color _colorForCategory(String category) {

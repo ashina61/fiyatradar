@@ -2376,10 +2376,7 @@ class _BannerManagementTab extends ConsumerWidget {
     final imageUrlController = TextEditingController(text: banner?.imageUrl ?? '');
     final ctaController = TextEditingController(text: banner?.ctaText ?? 'Keşfet');
 
-    String selectedTargetType = (banner?.targetType ?? 'none').toLowerCase();
-    if (!const ['campaign', 'category', 'search', 'none'].contains(selectedTargetType)) {
-      selectedTargetType = 'none';
-    }
+    String selectedTargetType = 'campaign';
     String? selectedCampaignId = banner?.targetId;
 
     showDialog(
@@ -2401,49 +2398,54 @@ class _BannerManagementTab extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.sm),
                     TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL')),
                     const SizedBox(height: AppSpacing.sm),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 7,
+                        child: imageUrlController.text.trim().isEmpty
+                            ? Container(color: AppColors.surfaceVariant)
+                            : Image.network(
+                                imageUrlController.text.trim(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(color: AppColors.surfaceVariant),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
                     TextField(controller: ctaController, decoration: const InputDecoration(labelText: 'CTA Text')),
                     const SizedBox(height: AppSpacing.sm),
-                    DropdownButtonFormField<String>(
-                      value: selectedTargetType,
-                      decoration: const InputDecoration(labelText: 'Hedef Turu'),
-                      items: const [
-                        DropdownMenuItem(value: 'campaign', child: Text('Kampanya')),
-                        DropdownMenuItem(value: 'category', child: Text('Kategori')),
-                        DropdownMenuItem(value: 'search', child: Text('Arama')),
-                        DropdownMenuItem(value: 'none', child: Text('Yok')),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          selectedTargetType = value;
-                          if (value != 'campaign') {
-                            selectedCampaignId = null;
-                          }
-                        });
-                      },
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.ads_click_outlined),
+                      title: Text('Hedef Türü: campaign'),
                     ),
-                    if (selectedTargetType == 'campaign') ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      campaignsAsync.when(
-                        data: (campaigns) {
-                          final hasSelected = selectedCampaignId != null && campaigns.any((c) => c.id == selectedCampaignId);
-                          if (!hasSelected) selectedCampaignId = null;
-                          return DropdownButtonFormField<String>(
-                            value: selectedCampaignId,
-                            decoration: const InputDecoration(labelText: 'Kampanya Sec'),
-                            items: campaigns
-                                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title, overflow: TextOverflow.ellipsis)))
-                                .toList(),
-                            onChanged: (value) => setModalState(() => selectedCampaignId = value),
-                          );
-                        },
-                        loading: () => const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                        error: (_, __) => const Text('Kampanyalar yuklenemedi'),
+                    TextFormField(
+                      initialValue: selectedCampaignId ?? '',
+                      decoration: const InputDecoration(
+                        labelText: 'Hedef ID (opsiyonel kampanyaId)',
+                        helperText: 'Boş bırakılırsa kampanyalar listesi açılır. Doluysa ilgili kampanya açılır.',
                       ),
-                    ],
+                      onChanged: (value) => selectedCampaignId = value.trim().isEmpty ? null : value.trim(),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    campaignsAsync.when(
+                      data: (campaigns) => Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: campaigns
+                              .take(8)
+                              .map((c) => ActionChip(
+                                    label: Text(c.title, overflow: TextOverflow.ellipsis),
+                                    onPressed: () => setModalState(() => selectedCampaignId = c.id),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
                   ],
                 ),
               ),
@@ -2452,7 +2454,6 @@ class _BannerManagementTab extends ConsumerWidget {
                 ElevatedButton(
                   onPressed: () async {
                     if (titleController.text.trim().isEmpty) return;
-                    if (selectedTargetType == 'campaign' && (selectedCampaignId ?? '').isEmpty) return;
 
                     final payload = {
                       'title': titleController.text.trim(),
