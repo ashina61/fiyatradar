@@ -73,6 +73,7 @@ class CampaignDetailScreen extends ConsumerWidget {
                           final product = products[index];
                           return HomeProductCard(
                             product: product,
+                            width: double.infinity,
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
