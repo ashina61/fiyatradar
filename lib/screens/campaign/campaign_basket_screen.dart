@@ -5,9 +5,9 @@ import '../../main.dart';
 import '../../models/banner_model.dart';
 import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
-import '../product/product_detail_screen.dart';
 import '../../utils/theme.dart';
 import '../../widgets/home_product_card.dart';
+import '../product/product_detail_screen.dart';
 
 class CampaignBasketScreen extends ConsumerStatefulWidget {
   final String campaignId;
@@ -24,33 +24,56 @@ class CampaignBasketScreen extends ConsumerStatefulWidget {
 }
 
 class _CampaignBasketScreenState extends ConsumerState<CampaignBasketScreen> {
-  late Future<List<ProductModel>> _future;
+  late Future<_CampaignBasketData> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _loadProducts();
+    _future = _loadCampaignBasket();
   }
 
-  Future<List<ProductModel>> _loadProducts() async {
-    if (!firebaseInitialized) return const [];
+  Future<_CampaignBasketData> _loadCampaignBasket() async {
+    if (!firebaseInitialized) return const _CampaignBasketData.empty();
     final service = ref.read(firestoreServiceProvider);
 
-    var productIds = widget.banner?.targetProductIds ?? const <String>[];
-    if (productIds.isEmpty) {
-      productIds = await service.getCampaignProductIdsForBanner(widget.campaignId);
+    final campaignId = widget.campaignId.trim();
+    if (campaignId.isEmpty) {
+      return const _CampaignBasketData.empty(
+        emptyMessage: 'Bu kampanyaya ait ürün yok',
+      );
     }
 
-    if (productIds.isEmpty) return const [];
-    return service.getProductsByIds(productIds);
+    final basketData = await service.getCampaignBasket(campaignId);
+    if (basketData == null) {
+      return const _CampaignBasketData.empty(
+        emptyMessage: 'Bu kampanyada ürün bulunamadı',
+      );
+    }
+
+    final products = await service.getCampaignBasketProducts(campaignId);
+    if (products.isEmpty) {
+      return _CampaignBasketData(
+        title: basketData['title']?.toString(),
+        subtitle: basketData['subtitle']?.toString(),
+        products: const [],
+        emptyMessage: 'Bu kampanyada ürün bulunamadı',
+      );
+    }
+
+    return _CampaignBasketData(
+      title: basketData['title']?.toString(),
+      subtitle: basketData['subtitle']?.toString(),
+      products: products,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.banner?.title ?? 'Kampanya Sepeti';
+    final fallbackTitle = widget.banner?.title ?? 'Kampanya Sepeti';
+
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: FutureBuilder<List<ProductModel>>(
+      appBar: AppBar(title: Text(fallbackTitle)),
+      body: FutureBuilder<_CampaignBasketData>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -61,29 +84,44 @@ class _CampaignBasketScreenState extends ConsumerState<CampaignBasketScreen> {
             return const Center(child: Text('Kampanya ürünleri yüklenemedi'));
           }
 
-          final products = snapshot.data ?? const [];
+          final data = snapshot.data ?? const _CampaignBasketData.empty();
+          final products = data.products;
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.banner?.description != null && widget.banner!.description!.trim().isNotEmpty)
+              if ((data.subtitle ?? '').trim().isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                  ),
                   child: Text(
-                    widget.banner!.description!,
+                    data.subtitle!,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
               Expanded(
                 child: products.isEmpty
-                    ? const Center(child: Text('Bu kampanyada ürün bulunamadı'))
+                    ? Center(child: Text(data.emptyMessage))
                     : LayoutBuilder(
                         builder: (context, constraints) {
                           const spacing = 12.0;
-                          final cardWidth = (constraints.maxWidth - (AppSpacing.md * 2) - spacing) / 2;
+                          final cardWidth =
+                              (constraints.maxWidth - (AppSpacing.md * 2) - spacing) /
+                                  2;
                           return GridView.builder(
-                            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.lg),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.sm,
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                            ),
                             itemCount: products.length,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
@@ -97,7 +135,8 @@ class _CampaignBasketScreenState extends ConsumerState<CampaignBasketScreen> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => ProductDetailScreen(productId: product.id),
+                                      builder: (_) =>
+                                          ProductDetailScreen(productId: product.id),
                                     ),
                                   );
                                 },
@@ -113,4 +152,24 @@ class _CampaignBasketScreenState extends ConsumerState<CampaignBasketScreen> {
       ),
     );
   }
+}
+
+class _CampaignBasketData {
+  final String? title;
+  final String? subtitle;
+  final List<ProductModel> products;
+  final String emptyMessage;
+
+  const _CampaignBasketData({
+    this.title,
+    this.subtitle,
+    required this.products,
+    this.emptyMessage = 'Bu kampanyada ürün bulunamadı',
+  });
+
+  const _CampaignBasketData.empty({
+    this.emptyMessage = 'Bu kampanyada ürün bulunamadı',
+  })  : title = null,
+        subtitle = null,
+        products = const [];
 }

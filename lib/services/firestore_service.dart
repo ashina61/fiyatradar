@@ -400,6 +400,38 @@ class FirestoreService {
         .toList();
   }
 
+
+  Future<Map<String, dynamic>?> getCampaignBasket(String basketId) async {
+    if (basketId.trim().isEmpty) return null;
+    final doc = await _firestore.collection('campaignBaskets').doc(basketId).get();
+    if (!doc.exists) return null;
+    return doc.data();
+  }
+
+  Future<List<ProductModel>> getCampaignBasketProducts(String basketId) async {
+    final data = await getCampaignBasket(basketId);
+    if (data == null) return const [];
+
+    final items = (data['items'] as List?) ?? const [];
+    final productIds = items
+        .map((item) {
+          if (item is Map<String, dynamic>) {
+            return item['productId']?.toString() ?? '';
+          }
+          if (item is Map) {
+            return item['productId']?.toString() ?? '';
+          }
+          return '';
+        })
+        .where((id) => id.trim().isNotEmpty)
+        .cast<String>()
+        .toList();
+
+    if (productIds.isEmpty) return const [];
+    return getProductsByIds(productIds);
+  }
+
+
   Future<void> incrementViewCount(String productId) async {
     await _productsRef.doc(productId).update({
       'viewCount': FieldValue.increment(1),

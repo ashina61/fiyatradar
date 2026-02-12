@@ -9,8 +9,10 @@ class BannerModel {
   final String? actionUrl;
   final String? productId;
   final String? actionType;
+  final String? targetType;
   final String? targetId;
   final String? targetBasketId;
+  final String? actionLabel;
   final List<String> targetProductIds;
   final bool isActive;
   final int order;
@@ -26,8 +28,10 @@ class BannerModel {
     this.actionUrl,
     this.productId,
     this.actionType,
+    this.targetType,
     this.targetId,
     this.targetBasketId,
+    this.actionLabel,
     this.targetProductIds = const [],
     this.isActive = true,
     this.order = 0,
@@ -53,9 +57,11 @@ class BannerModel {
       actionUrl: data['actionUrl'],
       productId: data['productId'],
       actionType: data['actionType']?.toString(),
+      targetType: data['targetType']?.toString(),
       targetId: data['targetId']?.toString(),
       targetBasketId:
           data['targetBasketId']?.toString() ?? data['targetId']?.toString(),
+      actionLabel: data['actionLabel']?.toString(),
       targetProductIds: List<String>.from(data['targetProductIds'] ?? const []),
       isActive: data['isActive'] ?? true,
       order: data['order'] ?? 0,
@@ -73,8 +79,10 @@ class BannerModel {
       'actionUrl': actionUrl,
       'productId': productId,
       'actionType': actionType,
+      'targetType': targetType,
       'targetId': targetId,
       'targetBasketId': targetBasketId,
+      'actionLabel': actionLabel,
       'targetProductIds': targetProductIds,
       'isActive': isActive,
       'order': order,
@@ -92,8 +100,10 @@ class BannerModel {
     String? actionUrl,
     String? productId,
     String? actionType,
+    String? targetType,
     String? targetId,
     String? targetBasketId,
+    String? actionLabel,
     List<String>? targetProductIds,
     bool? isActive,
     int? order,
@@ -109,8 +119,10 @@ class BannerModel {
       actionUrl: actionUrl ?? this.actionUrl,
       productId: productId ?? this.productId,
       actionType: actionType ?? this.actionType,
+      targetType: targetType ?? this.targetType,
       targetId: targetId ?? this.targetId,
       targetBasketId: targetBasketId ?? this.targetBasketId,
+      actionLabel: actionLabel ?? this.actionLabel,
       targetProductIds: targetProductIds ?? this.targetProductIds,
       isActive: isActive ?? this.isActive,
       order: order ?? this.order,

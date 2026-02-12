@@ -2370,48 +2370,82 @@ class _BannerManagementTab extends ConsumerWidget {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final imageUrlController = TextEditingController();
+    final targetIdController = TextEditingController();
+    String selectedTargetType = 'campaign_basket';
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.view_carousel_outlined, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Yeni Banner Ekle'),
-        ]),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
-            const SizedBox(height: AppSpacing.md),
-            TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama', prefixIcon: Icon(Icons.subtitles_outlined))),
-            const SizedBox(height: AppSpacing.md),
-            TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: const Icon(Icons.view_carousel_outlined, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Text('Yeni Banner Ekle'),
           ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.isEmpty) return;
-              final banner = BannerModel(
-                id: '',
-                title: titleController.text,
-                description: descriptionController.text.isEmpty ? null : descriptionController.text,
-                imageUrl: imageUrlController.text.isEmpty ? '' : imageUrlController.text,
-                isActive: true,
-                createdAt: DateTime.now(),
-              );
-              await ref.read(firestoreServiceProvider).addBanner(banner);
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Ekle'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik', prefixIcon: Icon(Icons.title))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama', prefixIcon: Icon(Icons.subtitles_outlined))),
+              const SizedBox(height: AppSpacing.md),
+              TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL (opsiyonel)', prefixIcon: Icon(Icons.image_outlined), hintText: 'https://...')),
+              const SizedBox(height: AppSpacing.md),
+              DropdownButtonFormField<String>(
+                value: selectedTargetType,
+                decoration: const InputDecoration(
+                  labelText: 'Hedef Turu',
+                  prefixIcon: Icon(Icons.ads_click_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'campaign_basket',
+                    child: Text('Kampanya Sepeti'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setModalState(() => selectedTargetType = value);
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: targetIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Hedef ID',
+                  prefixIcon: Icon(Icons.tag_outlined),
+                  hintText: 'campaign basket doc id',
+                ),
+              ),
+            ]),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.isEmpty) return;
+                final banner = BannerModel(
+                  id: '',
+                  title: titleController.text,
+                  description: descriptionController.text.isEmpty ? null : descriptionController.text,
+                  imageUrl: imageUrlController.text.isEmpty ? '' : imageUrlController.text,
+                  targetType: selectedTargetType,
+                  targetId: targetIdController.text.trim().isEmpty ? null : targetIdController.text.trim(),
+                  actionLabel: 'Kampanya Sepetine Git',
+                  isActive: true,
+                  createdAt: DateTime.now(),
+                );
+                await ref.read(firestoreServiceProvider).addBanner(banner);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
       ),
     );
   }

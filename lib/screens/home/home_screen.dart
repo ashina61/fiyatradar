@@ -13,7 +13,6 @@ import '../../widgets/home_product_card.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
-import '../product/product_detail_screen.dart';
 import '../campaign/campaign_basket_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -351,8 +350,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onBannerTap(BannerModel banner) {
-    final campaignId = banner.targetBasketId ?? banner.targetId;
-    if (campaignId != null && campaignId.isNotEmpty) {
+    debugPrint('BANNER_TAP: ${banner.id}');
+
+    final targetType = (banner.targetType ?? '').toLowerCase();
+    final campaignId = (banner.targetId ?? banner.targetBasketId ?? '').trim();
+
+    if (targetType == 'campaign_basket' || targetType.isEmpty) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CampaignBasketScreen(
@@ -364,15 +367,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    final actionType = banner.actionType?.toLowerCase();
-    if (actionType == 'product') {
-      final productId = banner.targetId ?? banner.productId;
-      if (productId != null && productId.isNotEmpty) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
-        );
-      }
+    if (targetType == 'category' || targetType == 'product_list') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CampaignBasketScreen(
+            campaignId: campaignId,
+            banner: banner,
+          ),
+        ),
+      );
+      return;
     }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CampaignBasketScreen(
+          campaignId: campaignId,
+          banner: banner,
+        ),
+      ),
+    );
   }
 
   Widget _buildBannerCarousel(List<BannerModel> banners) {
@@ -393,8 +407,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final subtitle = (banner.subtitle ?? banner.description ?? '').trim();
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => _onBannerTap(banner),
                   child: Container(
                     decoration: BoxDecoration(
