@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/banner_model.dart';
-import '../../providers/banner_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/theme.dart';
-import '../../widgets/banner_widget.dart';
 import '../../widgets/home_product_card.dart';
-import '../campaign/campaign_basket_screen.dart';
 import '../product/product_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -53,8 +49,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
     final theme = Theme.of(context);
     final state = ref.watch(exploreControllerProvider);
-    final bannersAsync = ref.watch(activeBannersProvider);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -63,17 +57,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           child: Column(
             children: [
               _buildSearchBar(theme, state),
-              bannersAsync.when(
-                data: (banners) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: BannerCarousel(
-                    banners: banners,
-                    onTap: _onBannerTap,
-                  ),
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
               _buildModeTabs(theme, state),
               _buildCategoryChips(theme, state),
               Expanded(child: _buildBody(theme, state)),
@@ -82,25 +65,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         ),
       ),
     );
-  }
-
-  void _onBannerTap(BannerModel banner) {
-    final type = banner.actionType?.toLowerCase();
-    if (type == 'campaign' && (banner.targetId?.isNotEmpty ?? false)) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CampaignBasketScreen(campaignId: banner.targetId!, banner: banner),
-        ),
-      );
-      return;
-    }
-
-    if (type == 'product') {
-      final productId = banner.targetId ?? banner.productId;
-      if (productId != null && productId.isNotEmpty) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)));
-      }
-    }
   }
 
   Widget _buildBody(ThemeData theme, ExploreState state) {
