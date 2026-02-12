@@ -173,6 +173,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
         ),
       ),
     );
+  }
+
   Widget _buildFilterBar(ThemeData theme) {
     return Container(
       width: double.infinity,

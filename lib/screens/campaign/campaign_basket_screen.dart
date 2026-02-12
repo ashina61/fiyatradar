@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../main.dart';
 import '../../models/banner_model.dart';
 import '../../models/product_model.dart';
-import '../../providers/firestore_provider.dart';
+import '../../providers/product_provider.dart';
 import '../product/product_detail_screen.dart';
 import '../../utils/theme.dart';
 import '../../widgets/home_product_card.dart';
