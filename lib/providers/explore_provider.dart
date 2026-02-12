@@ -127,7 +127,7 @@ class ExploreFeedItem {
   String? get distanceLabel {
     final distance = distanceMeters;
     if (distance == null) return null;
-    if (distance < 1000) return '${distance.round()} m';
+    if (distance < 1000) return '${distance.round()}m';
     return '${(distance / 1000).toStringAsFixed(1)} km';
   }
 

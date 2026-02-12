@@ -7,6 +7,8 @@ import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
+import '../../utils/formatters.dart';
+import '../product/product_detail_screen.dart';
 
 class ReportDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> report;
@@ -89,6 +91,20 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     }
   }
 
+
+  void _openRelatedProduct(ProductModel? product, {String? highlightedCommentId, String? highlightedPriceId}) {
+    if (product == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProductDetailScreen(
+          productId: product.id,
+          highlightedCommentId: highlightedCommentId,
+          highlightedPriceId: highlightedPriceId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -126,15 +142,20 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                     comment: data?['comment'] as CommentModel?,
                     product: data?['product'] as ProductModel?,
                     user: data?['user'] as UserModel?,
+                    onOpenProduct: (product, comment) => _openRelatedProduct(product, highlightedCommentId: comment?.id),
                   ),
                 if (targetType == 'product')
-                  _ProductTargetCard(product: data?['product'] as ProductModel?),
+                  _ProductTargetCard(
+                    product: data?['product'] as ProductModel?,
+                    onOpenProduct: _openRelatedProduct,
+                  ),
                 if (targetType == 'user')
                   _UserTargetCard(user: data?['user'] as UserModel?),
                 if (targetType == 'priceEntry' || targetType == 'price')
                   _PriceTargetCard(
                     price: data?['price'] as PriceModel?,
                     product: data?['product'] as ProductModel?,
+                    onOpenProduct: (product, price) => _openRelatedProduct(product, highlightedPriceId: price?.id),
                   ),
               ],
               const SizedBox(height: AppSpacing.lg),
@@ -242,11 +263,13 @@ class _CommentTargetCard extends StatelessWidget {
   final CommentModel? comment;
   final ProductModel? product;
   final UserModel? user;
+  final void Function(ProductModel?, CommentModel?)? onOpenProduct;
 
   const _CommentTargetCard({
     required this.comment,
     required this.product,
     required this.user,
+    this.onOpenProduct,
   });
 
   @override
@@ -268,6 +291,15 @@ class _CommentTargetCard extends StatelessWidget {
             Text('Yorumcu', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
             Text(user?.name ?? 'Kullanici bulunamadi'),
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: product == null ? null : () => onOpenProduct?.call(product, comment),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Ilgili urune git'),
+              ),
+            ),
           ],
         ),
       ),
@@ -277,8 +309,9 @@ class _CommentTargetCard extends StatelessWidget {
 
 class _ProductTargetCard extends StatelessWidget {
   final ProductModel? product;
+  final void Function(ProductModel?)? onOpenProduct;
 
-  const _ProductTargetCard({required this.product});
+  const _ProductTargetCard({required this.product, this.onOpenProduct});
 
   @override
   Widget build(BuildContext context) {
@@ -295,6 +328,15 @@ class _ProductTargetCard extends StatelessWidget {
             Text(product?.brand ?? ''),
             const SizedBox(height: AppSpacing.xs),
             Text(product?.category ?? ''),
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: product == null ? null : () => onOpenProduct?.call(product),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Urune git'),
+              ),
+            ),
           ],
         ),
       ),
@@ -332,10 +374,12 @@ class _UserTargetCard extends StatelessWidget {
 class _PriceTargetCard extends StatelessWidget {
   final PriceModel? price;
   final ProductModel? product;
+  final void Function(ProductModel?, PriceModel?)? onOpenProduct;
 
   const _PriceTargetCard({
     required this.price,
     required this.product,
+    this.onOpenProduct,
   });
 
   @override
@@ -352,7 +396,16 @@ class _PriceTargetCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text('Market: ${price?.storeName ?? '-'}'),
             const SizedBox(height: AppSpacing.xs),
-            Text('Fiyat: ${price?.price.toStringAsFixed(2) ?? '-'}'),
+            Text('Fiyat: ${price == null ? '-' : formatTRY(price!.price)}'),
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: product == null ? null : () => onOpenProduct?.call(product, price),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Ilgili urune git'),
+              ),
+            ),
           ],
         ),
       ),
