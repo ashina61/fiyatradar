@@ -14,6 +14,7 @@ import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../campaign/campaign_basket_screen.dart';
+import '../product/product_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
