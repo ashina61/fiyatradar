@@ -22,6 +22,8 @@ class FirestoreService {
   CollectionReference get _commentsRef => _firestore.collection('comments');
   CollectionReference get _notificationsRef =>
       _firestore.collection('inAppNotifications');
+  CollectionReference get _legacyNotificationsRef =>
+      _firestore.collection('notifications');
   CollectionReference get _bannersRef => _firestore.collection('banners');
   CollectionReference get _campaignBasketsRef => _firestore.collection('campaignBaskets');
   CollectionReference get _usersRef => _firestore.collection('users');
@@ -956,41 +958,56 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<NotificationModel>> getNotifications(String userId) {
-    return _notificationsRef
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => NotificationModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
-        });
+    final primary = _notificationsRef.where('userId', isEqualTo: userId).snapshots();
+    final legacy = _legacyNotificationsRef.where('userId', isEqualTo: userId).snapshots();
+
+    return primary.asyncMap((primarySnapshot) async {
+      final legacySnapshot = await legacy.first;
+      final merged = <NotificationModel>[
+        ...primarySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),
+        ...legacySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),
+      ];
+
+      final byId = <String, NotificationModel>{};
+      for (final notification in merged) {
+        byId[notification.id] = notification;
+      }
+      final list = byId.values.toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
   Stream<int> getUnreadNotificationCount(String userId) {
-    return _notificationsRef
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+    return getNotifications(userId).map(
+      (list) => list.where((item) => !item.isRead).length,
+    );
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
-    await _notificationsRef.doc(notificationId).update({
-      'isRead': true,
-    });
+    final doc = await _notificationsRef.doc(notificationId).get();
+    if (doc.exists) {
+      await _notificationsRef.doc(notificationId).update({'isRead': true});
+      return;
+    }
+
+    final legacyDoc = await _legacyNotificationsRef.doc(notificationId).get();
+    if (legacyDoc.exists) {
+      await _legacyNotificationsRef.doc(notificationId).update({'isRead': true});
+    }
   }
 
   Future<void> markAllNotificationsAsRead(String userId) async {
     final batch = _firestore.batch();
-    final snapshot = await _notificationsRef
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
+    final primarySnapshot = await _notificationsRef.where('userId', isEqualTo: userId).get();
+    final legacySnapshot = await _legacyNotificationsRef.where('userId', isEqualTo: userId).get();
 
-    for (final doc in snapshot.docs) {
-      batch.update(doc.reference, {'isRead': true});
+    for (final doc in [...primarySnapshot.docs, ...legacySnapshot.docs]) {
+      final map = doc.data() as Map<String, dynamic>? ?? const {};
+      final isRead = map['isRead'] == true;
+      if (!isRead) {
+        batch.update(doc.reference, {'isRead': true});
+      }
     }
 
     await batch.commit();

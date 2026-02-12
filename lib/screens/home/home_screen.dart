@@ -15,8 +15,10 @@ import '../main_screen.dart';
 import '../points/points_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../campaign/campaign_detail_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../campaign/campaign_detail_screen.dart';
+import '../campaign/campaigns_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -216,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Avatar + Greeting
         GestureDetector(
           onTap: () {
-            ref.read(currentTabProvider.notifier).state = 3;
+            ref.read(currentTabProvider.notifier).state = 4;
           },
           child: Container(
             width: 44,
@@ -310,7 +312,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Notification bell
         GestureDetector(
           onTap: () {
-            ref.read(currentTabProvider.notifier).state = 3;
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
           },
           child: SizedBox(
             width: 42,
@@ -330,20 +334,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     size: 22,
                   ),
                 ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                    ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    backgroundColor: AppColors.error,
+                    label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+                    child: const SizedBox(width: 1, height: 1),
                   ),
+                ),
               ],
             ),
           ),
@@ -353,21 +353,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onBannerTap(BannerModel banner) {
-    final targetType = (banner.targetType ?? 'none').toLowerCase();
+    final targetType = (banner.targetType ?? '').toLowerCase().trim();
     final campaignId = (banner.targetId ?? '').trim();
 
-    if (targetType == 'campaign' && campaignId.isNotEmpty) {
+    if (targetType == 'campaign') {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => CampaignDetailScreen(campaignId: campaignId),
+          builder: (_) => campaignId.isNotEmpty
+              ? CampaignDetailScreen(campaignId: campaignId)
+              : const CampaignsScreen(),
         ),
       );
       return;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Yakinda')),
-    );
   }
 
   Widget _buildBannerCarousel(List<BannerModel> banners) {
@@ -443,16 +441,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ],
                               const SizedBox(height: AppSpacing.sm),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(AppRadius.full),
-                                  border: Border.all(color: Colors.white24),
-                                ),
-                                child: Text(
-                                  banner.ctaText ?? 'Keşfet',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(AppRadius.full),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: Text(
+                                    banner.ctaText ?? 'Keşfet',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                                  ),
                                 ),
                               ),
                             ],

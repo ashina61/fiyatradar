@@ -17,6 +17,7 @@ import '../../widgets/app_section_header.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -78,6 +79,13 @@ class ProfileScreen extends ConsumerWidget {
                 icon: Icons.person_add_alt_1_outlined,
                 title: 'Arkadas Davet Et',
                 onTap: () => _showInviteFriends(context, user),
+              ),
+              _MenuItem(
+                icon: Icons.notifications_outlined,
+                title: 'Bildirimler',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
               ),
               _MenuItem(
                 icon: Icons.settings_outlined,

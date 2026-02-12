@@ -5,9 +5,9 @@ import '../providers/notification_provider.dart';
 import '../utils/theme.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';
-import 'notifications/notifications_screen.dart';
 import 'profile/profile_screen.dart';
 import 'search/search_screen.dart';
+import '../features/basket/basket_screen.dart';
 
 final currentTabProvider = StateProvider<int>((ref) => 0);
 
@@ -64,7 +64,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       HomeScreen(),
       SearchScreen(),
       SizedBox.shrink(),
-      NotificationsScreen(),
+      BasketScreen(),
       ProfileScreen(),
     ];
 
@@ -135,14 +135,16 @@ class _MainScreenState extends ConsumerState<MainScreen>
               ),
               label: 'Fiyat Ekle',
             ),
+            _navDestination(
+                'FiyatSepeti', Icons.shopping_basket_outlined, Icons.shopping_basket, currentTab == 3),
             NavigationDestination(
               icon: Badge(
                 isLabelVisible: unreadCount > 0,
                 backgroundColor: AppColors.error,
                 label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
-                  icon: Icons.notifications_outlined,
-                  selected: currentTab == 3,
+                  icon: Icons.person_outline,
+                  selected: currentTab == 4,
                 ),
               ),
               selectedIcon: Badge(
@@ -150,14 +152,12 @@ class _MainScreenState extends ConsumerState<MainScreen>
                 backgroundColor: AppColors.error,
                 label: Text(unreadLabel),
                 child: _AnimatedNavIcon(
-                  icon: Icons.notifications,
-                  selected: currentTab == 3,
+                  icon: Icons.person,
+                  selected: currentTab == 4,
                 ),
               ),
-              label: 'Bildirimler',
+              label: 'Profil',
             ),
-            _navDestination(
-                'Profil', Icons.person_outline, Icons.person, currentTab == 4),
           ],
         ),
       ),
