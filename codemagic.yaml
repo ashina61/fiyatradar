@@ -1,7 +1,7 @@
-workflows:
+workflows: # <--- BURAYI KÜÇÜK HARF YAPTIK, BÜTÜN SİHİR BURADA
   fiyatradar-android-build:
     name: Build Android (FiyatRadar)
-    instance_type: linux # <--- SADECE BURAYI 'linux' OLARAK DÜZELTTİK
+    instance_type: linux 
     max_build_duration: 60
     triggering:
       events:
