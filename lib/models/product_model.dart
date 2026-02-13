@@ -38,7 +38,8 @@ class ProductModel {
   String get category => categories.isNotEmpty ? categories.first : '';
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     final parsedCategories = _parseCategories(data);
 
     return ProductModel(

@@ -2348,7 +2348,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                               : null,
                         ),
                         child: catImageUrl == null || catImageUrl.isEmpty
-                            ? Icon(_categoryIcon(catName), color: color, size: 24)
+                            ? Icon(_categoryIcon(cat.iconName), color: color, size: 24)
                             : null,
                       ),
                       const SizedBox(height: AppSpacing.sm),
