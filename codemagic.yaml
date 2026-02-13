@@ -1,7 +1,7 @@
 workflows:
   fiyatradar-android-build:
     name: Build Android (FiyatRadar)
-    instance_type: linux_x86_64 # Sadece Android alacağımız için Linux makine daha hızlıdır
+    instance_type: linux # <--- SADECE BURAYI 'linux' OLARAK DÜZELTTİK
     max_build_duration: 60
     triggering:
       events:
