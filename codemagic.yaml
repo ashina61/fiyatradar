@@ -1,22 +1,24 @@
-name: Build Android
-
-on:
-  push:
-    branches: [ main, develop, 'claude/**' ]
-  workflow_dispatch:
-
-env:
-  FLUTTER_VERSION: '3.22.0'
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # --- KOTLIN VE MINSDK AYARLARI ---
+workflows:
+  fiyatradar-android-build:
+    name: Build Android (FiyatRadar)
+    instance_type: linux_x86_64 # Sadece Android alacağımız için Linux makine daha hızlıdır
+    max_build_duration: 60
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+        - pattern: 'develop'
+          include: true
+        - pattern: 'claude/**'
+          include: true
+    environment:
+      flutter: 3.22.0
+      java: 17
+    scripts:
       - name: Force Fix Kotlin & MinSDK
-        run: |
+        script: |
           if [ -f "android/build.gradle" ]; then
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '2.0.21'/" android/build.gradle
           fi
@@ -27,43 +29,35 @@ jobs:
              sed -i 's/minSdkVersion [0-9]*/minSdkVersion 23/' android/app/build.gradle
           fi
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
-
-      - run: flutter pub get
+      - name: Paketleri Getir
+        script: flutter pub get
 
       - name: Generate Icons
-        run: dart run flutter_launcher_icons || echo "ikon yoksa devam"
+        script: dart run flutter_launcher_icons || echo "ikon yoksa devam"
 
       - name: Build APK
-        run: flutter build apk --release
+        script: flutter build apk --release
 
-      # --- İŞTE BU ADIM SANA KODU VERECEK ---
       - name: 🔥 GET SHA-1 FINGERPRINT (BUNU KOPYALA)
-        run: |
+        script: |
           echo " "
           echo "======================================================="
           echo "🔐 FIREBASE ICIN SHA-1 KODUN:"
           echo " "
-          keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep "SHA1: " | cut -d " " -f 3
+          keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep "SHA1: " | cut -d " " -f 3 || echo "SHA-1 Bulunamadı"
           echo " "
           echo "👉 Yukaridaki kodu kopyala ve Firebase -> Project Settings -> Add Fingerprint kismina yapistir."
           echo "======================================================="
 
-      # --- ZİPLE VE YÜKLE ---
       - name: Upload to Filebin
-        run: |
+        script: |
           cd build/app/outputs/flutter-apk/
           zip -r app-release.zip app-release.apk
           cd ../../../..
           BIN_ID="fiyatradar-$(date +%s)"
           curl -T build/app/outputs/flutter-apk/app-release.zip "https://filebin.net/$BIN_ID/app-release.zip"
           echo "⬇️ İNDİRME LİNKİ: https://filebin.net/$BIN_ID/app-release.zip"
+
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.zip
