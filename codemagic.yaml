@@ -1,4 +1,4 @@
-name: Build Android (SHA-1 Goster)
+name: Build Android
 
 on:
   push:
