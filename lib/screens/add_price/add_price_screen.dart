@@ -939,6 +939,25 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       final priceText = _priceController.text.replaceAll(',', '.');
       final price = double.tryParse(priceText) ?? 0.0;
 
+      final latestPrice = await firestoreService.getLatestPriceForStore(
+        productId: _selectedProduct!.id,
+        branchStoreId: _selectedStore!.id,
+      );
+      if (latestPrice != null && (latestPrice.price - price).abs() <= 0.01) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Bu ürün için aynı mağazada aynı fiyat zaten mevcut.'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final priceModel = PriceModel(
         id: '',
         productId: _selectedProduct!.id,

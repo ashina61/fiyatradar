@@ -39,7 +39,10 @@ class BasketItemTile extends StatelessWidget {
       onDismissed: (_) => onRemove(),
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -52,45 +55,50 @@ class BasketItemTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            _ProductImage(imageUrl: product?.mainImage),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product?.name ?? 'Ürün',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    product?.brand ?? '-',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 84),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ProductImage(imageUrl: product?.mainImage),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      product?.name ?? 'Ürün',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      product?.brand ?? '-',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            _QuantityStepper(
-              quantity: item.quantity,
-              onDecrement: () {
-                HapticFeedback.selectionClick();
-                onQuantityChanged(item.quantity - 1);
-              },
-              onIncrement: () {
-                HapticFeedback.selectionClick();
-                onQuantityChanged(item.quantity + 1);
-              },
-            ),
-          ],
+              const SizedBox(width: AppSpacing.sm),
+              _QuantityStepper(
+                quantity: item.quantity,
+                onDecrement: () {
+                  HapticFeedback.selectionClick();
+                  onQuantityChanged(item.quantity - 1);
+                },
+                onIncrement: () {
+                  HapticFeedback.selectionClick();
+                  onQuantityChanged(item.quantity + 1);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -107,8 +115,8 @@ class _ProductImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
-        width: 58,
-        height: 58,
+        width: 60,
+        height: 60,
         color: AppColors.surfaceVariant,
         child: imageUrl != null && imageUrl!.isNotEmpty
             ? Image.network(
@@ -140,7 +148,8 @@ class _QuantityStepper extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           decoration: BoxDecoration(
             color: AppColors.surfaceVariant.withOpacity(0.9),
             borderRadius: BorderRadius.circular(AppRadius.full),
@@ -151,14 +160,19 @@ class _QuantityStepper extends StatelessWidget {
             children: [
               IconButton(
                 visualDensity: VisualDensity.compact,
-                splashRadius: 18,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                splashRadius: 16,
                 onPressed: onDecrement,
                 icon: const Icon(Icons.remove_rounded, size: 18),
               ),
-              Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                splashRadius: 18,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                splashRadius: 16,
                 onPressed: onIncrement,
                 icon: const Icon(Icons.add_rounded, size: 18),
               ),
