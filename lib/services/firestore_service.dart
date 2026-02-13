@@ -19,6 +19,18 @@ import '../utils/safe_query_builder.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  void _logFirestoreQueryError(
+    String context,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    if (!kDebugMode) return;
+    // Native logcat tag'leri ile hizali debug format.
+    debugPrint('E/FLTFirestoreMsgCodec($context): $error');
+    debugPrint('W/FirebaseFirestore($context): $error');
+    debugPrintStack(stackTrace: stackTrace, label: 'FIRESTORE QUERY STACK ($context)');
+  }
+
   // Collection references
   CollectionReference<Map<String, dynamic>> get _productsRef => _firestore.collection('products');
   CollectionReference<Map<String, dynamic>> get _pricesRef => _firestore.collection('priceReports');
@@ -533,8 +545,11 @@ class FirestoreService {
 
       if (snapshot.docs.isEmpty) return null;
       return PriceModel.fromFirestore(snapshot.docs.first);
-    } catch (e) {
-      debugPrint("FIRESTORE QUERY ERROR -> $e");
+    } on FirebaseException catch (e, st) {
+      _logFirestoreQueryError('getLatestPriceForStore', e, st);
+      return null;
+    } catch (e, st) {
+      _logFirestoreQueryError('getLatestPriceForStore', e, st);
       return null;
     }
   }
@@ -583,14 +598,22 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final notificationCount = await _createFollowerNotifications(
-      productId: price.productId,
-      priceReporterId: price.userId,
-      productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
-      oldPrice: oldPrice,
-      newPrice: price.price,
-      storeName: price.storeName,
-    );
+    var notificationCount = 0;
+    try {
+      notificationCount = await _createFollowerNotifications(
+        productId: price.productId,
+        priceReporterId: price.userId,
+        productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
+        oldPrice: oldPrice,
+        newPrice: price.price,
+        storeName: price.storeName,
+      );
+    } on FirebaseException catch (e, st) {
+      // Fiyat yazimi basariliysa, takipci query hatasini sadece debug'a yaz.
+      _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
+    } catch (e, st) {
+      _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
+    }
 
     // ignore: avoid_print
     print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
@@ -606,6 +629,13 @@ class FirestoreService {
     required double newPrice,
     String? storeName,
   }) async {
+    if (productId.trim().isEmpty) {
+      if (kDebugMode) {
+        debugPrint('E/FLTFirestoreMsgCodec(_createFollowerNotifications): productId bos, query atlandi');
+      }
+      return 0;
+    }
+
     final isDrop = oldPrice != null && newPrice < oldPrice;
     final percentChange =
         oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;
@@ -613,7 +643,7 @@ class FirestoreService {
     final followedSnapshot = await SafeQueryBuilder.safeWhere(
       _firestore.collectionGroup('followedProducts'),
       FieldPath.documentId,
-      productId,
+      productId.trim(), // Query argumanini primitive + trim'li gonder.
       expectedType: String,
     ).get();
 
