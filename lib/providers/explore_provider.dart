@@ -5,6 +5,7 @@ import '../main.dart';
 import '../models/price_model.dart';
 import '../models/product_model.dart';
 import '../models/store_model.dart';
+import '../models/category_model.dart';
 import '../services/location_service.dart';
 import 'price_provider.dart';
 import 'product_provider.dart';
@@ -263,11 +264,11 @@ class ExploreController extends StateNotifier<ExploreState> {
       );
     }, fireImmediately: true);
 
-    ref.listen<AsyncValue<List<Map<String, dynamic>>>>(categoriesProvider, (_, next) {
+    ref.listen<AsyncValue<List<CategoryModel>>>(categoriesProvider, (_, next) {
       next.when(
         data: (data) {
           final dynamicCategories = data
-              .map((category) => (category['name'] ?? '').toString().trim())
+              .map((category) => category.name.trim())
               .where((name) => name.isNotEmpty)
               .toList();
           final merged = <String>[_allCategoriesLabel, 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida', ...dynamicCategories]

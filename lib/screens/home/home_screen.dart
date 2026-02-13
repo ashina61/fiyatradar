@@ -5,6 +5,7 @@ import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
+import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -536,7 +537,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCategoriesSection(ThemeData theme, List<Map<String, dynamic>> categories) {
+  Widget _buildCategoriesSection(ThemeData theme, List<CategoryModel> categories) {
     if (categories.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -559,11 +560,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm + 4),
             itemBuilder: (context, index) {
               final cat = categories[index];
-              final catName = cat['name'] ?? '';
+              final catName = cat.name;
               return _CategoryChip(
                 name: catName,
-                iconData: _categoryIcon(cat['iconName'] ?? 'category'),
+                iconData: _categoryIcon(cat.iconName),
                 color: _categoryColor(index),
+                imageUrl: cat.versionedImageUrl,
                 onTap: () {
                   ref.read(currentTabProvider.notifier).state = 1;
                   // Set category filter via a brief delay to let the tab switch first
@@ -810,12 +812,14 @@ class _CategoryChip extends StatelessWidget {
   final String name;
   final IconData iconData;
   final Color color;
+  final String? imageUrl;
   final VoidCallback onTap;
 
   const _CategoryChip({
     required this.name,
     required this.iconData,
     required this.color,
+    this.imageUrl,
     required this.onTap,
   });
 
@@ -829,13 +833,21 @@ class _CategoryChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
+              key: ValueKey(imageUrl ?? name),
               width: 56,
               height: 56,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
-              child: Icon(iconData, color: color, size: 26),
+              clipBehavior: Clip.antiAlias,
+              child: imageUrl != null && imageUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Icon(iconData, color: color, size: 26),
+                    )
+                  : Icon(iconData, color: color, size: 26),
             ),
             const SizedBox(height: AppSpacing.xs + 2),
             Text(

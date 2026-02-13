@@ -20,6 +20,7 @@ import '../../models/store_suggestion_model.dart';
 import 'report_detail_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../models/banner_model.dart';
+import '../../models/category_model.dart';
 import '../../models/campaign_basket_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
@@ -317,7 +318,7 @@ class _ProductManagementTab extends ConsumerWidget {
     }
   }
 
-  void _showAddProductDialog(BuildContext context, WidgetRef ref, List<Map<String, dynamic>> categories) {
+  void _showAddProductDialog(BuildContext context, WidgetRef ref, List<CategoryModel> categories) {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
     final barcodeController = TextEditingController();
@@ -543,7 +544,7 @@ class _ProductManagementTab extends ConsumerWidget {
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
                 children: categories
-                    .map((c) => c['name'] as String)
+                    .map((c) => c.name)
                     .map(
                       (name) => FilterChip(
                         label: Text(name),
@@ -717,7 +718,7 @@ class _ProductManagementTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ProductModel product,
-    List<Map<String, dynamic>> categories,
+    List<CategoryModel> categories,
   ) {
     final nameController = TextEditingController(text: product.name);
     final brandController = TextEditingController(text: product.brand);
@@ -753,7 +754,7 @@ class _ProductManagementTab extends ConsumerWidget {
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
                   children: categories
-                      .map((c) => c['name'] as String)
+                      .map((c) => c.name)
                       .map(
                         (name) => FilterChip(
                           label: Text(name),
@@ -2049,6 +2050,7 @@ class _CategoryManagementTab extends ConsumerWidget {
 
   void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    final orderController = TextEditingController();
     File? selectedImage;
     bool isUploading = false;
 
@@ -2074,6 +2076,12 @@ class _CategoryManagementTab extends ConsumerWidget {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)),
                   autofocus: true,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: orderController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sira (opsiyonel)', prefixIcon: Icon(Icons.format_list_numbered_outlined)),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 GestureDetector(
@@ -2118,26 +2126,26 @@ class _CategoryManagementTab extends ConsumerWidget {
             TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Iptal')),
             ElevatedButton(
               onPressed: isUploading ? null : () async {
-                if (nameController.text.isEmpty) return;
+                if (nameController.text.trim().isEmpty) return;
                 setDialogState(() => isUploading = true);
                 try {
-                  String? imageUrl;
-                  String? imagePath;
-                  final storageService = StorageService();
+                  final orderValue = int.tryParse(orderController.text.trim());
+                  final categoryId = await ref.read(firestoreServiceProvider).addCategory(
+                    nameController.text.trim(),
+                    'category',
+                    isActive: true,
+                    order: orderValue,
+                  );
 
                   if (selectedImage != null) {
-                    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: tempId);
-                    imageUrl = result.downloadUrl;
-                    imagePath = result.storagePath;
+                    final storageService = StorageService();
+                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: categoryId);
+                    await ref.read(firestoreServiceProvider).updateCategory(categoryId, {
+                      'imageUrl': result.downloadUrl,
+                      'imagePath': result.storagePath,
+                    });
                   }
 
-                  await ref.read(firestoreServiceProvider).addCategory(
-                    nameController.text,
-                    'category',
-                    imageUrl: imageUrl,
-                    imagePath: imagePath,
-                  );
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
                   setDialogState(() => isUploading = false);
@@ -2158,21 +2166,41 @@ class _CategoryManagementTab extends ConsumerWidget {
     );
   }
 
-  void _showEditImageDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> cat) {
+  void _showEditCategoryDialog(BuildContext context, WidgetRef ref, CategoryModel cat) {
+    final nameController = TextEditingController(text: cat.name);
+    final orderController = TextEditingController(text: cat.order?.toString() ?? '');
+    bool isActive = cat.isActive;
     File? selectedImage;
     bool isUploading = false;
-    final currentImageUrl = cat['imageUrl'] as String?;
+    final currentImageUrl = cat.imageUrl;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Text('${cat['name']} - Gorsel Guncelle'),
+          title: Text('${cat.name} - Kategori Duzenle'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: orderController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sira (opsiyonel)', prefixIcon: Icon(Icons.format_list_numbered_outlined)),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Aktif kategori'),
+                  value: isActive,
+                  onChanged: (value) => setDialogState(() => isActive = value),
+                ),
                 GestureDetector(
                   onTap: () async {
                     final picker = ImagePicker();
@@ -2219,23 +2247,36 @@ class _CategoryManagementTab extends ConsumerWidget {
           actions: [
             TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Iptal')),
             ElevatedButton(
-              onPressed: isUploading || selectedImage == null ? null : () async {
+              onPressed: isUploading ? null : () async {
+                if (nameController.text.trim().isEmpty) return;
                 setDialogState(() => isUploading = true);
                 try {
                   final storageService = StorageService();
-                  final oldPath = cat['imagePath'] as String?;
-                  if (oldPath != null && oldPath.isNotEmpty) {
-                    await storageService.deleteByPath(oldPath);
+                  String? imageUrl = cat.imageUrl;
+                  String? imagePath = cat.imagePath;
+
+                  if (selectedImage != null) {
+                    final oldPath = cat.imagePath;
+                    if (oldPath != null && oldPath.isNotEmpty) {
+                      await storageService.deleteByPath(oldPath);
+                    }
+                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: cat.id);
+                    imageUrl = result.downloadUrl;
+                    imagePath = result.storagePath;
                   }
-                  final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: cat['id']);
-                  await ref.read(firestoreServiceProvider).updateCategory(cat['id'], {
-                    'imageUrl': result.downloadUrl,
-                    'imagePath': result.storagePath,
+
+                  await ref.read(firestoreServiceProvider).updateCategory(cat.id, {
+                    'name': nameController.text.trim(),
+                    'isActive': isActive,
+                    'order': int.tryParse(orderController.text.trim()),
+                    'imageUrl': imageUrl,
+                    'imagePath': imagePath,
                   });
+
                   if (ctx.mounted) Navigator.pop(ctx);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Gorsel guncellendi'), behavior: SnackBarBehavior.floating),
+                      const SnackBar(content: Text('Kategori guncellendi'), behavior: SnackBarBehavior.floating),
                     );
                   }
                 } catch (e) {
@@ -2287,10 +2328,10 @@ class _CategoryManagementTab extends ConsumerWidget {
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final cat = categories[index];
-              final catName = cat['name'] ?? '';
+              final catName = cat.name;
               final color = _categoryColor(index);
               final productCount = products.where((p) => p.categories.contains(catName)).length;
-              final catImageUrl = cat['imageUrl'] as String?;
+              final catImageUrl = cat.versionedImageUrl;
 
               return Card(
                 child: Stack(children: [
@@ -2325,7 +2366,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                         child: const Icon(Icons.image_outlined, color: AppColors.primary, size: 14),
                       ),
                       iconSize: 22,
-                      onPressed: () => _showEditImageDialog(context, ref, cat),
+                      onPressed: () => _showEditCategoryDialog(context, ref, cat),
                     ),
                   ),
                   Positioned(
@@ -2339,11 +2380,11 @@ class _CategoryManagementTab extends ConsumerWidget {
                       iconSize: 22,
                       onPressed: () async {
                         final storageService = StorageService();
-                        final oldPath = cat['imagePath'] as String?;
+                        final oldPath = cat.imagePath;
                         if (oldPath != null && oldPath.isNotEmpty) {
                           await storageService.deleteByPath(oldPath);
                         }
-                        ref.read(firestoreServiceProvider).deleteCategory(cat['id']);
+                        ref.read(firestoreServiceProvider).deleteCategory(cat.id);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('$catName silindi'), behavior: SnackBarBehavior.floating),
