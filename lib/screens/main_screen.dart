@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/notification_provider.dart';
 import '../utils/theme.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';
@@ -56,9 +55,6 @@ class _MainScreenState extends ConsumerState<MainScreen>
   @override
   Widget build(BuildContext context) {
     final currentTab = ref.watch(currentTabProvider);
-    final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
-    final unreadCount = unreadCountAsync.valueOrNull ?? 0;
-    final unreadLabel = unreadCount > 99 ? '99+' : '$unreadCount';
 
     final screens = const [
       HomeScreen(),
@@ -137,27 +133,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
             ),
             _navDestination(
                 'FiyatSepeti', Icons.shopping_basket_outlined, Icons.shopping_basket, currentTab == 3),
-            NavigationDestination(
-              icon: Badge(
-                isLabelVisible: unreadCount > 0,
-                backgroundColor: AppColors.error,
-                label: Text(unreadLabel),
-                child: _AnimatedNavIcon(
-                  icon: Icons.person_outline,
-                  selected: currentTab == 4,
-                ),
-              ),
-              selectedIcon: Badge(
-                isLabelVisible: unreadCount > 0,
-                backgroundColor: AppColors.error,
-                label: Text(unreadLabel),
-                child: _AnimatedNavIcon(
-                  icon: Icons.person,
-                  selected: currentTab == 4,
-                ),
-              ),
-              label: 'Profil',
-            ),
+            _navDestination('Profil', Icons.person_outline, Icons.person, currentTab == 4),
           ],
         ),
       ),

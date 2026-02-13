@@ -54,23 +54,23 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           children: [
             ListView(
               padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
                 AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                130,
+                AppSpacing.lg,
+                120,
               ),
               children: [
                 BasketHeaderCard(itemCount: viewModel.items.length),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.xs),
                 _ActionRow(onAdd: () => _showProductPicker(context, viewModel)),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 if (viewModel.isLoadingItems)
                   const Center(child: CircularProgressIndicator())
                 else if (viewModel.items.isEmpty)
                   _EmptyBasketCard(onAdd: () => _showProductPicker(context, viewModel))
                 else
                   _BasketItemsSection(viewModel: viewModel),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 320),
                   switchInCurve: Curves.easeOutCubic,
@@ -115,9 +115,9 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.lock_outline, size: 48, color: AppColors.textSecondary),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xs),
             const Text('Sepet için giriş yapmalısınız.'),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               'Ürün eklemek ve fiyatları hesaplamak için hesap gerekli.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -168,7 +168,7 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.xs),
                   Flexible(
                     child: ListView.builder(
                       shrinkWrap: true,
@@ -195,7 +195,7 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.xs),
                 ],
               ),
             );
@@ -214,8 +214,8 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 50,
-      child: OutlinedButton.icon(
+      height: 48,
+      child: FilledButton.icon(
         onPressed: onAdd,
         icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
         label: const Text('Ürün Ekle'),
@@ -285,7 +285,7 @@ class _BasketItemsSection extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 240),
           child: Column(

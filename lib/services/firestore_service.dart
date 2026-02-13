@@ -515,6 +515,22 @@ class FirestoreService {
         });
   }
 
+
+  Future<PriceModel?> getLatestPriceForStore({
+    required String productId,
+    required String branchStoreId,
+  }) async {
+    final snapshot = await _pricesRef
+        .where('productId', isEqualTo: productId)
+        .where('branchStoreId', isEqualTo: branchStoreId)
+        .orderBy('reportedAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+    return PriceModel.fromFirestore(snapshot.docs.first);
+  }
+
   Future<PriceModel?> getLatestPrice(String productId) async {
     final snapshot = await _pricesRef
         .where('productId', isEqualTo: productId)

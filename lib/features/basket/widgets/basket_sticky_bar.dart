@@ -28,7 +28,7 @@ class BasketStickyBar extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.sm),
             decoration: BoxDecoration(
               color: AppColors.surface.withOpacity(0.92),
               border: Border(top: BorderSide(color: AppColors.outline.withOpacity(0.8))),
@@ -40,8 +40,9 @@ class BasketStickyBar extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Toplam ürün: $itemCount',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                     ),
                   ),
@@ -49,6 +50,7 @@ class BasketStickyBar extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                       onPressed: isEnabled && !isLoading ? onPressed : null,
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
