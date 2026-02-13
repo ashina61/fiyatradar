@@ -26,7 +26,8 @@ class CampaignBasketModel {
   });
 
   factory CampaignBasketModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     return CampaignBasketModel(
       id: doc.id,
       title: data['title']?.toString() ?? '',

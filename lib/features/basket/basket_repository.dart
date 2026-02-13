@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/price_model.dart';
+import '../../utils/safe_query_builder.dart';
 
 class BasketItemDescriptor {
   final String key;
@@ -119,11 +121,17 @@ class BasketRepository {
         i,
         i + _chunkSize > values.length ? values.length : i + _chunkSize,
       );
-      final snapshot = await _firestore
-          .collection('prices')
-          .where(field, whereIn: chunk)
-          .get();
-      results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      try {
+        final query = SafeQueryBuilder.safeWhereIn(
+          _firestore.collection('prices'),
+          field,
+          chunk,
+        );
+        final snapshot = await query.get();
+        results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      } catch (e) {
+        debugPrint("FIRESTORE QUERY ERROR -> $e");
+      }
     }
     return results;
   }

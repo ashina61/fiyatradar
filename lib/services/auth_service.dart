@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
+import '../utils/safe_query_builder.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -75,20 +77,26 @@ class AuthService {
             .set(user.toFirestore());
 
         if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
-          final inviterSnapshot = await _firestore
-              .collection('users')
-              .where('inviteCode', isEqualTo: normalizedInviteCode)
-              .limit(1)
-              .get();
-          if (inviterSnapshot.docs.isNotEmpty) {
-            final inviterId = inviterSnapshot.docs.first.id;
-            await _firestore.collection('users').doc(credential.user!.uid).update({
-              'invitedBy': inviterId,
-            });
-            await _firestore.collection('users').doc(inviterId).update({
-              'inviteCount': FieldValue.increment(1),
-              'points': FieldValue.increment(AppConstants.pointsForInvite),
-            });
+          try {
+            final inviterQuery = SafeQueryBuilder.safeWhere(
+              _firestore.collection('users'),
+              'inviteCode',
+              normalizedInviteCode,
+              expectedType: String,
+            );
+            final inviterSnapshot = await inviterQuery.limit(1).get();
+            if (inviterSnapshot.docs.isNotEmpty) {
+              final inviterId = inviterSnapshot.docs.first.id;
+              await _firestore.collection('users').doc(credential.user!.uid).update({
+                'invitedBy': inviterId,
+              });
+              await _firestore.collection('users').doc(inviterId).update({
+                'inviteCount': FieldValue.increment(1),
+                'points': FieldValue.increment(AppConstants.pointsForInvite),
+              });
+            }
+          } catch (e) {
+            debugPrint("FIRESTORE QUERY ERROR -> $e");
           }
         }
 

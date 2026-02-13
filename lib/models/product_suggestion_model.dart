@@ -24,7 +24,8 @@ class ProductSuggestionModel {
   });
 
   factory ProductSuggestionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     return ProductSuggestionModel(
       id: doc.id,
       name: (data['name'] ?? '').toString(),

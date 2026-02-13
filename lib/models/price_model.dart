@@ -69,7 +69,8 @@ class PriceModel {
   bool get shouldAutoHide => netScore < -5;
 
   factory PriceModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     final photo = data['photoUrl'] as String?;
     final imageList = List<String>.from(data['images'] ?? []);
 

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/product_model.dart';
 import '../models/price_model.dart';
 import '../models/comment_model.dart';
@@ -13,28 +14,29 @@ import '../models/campaign_basket_model.dart';
 import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../models/category_model.dart';
+import '../utils/safe_query_builder.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Collection references
-  CollectionReference get _productsRef => _firestore.collection('products');
-  CollectionReference get _pricesRef => _firestore.collection('priceReports');
-  CollectionReference get _commentsRef => _firestore.collection('comments');
-  CollectionReference get _notificationsRef =>
+  CollectionReference<Map<String, dynamic>> get _productsRef => _firestore.collection('products');
+  CollectionReference<Map<String, dynamic>> get _pricesRef => _firestore.collection('priceReports');
+  CollectionReference<Map<String, dynamic>> get _commentsRef => _firestore.collection('comments');
+  CollectionReference<Map<String, dynamic>> get _notificationsRef =>
       _firestore.collection('inAppNotifications');
-  CollectionReference get _legacyNotificationsRef =>
+  CollectionReference<Map<String, dynamic>> get _legacyNotificationsRef =>
       _firestore.collection('notifications');
-  CollectionReference get _bannersRef => _firestore.collection('banners');
-  CollectionReference get _campaignBasketsRef => _firestore.collection('campaignBaskets');
-  CollectionReference get _usersRef => _firestore.collection('users');
-  CollectionReference get _brandsRef => _firestore.collection('brands');
-  CollectionReference get _storesRef => _firestore.collection('stores');
-  CollectionReference get _storeSuggestionsRef =>
+  CollectionReference<Map<String, dynamic>> get _bannersRef => _firestore.collection('banners');
+  CollectionReference<Map<String, dynamic>> get _campaignBasketsRef => _firestore.collection('campaignBaskets');
+  CollectionReference<Map<String, dynamic>> get _usersRef => _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _brandsRef => _firestore.collection('brands');
+  CollectionReference<Map<String, dynamic>> get _storesRef => _firestore.collection('stores');
+  CollectionReference<Map<String, dynamic>> get _storeSuggestionsRef =>
       _firestore.collection('storeSuggestions');
-  CollectionReference get _productSuggestionsRef =>
+  CollectionReference<Map<String, dynamic>> get _productSuggestionsRef =>
       _firestore.collection('productSuggestions');
-  DocumentReference get _maintenanceRef =>
+  DocumentReference<Map<String, dynamic>> get _maintenanceRef =>
       _firestore.collection('app_config').doc('maintenance');
 
   // =========================================================================
@@ -85,8 +87,8 @@ class FirestoreService {
   }
 
   Stream<List<StoreModel>> getActiveStores() {
-    return _storesRef
-        .where('status', isEqualTo: 'active')
+    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
@@ -99,8 +101,8 @@ class FirestoreService {
 
 
   Stream<List<StoreModel>> getNearbyActiveStoresStream() {
-    return _storesRef
-        .where('status', isEqualTo: 'active')
+    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
@@ -113,8 +115,8 @@ class FirestoreService {
   }
 
   Stream<List<StoreModel>> getOnlineActiveStoresStream() {
-    return _storesRef
-        .where('status', isEqualTo: 'active')
+    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
@@ -131,7 +133,8 @@ class FirestoreService {
     required double userLng,
     double maxDistanceMeters = 2000,
   }) async {
-    final snapshot = await _storesRef.where('status', isEqualTo: 'active').get();
+    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+    final snapshot = await query.get();
     final stores = snapshot.docs.map((doc) => StoreModel.fromFirestore(doc)).toList();
     stores.sort((a, b) {
       final aDistance = _distanceInMeters(userLat, userLng, a.lat, a.lng);
@@ -149,8 +152,8 @@ class FirestoreService {
   }
 
   Stream<List<StoreSuggestionModel>> getPendingStoreSuggestions() {
-    return _storeSuggestionsRef
-        .where('status', isEqualTo: 'pending')
+    final query = SafeQueryBuilder.safeWhere(_storeSuggestionsRef, 'status', 'pending', expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
@@ -257,9 +260,8 @@ class FirestoreService {
     if (targetStore == null) return;
 
     // Update all prices referencing sourceId
-    final priceSnapshot = await _pricesRef
-        .where('storeId', isEqualTo: sourceId)
-        .get();
+    final priceQuery = SafeQueryBuilder.safeWhere(_pricesRef, 'storeId', sourceId, expectedType: String);
+    final priceSnapshot = await priceQuery.get();
 
     final batch = _firestore.batch();
     for (final doc in priceSnapshot.docs) {
@@ -278,7 +280,8 @@ class FirestoreService {
   Stream<List<Map<String, dynamic>>> getStores() {
     return _storesRef.snapshots().map((snapshot) {
       final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final raw = doc.data();
+        final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
         return {
           'id': doc.id,
           'name': data['displayName'] ?? data['name'] ?? '',
@@ -324,7 +327,8 @@ class FirestoreService {
   Stream<bool> getMaintenanceMode() {
     return _maintenanceRef.snapshots().map((doc) {
       if (!doc.exists) return false;
-      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final raw = doc.data();
+      final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
       return data['enabled'] as bool? ?? false;
     });
   }
@@ -429,8 +433,8 @@ class FirestoreService {
   }
 
   Stream<List<CampaignBasketModel>> getActiveCampaigns() {
-    return _campaignBasketsRef
-        .where('isActive', isEqualTo: true)
+    final query = SafeQueryBuilder.safeWhere(_campaignBasketsRef, 'isActive', true, expectedType: bool);
+    return query
         .snapshots()
         .map((snapshot) {
       final list = snapshot.docs
@@ -504,8 +508,8 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<PriceModel>> getPricesForProduct(String productId) {
-    return _pricesRef
-        .where('productId', isEqualTo: productId)
+    final query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
@@ -521,21 +525,23 @@ class FirestoreService {
     required String productId,
     required String branchStoreId,
   }) async {
-    final snapshot = await _pricesRef
-        .where('productId', isEqualTo: productId)
-        .where('branchStoreId', isEqualTo: branchStoreId)
-        .orderBy('reportedAt', descending: true)
-        .limit(1)
-        .get();
+    try {
+      var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+      query = SafeQueryBuilder.safeWhere(query, 'branchStoreId', branchStoreId, expectedType: String);
+      query = SafeQueryBuilder.safeOrderBy(query, 'reportedAt', descending: true);
+      final snapshot = await query.limit(1).get();
 
-    if (snapshot.docs.isEmpty) return null;
-    return PriceModel.fromFirestore(snapshot.docs.first);
+      if (snapshot.docs.isEmpty) return null;
+      return PriceModel.fromFirestore(snapshot.docs.first);
+    } catch (e) {
+      debugPrint("FIRESTORE QUERY ERROR -> $e");
+      return null;
+    }
   }
 
   Future<PriceModel?> getLatestPrice(String productId) async {
-    final snapshot = await _pricesRef
-        .where('productId', isEqualTo: productId)
-        .get();
+    final query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+    final snapshot = await query.get();
 
     final prices = snapshot.docs
         .map((doc) => PriceModel.fromFirestore(doc))
@@ -563,7 +569,8 @@ class FirestoreService {
 
   Future<String> addPriceReport(PriceModel price) async {
     final productDoc = await _productsRef.doc(price.productId).get();
-    final productData = productDoc.data() as Map<String, dynamic>?;
+    final productRaw = productDoc.data();
+    final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
     final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
 
     final doc = await _pricesRef.add(price.toFirestore());
@@ -603,10 +610,12 @@ class FirestoreService {
     final percentChange =
         oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;
 
-    final followedSnapshot = await _firestore
-        .collectionGroup('followedProducts')
-        .where(FieldPath.documentId, isEqualTo: productId)
-        .get();
+    final followedSnapshot = await SafeQueryBuilder.safeWhere(
+      _firestore.collectionGroup('followedProducts'),
+      FieldPath.documentId,
+      productId,
+      expectedType: String,
+    ).get();
 
     final batch = _firestore.batch();
     var notificationCount = 0;
@@ -726,8 +735,8 @@ class FirestoreService {
   }
 
   Stream<List<ProductSuggestionModel>> getPendingProductSuggestions() {
-    return _productSuggestionsRef
-        .where('status', isEqualTo: 'pending')
+    final query = SafeQueryBuilder.safeWhere(_productSuggestionsRef, 'status', 'pending', expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
@@ -741,7 +750,8 @@ class FirestoreService {
   Future<void> approveProductSuggestion(String suggestionId) async {
     final suggestionDoc = await _productSuggestionsRef.doc(suggestionId).get();
     if (!suggestionDoc.exists) return;
-    final data = suggestionDoc.data() as Map<String, dynamic>? ?? {};
+    final raw = suggestionDoc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     final name = (data['name'] ?? '').toString().trim();
     if (name.isEmpty) return;
 
@@ -828,7 +838,10 @@ class FirestoreService {
     // Auto-hide if score drops below threshold
     final doc = await _pricesRef.doc(priceId).get();
     if (doc.exists) {
-      final data = doc.data() as Map<String, dynamic>;
+      final raw = doc.data();
+      final data = raw is Map<String, dynamic>
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
       final score = (data['score'] as num?)?.toDouble() ?? 0;
       if (score <= AppConstants.autoHideScoreThreshold) {
         await _pricesRef.doc(priceId).update({
@@ -843,7 +856,8 @@ class FirestoreService {
   Future<bool> hasUserVotedPrice(String priceId, String userId) async {
     final doc = await _pricesRef.doc(priceId).get();
     if (!doc.exists) return false;
-    final data = doc.data() as Map<String, dynamic>?;
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : null;
     final votedBy = List<String>.from(data?['votedBy'] ?? []);
     return votedBy.contains(userId);
   }
@@ -851,7 +865,8 @@ class FirestoreService {
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
     final doc = await _pricesRef.doc(priceId).get();
     if (!doc.exists) return false;
-    final data = doc.data() as Map<String, dynamic>?;
+    final raw = doc.data();
+    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : null;
     final verifiedBy = List<String>.from(data?['verifiedBy'] ?? []);
     return verifiedBy.contains(userId);
   }
@@ -898,8 +913,8 @@ class FirestoreService {
   }
 
   Stream<List<PriceModel>> getPendingPrices() {
-    return _pricesRef
-        .where('isPending', isEqualTo: true)
+    final query = SafeQueryBuilder.safeWhere(_pricesRef, 'isPending', true, expectedType: bool);
+    return query
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
@@ -929,8 +944,8 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<CommentModel>> getComments(String productId) {
-    return _commentsRef
-        .where('productId', isEqualTo: productId)
+    final query = SafeQueryBuilder.safeWhere(_commentsRef, 'productId', productId, expectedType: String);
+    return query
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
@@ -952,7 +967,10 @@ class FirestoreService {
   Future<void> likeComment(String commentId, String userId) async {
     final doc = await _commentsRef.doc(commentId).get();
     if (doc.exists) {
-      final data = doc.data() as Map<String, dynamic>?;
+      final raw = doc.data();
+      final data = raw is Map<String, dynamic>
+          ? Map<String, dynamic>.from(raw)
+          : null;
       final likedBy = List<String>.from(data?['likedBy'] ?? []);
       if (likedBy.contains(userId)) {
         likedBy.remove(userId);
@@ -975,8 +993,18 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<NotificationModel>> getNotifications(String userId) {
-    final primary = _notificationsRef.where('userId', isEqualTo: userId).snapshots();
-    final legacy = _legacyNotificationsRef.where('userId', isEqualTo: userId).snapshots();
+    final primary = SafeQueryBuilder.safeWhere(
+      _notificationsRef,
+      'userId',
+      userId,
+      expectedType: String,
+    ).snapshots();
+    final legacy = SafeQueryBuilder.safeWhere(
+      _legacyNotificationsRef,
+      'userId',
+      userId,
+      expectedType: String,
+    ).snapshots();
 
     return primary.asyncMap((primarySnapshot) async {
       final legacySnapshot = await legacy.first;
@@ -1016,11 +1044,22 @@ class FirestoreService {
 
   Future<void> markAllNotificationsAsRead(String userId) async {
     final batch = _firestore.batch();
-    final primarySnapshot = await _notificationsRef.where('userId', isEqualTo: userId).get();
-    final legacySnapshot = await _legacyNotificationsRef.where('userId', isEqualTo: userId).get();
+    final primarySnapshot = await SafeQueryBuilder.safeWhere(
+      _notificationsRef,
+      'userId',
+      userId,
+      expectedType: String,
+    ).get();
+    final legacySnapshot = await SafeQueryBuilder.safeWhere(
+      _legacyNotificationsRef,
+      'userId',
+      userId,
+      expectedType: String,
+    ).get();
 
     for (final doc in [...primarySnapshot.docs, ...legacySnapshot.docs]) {
-      final map = doc.data() as Map<String, dynamic>? ?? const {};
+      final raw = doc.data();
+      final map = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
       final isRead = map['isRead'] == true;
       if (!isRead) {
         batch.update(doc.reference, {'isRead': true});
@@ -1043,8 +1082,8 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<BannerModel>> getActiveBanners() {
-    return _bannersRef
-        .where('isActive', isEqualTo: true)
+    final query = SafeQueryBuilder.safeWhere(_bannersRef, 'isActive', true, expectedType: bool);
+    return query
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
@@ -1289,7 +1328,8 @@ class FirestoreService {
   Stream<List<Map<String, dynamic>>> getReports() {
     return _reportsRef.snapshots().map((snapshot) {
       final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final raw = doc.data();
+        final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
         final status = data['status'] ?? 'pending';
         return {
           'id': doc.id,
@@ -1351,10 +1391,13 @@ class FirestoreService {
       ));
     }
     for (final chunk in chunks) {
-      final snapshot = await _pricesRef
-          .where('productId', whereIn: chunk)
-          .get();
-      results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      try {
+        final query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        final snapshot = await query.get();
+        results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      } catch (e) {
+        debugPrint("FIRESTORE QUERY ERROR -> $e");
+      }
     }
     return results;
   }
@@ -1370,8 +1413,13 @@ class FirestoreService {
       ));
     }
     for (final chunk in chunks) {
-      final snapshot = await _pricesRef.where('productId', whereIn: chunk).get();
-      results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      try {
+        final query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        final snapshot = await query.get();
+        results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+      } catch (e) {
+        debugPrint("FIRESTORE QUERY ERROR -> $e");
+      }
     }
     return results;
   }
