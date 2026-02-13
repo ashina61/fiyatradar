@@ -6,6 +6,7 @@ import '../models/price_model.dart';
 import '../models/brand_model.dart';
 import '../models/store_model.dart';
 import '../models/store_suggestion_model.dart';
+import '../models/category_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../services/firestore_service.dart';
 
@@ -74,7 +75,7 @@ final productNotifierProvider =
 });
 
 // Categories
-final categoriesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final categoriesProvider = StreamProvider<List<CategoryModel>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getCategories();
 });

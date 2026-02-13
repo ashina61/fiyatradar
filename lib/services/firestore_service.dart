@@ -12,6 +12,7 @@ import '../models/user_model.dart';
 import '../models/campaign_basket_model.dart';
 import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
+import '../models/category_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -1189,30 +1190,41 @@ class FirestoreService {
 
   CollectionReference get _categoriesRef => _firestore.collection('categories');
 
-  Stream<List<Map<String, dynamic>>> getCategories() {
+  Stream<List<CategoryModel>> getCategories() {
     return _categoriesRef.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          'name': data['name'] ?? '',
-          'iconName': data['iconName'] ?? 'category',
-          'order': data['order'] ?? 0,
-          'imageUrl': data['imageUrl'],
-          'imagePath': data['imagePath'],
-        };
-      }).toList();
-      list.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+      final list = snapshot.docs
+          .map(CategoryModel.fromFirestore)
+          .where((category) => category.isActive)
+          .toList();
+      list.sort((a, b) {
+        final aOrder = a.order;
+        final bOrder = b.order;
+        if (aOrder != null && bOrder != null) {
+          return aOrder.compareTo(bOrder);
+        }
+        if (aOrder != null) return -1;
+        if (bOrder != null) return 1;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
       return list;
     });
   }
 
-  Future<String> addCategory(String name, String iconName, {String? imageUrl, String? imagePath}) async {
+  Future<String> addCategory(
+    String name,
+    String iconName, {
+    String? imageUrl,
+    String? imagePath,
+    bool isActive = true,
+    int? order,
+  }) async {
     final doc = await _categoriesRef.add({
       'name': name,
       'iconName': iconName,
-      'order': 0,
+      'isActive': isActive,
+      if (order != null) 'order': order,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
       if (imageUrl != null) 'imageUrl': imageUrl,
       if (imagePath != null) 'imagePath': imagePath,
     });
@@ -1220,7 +1232,10 @@ class FirestoreService {
   }
 
   Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
-    await _categoriesRef.doc(categoryId).update(data);
+    await _categoriesRef.doc(categoryId).update({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deleteCategory(String categoryId) async {

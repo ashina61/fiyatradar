@@ -1215,8 +1215,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   ),
                   items: categories
                       .map((cat) => DropdownMenuItem(
-                            value: cat['name'] as String,
-                            child: Text(cat['name'] as String),
+                            value: cat.name,
+                            child: Text(cat.name),
                           ))
                       .toList(),
                   onChanged: _selectedProduct != null
