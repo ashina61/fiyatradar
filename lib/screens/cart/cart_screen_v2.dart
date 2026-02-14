@@ -751,79 +751,108 @@ class CartBottomSummaryBar extends StatelessWidget {
         tween: Tween(begin: 8, end: blurTarget),
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
-        builder: (context, blur, _) => ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-            child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.surface.withOpacity(0.74),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
-              boxShadow: [
-                BoxShadow(color: cs.shadow.withOpacity(shadowOpacity), blurRadius: 20 + scrollOffset * 0.08, offset: const Offset(0, 10)),
-              ],
-            ),
-            child: RepaintBoundary(
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _SummaryLightSweep(opacity: sweepOpacity)),
-                  Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isLoading)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: LinearProgressIndicator(
-                      minHeight: 4,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('$itemCount ürün', style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            Text('$totalPrefix: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                            Expanded(child: _AnimatedCurrency(value: estimatedTotal.total)),
-                            if (totalSuffix.isNotEmpty)
-                              Text(totalSuffix, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                          ]),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _PressScale(
-                      child: FilledButton.icon(
-                        onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-                        icon: isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.auto_graph_rounded),
-                        label: const Text('Hesapla'),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: onAddProduct,
-                      tooltip: 'Ürün ekle',
-                      icon: const Icon(Icons.add_rounded),
+        builder: (context, blur, _) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surface.withOpacity(0.74),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.shadow.withOpacity(shadowOpacity),
+                      blurRadius: 20 + scrollOffset * 0.08,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-              ]),
-                ],
+                child: RepaintBoundary(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: _SummaryLightSweep(opacity: sweepOpacity),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isLoading)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: LinearProgressIndicator(
+                                minHeight: 4,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$itemCount ürün',
+                                      style: Theme.of(context).textTheme.titleSmall,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '$totalPrefix: ',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(color: cs.onSurfaceVariant),
+                                        ),
+                                        Expanded(
+                                          child: _AnimatedCurrency(value: estimatedTotal.total),
+                                        ),
+                                        if (totalSuffix.isNotEmpty)
+                                          Text(
+                                            totalSuffix,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(color: cs.onSurfaceVariant),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _PressScale(
+                                child: FilledButton.icon(
+                                  onPressed: itemCount == 0 || isLoading ? null : onCalculate,
+                                  icon: isLoading
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.auto_graph_rounded),
+                                  label: const Text('Hesapla'),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: onAddProduct,
+                                tooltip: 'Ürün ekle',
+                                icon: const Icon(Icons.add_rounded),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
