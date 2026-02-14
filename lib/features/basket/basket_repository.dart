@@ -1,31 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+
 import '../../models/price_model.dart';
 import '../../utils/safe_query_builder.dart';
 
 class BasketItemDescriptor {
   final String key;
   final String? productId;
-  final String? barcode;
-  final String? name;
-  final String? normalizedName;
 
   const BasketItemDescriptor({
     required this.key,
     this.productId,
-    this.barcode,
-    this.name,
-    this.normalizedName,
   });
 }
 
 class BasketPriceFetchResult {
-  final Map<String, Map<String, double>> pricesIndex;
+  final Map<String, Map<String, PriceModel>> latestPricesByItem;
   final Map<String, String> marketNames;
   final int priceDocumentCount;
 
   const BasketPriceFetchResult({
-    required this.pricesIndex,
+    required this.latestPricesByItem,
     required this.marketNames,
     required this.priceDocumentCount,
   });
@@ -36,84 +30,80 @@ class BasketRepository {
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-  final Map<String, BasketPriceFetchResult> _batchCache = {};
 
   static const int _chunkSize = 10;
 
   Future<BasketPriceFetchResult> fetchPricesForBasketItems(
     List<BasketItemDescriptor> items,
   ) async {
-    final cacheKey = _cacheKeyFor(items);
-    final cached = _batchCache[cacheKey];
-    if (cached != null) {
-      return cached;
+    final productIds = items
+        .map((item) => item.productId?.trim())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final priceDocs = <PriceModel>[];
+
+    // Denormalized yapı varsa tek sorgu katmanı olarak onu kullan.
+    final latestPriceDocs = await _fetchFromCollection(
+      collectionName: 'latest_prices',
+      field: 'productId',
+      values: productIds,
+    );
+    if (latestPriceDocs.isNotEmpty) {
+      priceDocs.addAll(latestPriceDocs);
+    } else {
+      // Fallback: eski koleksiyonları tara.
+      priceDocs.addAll(await _fetchFromCollection(
+        collectionName: 'prices',
+        field: 'productId',
+        values: productIds,
+      ));
+      if (priceDocs.isEmpty) {
+        priceDocs.addAll(await _fetchFromCollection(
+          collectionName: 'priceReports',
+          field: 'productId',
+          values: productIds,
+        ));
+      }
     }
 
-    final productIds = <String>{};
-    final barcodes = <String>{};
-    final names = <String>{};
-    for (final item in items) {
-      final productId = item.productId?.trim();
-      if (productId != null && productId.isNotEmpty) {
-        productIds.add(productId);
-      }
-      final barcode = item.barcode?.trim();
-      if (barcode != null && barcode.isNotEmpty) {
-        barcodes.add(barcode);
-      }
-      final name = item.name?.trim();
-      if (name != null && name.isNotEmpty) {
-        names.add(name);
-      }
-    }
-
-    final prices = <PriceModel>[];
-    prices.addAll(await _fetchPricesByField('productId', productIds.toList()));
-    if (barcodes.isNotEmpty) {
-      prices.addAll(await _fetchPricesByField('productBarcode', barcodes.toList()));
-    }
-    if (names.isNotEmpty) {
-      prices.addAll(await _fetchPricesByField('productName', names.toList()));
-    }
-
-    final Map<String, Map<String, double>> pricesIndex = {
-      for (final item in items) item.key: <String, double>{},
+    final latestByItem = {
+      for (final item in items) item.key: <String, PriceModel>{},
     };
-    final Map<String, String> marketNames = {};
+    final marketNames = <String, String>{};
 
-    final descriptorByKey = {for (final item in items) item.key: item};
-    for (final price in prices) {
-      final marketId = _marketId(price);
-      if (marketId.isEmpty || price.price <= 0) {
+    for (final price in priceDocs) {
+      if (!price.isApproved || price.price <= 0) {
         continue;
       }
+      final marketId = _marketId(price);
+      if (marketId.isEmpty) continue;
       marketNames[marketId] = price.storeName?.isNotEmpty == true ? price.storeName! : marketId;
 
-      for (final descriptor in descriptorByKey.values) {
-        if (_matchesDescriptor(price, descriptor)) {
-          final marketPrices = pricesIndex[descriptor.key] ?? <String, double>{};
-          final existing = marketPrices[marketId];
-          if (existing == null || price.price < existing) {
-            marketPrices[marketId] = price.price;
-            pricesIndex[descriptor.key] = marketPrices;
-          }
+      for (final item in items) {
+        if (item.productId == null || item.productId!.isEmpty) continue;
+        if (price.productId != item.productId) continue;
+        final current = latestByItem[item.key]?[marketId];
+        if (current == null || price.createdAt.isAfter(current.createdAt)) {
+          latestByItem[item.key]![marketId] = price;
         }
       }
     }
 
-    final result = BasketPriceFetchResult(
-      pricesIndex: pricesIndex,
+    return BasketPriceFetchResult(
+      latestPricesByItem: latestByItem,
       marketNames: marketNames,
-      priceDocumentCount: prices.length,
+      priceDocumentCount: priceDocs.length,
     );
-    _batchCache[cacheKey] = result;
-    return result;
   }
 
-  Future<List<PriceModel>> _fetchPricesByField(
-    String field,
-    List<String> values,
-  ) async {
+  Future<List<PriceModel>> _fetchFromCollection({
+    required String collectionName,
+    required String field,
+    required List<String> values,
+  }) async {
     if (values.isEmpty) return [];
     final results = <PriceModel>[];
     for (var i = 0; i < values.length; i += _chunkSize) {
@@ -121,71 +111,20 @@ class BasketRepository {
         i,
         i + _chunkSize > values.length ? values.length : i + _chunkSize,
       );
-      try {
-        final query = SafeQueryBuilder.safeWhereIn(
-          _firestore.collection('prices'),
-          field,
-          chunk,
-        );
-        final snapshot = await query.get();
-        results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
-      } catch (e) {
-        debugPrint("FIRESTORE QUERY ERROR -> $e");
-      }
+      final query = SafeQueryBuilder.safeWhereIn(
+        _firestore.collection(collectionName),
+        field,
+        chunk,
+      );
+      final snapshot = await query.get();
+      results.addAll(snapshot.docs.map(PriceModel.fromFirestore));
     }
     return results;
   }
 
-  String _cacheKeyFor(List<BasketItemDescriptor> items) {
-    final keys = items.map((item) => item.key).toList()..sort();
-    return keys.join('|');
-  }
-
-  bool _matchesDescriptor(PriceModel price, BasketItemDescriptor descriptor) {
-    final productId = descriptor.productId;
-    if (productId != null && productId.isNotEmpty) {
-      if (price.productId == productId) {
-        return true;
-      }
-    }
-    final barcode = descriptor.barcode;
-    if (barcode != null && barcode.isNotEmpty) {
-      if (price.productBarcode == barcode || price.productId == barcode) {
-        return true;
-      }
-    }
-    final normalized = descriptor.normalizedName;
-    if (normalized != null && normalized.isNotEmpty) {
-      final priceName = price.productName?.trim();
-      if (priceName == null || priceName.isEmpty) return false;
-      return _normalizeName(priceName) == normalized;
-    }
-    return false;
-  }
-
   String _marketId(PriceModel price) {
     final storeId = price.storeId.trim();
-    if (storeId.isNotEmpty) {
-      return storeId;
-    }
+    if (storeId.isNotEmpty) return storeId;
     return (price.storeName ?? '').trim();
-  }
-
-  String _normalizeName(String value) {
-    final trimmed = value.trim().toLowerCase();
-    final replaced = trimmed
-        .replaceAll('ı', 'i')
-        .replaceAll('İ', 'i')
-        .replaceAll('ş', 's')
-        .replaceAll('Ş', 's')
-        .replaceAll('ğ', 'g')
-        .replaceAll('Ğ', 'g')
-        .replaceAll('ü', 'u')
-        .replaceAll('Ü', 'u')
-        .replaceAll('ö', 'o')
-        .replaceAll('Ö', 'o')
-        .replaceAll('ç', 'c')
-        .replaceAll('Ç', 'c');
-    return replaced.replaceAll(RegExp(r'\s+'), ' ');
   }
 }

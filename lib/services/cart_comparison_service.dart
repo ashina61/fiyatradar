@@ -1,0 +1,179 @@
+import 'package:geolocator/geolocator.dart';
+
+import '../models/basket_item_model.dart';
+import '../models/price_model.dart';
+import '../models/product_model.dart';
+import '../models/store_model.dart';
+
+class CartMarketProductPrice {
+  final String productId;
+  final String productName;
+  final int quantity;
+  final double unitPrice;
+  final double lineTotal;
+
+  const CartMarketProductPrice({
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.unitPrice,
+    required this.lineTotal,
+  });
+}
+
+class CartMarketComparison {
+  final String marketId;
+  final String marketName;
+  final double total;
+  final List<String> missingProductIds;
+  final List<CartMarketProductPrice> lines;
+  final double? distanceKm;
+
+  const CartMarketComparison({
+    required this.marketId,
+    required this.marketName,
+    required this.total,
+    required this.missingProductIds,
+    required this.lines,
+    this.distanceKm,
+  });
+
+  bool get hasMissingProducts => missingProductIds.isNotEmpty;
+}
+
+class CartComparisonResult {
+  final CartMarketComparison? bestMarket;
+  final CartMarketComparison? nearestMarket;
+  final List<CartMarketComparison> sortedMarkets;
+  final String? notice;
+
+  const CartComparisonResult({
+    required this.bestMarket,
+    required this.nearestMarket,
+    required this.sortedMarkets,
+    this.notice,
+  });
+
+  List<CartMarketComparison> get lowestThree => sortedMarkets.take(3).toList();
+}
+
+class CartComparisonService {
+  const CartComparisonService();
+
+  CartComparisonResult compare({
+    required List<BasketItemModel> items,
+    required Map<String, ProductModel> productMap,
+    required Map<String, Map<String, PriceModel>> latestPricesByItem,
+    required Map<String, String> marketNames,
+    required List<StoreModel> stores,
+    Position? userPosition,
+  }) {
+    final storeById = {for (final store in stores) store.id: store};
+    final allMarketIds = <String>{
+      for (final marketMap in latestPricesByItem.values) ...marketMap.keys,
+    };
+
+    final comparisons = <CartMarketComparison>[];
+    for (final marketId in allMarketIds) {
+      final lines = <CartMarketProductPrice>[];
+      final missing = <String>[];
+      var total = 0.0;
+
+      for (final item in items) {
+        final price = latestPricesByItem[item.productId]?[marketId];
+        if (price == null) {
+          missing.add(item.productId);
+          continue;
+        }
+        final unitPrice = price.price;
+        final lineTotal = unitPrice * item.quantity;
+        total += lineTotal;
+        lines.add(
+          CartMarketProductPrice(
+            productId: item.productId,
+            productName: productMap[item.productId]?.name ?? 'Ürün',
+            quantity: item.quantity,
+            unitPrice: unitPrice,
+            lineTotal: lineTotal,
+          ),
+        );
+      }
+
+      comparisons.add(
+        CartMarketComparison(
+          marketId: marketId,
+          marketName: marketNames[marketId] ?? storeById[marketId]?.displayName ?? marketId,
+          total: total,
+          missingProductIds: missing,
+          lines: lines,
+          distanceKm: _distanceKm(userPosition, storeById[marketId]),
+        ),
+      );
+    }
+
+    comparisons.sort((a, b) {
+      if (a.hasMissingProducts != b.hasMissingProducts) {
+        return a.hasMissingProducts ? 1 : -1;
+      }
+      return a.total.compareTo(b.total);
+    });
+
+    CartMarketComparison? nearest;
+    if (userPosition != null) {
+      final withDistance = comparisons
+          .where((entry) => !entry.hasMissingProducts && entry.distanceKm != null)
+          .toList()
+        ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
+      if (withDistance.isNotEmpty) {
+        nearest = withDistance.first;
+      }
+    }
+
+    CartMarketComparison? best;
+    for (final comparison in comparisons) {
+      if (!comparison.hasMissingProducts) {
+        best = comparison;
+        break;
+      }
+    }
+    final notice = comparisons.isEmpty
+        ? 'Sepetteki ürünler için onaylı fiyat bulunamadı.'
+        : null;
+
+    return CartComparisonResult(
+      bestMarket: best,
+      nearestMarket: nearest,
+      sortedMarkets: comparisons,
+      notice: notice,
+    );
+  }
+
+  Map<String, PriceModel?> buildLatestProductPrices({
+    required List<BasketItemModel> items,
+    required Map<String, Map<String, PriceModel>> latestPricesByItem,
+  }) {
+    final output = <String, PriceModel?>{};
+    for (final item in items) {
+      final prices = latestPricesByItem[item.productId]?.values.toList() ?? const <PriceModel>[];
+      if (prices.isEmpty) {
+        output[item.productId] = null;
+        continue;
+      }
+      prices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      output[item.productId] = prices.first;
+    }
+    return output;
+  }
+
+  double? _distanceKm(Position? userPosition, StoreModel? store) {
+    if (userPosition == null || store == null) return null;
+    if (store.lat == 0 && store.lng == 0) return null;
+    final meters = Geolocator.distanceBetween(
+      userPosition.latitude,
+      userPosition.longitude,
+      store.lat,
+      store.lng,
+    );
+    return meters / 1000;
+  }
+}
