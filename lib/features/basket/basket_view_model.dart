@@ -14,6 +14,7 @@ import '../../services/cart_comparison_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
 import 'basket_pricing.dart';
+import 'cart_comparison_state.dart';
 import 'basket_repository.dart';
 
 class BasketViewModel extends ChangeNotifier {
@@ -41,6 +42,7 @@ class BasketViewModel extends ChangeNotifier {
   Map<String, ProductModel> productMap = {};
   BasketPricingSummary? pricingSummary;
   CartComparisonResult? comparisonResult;
+  CartComparisonState comparisonState = const CartComparisonState.idle();
   Map<String, PriceModel?> latestProductPrices = {};
   Set<String> unverifiedPriceItemKeys = {};
   bool hasLocationPermission = false;
@@ -64,6 +66,7 @@ class BasketViewModel extends ChangeNotifier {
     marketNames = {};
     lastPriceDocumentCount = 0;
     errorMessage = null;
+    comparisonState = const CartComparisonState.idle();
     if (userId == null) {
       notifyListeners();
       return;
@@ -138,6 +141,15 @@ class BasketViewModel extends ChangeNotifier {
     isCalculating = true;
     errorMessage = null;
     calculationNotice = null;
+    comparisonState = comparisonState.copyWith(
+      status: CartComparisonStatus.loading,
+      topMarkets: const [],
+      missingProducts: const [],
+      clearBestMarket: true,
+      clearNearestMarket: true,
+      clearErrorMessage: true,
+      clearEmptyReason: true,
+    );
     notifyListeners();
 
     final descriptors = items
@@ -192,6 +204,37 @@ class BasketViewModel extends ChangeNotifier {
         userPosition: position,
       );
       calculationNotice = comparisonResult?.notice;
+
+      final allMissingProducts = items
+          .where((item) => (fetchResult.latestPricesByItem[item.productId] ?? const {}).isEmpty)
+          .map((item) => productMap[item.productId]?.name ?? 'Ürün')
+          .toList();
+
+      final topMarkets = comparisonResult!.sortedMarkets
+          .take(5)
+          .map(CartMarketResultSummary.fromComparison)
+          .toList();
+
+      if (comparisonResult!.bestMarket == null) {
+        comparisonState = CartComparisonState(
+          status: CartComparisonStatus.empty,
+          topMarkets: topMarkets,
+          missingProducts: allMissingProducts,
+          emptyReason: comparisonResult!.sortedMarkets.isEmpty
+              ? 'Bu sepet için yeterli fiyat verisi yok.'
+              : 'Marketlerde tüm ürünleri karşılayacak fiyat bulunamadı.',
+        );
+      } else {
+        comparisonState = CartComparisonState(
+          status: CartComparisonStatus.success,
+          bestMarket: CartMarketResultSummary.fromComparison(comparisonResult!.bestMarket!),
+          topMarkets: topMarkets,
+          nearestMarket: comparisonResult!.nearestMarket != null
+              ? CartMarketResultSummary.fromComparison(comparisonResult!.nearestMarket!)
+              : null,
+          missingProducts: allMissingProducts,
+        );
+      }
     } catch (error) {
       if (error is FirebaseException &&
           (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
@@ -201,6 +244,10 @@ class BasketViewModel extends ChangeNotifier {
       } else {
         errorMessage = 'Fiyat hesaplanamadi. Lutfen tekrar deneyin.';
       }
+      comparisonState = CartComparisonState(
+        status: CartComparisonStatus.error,
+        errorMessage: errorMessage,
+      );
     } finally {
       isCalculating = false;
       notifyListeners();
