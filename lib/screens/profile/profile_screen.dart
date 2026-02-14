@@ -33,7 +33,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userModelStreamProvider).valueOrNull;
+    final userAsync = ref.watch(userModelStreamProvider);
+
+    if (userAsync.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (userAsync.hasError) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Profil yüklenirken bir hata oluştu. Lütfen tekrar deneyin.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final user = userAsync.valueOrNull;
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profil')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Profil verisi bulunamadı. Hesabınıza yeniden giriş yapmayı deneyin.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      );
+    }
+
     final trust = (user?.reliabilityScore ?? 72).clamp(0, 100).toDouble();
     final monthlySavings = ((user?.points ?? 0) * 3.4).toStringAsFixed(0);
     final streak = ((user?.validations ?? 0) ~/ 2).clamp(0, 365);
@@ -148,7 +187,8 @@ class _UltraHeroCardState extends State<_UltraHeroCard>
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.user?.name.isNotEmpty == true ? widget.user!.name : 'FiyatRadar Üyesi';
+    final userName = widget.user?.name ?? '';
+    final name = userName.trim().isNotEmpty ? userName : 'FiyatRadar Üyesi';
     final trustTag = widget.trust >= 80 ? 'Elite Katkıcı' : 'Güven Ustası';
     final parallaxSlow = -widget.scrollOffset * 0.16;
     final parallaxMedium = -widget.scrollOffset * 0.24;
@@ -370,6 +410,8 @@ class _TiltGlowAvatarState extends State<_TiltGlowAvatar>
     final tiltX = (widget.scrollOffset / 850).clamp(0.0, 0.06);
     final tiltY = -(widget.scrollOffset / 1400).clamp(0.0, 0.05);
 
+    final imageUrl = widget.imageUrl?.trim();
+
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, _) {
@@ -406,21 +448,16 @@ class _TiltGlowAvatarState extends State<_TiltGlowAvatar>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
-                        Image.network(widget.imageUrl!, fit: BoxFit.cover)
-                      else
-                        Container(
-                          color: const Color(0xFFAC7C33),
-                          alignment: Alignment.center,
-                          child: Text(
-                            widget.initials,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                            ),
+                      if (imageUrl != null && imageUrl.isNotEmpty)
+                        Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => _AvatarInitials(
+                            initials: widget.initials,
                           ),
-                        ),
+                        )
+                      else
+                        _AvatarInitials(initials: widget.initials),
                       _AvatarShineSweep(trigger: widget.shineTick),
                     ],
                   ),
@@ -430,6 +467,28 @@ class _TiltGlowAvatarState extends State<_TiltGlowAvatar>
           ),
         );
       },
+    );
+  }
+}
+
+class _AvatarInitials extends StatelessWidget {
+  const _AvatarInitials({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFAC7C33),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
     );
   }
 }
