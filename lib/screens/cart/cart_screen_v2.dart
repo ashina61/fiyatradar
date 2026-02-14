@@ -13,6 +13,7 @@ import '../../models/product_model.dart';
 import '../../services/cart_comparison_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../add_price/add_price_screen.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_network_image.dart';
 
@@ -92,10 +93,23 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                     return;
                   }
                   HapticFeedback.mediumImpact();
-                  viewModel.calculate();
+                  viewModel.calculate().then((_) {
+                    if (!mounted) return;
+                    _tabController.animateTo(1);
+                  });
                 },
               ),
-              _ResultTabContent(viewModel: viewModel),
+              _ResultTabContent(
+                viewModel: viewModel,
+                onSelectStore: () => _tabController.animateTo(0),
+                onAddPrice: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AddPriceScreen(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -217,8 +231,6 @@ class _CartTabContent extends StatelessWidget {
                                       item: item,
                                       product: viewModel.productMap[item.productId],
                                       latestPrice: viewModel.latestProductPrices[item.productId],
-                                      showUnverifiedBadge: viewModel.unverifiedPriceItemKeys
-                                          .contains(item.productId),
                                       onQuantityChanged: (qty) =>
                                           viewModel.updateQuantity(item.productId, qty),
                                       onRemove: () => viewModel.updateQuantity(item.productId, 0),
@@ -244,32 +256,38 @@ class _CartTabContent extends StatelessWidget {
 }
 
 class _ResultTabContent extends StatelessWidget {
-  const _ResultTabContent({required this.viewModel});
+  const _ResultTabContent({
+    required this.viewModel,
+    required this.onSelectStore,
+    required this.onAddPrice,
+  });
 
   final BasketViewModel viewModel;
+  final VoidCallback onSelectStore;
+  final VoidCallback onAddPrice;
 
   @override
   Widget build(BuildContext context) {
     if (viewModel.isCalculating) {
-      return const Center(child: CircularProgressIndicator());
+      return const _ResultLoadingSkeleton();
     }
 
     if (viewModel.errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(viewModel.errorMessage!),
-        ),
+      return _ResultEmptyState(
+        title: 'Sonuç oluşturulamadı',
+        message: viewModel.errorMessage!,
+        onSelectStore: onSelectStore,
+        onAddPrice: onAddPrice,
       );
     }
 
     final result = viewModel.comparisonResult;
-    if (result == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Sonuç görmek için Sepet sekmesinden Hesapla butonuna basın.'),
-        ),
+    if (result == null || result.sortedMarkets.isEmpty) {
+      return _ResultEmptyState(
+        title: 'Bu ürünler için fiyat bulunamadı',
+        message: 'Mağaza seçerek yeni ürün ekleyebilir veya fiyat paylaşabilirsiniz.',
+        onSelectStore: onSelectStore,
+        onAddPrice: onAddPrice,
       );
     }
 
@@ -277,6 +295,98 @@ class _ResultTabContent extends StatelessWidget {
       result: result,
       hasLocationPermission: viewModel.hasLocationPermission,
       notice: viewModel.calculationNotice,
+    );
+  }
+}
+
+class _ResultLoadingSkeleton extends StatelessWidget {
+  const _ResultLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget block({double h = 18, double? w}) => Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          block(h: 24, w: 180),
+          const SizedBox(height: 12),
+          block(h: 140),
+          const SizedBox(height: 12),
+          block(h: 22, w: 160),
+          const SizedBox(height: 8),
+          block(h: 64),
+          const SizedBox(height: 8),
+          block(h: 64),
+          const SizedBox(height: 8),
+          block(h: 64),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultEmptyState extends StatelessWidget {
+  const _ResultEmptyState({
+    required this.title,
+    required this.message,
+    required this.onSelectStore,
+    required this.onAddPrice,
+  });
+
+  final String title;
+  final String message;
+  final VoidCallback onSelectStore;
+  final VoidCallback onAddPrice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off_rounded, size: 44),
+            const SizedBox(height: 10),
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: onSelectStore,
+                  icon: const Icon(Icons.store_mall_directory_outlined),
+                  label: const Text('Mağaza seç'),
+                ),
+                FilledButton.icon(
+                  onPressed: onAddPrice,
+                  icon: const Icon(Icons.add_chart_rounded),
+                  label: const Text('Fiyat ekle'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -386,7 +496,6 @@ class CartItemCard extends StatelessWidget {
     required this.item,
     required this.product,
     required this.latestPrice,
-    required this.showUnverifiedBadge,
     required this.onQuantityChanged,
     required this.onRemove,
   });
@@ -394,7 +503,6 @@ class CartItemCard extends StatelessWidget {
   final BasketItemModel item;
   final ProductModel? product;
   final PriceModel? latestPrice;
-  final bool showUnverifiedBadge;
   final ValueChanged<int> onQuantityChanged;
   final VoidCallback onRemove;
 
@@ -455,30 +563,9 @@ class CartItemCard extends StatelessWidget {
                   ),
                 const SizedBox(height: 4),
                 if (latestPrice != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Son fiyat: ${formatTRY(latestPrice!.price)}',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      if (showUnverifiedBadge)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: cs.tertiaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Doğrulanmamış',
-                              style: theme.textTheme.labelSmall
-                                  ?.copyWith(color: cs.onTertiaryContainer),
-                            ),
-                          ),
-                        ),
-                    ],
+                  Text(
+                    'Son fiyat: ${formatTRY(latestPrice!.price)}',
+                    style: theme.textTheme.labelMedium,
                   )
                 else
                   Container(
@@ -816,26 +903,18 @@ class CartResultSheet extends StatelessWidget {
                                       ?.copyWith(color: cs.onErrorContainer),
                                 ),
                               )
-                            else if (entry.hasUnverifiedPrices)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: cs.tertiaryContainer,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Doğrulanmamış',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(color: cs.onTertiaryContainer),
-                                ),
-                              ),
                           ],
                         ),
-                        subtitle: entry.distanceKm == null
-                            ? null
-                            : Text('${entry.distanceKm!.toStringAsFixed(1)} km'),
+                        subtitle: Text(
+                          () {
+                            final details = [
+                              if (entry.distanceKm != null) '${entry.distanceKm!.toStringAsFixed(1)} km',
+                              if (entry.missingProductIds.isNotEmpty)
+                                'Eksik ürün: ${entry.missingProductIds.length}',
+                            ];
+                            return details.isEmpty ? 'Tüm ürünler mevcut' : details.join(' • ');
+                          }(),
+                        ),
                         trailing: Text(formatTRY(entry.total)),
                       ),
                     ),
@@ -860,7 +939,7 @@ class CartResultSheet extends StatelessWidget {
                             contentPadding: EdgeInsets.zero,
                             title: Text(line.productName),
                             subtitle: Text(
-                              '${line.quantity} adet • ${formatTRY(line.unitPrice)}${line.isVerified ? '' : ' • Doğrulanmamış'}',
+                              '${line.quantity} adet • ${formatTRY(line.unitPrice)}',
                             ),
                             trailing: Text(formatTRY(line.lineTotal)),
                           ),

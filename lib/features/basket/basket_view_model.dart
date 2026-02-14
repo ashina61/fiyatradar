@@ -192,9 +192,6 @@ class BasketViewModel extends ChangeNotifier {
         userPosition: position,
       );
       calculationNotice = comparisonResult?.notice;
-      if (calculationNotice == null && unverifiedPriceItemKeys.isNotEmpty) {
-        calculationNotice = 'Bazı fiyatlar doğrulanmamış kaynaklardan getirildi.';
-      }
     } catch (error) {
       if (error is FirebaseException &&
           (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
