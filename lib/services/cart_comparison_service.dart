@@ -71,11 +71,15 @@ class CartComparisonService {
     required Map<String, String> marketNames,
     required List<StoreModel> stores,
     Position? userPosition,
+    Set<String>? allowedMarketIds,
   }) {
     final storeById = {for (final store in stores) store.id: store};
     final allMarketIds = <String>{
       for (final marketMap in latestPricesByItem.values) ...marketMap.keys,
     };
+    if (allowedMarketIds != null && allowedMarketIds.isNotEmpty) {
+      allMarketIds.removeWhere((marketId) => !allowedMarketIds.contains(marketId));
+    }
 
     final comparisons = <CartMarketComparison>[];
     for (final marketId in allMarketIds) {

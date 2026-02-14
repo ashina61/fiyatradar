@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/basket_item_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
+import '../../models/store_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../services/cart_comparison_service.dart';
@@ -49,6 +50,9 @@ class BasketViewModel extends ChangeNotifier {
   String? calculationNotice;
   Map<String, String> marketNames = {};
   int lastPriceDocumentCount = 0;
+  List<StoreModel> availableStores = [];
+  Set<String> selectedStoreIds = <String>{};
+  List<String> missingPriceProducts = const <String>[];
 
   void setUser(String? nextUserId) {
     if (userId == nextUserId) return;
@@ -65,6 +69,9 @@ class BasketViewModel extends ChangeNotifier {
     calculationNotice = null;
     marketNames = {};
     lastPriceDocumentCount = 0;
+    availableStores = [];
+    selectedStoreIds = <String>{};
+    missingPriceProducts = const <String>[];
     errorMessage = null;
     comparisonState = const CartComparisonState.idle();
     if (userId == null) {
@@ -127,6 +134,37 @@ class BasketViewModel extends ChangeNotifier {
     );
   }
 
+
+  List<StoreModel> get nearbyStores =>
+      availableStores.where((store) => !store.isOnline).toList()
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+  List<StoreModel> get onlineStores =>
+      availableStores.where((store) => store.isOnline).toList()
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+  List<String> get selectedStoreNames {
+    if (selectedStoreIds.isEmpty) return const <String>[];
+    final selected = availableStores
+        .where((store) => selectedStoreIds.contains(store.id))
+        .map((store) => store.displayName)
+        .toList()
+      ..sort();
+    return selected;
+  }
+
+  Future<void> loadStoresIfNeeded() async {
+    if (availableStores.isNotEmpty) return;
+    final stores = await firestoreService.getAllStoresStream().first;
+    availableStores = stores;
+    notifyListeners();
+  }
+
+  void setSelectedStoreIds(Set<String> ids) {
+    selectedStoreIds = ids;
+    notifyListeners();
+  }
+
   Future<void> addProduct(String productId) async {
     final existing = items.firstWhere(
       (item) => item.productId == productId,
@@ -160,7 +198,11 @@ class BasketViewModel extends ChangeNotifier {
         .toList();
 
     try {
-      final fetchResult = await repository.fetchPricesForBasketItems(descriptors);
+      await loadStoresIfNeeded();
+      final fetchResult = await repository.fetchPricesForBasketItems(
+        descriptors,
+        allowedStoreIds: selectedStoreIds.isEmpty ? null : selectedStoreIds,
+      );
       lastPriceDocumentCount = fetchResult.priceDocumentCount;
       marketNames = fetchResult.marketNames;
 
@@ -186,13 +228,17 @@ class BasketViewModel extends ChangeNotifier {
         marketNames: fetchResult.marketNames,
       );
 
+      missingPriceProducts = pricingSummary!.mixedResult.missingKeys
+          .map((key) => productMap[key]?.name ?? 'Ürün')
+          .toList();
+
       latestProductPrices = comparisonService.buildLatestProductPrices(
         items: items,
         latestPricesByItem: fetchResult.latestPricesByItem,
       );
       unverifiedPriceItemKeys = fetchResult.unverifiedPriceItemKeys;
 
-      final stores = await firestoreService.getAllStoresStream().first;
+      final stores = availableStores;
       final position = await locationService.getCurrentPosition();
       hasLocationPermission = position != null;
       comparisonResult = comparisonService.compare(
@@ -202,6 +248,7 @@ class BasketViewModel extends ChangeNotifier {
         marketNames: marketNames,
         stores: stores,
         userPosition: position,
+        allowedMarketIds: selectedStoreIds.isEmpty ? null : selectedStoreIds,
       );
       calculationNotice = comparisonResult?.notice;
 

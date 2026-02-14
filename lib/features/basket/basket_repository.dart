@@ -36,8 +36,9 @@ class BasketRepository {
   static const int _chunkSize = 10;
 
   Future<BasketPriceFetchResult> fetchPricesForBasketItems(
-    List<BasketItemDescriptor> items,
-  ) async {
+    List<BasketItemDescriptor> items, {
+    Set<String>? allowedStoreIds,
+  }) async {
     final productIds = items
         .map((item) => item.productId?.trim())
         .whereType<String>()
@@ -82,6 +83,9 @@ class BasketRepository {
       if (price.price <= 0) continue;
       final marketId = _marketId(price);
       if (marketId.isEmpty) continue;
+      if (allowedStoreIds != null && allowedStoreIds.isNotEmpty && !allowedStoreIds.contains(marketId)) {
+        continue;
+      }
       marketNames[marketId] = price.storeName?.isNotEmpty == true ? price.storeName! : marketId;
 
       final byMarket = pricesByProductByMarket.putIfAbsent(price.productId, () => {});
@@ -120,18 +124,29 @@ class BasketRepository {
     required List<String> values,
   }) async {
     if (values.isEmpty) return [];
-    final results = <PriceModel>[];
+    final chunks = <List<String>>[];
     for (var i = 0; i < values.length; i += _chunkSize) {
-      final chunk = values.sublist(
-        i,
-        i + _chunkSize > values.length ? values.length : i + _chunkSize,
+      chunks.add(
+        values.sublist(
+          i,
+          i + _chunkSize > values.length ? values.length : i + _chunkSize,
+        ),
       );
-      final query = SafeQueryBuilder.safeWhereIn(
-        _firestore.collection(collectionName),
-        field,
-        chunk,
-      );
-      final snapshot = await query.get();
+    }
+
+    final snapshots = await Future.wait(
+      chunks.map((chunk) {
+        final query = SafeQueryBuilder.safeWhereIn(
+          _firestore.collection(collectionName),
+          field,
+          chunk,
+        );
+        return query.get();
+      }),
+    );
+
+    final results = <PriceModel>[];
+    for (final snapshot in snapshots) {
       results.addAll(snapshot.docs.map(PriceModel.fromFirestore));
     }
     return results;
