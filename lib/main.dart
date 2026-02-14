@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
+import 'l10n/app_localizations.dart';
 
 /// Whether Firebase was successfully initialized.
 bool firebaseInitialized = false;
@@ -95,6 +97,13 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('tr')],
       home: widget.showOnboarding
           ? OnboardingScreen(
               onComplete: () async {
