@@ -11,6 +11,7 @@ class CartMarketProductPrice {
   final int quantity;
   final double unitPrice;
   final double lineTotal;
+  final bool isVerified;
 
   const CartMarketProductPrice({
     required this.productId,
@@ -18,6 +19,7 @@ class CartMarketProductPrice {
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
+    required this.isVerified,
   });
 }
 
@@ -28,6 +30,7 @@ class CartMarketComparison {
   final List<String> missingProductIds;
   final List<CartMarketProductPrice> lines;
   final double? distanceKm;
+  final bool hasUnverifiedPrices;
 
   const CartMarketComparison({
     required this.marketId,
@@ -36,6 +39,7 @@ class CartMarketComparison {
     required this.missingProductIds,
     required this.lines,
     this.distanceKm,
+    this.hasUnverifiedPrices = false,
   });
 
   bool get hasMissingProducts => missingProductIds.isNotEmpty;
@@ -78,6 +82,7 @@ class CartComparisonService {
       final lines = <CartMarketProductPrice>[];
       final missing = <String>[];
       var total = 0.0;
+      var hasUnverified = false;
 
       for (final item in items) {
         final price = latestPricesByItem[item.productId]?[marketId];
@@ -95,8 +100,12 @@ class CartComparisonService {
             quantity: item.quantity,
             unitPrice: unitPrice,
             lineTotal: lineTotal,
+            isVerified: price.isApproved,
           ),
         );
+        if (!price.isApproved) {
+          hasUnverified = true;
+        }
       }
 
       comparisons.add(
@@ -107,6 +116,7 @@ class CartComparisonService {
           missingProductIds: missing,
           lines: lines,
           distanceKm: _distanceKm(userPosition, storeById[marketId]),
+          hasUnverifiedPrices: hasUnverified,
         ),
       );
     }
@@ -137,7 +147,7 @@ class CartComparisonService {
       }
     }
     final notice = comparisons.isEmpty
-        ? 'Sepetteki ürünler için onaylı fiyat bulunamadı.'
+        ? 'Sepetteki ürünler için fiyat bulunamadı.'
         : null;
 
     return CartComparisonResult(

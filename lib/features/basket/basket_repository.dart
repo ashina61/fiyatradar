@@ -15,11 +15,13 @@ class BasketItemDescriptor {
 
 class BasketPriceFetchResult {
   final Map<String, Map<String, PriceModel>> latestPricesByItem;
+  final Set<String> unverifiedPriceItemKeys;
   final Map<String, String> marketNames;
   final int priceDocumentCount;
 
   const BasketPriceFetchResult({
     required this.latestPricesByItem,
+    required this.unverifiedPriceItemKeys,
     required this.marketNames,
     required this.priceDocumentCount,
   });
@@ -72,28 +74,41 @@ class BasketRepository {
     final latestByItem = {
       for (final item in items) item.key: <String, PriceModel>{},
     };
+    final unverifiedItemKeys = <String>{};
     final marketNames = <String, String>{};
 
+    final pricesByProductByMarket = <String, Map<String, List<PriceModel>>>{};
     for (final price in priceDocs) {
-      if (!price.isApproved || price.price <= 0) {
-        continue;
-      }
+      if (price.price <= 0) continue;
       final marketId = _marketId(price);
       if (marketId.isEmpty) continue;
       marketNames[marketId] = price.storeName?.isNotEmpty == true ? price.storeName! : marketId;
 
-      for (final item in items) {
-        if (item.productId == null || item.productId!.isEmpty) continue;
-        if (price.productId != item.productId) continue;
-        final current = latestByItem[item.key]?[marketId];
-        if (current == null || price.createdAt.isAfter(current.createdAt)) {
-          latestByItem[item.key]![marketId] = price;
+      final byMarket = pricesByProductByMarket.putIfAbsent(price.productId, () => {});
+      byMarket.putIfAbsent(marketId, () => []).add(price);
+    }
+
+    for (final item in items) {
+      final productId = item.productId?.trim();
+      if (productId == null || productId.isEmpty) continue;
+      final byMarket = pricesByProductByMarket[productId];
+      if (byMarket == null) continue;
+
+      for (final entry in byMarket.entries) {
+        final sorted = [...entry.value]
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final approved = sorted.where((price) => price.isApproved).toList();
+        final selected = approved.isNotEmpty ? approved.first : sorted.first;
+        latestByItem[item.key]![entry.key] = selected;
+        if (!selected.isApproved) {
+          unverifiedItemKeys.add(item.key);
         }
       }
     }
 
     return BasketPriceFetchResult(
       latestPricesByItem: latestByItem,
+      unverifiedPriceItemKeys: unverifiedItemKeys,
       marketNames: marketNames,
       priceDocumentCount: priceDocs.length,
     );

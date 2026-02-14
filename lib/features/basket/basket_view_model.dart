@@ -42,6 +42,7 @@ class BasketViewModel extends ChangeNotifier {
   BasketPricingSummary? pricingSummary;
   CartComparisonResult? comparisonResult;
   Map<String, PriceModel?> latestProductPrices = {};
+  Set<String> unverifiedPriceItemKeys = {};
   bool hasLocationPermission = false;
   String? calculationNotice;
   Map<String, String> marketNames = {};
@@ -57,6 +58,7 @@ class BasketViewModel extends ChangeNotifier {
     pricingSummary = null;
     comparisonResult = null;
     latestProductPrices = {};
+    unverifiedPriceItemKeys = {};
     hasLocationPermission = false;
     calculationNotice = null;
     marketNames = {};
@@ -176,6 +178,7 @@ class BasketViewModel extends ChangeNotifier {
         items: items,
         latestPricesByItem: fetchResult.latestPricesByItem,
       );
+      unverifiedPriceItemKeys = fetchResult.unverifiedPriceItemKeys;
 
       final stores = await firestoreService.getAllStoresStream().first;
       final position = await locationService.getCurrentPosition();
@@ -189,6 +192,9 @@ class BasketViewModel extends ChangeNotifier {
         userPosition: position,
       );
       calculationNotice = comparisonResult?.notice;
+      if (calculationNotice == null && unverifiedPriceItemKeys.isNotEmpty) {
+        calculationNotice = 'Bazı fiyatlar doğrulanmamış kaynaklardan getirildi.';
+      }
     } catch (error) {
       if (error is FirebaseException &&
           (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
