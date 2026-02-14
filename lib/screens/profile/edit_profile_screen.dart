@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,13 +39,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = doc.data() ?? <String, dynamic>{};
-    _nameController.text = (data['name'] ?? '').toString();
-    _usernameController.text = (data['username'] ?? '').toString();
-    _bioController.text = (data['bio'] ?? '').toString();
-    _cityController.text = (data['city'] ?? '').toString();
-    _avatarUrl = (data['photoUrl'] ?? '').toString();
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      final data = doc.data() ?? <String, dynamic>{};
+      _nameController.text = (data['name'] ?? '').toString();
+      _usernameController.text = (data['username'] ?? '').toString();
+      _bioController.text = (data['bio'] ?? '').toString();
+      _cityController.text = (data['city'] ?? '').toString();
+      _avatarUrl = (data['photoUrl'] ?? '').toString();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil bilgileri alınamadı.')),
+      );
+    }
 
     if (mounted) setState(() => _loading = false);
   }
@@ -63,7 +75,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -77,14 +89,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'city': _cityController.text.trim(),
         'photoUrl': photoUrl ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }).timeout(const Duration(seconds: 8));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.profileUpdated)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n?.profileUpdated ?? 'Profil güncellendi.')));
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.profileUpdateError)));
+          .showSnackBar(SnackBar(content: Text(l10n?.profileUpdateError ?? 'Profil güncellenemedi.')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -101,10 +113,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.editProfile)),
+      appBar: AppBar(title: Text(l10n?.editProfile ?? 'Profili Düzenle')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -128,23 +140,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _nameController,
-                    decoration: InputDecoration(labelText: l10n.fullName),
+                    decoration: InputDecoration(labelText: l10n?.fullName ?? 'Ad Soyad'),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _usernameController,
-                    decoration: InputDecoration(labelText: l10n.usernameOptional),
+                    decoration: InputDecoration(labelText: l10n?.usernameOptional ?? 'Kullanıcı adı (opsiyonel)'),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _bioController,
                     maxLines: 3,
-                    decoration: InputDecoration(labelText: l10n.bioOptional),
+                    decoration: InputDecoration(labelText: l10n?.bioOptional ?? 'Biyografi (opsiyonel)'),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _cityController,
-                    decoration: InputDecoration(labelText: l10n.cityOptional),
+                    decoration: InputDecoration(labelText: l10n?.cityOptional ?? 'Şehir (opsiyonel)'),
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -152,7 +164,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                          child: Text(l10n.cancel),
+                          child: Text(l10n?.cancel ?? 'İptal'),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -165,7 +177,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   height: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text(l10n.save),
+                              : Text(l10n?.save ?? 'Kaydet'),
                         ),
                       ),
                     ],
