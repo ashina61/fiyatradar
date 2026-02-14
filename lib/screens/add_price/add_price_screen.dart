@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -41,6 +40,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Position? _userPosition;
   bool _isResolvingUserPosition = false;
   bool _locationPermissionDenied = false;
+  bool _locationPermissionDeniedForever = false;
+  bool _locationServiceDisabled = false;
+  bool _locationUnavailable = false;
+  Map<String, double> _storeDistanceMeters = const {};
 
   @override
   void initState() {
@@ -53,12 +56,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     setState(() {
       _isResolvingUserPosition = true;
       _locationPermissionDenied = false;
+      _locationPermissionDeniedForever = false;
+      _locationServiceDisabled = false;
+      _locationUnavailable = false;
     });
 
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
+        debugPrint('[AddPrice] location service is disabled');
         if (!mounted) return;
-        setState(() => _locationPermissionDenied = true);
+        setState(() {
+          _locationServiceDisabled = true;
+          _userPosition = null;
+          _storeDistanceMeters = const {};
+        });
         return;
       }
 
@@ -70,22 +81,48 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       final denied = permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever;
       if (denied) {
+        debugPrint('[AddPrice] location permission denied: $permission');
         if (!mounted) return;
-        setState(() => _locationPermissionDenied = true);
+        setState(() {
+          _locationPermissionDenied = permission == LocationPermission.denied;
+          _locationPermissionDeniedForever =
+              permission == LocationPermission.deniedForever;
+          _userPosition = null;
+          _storeDistanceMeters = const {};
+        });
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 8),
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[AddPrice] getCurrentPosition failed, fallback to lastKnownPosition: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        position = await Geolocator.getLastKnownPosition();
+      }
+
       if (!mounted) return;
       setState(() {
         _userPosition = position;
+        _locationUnavailable = position == null;
+        _storeDistanceMeters = const {};
       });
-    } catch (_) {
+      if (position == null) {
+        debugPrint('[AddPrice] position could not be resolved from current/lastKnown.');
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[AddPrice] _loadUserPosition error: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
-      setState(() => _locationPermissionDenied = true);
+      setState(() {
+        _locationUnavailable = true;
+        _userPosition = null;
+        _storeDistanceMeters = const {};
+      });
     } finally {
       if (mounted) {
         setState(() => _isResolvingUserPosition = false);
@@ -482,22 +519,38 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     BuildContext ctx,
   ) {
     return storesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Hata: $e')),
+      loading: () => _buildStoreSkeletonList(),
+      error: (e, st) {
+        debugPrint('[AddPrice] nearby stores load error: $e');
+        debugPrintStack(stackTrace: st);
+        return const Center(child: Text('Yakındaki mağazalar yüklenemedi.'));
+      },
       data: (stores) {
-        final nearbyStores = List<StoreModel>.from(stores);
-        if (_userPosition != null) {
-          nearbyStores.sort((a, b) => _distanceInMeters(a).compareTo(_distanceInMeters(b)));
+        final distanceMap = _buildStoreDistanceMap(stores);
+        if (_hasDistanceMapChanged(distanceMap) && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() => _storeDistanceMeters = distanceMap);
+          });
         }
+
+        final nearbyStores = List<StoreModel>.from(stores)
+          ..sort((a, b) {
+            final da = distanceMap[a.id] ?? double.infinity;
+            final db = distanceMap[b.id] ?? double.infinity;
+            return da.compareTo(db);
+          });
 
         final filteredStores = nearbyStores.where((store) {
           if (_userPosition == null || _isStoreLocationMissing(store)) return true;
-          return _distanceInMeters(store) <= 2000;
+          final distance = distanceMap[store.id] ?? double.infinity;
+          return distance <= 2000;
         }).toList();
 
         if (_userPosition != null && filteredStores.isNotEmpty) {
           final nearestStore = filteredStores.first;
-          if (_distanceInMeters(nearestStore) <= 30 && _selectedStore == null) {
+          final nearestDistance = distanceMap[nearestStore.id] ?? double.infinity;
+          if (nearestDistance <= 30 && _selectedStore == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               setState(() => _selectedStore = nearestStore);
@@ -520,7 +573,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             }
 
             final store = filteredStores[index];
-            final distanceText = _distanceText(store);
+            final distanceText = _distanceText(store, _storeDistanceMeters.isEmpty ? distanceMap : _storeDistanceMeters);
             return ListTile(
               leading: Container(
                 width: 44,
@@ -644,43 +697,105 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildLocationStatusBanner() {
+    final scheme = Theme.of(context).colorScheme;
     if (_isResolvingUserPosition) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.info.withOpacity(0.1),
+          color: scheme.primaryContainer.withOpacity(0.6),
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 8),
-            Text('Mesafe hesaplanıyor…', style: TextStyle(fontSize: 12, color: AppColors.info)),
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+            ),
+            const SizedBox(width: 8),
+            Text('Konum alınıyor…', style: TextStyle(fontSize: 12, color: scheme.primary)),
           ],
         ),
       );
     }
 
-    if (_locationPermissionDenied) {
+    if (_locationServiceDisabled) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.warning.withOpacity(0.15),
+          color: scheme.errorContainer.withOpacity(0.55),
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Row(
           children: [
-            const Icon(Icons.location_off, size: 14, color: AppColors.warning),
+            Icon(Icons.location_disabled, size: 16, color: scheme.error),
             const SizedBox(width: 8),
             Expanded(
-              child: TextButton(
-                onPressed: () => _loadUserPosition(requestPermission: true),
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
-                child: const Text(
-                  'Yakın mağazaları görmek için konum izni gerekli • İzin ver',
-                  style: TextStyle(fontSize: 12, color: AppColors.warning),
-                ),
+              child: Text(
+                'Konum servisleri kapalı. Yakındaki mağazalar için servisleri açın.',
+                style: TextStyle(fontSize: 12, color: scheme.error),
               ),
+            ),
+            TextButton(
+              onPressed: Geolocator.openLocationSettings,
+              child: const Text('Konum servislerini aç'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_locationPermissionDenied || _locationPermissionDeniedForever) {
+      final deniedText = _locationPermissionDeniedForever
+          ? 'Konum izni kalıcı reddedildi.'
+          : 'Yakındaki mağazalar için konum izni gerekli.';
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: scheme.tertiaryContainer.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.location_off, size: 16, color: scheme.tertiary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                deniedText,
+                style: TextStyle(fontSize: 12, color: scheme.onTertiaryContainer),
+              ),
+            ),
+            TextButton(
+              onPressed: _locationPermissionDeniedForever
+                  ? Geolocator.openAppSettings
+                  : () => _loadUserPosition(requestPermission: true),
+              child: const Text('Konumu Aç'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_locationUnavailable) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.my_location, size: 16, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Konum alınamadı, mağazalar mesafesiz listeleniyor.',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _loadUserPosition(requestPermission: true),
+              child: const Text('Tekrar dene'),
             ),
           ],
         ),
@@ -691,14 +806,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.info.withOpacity(0.1),
+          color: scheme.primaryContainer.withOpacity(0.6),
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.near_me, size: 14, color: AppColors.info),
-            SizedBox(width: 8),
-            Text('Mesafeye göre sıralanıyor', style: TextStyle(fontSize: 12, color: AppColors.info)),
+            Icon(Icons.near_me, size: 14, color: scheme.primary),
+            const SizedBox(width: 8),
+            Text('Mesafeye göre sıralanıyor', style: TextStyle(fontSize: 12, color: scheme.primary)),
           ],
         ),
       );
@@ -707,37 +822,76 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     return const SizedBox.shrink();
   }
 
-  bool _isStoreLocationMissing(StoreModel store) => store.lat == 0 || store.lng == 0;
-
-  double _distanceInMeters(StoreModel store) {
-    if (_userPosition == null || _isStoreLocationMissing(store)) {
-      return double.infinity;
-    }
-
-    const earthRadius = 6371000.0;
-    final dLat = _toRadians(store.lat - _userPosition!.latitude);
-    final dLng = _toRadians(store.lng - _userPosition!.longitude);
-    final startLat = _toRadians(_userPosition!.latitude);
-    final endLat = _toRadians(store.lat);
-
-    final a =
-        (sin(dLat / 2) * sin(dLat / 2)) +
-        cos(startLat) * cos(endLat) * (sin(dLng / 2) * sin(dLng / 2));
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return earthRadius * c;
+  Widget _buildStoreSkeletonList() {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (_, __) => Container(
+        height: 68,
+        decoration: BoxDecoration(
+          color: scheme.surfaceVariant.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+    );
   }
 
-  double _toRadians(double degree) => degree * pi / 180.0;
+  bool _isStoreLocationMissing(StoreModel store) => store.lat == 0 || store.lng == 0;
 
-  String _distanceText(StoreModel store) {
+  Map<String, double> _buildStoreDistanceMap(List<StoreModel> stores) {
+    if (_userPosition == null) return const {};
+
+    final distances = <String, double>{};
+    for (final store in stores) {
+      if (_isStoreLocationMissing(store)) {
+        continue;
+      }
+      distances[store.id] = Geolocator.distanceBetween(
+        _userPosition!.latitude,
+        _userPosition!.longitude,
+        store.lat,
+        store.lng,
+      );
+    }
+    return distances;
+  }
+
+
+  bool _hasDistanceMapChanged(Map<String, double> next) {
+    if (_storeDistanceMeters.length != next.length) return true;
+    for (final entry in next.entries) {
+      final current = _storeDistanceMeters[entry.key];
+      if (current == null || (current - entry.value).abs() > 0.5) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _distanceText(StoreModel store, Map<String, double> distanceMap) {
     if (_isStoreLocationMissing(store)) {
       return 'Konum bilgisi eksik';
     }
-    if (_userPosition == null) {
-      return _isResolvingUserPosition ? 'Mesafe hesaplanıyor…' : 'Konum izni gerekli';
+
+    if (_locationServiceDisabled) {
+      return 'Servis kapalı';
     }
 
-    final dist = _distanceInMeters(store);
+    if (_locationPermissionDenied || _locationPermissionDeniedForever) {
+      return 'İzin gerekli';
+    }
+
+    if (_locationUnavailable && _userPosition == null) {
+      return 'Konum alınamadı';
+    }
+
+    final dist = distanceMap[store.id];
+    if (dist == null || dist.isInfinite) {
+      return 'Mesafe bilinmiyor';
+    }
+
     return dist < 1000 ? '${dist.round()} m' : '${(dist / 1000).toStringAsFixed(1)} km';
   }
 

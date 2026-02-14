@@ -37,6 +37,13 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           ),
         );
       }
+
+      if (!mounted) return;
+      final summary = next.pricingSummary;
+      final didChangeSummary = summary != null && summary != previous?.pricingSummary;
+      if (didChangeSummary) {
+        _showResultSheet(next);
+      }
     });
   }
 
@@ -70,26 +77,6 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                   _EmptyBasketCard(onAdd: () => _showProductPicker(context, viewModel))
                 else
                   _BasketItemsSection(viewModel: viewModel),
-                const SizedBox(height: AppSpacing.md),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 320),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) {
-                    final offset = Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(animation);
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(position: offset, child: child),
-                    );
-                  },
-                  child: viewModel.pricingSummary == null
-                      ? const SizedBox.shrink()
-                      : BasketResultPanel(
-                          key: const ValueKey('result-panel'),
-                          summary: viewModel.pricingSummary!,
-                          marketNames: viewModel.marketNames,
-                        ),
-                ),
               ],
             ),
             BasketStickyBar(
@@ -103,6 +90,27 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+
+  Future<void> _showResultSheet(BasketViewModel viewModel) async {
+    final summary = viewModel.pricingSummary;
+    if (summary == null) return;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return FractionallySizedBox(
+          heightFactor: 0.82,
+          child: BasketResultPanel(
+            summary: summary,
+            marketNames: viewModel.marketNames,
+          ),
+        );
+      },
     );
   }
 

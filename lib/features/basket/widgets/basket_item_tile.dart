@@ -130,7 +130,7 @@ class _ProductImage extends StatelessWidget {
   }
 }
 
-class _QuantityStepper extends StatelessWidget {
+class _QuantityStepper extends StatefulWidget {
   final int quantity;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
@@ -142,41 +142,65 @@ class _QuantityStepper extends StatelessWidget {
   });
 
   @override
+  State<_QuantityStepper> createState() => _QuantityStepperState();
+}
+
+class _QuantityStepperState extends State<_QuantityStepper> {
+  bool _pulse = false;
+
+  void _runPulse(VoidCallback action) {
+    setState(() => _pulse = true);
+    action();
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) setState(() => _pulse = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.full),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            border: Border.all(color: AppColors.outline),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                splashRadius: 16,
-                onPressed: onDecrement,
-                icon: const Icon(Icons.remove_rounded, size: 18),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                splashRadius: 16,
-                onPressed: onIncrement,
-                icon: const Icon(Icons.add_rounded, size: 18),
-              ),
-            ],
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 150),
+      scale: _pulse ? 1.06 : 1,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: scheme.surfaceVariant.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(AppRadius.full),
+              border: Border.all(color: scheme.outline),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  splashRadius: 16,
+                  onPressed: () => _runPulse(widget.onDecrement),
+                  icon: const Icon(Icons.remove_rounded, size: 18),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                    child: Text('${widget.quantity}', key: ValueKey(widget.quantity), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  splashRadius: 16,
+                  onPressed: () => _runPulse(widget.onIncrement),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                ),
+              ],
+            ),
           ),
         ),
       ),
