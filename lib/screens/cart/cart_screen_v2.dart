@@ -23,16 +23,25 @@ class CartScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<CartScreenV2> createState() => _CartScreenV2State();
 }
 
-class _CartScreenV2State extends ConsumerState<CartScreenV2> {
+class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     ref.listenManual<BasketViewModel>(basketViewModelProvider, (previous, next) {
       final result = next.comparisonResult;
       if (mounted && result != null && result != previous?.comparisonResult) {
-        _showResultSheet(next);
+        _tabController.animateTo(1);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -53,99 +62,46 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
         final itemCount = viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity);
 
         return Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              CartCollapsibleHeader(
+          appBar: AppBar(
+            title: const Text('Fiyat Sepeti'),
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Sepet'),
+                Tab(text: 'Sonuç'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _CartTabContent(
+                viewModel: viewModel,
                 itemCount: itemCount,
                 onAddProduct: () => _showProductPicker(context, viewModel),
+                onCalculate: () {
+                  if (viewModel.items.isEmpty) {
+                    ScaffoldMessenger.of(context)
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('Hesaplama için en az bir ürün ekleyin.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    return;
+                  }
+                  HapticFeedback.mediumImpact();
+                  viewModel.calculate();
+                },
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                sliver: SliverToBoxAdapter(
-                  child: viewModel.isLoadingItems
-                      ? const Center(child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
-                        ))
-                      : viewModel.items.isEmpty
-                          ? _EmptyState(onAdd: () => _showProductPicker(context, viewModel))
-                          : Column(
-                              children: [
-                                for (final item in viewModel.items)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: CartItemCard(
-                                      item: item,
-                                      product: viewModel.productMap[item.productId],
-                                      latestPrice: viewModel.latestProductPrices[item.productId],
-                                      onQuantityChanged: (qty) =>
-                                          viewModel.updateQuantity(item.productId, qty),
-                                      onRemove: () => viewModel.updateQuantity(item.productId, 0),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                ),
-              ),
-              if (viewModel.errorMessage != null || viewModel.calculationNotice != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        viewModel.errorMessage ?? viewModel.calculationNotice ?? '',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ),
-                ),
+              _ResultTabContent(viewModel: viewModel),
             ],
-          ),
-          bottomNavigationBar: CartBottomSummaryBar(
-            itemCount: itemCount,
-            summary: viewModel.pricingSummary,
-            isLoading: viewModel.isCalculating,
-            onCalculate: () {
-              if (viewModel.items.isEmpty) {
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('Hesaplama için en az bir ürün ekleyin.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                return;
-              }
-              HapticFeedback.mediumImpact();
-              viewModel.calculate();
-            },
-            onAddProduct: () => _showProductPicker(context, viewModel),
           ),
         );
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, __) => const Scaffold(body: SizedBox.shrink()),
-    );
-  }
-
-  Future<void> _showResultSheet(BasketViewModel viewModel) async {
-    final result = viewModel.comparisonResult;
-    if (result == null) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => CartResultSheet(
-        result: result,
-        hasLocationPermission: viewModel.hasLocationPermission,
-      ),
     );
   }
 
@@ -212,6 +168,115 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
           },
         );
       },
+    );
+  }
+}
+
+class _CartTabContent extends StatelessWidget {
+  const _CartTabContent({
+    required this.viewModel,
+    required this.itemCount,
+    required this.onAddProduct,
+    required this.onCalculate,
+  });
+
+  final BasketViewModel viewModel;
+  final int itemCount;
+  final VoidCallback onAddProduct;
+  final VoidCallback onCalculate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              CartCollapsibleHeader(
+                itemCount: itemCount,
+                onAddProduct: onAddProduct,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                sliver: SliverToBoxAdapter(
+                  child: viewModel.isLoadingItems
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : viewModel.items.isEmpty
+                          ? _EmptyState(onAdd: onAddProduct)
+                          : Column(
+                              children: [
+                                for (final item in viewModel.items)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: CartItemCard(
+                                      item: item,
+                                      product: viewModel.productMap[item.productId],
+                                      latestPrice: viewModel.latestProductPrices[item.productId],
+                                      showUnverifiedBadge: viewModel.unverifiedPriceItemKeys
+                                          .contains(item.productId),
+                                      onQuantityChanged: (qty) =>
+                                          viewModel.updateQuantity(item.productId, qty),
+                                      onRemove: () => viewModel.updateQuantity(item.productId, 0),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        CartBottomSummaryBar(
+          itemCount: itemCount,
+          summary: viewModel.pricingSummary,
+          isLoading: viewModel.isCalculating,
+          onCalculate: onCalculate,
+          onAddProduct: onAddProduct,
+        ),
+      ],
+    );
+  }
+}
+
+class _ResultTabContent extends StatelessWidget {
+  const _ResultTabContent({required this.viewModel});
+
+  final BasketViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (viewModel.isCalculating) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (viewModel.errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(viewModel.errorMessage!),
+        ),
+      );
+    }
+
+    final result = viewModel.comparisonResult;
+    if (result == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Sonuç görmek için Sepet sekmesinden Hesapla butonuna basın.'),
+        ),
+      );
+    }
+
+    return CartResultSheet(
+      result: result,
+      hasLocationPermission: viewModel.hasLocationPermission,
+      notice: viewModel.calculationNotice,
     );
   }
 }
@@ -321,6 +386,7 @@ class CartItemCard extends StatelessWidget {
     required this.item,
     required this.product,
     required this.latestPrice,
+    required this.showUnverifiedBadge,
     required this.onQuantityChanged,
     required this.onRemove,
   });
@@ -328,6 +394,7 @@ class CartItemCard extends StatelessWidget {
   final BasketItemModel item;
   final ProductModel? product;
   final PriceModel? latestPrice;
+  final bool showUnverifiedBadge;
   final ValueChanged<int> onQuantityChanged;
   final VoidCallback onRemove;
 
@@ -388,9 +455,30 @@ class CartItemCard extends StatelessWidget {
                   ),
                 const SizedBox(height: 4),
                 if (latestPrice != null)
-                  Text(
-                    'Son fiyat: ${formatTRY(latestPrice!.price)}',
-                    style: theme.textTheme.labelMedium,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Son fiyat: ${formatTRY(latestPrice!.price)}',
+                        style: theme.textTheme.labelMedium,
+                      ),
+                      if (showUnverifiedBadge)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: cs.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Doğrulanmamış',
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: cs.onTertiaryContainer),
+                            ),
+                          ),
+                        ),
+                    ],
                   )
                 else
                   Container(
@@ -636,10 +724,12 @@ class CartResultSheet extends StatelessWidget {
     super.key,
     required this.result,
     required this.hasLocationPermission,
+    this.notice,
   });
 
   final CartComparisonResult result;
   final bool hasLocationPermission;
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -648,38 +738,24 @@ class CartResultSheet extends StatelessWidget {
     final alternatives = result.lowestThree;
 
     return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: SingleChildScrollView(
-            child: Column(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text('Hesaplama Sonucu', style: Theme.of(context).textTheme.titleLarge),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Sonucu Kaydet',
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Sonuç kaydetme yakında.')),
-                      ),
-                      icon: const Icon(Icons.bookmark_add_outlined),
-                    ),
-                    IconButton(
-                      tooltip: 'Paylaş',
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Paylaşım yakında.')),
-                      ),
-                      icon: const Icon(Icons.ios_share_rounded),
-                    ),
-                  ],
-                ),
+                Text('Hesaplama Sonucu', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
+                if (notice != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(notice!, style: Theme.of(context).textTheme.bodySmall),
+                  ),
                 if (best != null)
                   Container(
                     width: double.infinity,
@@ -739,6 +815,21 @@ class CartResultSheet extends StatelessWidget {
                                       .labelSmall
                                       ?.copyWith(color: cs.onErrorContainer),
                                 ),
+                              )
+                            else if (entry.hasUnverifiedPrices)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.tertiaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Doğrulanmamış',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(color: cs.onTertiaryContainer),
+                                ),
                               ),
                           ],
                         ),
@@ -768,7 +859,9 @@ class CartResultSheet extends StatelessWidget {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(line.productName),
-                            subtitle: Text('${line.quantity} adet • ${formatTRY(line.unitPrice)}'),
+                            subtitle: Text(
+                              '${line.quantity} adet • ${formatTRY(line.unitPrice)}${line.isVerified ? '' : ' • Doğrulanmamış'}',
+                            ),
                             trailing: Text(formatTRY(line.lineTotal)),
                           ),
                         if (entry.hasMissingProducts)
@@ -782,7 +875,6 @@ class CartResultSheet extends StatelessWidget {
                 ),
               ],
             ),
-          ),
         ),
       ),
     );
