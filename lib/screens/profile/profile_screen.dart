@@ -558,7 +558,8 @@ class BadgeGrid extends StatelessWidget {
         Column(
           children: badges.map((badge) {
             final level = (badge['level'] ?? 'Seviye 1').toString();
-            final progress = ((badge['progress'] ?? 0.5) as num).toDouble().clamp(0, 1);
+            final double progress =
+                ((badge['progress'] ?? 0.5) as num).toDouble().clamp(0.0, 1.0).toDouble();
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
