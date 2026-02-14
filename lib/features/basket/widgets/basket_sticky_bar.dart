@@ -20,62 +20,57 @@ class BasketStickyBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: ClipRect(
+      left: AppSpacing.md,
+      right: AppSpacing.md,
+      bottom: AppSpacing.sm,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.sm),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 10, AppSpacing.md, 10),
             decoration: BoxDecoration(
-              color: AppColors.surface.withOpacity(0.92),
-              border: Border(top: BorderSide(color: AppColors.outline.withOpacity(0.8))),
+              color: scheme.surface.withOpacity(0.72),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              border: Border.all(color: scheme.outlineVariant.withOpacity(0.5)),
             ),
             child: SafeArea(
               top: false,
+              minimum: EdgeInsets.zero,
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      'Toplam ürün: $itemCount',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      '$itemCount ürün',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-                      onPressed: isEnabled && !isLoading ? onPressed : null,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: isLoading
-                            ? const Row(
-                                key: ValueKey('loading'),
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  ),
-                                  SizedBox(width: AppSpacing.sm),
-                                  Text('Hesaplanıyor…'),
-                                ],
-                              )
-                            : const Text(
-                                'Hesapla',
-                                key: ValueKey('label'),
-                              ),
-                      ),
+                  const SizedBox(width: AppSpacing.sm),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(126, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    ),
+                    onPressed: isEnabled && !isLoading ? onPressed : null,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: isLoading
+                          ? const SizedBox(
+                              key: ValueKey('loading'),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Hesapla',
+                              key: ValueKey('label'),
+                            ),
                     ),
                   ),
                 ],

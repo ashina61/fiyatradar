@@ -19,9 +19,13 @@ class BasketScreen extends ConsumerStatefulWidget {
 }
 
 class _BasketScreenState extends ConsumerState<BasketScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _isHeaderCompact = false;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     ref.listenManual<BasketViewModel>(basketViewModelProvider, (previous, next) {
       final error = next.errorMessage;
       if (error != null && error != previous?.errorMessage && mounted) {
@@ -48,6 +52,22 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
   }
 
   @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    final nextCompact = _scrollController.offset > 56;
+    if (nextCompact != _isHeaderCompact && mounted) {
+      setState(() => _isHeaderCompact = nextCompact);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
@@ -57,19 +77,25 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           return _buildLoginPrompt(context);
         }
         final viewModel = ref.watch(basketViewModelProvider);
+        final totalProducts = viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity);
+
         return Stack(
           children: [
             ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.md,
-                AppSpacing.lg,
-                120,
-              ),
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 108),
               children: [
-                BasketHeaderCard(itemCount: viewModel.items.length),
-                const SizedBox(height: AppSpacing.xs),
-                _ActionRow(onAdd: () => _showProductPicker(context, viewModel)),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: BasketHeaderCard(
+                    key: ValueKey('header-$_isHeaderCompact-$totalProducts'),
+                    itemCount: totalProducts,
+                    compact: _isHeaderCompact,
+                    onAddProduct: () => _showProductPicker(context, viewModel),
+                    onCalculate: viewModel.items.isEmpty ? null : viewModel.calculate,
+                    canCalculate: viewModel.items.isNotEmpty && !viewModel.isCalculating,
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 if (viewModel.isLoadingItems)
                   const Center(child: CircularProgressIndicator())
@@ -79,8 +105,18 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                   _BasketItemsSection(viewModel: viewModel),
               ],
             ),
+            if (!_isHeaderCompact)
+              Positioned(
+                right: AppSpacing.lg,
+                bottom: 116,
+                child: FloatingActionButton.small(
+                  heroTag: 'basket-mini-add',
+                  onPressed: () => _showProductPicker(context, viewModel),
+                  child: const Icon(Icons.add_rounded),
+                ),
+              ),
             BasketStickyBar(
-              itemCount: viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity),
+              itemCount: totalProducts,
               isLoading: viewModel.isCalculating,
               isEnabled: viewModel.items.isNotEmpty,
               onPressed: viewModel.items.isEmpty ? null : viewModel.calculate,
@@ -92,7 +128,6 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
       error: (_, __) => const SizedBox.shrink(),
     );
   }
-
 
   Future<void> _showResultSheet(BasketViewModel viewModel) async {
     final summary = viewModel.pricingSummary;
@@ -210,24 +245,6 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
           },
         );
       },
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  final VoidCallback onAdd;
-
-  const _ActionRow({required this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: FilledButton.icon(
-        onPressed: onAdd,
-        icon: const Icon(Icons.add_shopping_cart_outlined, size: 18),
-        label: const Text('Ürün Ekle'),
-      ),
     );
   }
 }
