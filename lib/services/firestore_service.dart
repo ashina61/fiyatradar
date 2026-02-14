@@ -1334,11 +1334,14 @@ class FirestoreService {
     required String userId,
     required String productId,
     required int quantity,
+    double? lastKnownPrice,
+    bool includeLastKnownPrice = false,
   }) async {
     await _basketRef(userId).doc(productId).set({
       'productId': productId,
       'quantity': quantity,
       'addedAt': FieldValue.serverTimestamp(),
+      if (includeLastKnownPrice) 'lastKnownPrice': lastKnownPrice,
     }, SetOptions(merge: true));
   }
 

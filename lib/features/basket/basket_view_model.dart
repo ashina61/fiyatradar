@@ -18,6 +18,18 @@ import 'basket_pricing.dart';
 import 'cart_comparison_state.dart';
 import 'basket_repository.dart';
 
+class BasketEstimatedTotal {
+  const BasketEstimatedTotal({
+    required this.total,
+    required this.missingPriceCount,
+  });
+
+  final double total;
+  final int missingPriceCount;
+
+  bool get hasMissingPrices => missingPriceCount > 0;
+}
+
 class BasketViewModel extends ChangeNotifier {
   BasketViewModel({
     required this.firestoreService,
@@ -53,6 +65,8 @@ class BasketViewModel extends ChangeNotifier {
   List<StoreModel> availableStores = [];
   Set<String> selectedStoreIds = <String>{};
   List<String> missingPriceProducts = const <String>[];
+  final Set<String> _inFlightLastPriceFetches = <String>{};
+  final Set<String> _resolvedLastPriceFetches = <String>{};
 
   void setUser(String? nextUserId) {
     if (userId == nextUserId) return;
@@ -72,6 +86,8 @@ class BasketViewModel extends ChangeNotifier {
     availableStores = [];
     selectedStoreIds = <String>{};
     missingPriceProducts = const <String>[];
+    _inFlightLastPriceFetches.clear();
+    _resolvedLastPriceFetches.clear();
     errorMessage = null;
     comparisonState = const CartComparisonState.idle();
     if (userId == null) {
@@ -85,6 +101,7 @@ class BasketViewModel extends ChangeNotifier {
       (rawItems) {
         items = rawItems.map(BasketItemModel.fromFirestore).toList();
         _subscribeProducts();
+        _syncLastKnownPricesForItems();
         isLoadingItems = false;
         notifyListeners();
       },
@@ -135,6 +152,69 @@ class BasketViewModel extends ChangeNotifier {
   }
 
 
+  BasketEstimatedTotal get computedEstimatedTotal {
+    var total = 0.0;
+    var missing = 0;
+
+    for (final item in items) {
+      final unitPrice = item.lastKnownPrice;
+      if (unitPrice == null) {
+        missing += 1;
+        continue;
+      }
+      total += item.quantity * unitPrice;
+    }
+
+    return BasketEstimatedTotal(total: total, missingPriceCount: missing);
+  }
+
+  void _syncLastKnownPricesForItems() {
+    final activeProductIds = items.map((item) => item.productId).toSet();
+    _inFlightLastPriceFetches.removeWhere((id) => !activeProductIds.contains(id));
+    _resolvedLastPriceFetches.removeWhere((id) => !activeProductIds.contains(id));
+
+    for (final item in items) {
+      if (item.lastKnownPrice != null) {
+        _resolvedLastPriceFetches.add(item.productId);
+        continue;
+      }
+      if (_resolvedLastPriceFetches.contains(item.productId)) continue;
+      _fetchLastPriceForItem(item.productId);
+    }
+  }
+
+  Future<void> _fetchLastPriceForItem(String productId) async {
+    if (_inFlightLastPriceFetches.contains(productId)) return;
+    _inFlightLastPriceFetches.add(productId);
+
+    try {
+      final price = await repository.fetchLastPrice(productId);
+      if (userId == null) return;
+
+      final index = items.indexWhere((item) => item.productId == productId);
+      if (index == -1) return;
+
+      final current = items[index];
+      final fetchedPrice = price?.price;
+      if (current.lastKnownPrice == fetchedPrice) {
+        _resolvedLastPriceFetches.add(productId);
+        return;
+      }
+
+      await firestoreService.upsertBasketItem(
+        userId: userId!,
+        productId: productId,
+        quantity: current.quantity,
+        lastKnownPrice: fetchedPrice,
+        includeLastKnownPrice: true,
+      );
+      _resolvedLastPriceFetches.add(productId);
+    } finally {
+      _inFlightLastPriceFetches.remove(productId);
+    }
+  }
+
+
   List<StoreModel> get nearbyStores =>
       availableStores.where((store) => !store.isOnline).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
@@ -172,6 +252,9 @@ class BasketViewModel extends ChangeNotifier {
     );
     final nextQty = existing.productId.isEmpty ? 1 : existing.quantity + 1;
     await updateQuantity(productId, nextQty);
+    if (existing.productId.isEmpty) {
+      unawaited(_fetchLastPriceForItem(productId));
+    }
   }
 
   Future<void> calculate() async {

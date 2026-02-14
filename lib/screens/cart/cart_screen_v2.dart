@@ -5,11 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/basket/basket_pricing.dart';
 import '../../features/basket/basket_view_model.dart';
 import '../../features/basket/cart_comparison_state.dart';
 import '../../models/basket_item_model.dart';
-import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store_model.dart';
 import '../../services/cart_comparison_service.dart';
@@ -57,7 +55,14 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
         }
 
         final viewModel = ref.watch(basketViewModelProvider);
-        final itemCount = viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity);
+        final itemCount = ref.watch(
+          basketViewModelProvider.select(
+            (vm) => vm.items.fold<int>(0, (sum, item) => sum + item.quantity),
+          ),
+        );
+        final estimatedTotal = ref.watch(
+          basketViewModelProvider.select((vm) => vm.computedEstimatedTotal),
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -77,6 +82,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                 viewModel: viewModel,
                 itemCount: itemCount,
                 onAddProduct: () => _showProductPicker(context, viewModel),
+                estimatedTotal: estimatedTotal,
                 onCalculate: () async {
                   if (viewModel.items.isEmpty) {
                     ScaffoldMessenger.of(context)
@@ -306,12 +312,14 @@ class _CartTabContent extends StatelessWidget {
   const _CartTabContent({
     required this.viewModel,
     required this.itemCount,
+    required this.estimatedTotal,
     required this.onAddProduct,
     required this.onCalculate,
   });
 
   final BasketViewModel viewModel;
   final int itemCount;
+  final BasketEstimatedTotal estimatedTotal;
   final VoidCallback onAddProduct;
   final VoidCallback onCalculate;
 
@@ -345,7 +353,7 @@ class _CartTabContent extends StatelessWidget {
                                     child: CartItemCard(
                                       item: item,
                                       product: viewModel.productMap[item.productId],
-                                      latestPrice: viewModel.latestProductPrices[item.productId],
+                                      lastKnownPrice: item.lastKnownPrice,
                                       onQuantityChanged: (qty) =>
                                           viewModel.updateQuantity(item.productId, qty),
                                       onRemove: () => viewModel.updateQuantity(item.productId, 0),
@@ -360,7 +368,7 @@ class _CartTabContent extends StatelessWidget {
         ),
         CartBottomSummaryBar(
           itemCount: itemCount,
-          summary: viewModel.pricingSummary,
+          estimatedTotal: estimatedTotal,
           isLoading: viewModel.isCalculating,
           onAddProduct: onAddProduct,
           onCalculate: onCalculate,
@@ -467,14 +475,14 @@ class CartItemCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.product,
-    required this.latestPrice,
+    required this.lastKnownPrice,
     required this.onQuantityChanged,
     required this.onRemove,
   });
 
   final BasketItemModel item;
   final ProductModel? product;
-  final PriceModel? latestPrice;
+  final double? lastKnownPrice;
   final ValueChanged<int> onQuantityChanged;
   final VoidCallback onRemove;
 
@@ -534,9 +542,9 @@ class CartItemCard extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 4),
-                if (latestPrice != null)
+                if (lastKnownPrice != null)
                   Text(
-                    'Son fiyat: ${formatTRY(latestPrice!.price)}',
+                    'Son fiyat: ${formatTRY(lastKnownPrice!, trailingSymbol: true, keepTrailingZeros: true)}',
                     style: theme.textTheme.labelMedium,
                   )
                 else
@@ -689,14 +697,14 @@ class CartBottomSummaryBar extends StatelessWidget {
   const CartBottomSummaryBar({
     super.key,
     required this.itemCount,
-    required this.summary,
+    required this.estimatedTotal,
     required this.isLoading,
     required this.onAddProduct,
     required this.onCalculate,
   });
 
   final int itemCount;
-  final BasketPricingSummary? summary;
+  final BasketEstimatedTotal estimatedTotal;
   final bool isLoading;
   final VoidCallback onAddProduct;
   final VoidCallback onCalculate;
@@ -704,15 +712,9 @@ class CartBottomSummaryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final best = summary?.bestSingleMarket;
-    final missingCount = summary?.mixedResult.missingKeys.length ?? 0;
-    final mixedTotal = summary?.mixedResult.total;
-
-    final totalLabel = best != null
-        ? 'Tahmini toplam: ${formatTRY(best.total)}'
-        : mixedTotal != null
-            ? 'Kısmi toplam: ${formatTRY(mixedTotal)} • Eksik fiyat: $missingCount ürün'
-            : 'Tahmini toplam: Hesapla ile güncellenecek';
+    final totalLabel = estimatedTotal.hasMissingPrices
+        ? 'Kısmi toplam: ${formatTRY(estimatedTotal.total, trailingSymbol: true, keepTrailingZeros: true)} • Eksik fiyat: ${estimatedTotal.missingPriceCount} ürün'
+        : 'Tahmini toplam: ${formatTRY(estimatedTotal.total, trailingSymbol: true, keepTrailingZeros: true)}';
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
