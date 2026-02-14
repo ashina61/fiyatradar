@@ -875,7 +875,6 @@ class CartResultSheet extends StatelessWidget {
                 ),
               ],
             ),
-        ),
       ),
     );
   }
