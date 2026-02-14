@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,235 +20,182 @@ import '../auth/login_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../notifications/notifications_screen.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTickerProviderStateMixin {
+  late final ScrollController _scrollController;
+  late final AnimationController _introController;
+  late final Animation<double> _introAnimation;
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(() {
+      setState(() => _scrollOffset = _scrollController.offset);
+    });
+    _introController = AnimationController(vsync: this, duration: const Duration(milliseconds: 650))
+      ..forward();
+    _introAnimation = CurvedAnimation(parent: _introController, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _introController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final user = userAsync.valueOrNull;
     final bool isAdmin = user?.isAdmin ?? false;
+    final trustScore = (user?.reliabilityScore ?? 0).clamp(0, 100).toDouble();
+    final trustLevel = ((trustScore / 20).ceil()).clamp(1, 5);
+    final auraBase = trustLevel <= 2 ? 0.03 : (trustLevel <= 4 ? 0.06 : 0.1);
+    final auraOpacity = isDark ? auraBase * 0.7 : auraBase;
+    final heroScale = (1 - (_scrollOffset / 900)).clamp(0.94, 1.0);
+    final avatarParallax = _scrollOffset * 0.1;
+
+    final trustBreakdown = {
+      'Dogrulanan katkı': user?.validations ?? 0,
+      'Raporlanan fiyat': ((user?.priceEntries ?? 0) - (user?.validations ?? 0)).clamp(0, 9999),
+      'Aktivite bonusu': ((user?.points ?? 0) / 20).floor(),
+    }..removeWhere((_, value) => value <= 0);
+
+    final trustDelta = (user?.validations ?? 0) - ((user?.priceEntries ?? 0) ~/ 2);
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildProfileHeader(context, ref, user),
-            Transform.translate(
-              offset: const Offset(0, -20),
-              child: _buildStatsRow(context, theme, user),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: AppSectionHeader(
-                title: 'Rozetler',
-                subtitle: 'Ilerlemeni takip et',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildBadgesSection(context, user),
-            const SizedBox(height: AppSpacing.xl),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: AppSectionHeader(title: 'Kisayollar'),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildMenuCard(context, theme, items: [
-              _MenuItem(
-                icon: Icons.bookmark_outline,
-                title: 'Kaydedilen Urunler',
-                onTap: () => _showSavedProducts(context),
-              ),
-              _MenuItem(
-                icon: Icons.history,
-                title: 'Fiyat Gecmisim',
-                onTap: () => _showPriceHistory(context),
-              ),
-              _MenuItem(
-                icon: Icons.stars_outlined,
-                title: 'Puan Sistemi',
-                onTap: () => _showPointsSystem(context, user),
-              ),
-              _MenuItem(
-                icon: Icons.person_add_alt_1_outlined,
-                title: 'Arkadas Davet Et',
-                onTap: () => _showInviteFriends(context, user),
-              ),
-              _MenuItem(
-                icon: Icons.notifications_outlined,
-                title: 'Bildirimler',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+        child: FadeTransition(
+          opacity: _introAnimation,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverToBoxAdapter(
+                child: ProfileHeroCard(
+                  user: user,
+                  scale: heroScale,
+                  avatarParallax: avatarParallax,
+                  auraOpacity: auraOpacity,
+                  level: trustLevel,
+                  onPhotoTap: () => _changeProfilePhoto(context, ref, user),
+                  onEditTap: () => _showEditProfileDialog(context, user),
                 ),
               ),
-              _MenuItem(
-                icon: Icons.settings_outlined,
-                title: 'Ayarlar',
-                onTap: () => _showSettings(context, ref),
-              ),
-            ]),
-            const SizedBox(height: AppSpacing.lg),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: AppSectionHeader(title: 'Ayarlar'),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildMenuCard(context, theme, items: [
-              _MenuItem(
-                icon: Icons.dark_mode_outlined,
-                title: 'Karanlik Mod',
-                trailing: Switch(
-                  value: isDark,
-                  onChanged: (val) {
-                    ref.read(themeModeProvider.notifier).toggleDarkMode();
-                  },
-                  activeColor: AppColors.primary,
+              SliverToBoxAdapter(
+                child: TrustLevelCard(
+                  trustLevel: trustLevel,
+                  trustScore: trustScore,
+                  remainingForNextLevel: ((trustLevel * 20) - trustScore).ceil().clamp(0, 20),
+                  breakdown: trustBreakdown,
                 ),
               ),
-              _MenuItem(
-                icon: Icons.notifications_outlined,
-                title: 'Bildirim Ayarlari',
-                onTap: () => _showNotificationSettings(context),
-              ),
-            ]),
-            const SizedBox(height: AppSpacing.lg),
-
-            // Legal Disclaimer
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.info.withOpacity(0.15)),
+              SliverToBoxAdapter(
+                child: TrustChangeCard(
+                  trustDelta: trustDelta,
+                  breakdown: trustBreakdown,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: AppColors.info.withOpacity(0.7)),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        AppConstants.priceDisclaimer,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary.withOpacity(0.8),
-                          height: 1.4,
+              ),
+              SliverToBoxAdapter(child: BadgeRow(user: user, onAllBadgesTap: () => _showAllBadges(context, _createBadges(user)))),
+              if ((user?.points ?? 0) > 0)
+                SliverToBoxAdapter(child: LeaderboardPreviewCard(user: user!)),
+              SliverToBoxAdapter(child: ContributionHeatmap(user: user)),
+              SliverToBoxAdapter(
+                child: QuickActionsGrid(
+                  onMyPrices: () => _showPriceHistory(context),
+                  onReceipts: () => _showSavedProducts(context),
+                  onFavorites: () => _showSavedProducts(context),
+                  onNotifications: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                ),
+              ),
+              SliverToBoxAdapter(child: ActivityTimeline(user: user)),
+              SliverToBoxAdapter(
+                child: SettingsSection(
+                  sections: {
+                    'Hesap': [
+                      _MenuItem(icon: Icons.person_outline, title: 'Profili Duzenle', onTap: () => _showEditProfileDialog(context, user)),
+                    ],
+                    'Uygulama': [
+                      _MenuItem(
+                        icon: Icons.dark_mode_outlined,
+                        title: 'Karanlik Mod',
+                        trailing: Switch(
+                          value: isDark,
+                          onChanged: (_) => ref.read(themeModeProvider.notifier).toggleDarkMode(),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: AppSectionHeader(title: 'Destek'),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildMenuCard(context, theme, items: [
-              _MenuItem(
-                icon: Icons.help_outline,
-                title: 'Yardim & Destek',
-                onTap: () => _showHelpSupport(context),
-              ),
-              _MenuItem(
-                icon: Icons.feedback_outlined,
-                title: 'Geri Bildirim',
-                onTap: () => _showFeedbackDialog(context),
-              ),
-              _MenuItem(
-                icon: Icons.info_outline,
-                title: 'Hakkinda',
-                onTap: () => _showAboutDialog(context),
-              ),
-            ]),
-            const SizedBox(height: AppSpacing.lg),
-
-            if (isAdmin) _buildAdminSection(context, theme),
-
-            // Sign Out
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: AppCard(
-                padding: EdgeInsets.zero,
-                child: ListTile(
-                  leading: const Icon(Icons.logout, color: AppColors.error),
-                  title: const Text(
-                    'Cikis Yap',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                  ),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                        ),
-                        title: const Text('Cikis Yap'),
-                        content: const Text('Cikis yapmak istediginize emin misiniz?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Iptal'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () async {
-                              Navigator.pop(ctx);
-                              await AuthService().signOut();
-                              if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginScreen()),
-                                  (route) => false,
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.error,
-                            ),
-                            child: const Text('Cikis Yap',
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      ),
-                    );
+                      _MenuItem(icon: Icons.notifications_outlined, title: 'Bildirim Ayarlari', onTap: () => _showNotificationSettings(context)),
+                    ],
+                    'Guvenlik': [
+                      _MenuItem(icon: Icons.verified_user_outlined, title: 'Guven detaylari', onTap: () => _showPointsSystem(context, user)),
+                    ],
+                    'Destek': [
+                      _MenuItem(icon: Icons.help_outline, title: 'Yardim & Destek', onTap: () => _showHelpSupport(context)),
+                      _MenuItem(icon: Icons.feedback_outlined, title: 'Geri Bildirim', onTap: () => _showFeedbackDialog(context)),
+                      _MenuItem(icon: Icons.info_outline, title: 'Hakkinda', onTap: () => _showAboutDialog(context)),
+                    ],
                   },
+                  menuBuilder: (items) => _buildMenuCard(context, theme, items: items),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            Center(
-              child: Text(
-                'FiyatRadar v1.0.0',
-                style: TextStyle(fontSize: 12, color: theme.hintColor),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: AppCard(
+                    padding: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: Icon(Icons.logout, color: colorScheme.error),
+                      title: Text('Cikis Yap', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Cikis Yap'),
+                            content: const Text('Cikis yapmak istediginize emin misiniz?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
+                              FilledButton(
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  await AuthService().signOut();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                                child: const Text('Cikis Yap'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
+              if (isAdmin) SliverToBoxAdapter(child: _buildAdminSection(context, theme)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
+
 
   // ===========================================================================
   // Active Feature Handlers
@@ -1219,44 +1167,51 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  // ===========================================================================
-  // Badges
-  // ===========================================================================
-  Widget _buildBadgesSection(BuildContext context, UserModel? user) {
+
+  List<_BadgeItem> _createBadges(UserModel? user) {
     final priceEntries = user?.priceEntries ?? 0;
     final validations = user?.validations ?? 0;
-
-    // Define badges with unlock conditions
-    final badges = [
+    return [
       _BadgeItem(
-        emoji: '\u{1F3C6}', name: 'Fiyat Avcisi',
+        emoji: '\u{1F3C6}',
+        name: 'Fiyat Avcisi',
         description: '50+ fiyat girisi',
         color: AppColors.accent,
         isEarned: priceEntries >= 50,
         progress: priceEntries < 50 ? '$priceEntries/50 fiyat ekle' : null,
       ),
       _BadgeItem(
-        emoji: '\u{2B50}', name: 'Guvenilir Uye',
+        emoji: '\u{2B50}',
+        name: 'Guvenilir Uye',
         description: '100+ dogrulama',
         color: AppColors.primary,
         isEarned: validations >= 100,
         progress: validations < 100 ? '$validations/100 dogrulama yap' : null,
       ),
       _BadgeItem(
-        emoji: '\u{1F525}', name: 'Trend Belirleyici',
+        emoji: '\u{1F525}',
+        name: 'Trend Belirleyici',
         description: '10+ fiyat girisi',
         color: AppColors.error,
         isEarned: priceEntries >= 10,
         progress: priceEntries < 10 ? '$priceEntries/10 fiyat ekle' : null,
       ),
       _BadgeItem(
-        emoji: '\u{1F6E1}', name: 'Dogrulayici',
+        emoji: '\u{1F6E1}',
+        name: 'Dogrulayici',
         description: '50+ dogrulama',
         color: AppColors.secondary,
         isEarned: validations >= 50,
         progress: validations < 50 ? '$validations/50 dogrulama yap' : null,
       ),
     ];
+  }
+
+  // ===========================================================================
+  // Badges
+  // ===========================================================================
+  Widget _buildBadgesSection(BuildContext context, UserModel? user) {
+    final badges = _createBadges(user);
 
     final previewBadges = badges.take(4).toList();
 
@@ -1441,6 +1396,456 @@ class ProfileScreen extends ConsumerWidget {
         ]),
         const SizedBox(height: AppSpacing.md),
       ],
+    );
+  }
+}
+
+
+class ProfileHeroCard extends StatelessWidget {
+  final UserModel? user;
+  final double scale;
+  final double avatarParallax;
+  final double auraOpacity;
+  final int level;
+  final VoidCallback onPhotoTap;
+  final VoidCallback onEditTap;
+
+  const ProfileHeroCard({
+    super.key,
+    required this.user,
+    required this.scale,
+    required this.avatarParallax,
+    required this.auraOpacity,
+    required this.level,
+    required this.onPhotoTap,
+    required this.onEditTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final name = user?.name ?? 'Kullanici';
+    final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'U';
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Transform.scale(
+        scale: scale,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(auraOpacity),
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                ),
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(onPressed: onEditTap, icon: const Icon(Icons.edit_outlined)),
+                      ),
+                      GestureDetector(
+                        onTap: onPhotoTap,
+                        child: Transform.translate(
+                          offset: Offset(0, avatarParallax),
+                          child: CircleAvatar(
+                            radius: 44,
+                            backgroundColor: cs.primaryContainer,
+                            backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                            child: user?.photoUrl == null ? Text(initial, style: theme.textTheme.headlineSmall?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)) : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 6),
+                        Icon(Icons.verified, size: 18, color: cs.primary),
+                      ]),
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        children: [
+                          _StatChip(label: 'Katki ${user?.priceEntries ?? 0}'),
+                          _StatChip(label: 'Dogrulanan ${user?.validations ?? 0}'),
+                          _StatChip(label: 'Guven Seviye $level'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrustLevelCard extends StatefulWidget {
+  final int trustLevel;
+  final double trustScore;
+  final int remainingForNextLevel;
+  final Map<String, int> breakdown;
+  const TrustLevelCard({super.key, required this.trustLevel, required this.trustScore, required this.remainingForNextLevel, required this.breakdown});
+
+  @override
+  State<TrustLevelCard> createState() => _TrustLevelCardState();
+}
+
+class _TrustLevelCardState extends State<TrustLevelCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
+    _progress = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      child: AppCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Trust Level ${widget.trustLevel}', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          AnimatedBuilder(
+            animation: _progress,
+            builder: (_, __) => LinearProgressIndicator(
+              value: (widget.trustScore / 100) * _progress.value,
+              borderRadius: BorderRadius.circular(99),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text('Sonraki seviyeye ${widget.remainingForNextLevel} dogrulama kaldi', style: TextStyle(color: cs.onSurfaceVariant)),
+          if (widget.breakdown.isNotEmpty) ...[
+            const Divider(height: 24),
+            ...widget.breakdown.entries.map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(e.key), Text('${e.value}')]),
+            )),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+class TrustChangeCard extends StatelessWidget {
+  final int trustDelta;
+  final Map<String, int> breakdown;
+  const TrustChangeCard({super.key, required this.trustDelta, required this.breakdown});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => showModalBottomSheet(
+          context: context,
+          builder: (_) => ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            children: breakdown.entries.map((e) => ListTile(title: Text(e.key), trailing: Text('${e.value}'))).toList(),
+          ),
+        ),
+        child: AppCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${trustDelta >= 0 ? '+' : ''}$trustDelta ${trustDelta >= 0 ? '✔ dogrulandi' : '⚠ raporlandi'}'),
+            if (trustDelta < 0)
+              Container(
+                margin: const EdgeInsets.only(top: AppSpacing.sm),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Text('Bazi fiyatlarin dogrulanamadigi icin guven skorun hafif dustu.', style: TextStyle(color: cs.onErrorContainer)),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class BadgeRow extends StatelessWidget {
+  final UserModel? user;
+  final VoidCallback onAllBadgesTap;
+  const BadgeRow({super.key, required this.user, required this.onAllBadgesTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = [
+      ('🏆', 'Fiyat Avcisi', (user?.priceEntries ?? 0) >= 50),
+      ('⭐', 'Guvenilir Uye', (user?.validations ?? 0) >= 100),
+      ('🔥', 'Trend Belirleyici', (user?.priceEntries ?? 0) >= 10),
+      ('🛡', 'Dogrulayici', (user?.validations ?? 0) >= 50),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 110,
+            child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          scrollDirection: Axis.horizontal,
+          itemCount: badges.length,
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final b = badges[index];
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 250 + (index * 80)),
+              builder: (_, v, child) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 10 * (1 - v)), child: child)),
+              child: Container(
+                width: 86,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                ),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(b.$1, style: const TextStyle(fontSize: 24)),
+                  const SizedBox(height: 4),
+                  Text(b.$2, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: b.$3 ? null : Theme.of(context).hintColor)),
+                ]),
+              ),
+            );
+          },
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: onAllBadgesTap, child: const Text('Tum rozetler')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LeaderboardPreviewCard extends StatelessWidget {
+  final UserModel user;
+  const LeaderboardPreviewCard({super.key, required this.user});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: AppCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Social Trust', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          const Text('Top 3 katki: #1 Aylin 220 • #2 Kerem 180 • #3 Ece 169'),
+          const SizedBox(height: 6),
+          Text('Sen: #${(1000 - user.points).clamp(1, 999)}'),
+        ]),
+      ),
+    );
+  }
+}
+
+class ContributionHeatmap extends StatelessWidget {
+  final UserModel? user;
+  const ContributionHeatmap({super.key, required this.user});
+  @override
+  Widget build(BuildContext context) {
+    final total = (user?.priceEntries ?? 0) + (user?.validations ?? 0);
+    final values = List.generate(10, (i) => (total ~/ (i + 3)).clamp(0, 7));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: AppCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Contribution Heatmap', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: values.map((v) {
+              return Tooltip(
+                message: '$v katki',
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.12 + (v / 10)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class QuickActionsGrid extends StatelessWidget {
+  final VoidCallback onMyPrices;
+  final VoidCallback onReceipts;
+  final VoidCallback onFavorites;
+  final VoidCallback onNotifications;
+  const QuickActionsGrid({super.key, required this.onMyPrices, required this.onReceipts, required this.onFavorites, required this.onNotifications});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.price_change_outlined, 'Fiyatlarim', onMyPrices),
+      (Icons.receipt_long_outlined, 'Fislerim', onReceipts),
+      (Icons.favorite_outline, 'Favoriler', onFavorites),
+      (Icons.notifications_none, 'Bildirimler', onNotifications),
+    ];
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: AppSpacing.sm, mainAxisSpacing: AppSpacing.sm, childAspectRatio: 1.7),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _PressableCard(icon: item.$1, title: item.$2, onTap: item.$3);
+        },
+      ),
+    );
+  }
+}
+
+class ActivityTimeline extends StatelessWidget {
+  final UserModel? user;
+  const ActivityTimeline({super.key, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = [
+      'Fiyat eklendi • ${(user?.priceEntries ?? 0)} toplam',
+      '✔ Dogrulandi • ${(user?.validations ?? 0)} toplam',
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Aktivite Gecmisi', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            ...entries.asMap().entries.map((entry) => TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 280 + (entry.key * 120)),
+              builder: (_, v, child) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 6 * (1 - v)), child: child)),
+              child: ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.circle, size: 10), title: Text(entry.value)),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsSection extends StatelessWidget {
+  final Map<String, List<_MenuItem>> sections;
+  final Widget Function(List<_MenuItem>) menuBuilder;
+  const SettingsSection({super.key, required this.sections, required this.menuBuilder});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: sections.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs, left: 4),
+                  child: Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
+                ),
+                menuBuilder(entry.value),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  const _StatChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 5),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 11)),
+    );
+  }
+}
+
+class _PressableCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  const _PressableCard({required this.icon, required this.title, required this.onTap});
+
+  @override
+  State<_PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<_PressableCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: AppCard(
+          child: Row(children: [Icon(widget.icon), const SizedBox(width: 8), Expanded(child: Text(widget.title))]),
+        ),
+      ),
     );
   }
 }
