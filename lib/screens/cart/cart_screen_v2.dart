@@ -100,6 +100,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
               CartResultTab(
                 state: viewModel.comparisonState,
                 onCalculate: () async {
+                  HapticFeedback.mediumImpact();
                   await viewModel.calculate();
                   if (!mounted) return;
                   _tabController.animateTo(1);
@@ -113,6 +114,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                   );
                 },
                 onRetry: () async {
+                  HapticFeedback.mediumImpact();
                   await viewModel.calculate();
                   if (!mounted) return;
                   _tabController.animateTo(1);
