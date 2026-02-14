@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../utils/formatters.dart';
@@ -23,6 +25,7 @@ class _BasketResultPanelState extends State<BasketResultPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final rankedMarkets = widget.summary.perMarketTotals.entries.toList()
       ..sort((a, b) {
         final missingCompare = a.value.missingKeys.length.compareTo(b.value.missingKeys.length);
@@ -39,69 +42,68 @@ class _BasketResultPanelState extends State<BasketResultPanel> {
     final alternatives = rankedMarkets.length > 1 ? rankedMarkets.sublist(1) : <MapEntry<String, BasketMarketTotal>>[];
     final visibleAlternatives = _showAll ? alternatives : alternatives.take(3).toList();
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+    return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cardShadow.withOpacity(0.45),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('En Uygun Market', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: AppSpacing.md),
-          _WinnerCard(
-            marketName: winnerName,
-            totalPrice: winnerPrice,
-            missingCount: winner?.value.missingKeys.length ?? 0,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _InfoChip(
-                icon: Icons.auto_awesome,
-                label: 'Tahmini sepet',
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                ),
               ),
-              _InfoChip(
-                icon: Icons.shopping_bag_outlined,
-                label: 'Karma toplam: ${formatTRY(widget.summary.mixedResult.total)}',
+              const SizedBox(height: AppSpacing.md),
+              Text('Sepet Sonucu', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: AppSpacing.sm),
+              _WinnerCard(marketName: winnerName, totalPrice: winnerPrice, missingCount: winner?.value.missingKeys.length ?? 0),
+              const SizedBox(height: AppSpacing.md),
+              _BreakdownCard(summary: widget.summary),
+              const SizedBox(height: AppSpacing.md),
+              Text('Market Sıralaması', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: ListView(
+                  children: [
+                    if (winner != null)
+                      _AnimatedMarketRow(
+                        marketName: winnerName,
+                        totalPrice: winnerPrice,
+                        missingCount: winner.value.missingKeys.length,
+                        isWinner: true,
+                        diff: 0,
+                      ),
+                    ...visibleAlternatives.map((entry) => _AnimatedMarketRow(
+                          marketName: widget.marketNames[entry.key] ?? entry.key,
+                          totalPrice: entry.value.total,
+                          missingCount: entry.value.missingKeys.length,
+                          diff: entry.value.total - winnerPrice,
+                        )),
+                    if (alternatives.length > 3)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => setState(() => _showAll = !_showAll),
+                          child: Text(_showAll ? 'Daha az göster' : 'Tümünü gör'),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text('Alternatifler', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          if (visibleAlternatives.isEmpty)
-            Text('Alternatif market sonucu yok.', style: Theme.of(context).textTheme.bodySmall)
-          else
-            ...visibleAlternatives.map(
-              (entry) => _AlternativeTile(
-                marketName: widget.marketNames[entry.key] ?? entry.key,
-                totalPrice: entry.value.total,
-                missingCount: entry.value.missingKeys.length,
-                diff: entry.value.total - winnerPrice,
-              ),
-            ),
-          if (alternatives.length > 3)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => setState(() => _showAll = !_showAll),
-                child: Text(_showAll ? 'Daha az göster' : 'Tümünü gör'),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -120,130 +122,120 @@ class _WinnerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEFFAF2), Color(0xFFF9FFFB)],
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('En uygun market', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.primary)),
+              const SizedBox(height: AppSpacing.xs),
+              Text(marketName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: AppSpacing.xs),
+              Text(formatTRY(totalPrice), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+              if (missingCount > 0)
+                Text('$missingCount eksik ürün', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.success.withOpacity(0.24)),
+      ),
+    );
+  }
+}
+
+class _BreakdownCard extends StatelessWidget {
+  final BasketPricingSummary summary;
+
+  const _BreakdownCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  marketName,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                ),
-                child: Text(
-                  'En Uygun',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            formatTRY(totalPrice),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          if (missingCount > 0) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text('$missingCount eksik ürün var', style: Theme.of(context).textTheme.bodySmall),
-          ],
+          Text('Breakdown', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: AppSpacing.xs),
+          Text('Karma toplam: ${formatTRY(summary.mixedResult.total)}'),
+          Text('Eksik ürün: ${summary.mixedResult.missingKeys.length}'),
         ],
       ),
     );
   }
 }
 
-class _AlternativeTile extends StatelessWidget {
+class _AnimatedMarketRow extends StatelessWidget {
   final String marketName;
   final double totalPrice;
   final int missingCount;
+  final bool isWinner;
   final double diff;
 
-  const _AlternativeTile({
+  const _AnimatedMarketRow({
     required this.marketName,
     required this.totalPrice,
     required this.missingCount,
+    this.isWinner = false,
     required this.diff,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withOpacity(0.7),
+        color: isWinner ? scheme.primaryContainer.withOpacity(0.5) : scheme.surfaceVariant.withOpacity(0.45),
         borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: isWinner ? scheme.primary.withOpacity(0.35) : scheme.outlineVariant.withOpacity(0.35),
+        ),
       ),
       child: Row(
         children: [
+          AnimatedScale(
+            duration: const Duration(milliseconds: 280),
+            scale: isWinner ? 1 : 0.85,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 280),
+              opacity: isWinner ? 1 : 0.45,
+              child: Icon(Icons.check_circle, color: isWinner ? scheme.primary : scheme.outline),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(marketName, style: Theme.of(context).textTheme.titleMedium),
-                Text(
-                  missingCount == 0 ? 'Tüm ürünler mevcut' : '$missingCount eksik ürün',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(missingCount == 0 ? 'Tüm ürünler var' : '$missingCount eksik ürün', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            formatTRY(totalPrice),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(formatTRY(totalPrice), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              if (diff > 0) Text('+${formatTRY(diff)}', style: Theme.of(context).textTheme.bodySmall),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            diff <= 0 ? '—' : '+${formatTRY(diff)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.textSecondary),
-          const SizedBox(width: AppSpacing.xs),
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
         ],
       ),
     );
