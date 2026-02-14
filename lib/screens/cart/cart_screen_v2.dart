@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/basket/basket_pricing.dart';
 import '../../features/basket/basket_view_model.dart';
+import '../../features/basket/cart_comparison_state.dart';
 import '../../models/basket_item_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
@@ -16,6 +17,7 @@ import '../../providers/product_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_network_image.dart';
+import 'cart_result_tab.dart';
 
 class CartScreenV2 extends ConsumerStatefulWidget {
   const CartScreenV2({super.key});
@@ -31,12 +33,6 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    ref.listenManual<BasketViewModel>(basketViewModelProvider, (previous, next) {
-      final result = next.comparisonResult;
-      if (mounted && result != null && result != previous?.comparisonResult) {
-        _tabController.animateTo(1);
-      }
-    });
   }
 
   @override
@@ -80,7 +76,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                 viewModel: viewModel,
                 itemCount: itemCount,
                 onAddProduct: () => _showProductPicker(context, viewModel),
-                onCalculate: () {
+                onCalculate: () async {
                   if (viewModel.items.isEmpty) {
                     ScaffoldMessenger.of(context)
                       ..clearSnackBars()
@@ -93,21 +89,33 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                     return;
                   }
                   HapticFeedback.mediumImpact();
-                  viewModel.calculate().then((_) {
-                    if (!mounted) return;
+                  await viewModel.calculate();
+                  if (!mounted) return;
+                  if (viewModel.comparisonState.status != CartComparisonStatus.loading &&
+                      viewModel.comparisonState.status != CartComparisonStatus.idle) {
                     _tabController.animateTo(1);
-                  });
+                  }
                 },
               ),
-              _ResultTabContent(
-                viewModel: viewModel,
-                onSelectStore: () => _tabController.animateTo(0),
+              CartResultTab(
+                state: viewModel.comparisonState,
+                onCalculate: () async {
+                  await viewModel.calculate();
+                  if (!mounted) return;
+                  _tabController.animateTo(1);
+                },
+                onGoToCart: () => _tabController.animateTo(0),
                 onAddPrice: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const AddPriceScreen(),
                     ),
                   );
+                },
+                onRetry: () async {
+                  await viewModel.calculate();
+                  if (!mounted) return;
+                  _tabController.animateTo(1);
                 },
               ),
             ],
@@ -251,142 +259,6 @@ class _CartTabContent extends StatelessWidget {
           onAddProduct: onAddProduct,
         ),
       ],
-    );
-  }
-}
-
-class _ResultTabContent extends StatelessWidget {
-  const _ResultTabContent({
-    required this.viewModel,
-    required this.onSelectStore,
-    required this.onAddPrice,
-  });
-
-  final BasketViewModel viewModel;
-  final VoidCallback onSelectStore;
-  final VoidCallback onAddPrice;
-
-  @override
-  Widget build(BuildContext context) {
-    if (viewModel.isCalculating) {
-      return const _ResultLoadingSkeleton();
-    }
-
-    if (viewModel.errorMessage != null) {
-      return _ResultEmptyState(
-        title: 'Sonuç oluşturulamadı',
-        message: viewModel.errorMessage!,
-        onSelectStore: onSelectStore,
-        onAddPrice: onAddPrice,
-      );
-    }
-
-    final result = viewModel.comparisonResult;
-    if (result == null || result.sortedMarkets.isEmpty) {
-      return _ResultEmptyState(
-        title: 'Bu ürünler için fiyat bulunamadı',
-        message: 'Mağaza seçerek yeni ürün ekleyebilir veya fiyat paylaşabilirsiniz.',
-        onSelectStore: onSelectStore,
-        onAddPrice: onAddPrice,
-      );
-    }
-
-    return CartResultSheet(
-      result: result,
-      hasLocationPermission: viewModel.hasLocationPermission,
-      notice: viewModel.calculationNotice,
-    );
-  }
-}
-
-class _ResultLoadingSkeleton extends StatelessWidget {
-  const _ResultLoadingSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    Widget block({double h = 18, double? w}) => Container(
-          width: w,
-          height: h,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-        );
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          block(h: 24, w: 180),
-          const SizedBox(height: 12),
-          block(h: 140),
-          const SizedBox(height: 12),
-          block(h: 22, w: 160),
-          const SizedBox(height: 8),
-          block(h: 64),
-          const SizedBox(height: 8),
-          block(h: 64),
-          const SizedBox(height: 8),
-          block(h: 64),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultEmptyState extends StatelessWidget {
-  const _ResultEmptyState({
-    required this.title,
-    required this.message,
-    required this.onSelectStore,
-    required this.onAddPrice,
-  });
-
-  final String title;
-  final String message;
-  final VoidCallback onSelectStore;
-  final VoidCallback onAddPrice;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.search_off_rounded, size: 44),
-            const SizedBox(height: 10),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: onSelectStore,
-                  icon: const Icon(Icons.store_mall_directory_outlined),
-                  label: const Text('Mağaza seç'),
-                ),
-                FilledButton.icon(
-                  onPressed: onAddPrice,
-                  icon: const Icon(Icons.add_chart_rounded),
-                  label: const Text('Fiyat ekle'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
