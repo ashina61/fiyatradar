@@ -118,6 +118,44 @@ class BasketRepository {
     );
   }
 
+
+
+  Future<PriceModel?> fetchLastPrice(String productId) async {
+    final trimmed = productId.trim();
+    if (trimmed.isEmpty) return null;
+
+    final latestCandidates = await _fetchFromCollection(
+      collectionName: 'latest_prices',
+      field: 'productId',
+      values: [trimmed],
+    );
+
+    var candidates = latestCandidates;
+    if (candidates.isEmpty) {
+      candidates = await _fetchFromCollection(
+        collectionName: 'prices',
+        field: 'productId',
+        values: [trimmed],
+      );
+      if (candidates.isEmpty) {
+        candidates = await _fetchFromCollection(
+          collectionName: 'priceReports',
+          field: 'productId',
+          values: [trimmed],
+        );
+      }
+    }
+
+    if (candidates.isEmpty) return null;
+
+    final valid = candidates.where((price) => price.price > 0).toList();
+    if (valid.isEmpty) return null;
+
+    valid.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final approved = valid.where((price) => price.isApproved).toList();
+    return approved.isNotEmpty ? approved.first : valid.first;
+  }
+
   Future<List<PriceModel>> _fetchFromCollection({
     required String collectionName,
     required String field,
