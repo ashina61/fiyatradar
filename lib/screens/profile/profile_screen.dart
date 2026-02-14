@@ -1,23 +1,15 @@
-import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
-import '../../utils/theme.dart';
-import '../../providers/theme_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../providers/price_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../utils/constants.dart';
-import '../../utils/formatters.dart';
-import '../../widgets/app_card.dart';
-import '../../widgets/app_section_header.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
-import '../product/product_detail_screen.dart';
 import '../notifications/notifications_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -27,26 +19,33 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTickerProviderStateMixin {
-  late final ScrollController _scrollController;
+class _ProfileScreenState extends ConsumerState<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<double> _scrollT = ValueNotifier<double>(0);
   late final AnimationController _introController;
-  late final Animation<double> _introAnimation;
-  double _scrollOffset = 0;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController()..addListener(() {
-      setState(() => _scrollOffset = _scrollController.offset);
-    });
-    _introController = AnimationController(vsync: this, duration: const Duration(milliseconds: 650))
-      ..forward();
-    _introAnimation = CurvedAnimation(parent: _introController, curve: Curves.easeOutCubic);
+    _scrollController.addListener(_onScroll);
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    )..forward();
+  }
+
+  void _onScroll() {
+    final normalized = (_scrollController.offset / 160).clamp(0.0, 1.0);
+    _scrollT.value = normalized;
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    _scrollT.dispose();
     _introController.dispose();
     super.dispose();
   }
@@ -54,1274 +53,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final user = userAsync.valueOrNull;
-    final bool isAdmin = user?.isAdmin ?? false;
-    final trustScore = (user?.reliabilityScore ?? 0).clamp(0, 100).toDouble();
-    final trustLevel = ((trustScore / 20).ceil()).clamp(1, 5);
-    final auraBase = trustLevel <= 2 ? 0.03 : (trustLevel <= 4 ? 0.06 : 0.1);
-    final auraOpacity = isDark ? auraBase * 0.7 : auraBase;
-    final heroScale = (1 - (_scrollOffset / 900)).clamp(0.94, 1.0);
-    final avatarParallax = _scrollOffset * 0.1;
-
-    final trustBreakdown = {
-      'Dogrulanan katkı': user?.validations ?? 0,
-      'Raporlanan fiyat': ((user?.priceEntries ?? 0) - (user?.validations ?? 0)).clamp(0, 9999),
-      'Aktivite bonusu': ((user?.points ?? 0) / 20).floor(),
-    }..removeWhere((_, value) => value <= 0);
-
-    final trustDelta = (user?.validations ?? 0) - ((user?.priceEntries ?? 0) ~/ 2);
 
     return Scaffold(
       body: SafeArea(
         child: FadeTransition(
-          opacity: _introAnimation,
+          opacity: CurvedAnimation(
+            parent: _introController,
+            curve: Curves.easeOutCubic,
+          ),
           child: CustomScrollView(
             controller: _scrollController,
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            physics: const BouncingScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: ProfileHeroCard(
-                  user: user,
-                  scale: heroScale,
-                  avatarParallax: avatarParallax,
-                  auraOpacity: auraOpacity,
-                  level: trustLevel,
-                  onPhotoTap: () => _changeProfilePhoto(context, ref, user),
-                  onEditTap: () => _showEditProfileDialog(context, user),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scrollT,
+                  builder: (context, t, _) => ProfileHero(user: user, scrollT: t),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: TrustLevelCard(
-                  trustLevel: trustLevel,
-                  trustScore: trustScore,
-                  remainingForNextLevel: ((trustLevel * 20) - trustScore).ceil().clamp(0, 20),
-                  breakdown: trustBreakdown,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: TrustChangeCard(
-                  trustDelta: trustDelta,
-                  breakdown: trustBreakdown,
-                ),
-              ),
-              SliverToBoxAdapter(child: BadgeRow(user: user, onAllBadgesTap: () => _showAllBadges(context, _createBadges(user)))),
-              if ((user?.points ?? 0) > 0)
-                SliverToBoxAdapter(child: LeaderboardPreviewCard(user: user!)),
-              SliverToBoxAdapter(child: ContributionHeatmap(user: user)),
-              SliverToBoxAdapter(
-                child: QuickActionsGrid(
-                  onMyPrices: () => _showPriceHistory(context),
-                  onReceipts: () => _showSavedProducts(context),
-                  onFavorites: () => _showSavedProducts(context),
-                  onNotifications: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
-                ),
-              ),
-              SliverToBoxAdapter(child: ActivityTimeline(user: user)),
-              SliverToBoxAdapter(
-                child: SettingsSection(
-                  sections: {
-                    'Hesap': [
-                      _MenuItem(icon: Icons.person_outline, title: 'Profili Duzenle', onTap: () => _showEditProfileDialog(context, user)),
-                    ],
-                    'Uygulama': [
-                      _MenuItem(
-                        icon: Icons.dark_mode_outlined,
-                        title: 'Karanlik Mod',
-                        trailing: Switch(
-                          value: isDark,
-                          onChanged: (_) => ref.read(themeModeProvider.notifier).toggleDarkMode(),
-                        ),
-                      ),
-                      _MenuItem(icon: Icons.notifications_outlined, title: 'Bildirim Ayarlari', onTap: () => _showNotificationSettings(context)),
-                    ],
-                    'Guvenlik': [
-                      _MenuItem(icon: Icons.verified_user_outlined, title: 'Guven detaylari', onTap: () => _showPointsSystem(context, user)),
-                    ],
-                    'Destek': [
-                      _MenuItem(icon: Icons.help_outline, title: 'Yardim & Destek', onTap: () => _showHelpSupport(context)),
-                      _MenuItem(icon: Icons.feedback_outlined, title: 'Geri Bildirim', onTap: () => _showFeedbackDialog(context)),
-                      _MenuItem(icon: Icons.info_outline, title: 'Hakkinda', onTap: () => _showAboutDialog(context)),
-                    ],
-                  },
-                  menuBuilder: (items) => _buildMenuCard(context, theme, items: items),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  child: AppCard(
-                    padding: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: Icon(Icons.logout, color: colorScheme.error),
-                      title: Text('Cikis Yap', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.w600)),
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Cikis Yap'),
-                            content: const Text('Cikis yapmak istediginize emin misiniz?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-                              FilledButton(
-                                onPressed: () async {
-                                  Navigator.pop(ctx);
-                                  await AuthService().signOut();
-                                  if (context.mounted) {
-                                    Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                                      (route) => false,
-                                    );
-                                  }
-                                },
-                                child: const Text('Cikis Yap'),
-                              ),
-                            ],
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                sliver: SliverList.list(
+                  children: [
+                    ReputationCard(user: user),
+                    const SizedBox(height: 16),
+                    ActivityFeed(user: user),
+                    const SizedBox(height: 16),
+                    ImpactPanel(user: user),
+                    const SizedBox(height: 16),
+                    BadgeCarousel(user: user),
+                    const SizedBox(height: 16),
+                    QuickActionBar(
+                      onMyPrices: _showMyPrices,
+                      onReceipts: _showReceipts,
+                      onFavorites: _showFavorites,
+                      onNotifications: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
                           ),
                         );
                       },
                     ),
-                  ),
-                ),
-              ),
-              if (isAdmin) SliverToBoxAdapter(child: _buildAdminSection(context, theme)),
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  // ===========================================================================
-  // Active Feature Handlers
-  // ===========================================================================
-
-  void _showSavedProducts(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Kaydedilen Urunler')),
-        body: Consumer(
-          builder: (context, ref, _) {
-            final productsAsync = ref.watch(allProductsProvider);
-            final userAsync = ref.watch(userModelStreamProvider);
-            final savedIds = userAsync.valueOrNull?.savedProducts ?? [];
-
-            return productsAsync.when(
-              data: (allProducts) {
-                final saved = allProducts.where((p) => savedIds.contains(p.id)).toList();
-                if (saved.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bookmark_outline, size: 64, color: AppColors.textTertiary),
-                        SizedBox(height: AppSpacing.md),
-                        Text('Kaydedilen urun yok', style: TextStyle(color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  itemCount: saved.length,
-                  itemBuilder: (context, i) {
-                    final p = saved[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: ListTile(
-                        leading: Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
-                        ),
-                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text('${p.lastStore ?? ''} - ${p.lastPrice != null ? formatTRY(p.lastPrice!) : '?'}'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(child: Text('Yuklenemedi')),
-            );
-          },
-        ),
-      ),
-    ));
-  }
-
-  void _showPriceHistory(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Fiyat Gecmisim')),
-        body: Consumer(
-          builder: (context, ref, _) {
-            final productsAsync = ref.watch(allProductsProvider);
-            return productsAsync.when(
-              data: (products) {
-                if (products.isEmpty) {
-                  return const Center(child: Text('Henuz fiyat girisi yok'));
-                }
-                final recentProducts = products.take(10).toList();
-                return ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  itemCount: recentProducts.length,
-                  itemBuilder: (context, i) {
-                    final p = recentProducts[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: ListTile(
-                        leading: Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                          ),
-                          child: const Icon(Icons.history, color: AppColors.secondary),
-                        ),
-                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(p.lastPrice != null ? formatTRY(p.lastPrice!) : '?'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(child: Text('Yuklenemedi')),
-            );
-          },
-        ),
-      ),
-    ));
-  }
-
-  void _showSettings(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.read(themeModeProvider);
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Ayarlar')),
-        body: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            Card(
-              child: Column(children: [
-                ListTile(
-                  leading: const Icon(Icons.language, color: AppColors.primary),
-                  title: const Text('Dil'),
-                  subtitle: const Text('Turkce'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 56),
-                ListTile(
-                  leading: const Icon(Icons.palette, color: AppColors.primary),
-                  title: const Text('Tema'),
-                  subtitle: Text(themeMode == ThemeMode.dark ? 'Karanlik' : 'Aydinlik'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 56),
-                ListTile(
-                  leading: const Icon(Icons.storage, color: AppColors.primary),
-                  title: const Text('Onbellek Temizle'),
-                  subtitle: const Text('12.5 MB'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Onbellek temizlendi'), behavior: SnackBarBehavior.floating),
-                    );
-                  },
-                ),
-              ]),
-            ),
-          ],
-        ),
-      ),
-    ));
-  }
-
-  void _showNotificationSettings(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _NotificationSettingsPage(),
-    ));
-  }
-
-  void _showHelpSupport(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Yardim & Destek')),
-        body: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            _buildFaqItem('FiyatRadar nedir?',
-                'FiyatRadar, farkli magazalardaki urun fiyatlarini karsilastirmaniza ve takip etmenize yardimci olan bir uygulamadir.'),
-            _buildFaqItem('Fiyat nasil eklenir?',
-                'Alt barda bulunan + butonuna basarak yeni fiyat ekleyebilirsiniz. Urun secin, magaza secin ve fiyati girin.'),
-            _buildFaqItem('Puan sistemi nasil calisir?',
-                'Fiyat eklediginizde, dogrulama yaptiginizda ve topluluga katki sagladiginizda puan kazanirsiniz.'),
-            _buildFaqItem('Bildirimleri nasil kapatirim?',
-                'Profil > Bildirim Ayarlari bolumunden bildirim tercihlerinizi yonetebilirsiniz.'),
-            const SizedBox(height: AppSpacing.lg),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.email_outlined, color: AppColors.primary),
-                title: const Text('Bize Ulasin'),
-                subtitle: const Text('destek@fiyatradar.com'),
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-      ),
-    ));
-  }
-
-  Widget _buildFaqItem(String question, String answer) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ExpansionTile(
-        title: Text(question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-        children: [Text(answer, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))],
-      ),
-    );
-  }
-
-  void _showFeedbackDialog(BuildContext context) {
-    final controller = TextEditingController();
-    int rating = 0;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: const Icon(Icons.feedback_outlined, color: AppColors.accent, size: 20),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text('Geri Bildirim'),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Uygulamayi nasil buldunuz?'),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) => IconButton(
-                  icon: Icon(
-                    i < rating ? Icons.star : Icons.star_border,
-                    color: AppColors.accent,
-                    size: 32,
-                  ),
-                  onPressed: () => setDialogState(() => rating = i + 1),
-                )),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Goruslerinizi yazin...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Geri bildiriminiz icin tesekkurler!'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('Gonder'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPointsSystem(BuildContext context, UserModel? user) {
-    final userPoints = user?.points ?? 0;
-    String levelName;
-    if (userPoints >= 5000) {
-      levelName = 'Elmas Uye';
-    } else if (userPoints >= 2000) {
-      levelName = 'Platin Uye';
-    } else if (userPoints >= 500) {
-      levelName = 'Altin Uye';
-    } else if (userPoints >= 100) {
-      levelName = 'Gumus Uye';
-    } else {
-      levelName = 'Bronz Uye';
-    }
-
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Puan Sistemi')),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFFFF8C00)]),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: Column(children: [
-                const Icon(Icons.stars, color: Colors.white, size: 48),
-                const SizedBox(height: AppSpacing.sm),
-                Text('$userPoints Puan', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('Seviye: $levelName', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
-              ]),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            const Text('Puan Kazanma Yollari', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.md),
-
-            _buildPointRow(
-              Icons.add_shopping_cart,
-              'Fiyat Ekleme',
-              '+${AppConstants.pointsForPriceEntry} Puan',
-              'Her yeni fiyat girisi icin',
-              AppColors.primary,
-            ),
-            _buildPointRow(
-              Icons.camera_alt,
-              'Fotografli Fiyat',
-              '+${AppConstants.pointsForPriceEntryWithPhoto} Puan',
-              'Fotograf ile fiyat ekleme',
-              AppColors.secondary,
-            ),
-            _buildPointRow(
-              Icons.verified,
-              'Fiyat Dogrulama',
-              '+${AppConstants.pointsForValidation} Puan',
-              'Baskalarinin fiyatlarini dogrulama',
-              AppColors.success,
-            ),
-            _buildPointRow(
-              Icons.comment,
-              'Yorum Yazma',
-              '+${AppConstants.pointsForComment} Puan',
-              'Urun hakkinda yorum birakma',
-              AppColors.info,
-            ),
-            _buildPointRow(
-              Icons.report,
-              'Yanlis Fiyat Bildirme',
-              '+${AppConstants.pointsForReportPrice} Puan',
-              'Yanlis fiyatlari raporlama',
-              AppColors.error,
-            ),
-            _buildPointRow(
-              Icons.person_add,
-              'Arkadas Davet Etme',
-              '+${AppConstants.pointsForInvite} Puan',
-              'Davet kodu ile yeni uye',
-              AppColors.accent,
-            ),
-            _buildPointRow(
-              Icons.emoji_events,
-              'Gunluk Giris',
-              '+${AppConstants.pointsForDailyLogin} Puan',
-              'Her gun uygulamaya giris yapma',
-              const Color(0xFF8B5CF6),
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-            const Text('Seviye Sistemi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.md),
-
-            _buildLevelRow('Bronz', '0 - 100 Puan', const Color(0xFFCD7F32)),
-            _buildLevelRow('Gumus', '100 - 500 Puan', const Color(0xFFC0C0C0)),
-            _buildLevelRow('Altin', '500 - 2000 Puan', AppColors.accent),
-            _buildLevelRow('Platin', '2000 - 5000 Puan', AppColors.primary),
-            _buildLevelRow('Elmas', '5000+ Puan', const Color(0xFF00BCD4)),
-
-            const SizedBox(height: AppSpacing.lg),
-            const Text('Avantajlar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.md),
-            const Card(child: Column(children: [
-              ListTile(leading: Icon(Icons.notifications_active, color: AppColors.primary), title: Text('Oncelikli bildirimler'), subtitle: Text('Fiyat dususlerinden ilk siz haberdar olun')),
-              Divider(height: 1, indent: 56),
-              ListTile(leading: Icon(Icons.workspace_premium, color: AppColors.accent), title: Text('Ozel rozetler'), subtitle: Text('Profilinizde ozel rozetler sergileyin')),
-              Divider(height: 1, indent: 56),
-              ListTile(leading: Icon(Icons.leaderboard, color: AppColors.secondary), title: Text('Liderlik tablosu'), subtitle: Text('En aktif uyelerin siralama listesi')),
-            ])),
-
-            const SizedBox(height: AppSpacing.xl),
-          ]),
-        ),
-      ),
-    ));
-  }
-
-  void _showInviteFriends(BuildContext context, UserModel? user) {
-    final inviteCode = user?.inviteCode;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Arkadaslarini Davet Et',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Davet kodunu paylas, arkadasin kayit olsun ve puan kazan.',
-                style: TextStyle(color: Theme.of(ctx).hintColor),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).cardColor,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.outline),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Davet Kodun',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            inviteCode ?? 'Kod olusturulamadi',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy),
-                      onPressed: inviteCode == null
-                          ? null
-                          : () async {
-                              await Clipboard.setData(ClipboardData(text: inviteCode));
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Davet kodu kopyalandi.'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
+                    const SizedBox(height: 24),
+                    SettingsSection(
+                      user: user,
+                      onThemeToggle: () => ref
+                          .read(themeModeProvider.notifier)
+                          .toggleDarkMode(),
+                      onEdit: _showProfileEdit,
+                      onSecurity: _showSecurity,
+                      onLogout: _logout,
                     ),
                   ],
                 ),
               ),
-              if (user != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Toplam davet: ${user.inviteCount}',
-                  style: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 12),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPointRow(IconData icon, String title, String points, String desc, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
-        leading: Container(
-          width: 44, height: 44,
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Flexible(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: Text(points, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-        ]),
-        subtitle: Text(desc, style: const TextStyle(fontSize: 12)),
-      ),
-    );
-  }
-
-  Widget _buildLevelRow(String level, String range, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
-        leading: Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color, width: 2)),
-          child: Icon(Icons.shield, color: color, size: 20),
-        ),
-        title: Text(level, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-        trailing: Text(range, style: const TextStyle(fontSize: 12)),
-      ),
-    );
-  }
-
-  void _showAboutDialog(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Hakkinda')),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // App logo
-            Center(child: Column(children: [
-              Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.radar, size: 48, color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const Text('FiyatRadar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: AppSpacing.xs),
-              Text('Versiyon 2.0.0', style: TextStyle(color: Theme.of(context).hintColor)),
-              const SizedBox(height: AppSpacing.sm),
-              const Text(
-                'Turkiye\'nin en akilli fiyat takip uygulamasi.\nTopluluk destekli fiyat karsilastirmasi, dogrulama sistemi ve bildirimler.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13),
-              ),
-            ])),
-            const SizedBox(height: AppSpacing.xl),
-
-            // Update History
-            const Text('Guncelleme Gecmisi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.md),
-
-            _buildUpdateItem(context, 'v1.0.0', 'Subat 2025', 'Ilk Surum', [
-              'Uygulama temelden insa edildi',
-              'Firebase entegrasyonu ve kimlik dogrulama',
-              'Flutter 3.16+ ve Material Design 3 tasarim',
-              'Riverpod durum yonetimi altyapisi',
-              'GitHub Actions CI/CD pipeline',
-              'Urun, magaza ve kategori yonetimi',
-            ]),
-            _buildUpdateItem(context, 'v1.1.0', 'Subat 2025', 'Mock Data ve Premium Tasarim', [
-              'Firebase devre disi birakildi, mock data servisi eklendi',
-              '10 demo urun, 10 magaza, 10 kategori',
-              'Premium UI tasarimi - gradientler, animasyonlar',
-              'Onboarding tutorial (3 sayfa)',
-              'Login ekrani - demo mod destegi',
-              'Anasayfa: profil resmi, karsilama, bildirim cani',
-              'Banner carousel ve kategori tarama',
-              'Trending urunler ve en iyi firsatlar',
-              'Arama ekrani: filtreler, siralama, grid/liste gorunumu',
-              'Profil: istatistikler, rozetler, ayarlar menusu',
-              'Bildirimler: filtre sekmeleri, kaydir-sil',
-              'Urun detay: fiyat grafigi, topluluk dogrulamasi',
-              'Admin paneli: urun/magaza/kategori CRUD',
-              'Yeni uygulama simgesi',
-            ]),
-            _buildUpdateItem(context, 'v1.2.0', 'Subat 2025', 'Banner Yonetimi ve Dark Mode', [
-              'Admin paneline banner yonetimi eklendi',
-              'Banner resim destegi (URL ile)',
-              'Banner aktif/pasif durumu',
-              'Karanlik mod toggle - SharedPreferences ile kalici',
-              'Dark mode tum ekranlarda sorunsuz calisir',
-              'Profil sayfasi tamamen aktif: kaydedilen urunler, fiyat gecmisi, ayarlar, bildirim ayarlari, yardim & destek, geri bildirim, hakkinda, cikis',
-              'Admin istatistikler pixel overflow duzeltildi',
-              'Puan sistemi aciklama sayfasi',
-              'Fiyat ekleme ekrani: TL simgesi, konum secimi',
-              'Firebase yapilandirmasi gomuldu (gercek API anahtarlari)',
-              'Hakkinda sayfasi guncelleme gecmisi',
-            ]),
-
-            const SizedBox(height: AppSpacing.lg),
-            const Divider(),
-            const SizedBox(height: AppSpacing.md),
-
-            Center(child: Column(children: [
-              Text('2024-2025 FiyatRadar', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
-              const SizedBox(height: 4),
-              Text('Tum haklari saklidir.', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-            ])),
-            const SizedBox(height: AppSpacing.xl),
-          ]),
-        ),
-      ),
-    ));
-  }
-
-  Widget _buildUpdateItem(BuildContext context, String version, String date, String title, List<String> changes) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Text(version, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-          ]),
-          const SizedBox(height: 4),
-          Text(date, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-          const SizedBox(height: AppSpacing.sm),
-          ...changes.map((c) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('\u2022 ', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-              Expanded(child: Text(c, style: const TextStyle(fontSize: 12))),
-            ]),
-          )),
-        ]),
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // Profile Edit Dialog
-  // ===========================================================================
-  void _showEditProfileDialog(BuildContext context, UserModel? user) {
-    if (user == null) return;
-    final emailController = TextEditingController(text: user.email);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: const Icon(Icons.edit, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          const Text('Profil Duzenle'),
-        ]),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Name field - disabled
-            TextField(
-              controller: TextEditingController(text: user.name),
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'Ad Soyad',
-                prefixIcon: const Icon(Icons.person_outline),
-                suffixIcon: const Icon(Icons.lock_outline, size: 18),
-                helperText: 'Isim degistirilemez',
-                helperStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 11),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Email field - disabled
-            TextField(
-              controller: emailController,
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'E-posta',
-                prefixIcon: const Icon(Icons.email_outlined),
-                suffixIcon: const Icon(Icons.lock_outline, size: 18),
-                helperText: 'E-posta degistirilemez',
-                helperStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 11),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: const Row(children: [
-                Icon(Icons.info_outline, color: AppColors.info, size: 18),
-                SizedBox(width: 8),
-                Expanded(child: Text(
-                  'Guvenlik nedeniyle ad soyad ve e-posta degistirilemez.',
-                  style: TextStyle(fontSize: 12, color: AppColors.info),
-                )),
-              ]),
-            ),
-          ]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Kapat'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // Profile Header
-  // ===========================================================================
-  Future<ImageSource?> _pickPhotoSource(BuildContext context) async {
-    return showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Galeriden Sec'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('Kamerayi Ac'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _changeProfilePhoto(
-    BuildContext context,
-    WidgetRef ref,
-    UserModel? user,
-  ) async {
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil resmini guncellemek icin giris yapin.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final source = await _pickPhotoSource(context);
-    if (source == null) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 512,
-    );
-
-    if (picked == null) return;
-
-    if (!context.mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final storageService = ref.read(storageServiceProvider);
-      final authService = ref.read(authServiceProvider);
-      final file = File(picked.path);
-      final url = await storageService.uploadUserAvatar(
-        file: file,
-        userId: user.uid,
-      );
-      await authService.updateUserProfile(uid: user.uid, photoUrl: url);
-
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil resmi guncellendi.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Profil resmi guncellenemedi: $e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  }
-
-  Widget _buildProfileHeader(BuildContext context, WidgetRef ref, UserModel? user) {
-    final displayName = user?.name ?? 'Kullanici';
-    final email = user?.email ?? '';
-    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
-    final photoUrl = user?.photoUrl;
-    final isAdmin = user?.isAdmin ?? false;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + AppSpacing.md,
-        bottom: AppSpacing.xxl,
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 0, right: 0,
-            child: IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white70, size: 22),
-              onPressed: () => _showEditProfileDialog(context, user),
-            ),
-          ),
-          Center(
-            child: Column(children: [
-              GestureDetector(
-                onTap: () => _changeProfilePhoto(context, ref, user),
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: photoUrl == null
-                            ? LinearGradient(
-                                colors: [
-                                  AppColors.primaryLight.withOpacity(0.8),
-                                  AppColors.secondaryLight.withOpacity(0.8),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
-                        image: photoUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(photoUrl),
-                                fit: BoxFit.cover,
-                                onError: (_, __) {},
-                              )
-                            : null,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: photoUrl == null
-                          ? Center(
-                              child: Text(
-                                initial,
-                                style: const TextStyle(
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            )
-                          : null,
-                    ),
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.photo_camera_outlined,
-                        size: 14,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
-                  if (isAdmin) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.verified, color: Colors.lightBlueAccent, size: 22),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(email, style: const TextStyle(fontSize: 13, color: Colors.white70)),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // Stats Row
-  // ===========================================================================
-  Widget _buildStatsRow(BuildContext context, ThemeData theme, UserModel? user) {
-    final cardColor = theme.cardColor;
-    final priceEntries = user?.priceEntries ?? 0;
-    final points = user?.points ?? 0;
-    final validations = user?.validations ?? 0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(children: [
-        Expanded(child: _buildStatCard(context, cardColor, value: '$priceEntries', label: 'Fiyat Girisi', icon: Icons.price_change, color: AppColors.primary)),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '$points', label: 'Puan', icon: Icons.stars, color: AppColors.accent)),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildStatCard(context, cardColor, value: '$validations', label: 'Dogrulama', icon: Icons.verified, color: AppColors.secondary)),
-      ]),
-    );
-  }
-
-  Widget _buildStatCard(BuildContext context, Color cardColor, {
-    required String value, required String label, required IconData icon, required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm + 2, horizontal: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: AppSpacing.xs),
-        Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
-      ]),
-    );
-  }
-
-
-  List<_BadgeItem> _createBadges(UserModel? user) {
-    final priceEntries = user?.priceEntries ?? 0;
-    final validations = user?.validations ?? 0;
-    return [
-      _BadgeItem(
-        emoji: '\u{1F3C6}',
-        name: 'Fiyat Avcisi',
-        description: '50+ fiyat girisi',
-        color: AppColors.accent,
-        isEarned: priceEntries >= 50,
-        progress: priceEntries < 50 ? '$priceEntries/50 fiyat ekle' : null,
-      ),
-      _BadgeItem(
-        emoji: '\u{2B50}',
-        name: 'Guvenilir Uye',
-        description: '100+ dogrulama',
-        color: AppColors.primary,
-        isEarned: validations >= 100,
-        progress: validations < 100 ? '$validations/100 dogrulama yap' : null,
-      ),
-      _BadgeItem(
-        emoji: '\u{1F525}',
-        name: 'Trend Belirleyici',
-        description: '10+ fiyat girisi',
-        color: AppColors.error,
-        isEarned: priceEntries >= 10,
-        progress: priceEntries < 10 ? '$priceEntries/10 fiyat ekle' : null,
-      ),
-      _BadgeItem(
-        emoji: '\u{1F6E1}',
-        name: 'Dogrulayici',
-        description: '50+ dogrulama',
-        color: AppColors.secondary,
-        isEarned: validations >= 50,
-        progress: validations < 50 ? '$validations/50 dogrulama yap' : null,
-      ),
-    ];
-  }
-
-  // ===========================================================================
-  // Badges
-  // ===========================================================================
-  Widget _buildBadgesSection(BuildContext context, UserModel? user) {
-    final badges = _createBadges(user);
-
-    final previewBadges = badges.take(4).toList();
-
-    return Column(
-      children: [
-        SizedBox(
-          height: 124,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            itemCount: previewBadges.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-        itemBuilder: (context, index) {
-              final badge = previewBadges[index];
-          final earned = badge.isEarned;
-          return GestureDetector(
-            onTap: !earned ? () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(badge.progress ?? '${badge.description} gerekli'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            } : null,
-            child: SizedBox(
-              width: 90,
-              child: Column(children: [
-                Container(
-                  width: 64, height: 64,
-                  decoration: BoxDecoration(
-                    color: earned ? badge.color.withOpacity(0.12) : Colors.grey.withOpacity(0.08),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: earned ? badge.color.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Opacity(
-                      opacity: earned ? 1.0 : 0.3,
-                      child: Text(badge.emoji, style: const TextStyle(fontSize: 28)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  badge.name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: earned
-                        ? Theme.of(context).textTheme.bodyMedium?.color
-                        : AppColors.textTertiary,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!earned && badge.progress != null)
-                  Text(
-                    badge.progress!,
-                    style: const TextStyle(fontSize: 9, color: AppColors.textTertiary),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ]),
-            ),
-          );
-        },
-      ),
-        ),
-        TextButton(
-          onPressed: () => _showAllBadges(context, badges),
-          child: const Text('Tum rozetleri gor'),
-        ),
-      ],
-    );
-  }
-
-  void _showAllBadges(BuildContext context, List<_BadgeItem> badges) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Rozetler', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: AppSpacing.md),
-              ...badges.map(
-                (badge) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Row(
-                    children: [
-                      Text(badge.emoji, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          '${badge.name} • ${badge.description}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -1329,167 +116,669 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
     );
   }
 
-  // ===========================================================================
-  // Menu Card
-  // ===========================================================================
-  Widget _buildMenuCard(BuildContext context, ThemeData theme, {required List<_MenuItem> items}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 2))],
-        ),
-        child: Column(
-          children: List.generate(items.length, (index) {
-            final item = items[index];
-            final isLast = index == items.length - 1;
-            return Column(children: [
-              ListTile(
-                leading: Icon(item.icon, color: AppColors.primary, size: 22),
-                title: Text(item.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: theme.textTheme.bodyLarge?.color)),
-                trailing: item.trailing ?? Icon(Icons.chevron_right, color: theme.hintColor),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(
-                    top: index == 0 ? const Radius.circular(AppRadius.lg) : Radius.zero,
-                    bottom: isLast ? const Radius.circular(AppRadius.lg) : Radius.zero,
-                  ),
-                ),
-                onTap: item.onTap,
-              ),
-              if (!isLast) Divider(height: 1, indent: 56, color: theme.dividerColor.withOpacity(0.5)),
-            ]);
-          }),
-        ),
-      ),
+  void _showMyPrices() {
+    _showSnack('Fiyatlarım yakında daha detaylı görünümle burada olacak.');
+  }
+
+  void _showReceipts() {
+    _showSnack('Fişlerim bölümü hazırlanıyor.');
+  }
+
+  void _showFavorites() {
+    _showSnack('Favorilerim bölümü hazırlanıyor.');
+  }
+
+  void _showProfileEdit() {
+    _showSnack('Profil düzenleme akışı güncellenecek.');
+  }
+
+  void _showSecurity() {
+    _showSnack('Güvenlik tercihleri yakında burada olacak.');
+  }
+
+  Future<void> _logout() async {
+    await ref.read(authServiceProvider).signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
     );
   }
 
-  // ===========================================================================
-  // Admin Section
-  // ===========================================================================
-  Widget _buildAdminSection(BuildContext context, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          child: Row(children: [
-            Text('Admin', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(width: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
-              decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: const Text('ADMIN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-          ]),
-        ),
-        _buildMenuCard(context, theme, items: [
-          _MenuItem(
-            icon: Icons.build_outlined,
-            title: 'Admin Paneli',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-            ),
-          ),
-        ]),
-        const SizedBox(height: AppSpacing.md),
-      ],
-    );
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
+class ProfileHero extends StatelessWidget {
+  const ProfileHero({super.key, required this.user, required this.scrollT});
 
-class ProfileHeroCard extends StatelessWidget {
   final UserModel? user;
-  final double scale;
-  final double avatarParallax;
-  final double auraOpacity;
-  final int level;
-  final VoidCallback onPhotoTap;
-  final VoidCallback onEditTap;
-
-  const ProfileHeroCard({
-    super.key,
-    required this.user,
-    required this.scale,
-    required this.avatarParallax,
-    required this.auraOpacity,
-    required this.level,
-    required this.onPhotoTap,
-    required this.onEditTap,
-  });
+  final double scrollT;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final name = user?.name ?? 'Kullanici';
-    final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'U';
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+    final scheme = theme.colorScheme;
+    final trustScore = (user?.reliabilityScore ?? 70).clamp(0.0, 100.0);
+    final trustBand = trustScore >= 80
+        ? 'Elite Contributor'
+        : trustScore >= 60
+            ? 'Pro Contributor'
+            : 'Rising Contributor';
+
+    final baseAura = trustScore >= 80
+        ? 0.18
+        : trustScore >= 60
+            ? 0.12
+            : 0.08;
+    final auraOpacity = theme.brightness == Brightness.dark
+        ? baseAura * 0.7
+        : baseAura;
+    final heroScale = (1 - (0.06 * scrollT)).clamp(0.94, 1.0);
+    final heroTranslate = scrollT * 19.2;
+    final avatarParallax = scrollT * 16;
+
+    return Transform.translate(
+      offset: Offset(0, heroTranslate),
       child: Transform.scale(
-        scale: scale,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(auraOpacity),
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+        scale: heroScale,
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                scheme.primaryContainer,
+                Color.alphaBlend(
+                  scheme.surface.withOpacity(0.35),
+                  scheme.secondaryContainer,
                 ),
-              ),
+              ],
             ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.xl),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                    child: const SizedBox.expand(),
                   ),
+                ),
+                Positioned(
+                  top: -30 - (scrollT * 10),
+                  right: -12,
+                  child: _GlowOrb(
+                    color: scheme.primary.withOpacity(auraOpacity),
+                    size: 160,
+                  ),
+                ),
+                Positioned(
+                  left: -42,
+                  bottom: -54 + (scrollT * 12),
+                  child: _GlowOrb(
+                    color: scheme.secondary.withOpacity(auraOpacity * 0.85),
+                    size: 180,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: IconButton(onPressed: onEditTap, icon: const Icon(Icons.edit_outlined)),
-                      ),
-                      GestureDetector(
-                        onTap: onPhotoTap,
-                        child: Transform.translate(
-                          offset: Offset(0, avatarParallax),
-                          child: CircleAvatar(
-                            radius: 44,
-                            backgroundColor: cs.primaryContainer,
-                            backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
-                            child: user?.photoUrl == null ? Text(initial, style: theme.textTheme.headlineSmall?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)) : null,
+                      Transform.translate(
+                        offset: Offset(0, avatarParallax),
+                        child: RepaintBoundary(
+                          child: _AvatarTrustRing(
+                            imageUrl: user?.photoUrl,
+                            initials: _initials(user?.name),
+                            auraColor:
+                                scheme.primary.withOpacity(auraOpacity + 0.06),
                           ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 6),
-                        Icon(Icons.verified, size: 18, color: cs.primary),
-                      ]),
-                      const SizedBox(height: AppSpacing.xs),
-                      Wrap(
-                        spacing: AppSpacing.xs,
+                      const SizedBox(height: 16),
+                      Row(
                         children: [
-                          _StatChip(label: 'Katki ${user?.priceEntries ?? 0}'),
-                          _StatChip(label: 'Dogrulanan ${user?.validations ?? 0}'),
-                          _StatChip(label: 'Guven Seviye $level'),
+                          Expanded(
+                            child: Text(
+                              user?.name.isNotEmpty == true
+                                  ? user!.name
+                                  : 'FiyatRadar Kullanıcısı',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.verified_rounded,
+                            color: scheme.primary,
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        trustBand,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _CollapsibleTrustSliver(
+                        trustScore: trustScore,
+                        collapsedT: scrollT,
                       ),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _initials(String? value) {
+    if (value == null || value.trim().isEmpty) return 'FR';
+    final parts = value.trim().split(' ');
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+}
+
+class _CollapsibleTrustSliver extends StatelessWidget {
+  const _CollapsibleTrustSliver({required this.trustScore, required this.collapsedT});
+
+  final double trustScore;
+  final double collapsedT;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surface.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.outlineVariant.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: LinearProgressIndicator(
+              minHeight: 6,
+              value: trustScore / 100,
+              borderRadius: BorderRadius.circular(99),
+              backgroundColor: scheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text('${trustScore.toStringAsFixed(0)}%', style: Theme.of(context).textTheme.labelLarge),
+          if (collapsedT < 0.7) const SizedBox(width: 8),
+          if (collapsedT < 0.7)
+            Opacity(
+              opacity: 1 - collapsedT,
+              child: Icon(Icons.auto_awesome_rounded, size: 18, color: scheme.primary),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarTrustRing extends StatelessWidget {
+  const _AvatarTrustRing({
+    required this.imageUrl,
+    required this.initials,
+    required this.auraColor,
+  });
+
+  final String? imageUrl;
+  final String initials;
+  final Color auraColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 92,
+      width: 92,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: auraColor,
+            blurRadius: 24,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        backgroundColor: scheme.surface,
+        child: CircleAvatar(
+          radius: 42,
+          backgroundColor: scheme.surfaceContainerHigh,
+          backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
+              ? NetworkImage(imageUrl!)
+              : null,
+          child: imageUrl == null || imageUrl!.isEmpty
+              ? Text(
+                  initials,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class ReputationCard extends StatelessWidget {
+  const ReputationCard({super.key, required this.user});
+
+  final UserModel? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final score = (user?.reliabilityScore ?? 0).clamp(0.0, 100.0);
+    final weekly = ((user?.validations ?? 0) - ((user?.priceEntries ?? 0) ~/ 3));
+    final stability = score > 75 ? 'High' : score > 45 ? 'Medium' : 'Low';
+
+    return _GlassCard(
+      pulse: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('AI Reputation Core', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  label: 'Social Trust Score',
+                  value: score.toStringAsFixed(0),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MetricTile(
+                  label: 'Weekly Trend',
+                  value: weekly >= 0 ? '+$weekly' : '$weekly',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MetricTile(
+                  label: 'Stability',
+                  value: stability,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: scheme.surface.withOpacity(0.7),
+              border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  weekly >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'AI motoru bu hafta güven eğrisini ${weekly >= 0 ? 'pozitif' : 'dengeli'} okuyor.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActivityFeed extends StatelessWidget {
+  const ActivityFeed({super.key, required this.user});
+
+  final UserModel? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final validations = user?.validations ?? 0;
+    final events = <_ActivityEvent>[
+      _ActivityEvent('✔ Price verified', 'AI doğrulama motoru fiyatı güvenli buldu.'),
+      _ActivityEvent('🔥 Contribution gained', '+${math.max(1, validations ~/ 5)} etki puanı kazanıldı.'),
+      const _ActivityEvent('⚠ Report received', 'Sistem gözlemi aktif, profil stabilitesi korunuyor.'),
+    ];
+
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Live Activity Feed', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          ...List.generate(events.length, (i) {
+            return _StaggeredFadeSlide(
+              index: i,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: _ActivityRow(event: events[i]),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityEvent {
+  const _ActivityEvent(this.title, this.subtitle);
+  final String title;
+  final String subtitle;
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.event});
+
+  final _ActivityEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          margin: const EdgeInsets.only(top: 6),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.35))),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(event.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(event.subtitle, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ImpactPanel extends StatelessWidget {
+  const ImpactPanel({super.key, required this.user});
+
+  final UserModel? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = user?.points ?? 0;
+    final monthlyImpact = points * 3.4;
+    final streak = math.max(3, (user?.validations ?? 0) ~/ 2);
+
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Impact Engine', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CapsuleChip(label: 'Monthly Savings', value: '₺${monthlyImpact.toStringAsFixed(0)}'),
+              const _CapsuleChip(label: 'Top Market', value: 'Migros'),
+              _CapsuleChip(label: 'Activity Streak', value: '$streak days'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BadgeCarousel extends StatefulWidget {
+  const BadgeCarousel({super.key, required this.user});
+
+  final UserModel? user;
+
+  @override
+  State<BadgeCarousel> createState() => _BadgeCarouselState();
+}
+
+class _BadgeCarouselState extends State<BadgeCarousel> {
+  int selected = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = [
+      ('Trust Scout', 'Veri istikrarı yüksek'),
+      ('Market Whisperer', 'Kategori etkisi güçlü'),
+      ('Signal Guard', 'Rapor yönetimi dengeli'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Badge Cinema', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: badges.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final isSelected = selected == index;
+              return _PressableScale(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => selected = index);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  width: 220,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: Theme.of(context).colorScheme.surface.withOpacity(0.74),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.35),
+                    ),
+                    boxShadow: [
+                      if (isSelected)
+                        BoxShadow(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                          blurRadius: 18,
+                        ),
+                    ],
+                  ),
+                  child: Transform.scale(
+                    scale: isSelected ? 1.02 : 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(badges[index].$1, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        Text(badges[index].$2, style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class QuickActionBar extends StatelessWidget {
+  const QuickActionBar({
+    super.key,
+    required this.onMyPrices,
+    required this.onReceipts,
+    required this.onFavorites,
+    required this.onNotifications,
+  });
+
+  final VoidCallback onMyPrices;
+  final VoidCallback onReceipts;
+  final VoidCallback onFavorites;
+  final VoidCallback onNotifications;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              color: scheme.surface.withOpacity(0.82),
+              border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _ActionIcon(label: 'Fiyatlarım', icon: Icons.price_change_outlined, onTap: onMyPrices),
+                _ActionIcon(label: 'Fişlerim', icon: Icons.receipt_long_outlined, onTap: onReceipts),
+                _ActionIcon(label: 'Favoriler', icon: Icons.favorite_outline, onTap: onFavorites),
+                _ActionIcon(label: 'Bildirimler', icon: Icons.notifications_none, onTap: onNotifications),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsSection extends ConsumerWidget {
+  const SettingsSection({
+    super.key,
+    required this.user,
+    required this.onThemeToggle,
+    required this.onEdit,
+    required this.onSecurity,
+    required this.onLogout,
+  });
+
+  final UserModel? user;
+  final VoidCallback onThemeToggle;
+  final VoidCallback onEdit;
+  final VoidCallback onSecurity;
+  final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Settings', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          _SettingTile(icon: Icons.edit_outlined, title: 'Profile Edit', onTap: onEdit),
+          _SettingTile(
+            icon: Icons.dark_mode_outlined,
+            title: 'Dark Mode',
+            trailing: Switch(
+              value: mode == ThemeMode.dark,
+              onChanged: (_) => onThemeToggle(),
+            ),
+          ),
+          _SettingTile(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+          }),
+          _SettingTile(icon: Icons.shield_outlined, title: 'Security', onTap: onSecurity),
+          if (user?.isAdmin ?? false)
+            _SettingTile(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'Admin Panel',
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminPanelScreen()));
+              },
+            ),
+          _SettingTile(
+            icon: Icons.logout_rounded,
+            title: 'Logout',
+            onTap: () {
+              onLogout();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  const _ActionIcon({required this.label, required this.icon, required this.onTap});
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PressableScale(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(height: 4),
+            Text(label, style: Theme.of(context).textTheme.labelSmall),
           ],
         ),
       ),
@@ -1497,26 +786,183 @@ class ProfileHeroCard extends StatelessWidget {
   }
 }
 
-class TrustLevelCard extends StatefulWidget {
-  final int trustLevel;
-  final double trustScore;
-  final int remainingForNextLevel;
-  final Map<String, int> breakdown;
-  const TrustLevelCard({super.key, required this.trustLevel, required this.trustScore, required this.remainingForNextLevel, required this.breakdown});
+class _SettingTile extends StatelessWidget {
+  const _SettingTile({required this.icon, required this.title, this.onTap, this.trailing});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
-  State<TrustLevelCard> createState() => _TrustLevelCardState();
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _PressableScale(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.32))),
+        ),
+        child: Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 10),
+            Expanded(child: Text(title)),
+            trailing ?? const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _TrustLevelCardState extends State<TrustLevelCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _progress;
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: scheme.surface.withOpacity(0.68),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 6),
+          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapsuleChip extends StatelessWidget {
+  const _CapsuleChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(99),
+        color: scheme.secondaryContainer.withOpacity(0.55),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassCard extends StatefulWidget {
+  const _GlassCard({required this.child, this.pulse = false});
+
+  final Widget child;
+  final bool pulse;
+
+  @override
+  State<_GlassCard> createState() => _GlassCardState();
+}
+
+class _GlassCardState extends State<_GlassCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
-    _progress = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      lowerBound: 0.98,
+      upperBound: 1,
+    );
+    if (widget.pulse) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ScaleTransition(
+      scale: _pulseController,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: scheme.surface.withOpacity(0.72),
+          border: Border.all(color: scheme.outlineVariant.withOpacity(0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.shadow.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _StaggeredFadeSlide extends StatefulWidget {
+  const _StaggeredFadeSlide({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_StaggeredFadeSlide> createState() => _StaggeredFadeSlideState();
+}
+
+class _StaggeredFadeSlideState extends State<_StaggeredFadeSlide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(_opacity);
+    Future<void>.delayed(Duration(milliseconds: widget.index * 40), () {
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
@@ -1527,429 +973,65 @@ class _TrustLevelCardState extends State<TrustLevelCard> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-      child: AppCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Trust Level ${widget.trustLevel}', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          AnimatedBuilder(
-            animation: _progress,
-            builder: (_, __) => LinearProgressIndicator(
-              value: (widget.trustScore / 100) * _progress.value,
-              borderRadius: BorderRadius.circular(99),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text('Sonraki seviyeye ${widget.remainingForNextLevel} dogrulama kaldi', style: TextStyle(color: cs.onSurfaceVariant)),
-          if (widget.breakdown.isNotEmpty) ...[
-            const Divider(height: 24),
-            ...widget.breakdown.entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(e.key), Text('${e.value}')]),
-            )),
-          ],
-        ]),
-      ),
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _offset, child: widget.child),
     );
   }
 }
 
-class TrustChangeCard extends StatelessWidget {
-  final int trustDelta;
-  final Map<String, int> breakdown;
-  const TrustChangeCard({super.key, required this.trustDelta, required this.breakdown});
+class _PressableScale extends StatefulWidget {
+  const _PressableScale({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: () => showModalBottomSheet(
-          context: context,
-          builder: (_) => ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: breakdown.entries.map((e) => ListTile(title: Text(e.key), trailing: Text('${e.value}'))).toList(),
-          ),
-        ),
-        child: AppCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${trustDelta >= 0 ? '+' : ''}$trustDelta ${trustDelta >= 0 ? '✔ dogrulandi' : '⚠ raporlandi'}'),
-            if (trustDelta < 0)
-              Container(
-                margin: const EdgeInsets.only(top: AppSpacing.sm),
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(AppRadius.md)),
-                child: Text('Bazi fiyatlarin dogrulanamadigi icin guven skorun hafif dustu.', style: TextStyle(color: cs.onErrorContainer)),
-              ),
-          ]),
-        ),
-      ),
-    );
-  }
+  State<_PressableScale> createState() => _PressableScaleState();
 }
 
-class BadgeRow extends StatelessWidget {
-  final UserModel? user;
-  final VoidCallback onAllBadgesTap;
-  const BadgeRow({super.key, required this.user, required this.onAllBadgesTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final badges = [
-      ('🏆', 'Fiyat Avcisi', (user?.priceEntries ?? 0) >= 50),
-      ('⭐', 'Guvenilir Uye', (user?.validations ?? 0) >= 100),
-      ('🔥', 'Trend Belirleyici', (user?.priceEntries ?? 0) >= 10),
-      ('🛡', 'Dogrulayici', (user?.validations ?? 0) >= 50),
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 110,
-            child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          scrollDirection: Axis.horizontal,
-          itemCount: badges.length,
-          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-          itemBuilder: (context, index) {
-            final b = badges[index];
-            return TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: Duration(milliseconds: 250 + (index * 80)),
-              builder: (_, v, child) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 10 * (1 - v)), child: child)),
-              child: Container(
-                width: 86,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(b.$1, style: const TextStyle(fontSize: 24)),
-                  const SizedBox(height: 4),
-                  Text(b.$2, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: b.$3 ? null : Theme.of(context).hintColor)),
-                ]),
-              ),
-            );
-          },
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(onPressed: onAllBadgesTap, child: const Text('Tum rozetler')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class LeaderboardPreviewCard extends StatelessWidget {
-  final UserModel user;
-  const LeaderboardPreviewCard({super.key, required this.user});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: AppCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Social Trust', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.xs),
-          const Text('Top 3 katki: #1 Aylin 220 • #2 Kerem 180 • #3 Ece 169'),
-          const SizedBox(height: 6),
-          Text('Sen: #${(1000 - user.points).clamp(1, 999)}'),
-        ]),
-      ),
-    );
-  }
-}
-
-class ContributionHeatmap extends StatelessWidget {
-  final UserModel? user;
-  const ContributionHeatmap({super.key, required this.user});
-  @override
-  Widget build(BuildContext context) {
-    final total = (user?.priceEntries ?? 0) + (user?.validations ?? 0);
-    final values = List.generate(10, (i) => (total ~/ (i + 3)).clamp(0, 7));
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: AppCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Contribution Heatmap', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: values.map((v) {
-              return Tooltip(
-                message: '$v katki',
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.12 + (v / 10)),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-class QuickActionsGrid extends StatelessWidget {
-  final VoidCallback onMyPrices;
-  final VoidCallback onReceipts;
-  final VoidCallback onFavorites;
-  final VoidCallback onNotifications;
-  const QuickActionsGrid({super.key, required this.onMyPrices, required this.onReceipts, required this.onFavorites, required this.onNotifications});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      (Icons.price_change_outlined, 'Fiyatlarim', onMyPrices),
-      (Icons.receipt_long_outlined, 'Fislerim', onReceipts),
-      (Icons.favorite_outline, 'Favoriler', onFavorites),
-      (Icons.notifications_none, 'Bildirimler', onNotifications),
-    ];
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: items.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: AppSpacing.sm, mainAxisSpacing: AppSpacing.sm, childAspectRatio: 1.7),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return _PressableCard(icon: item.$1, title: item.$2, onTap: item.$3);
-        },
-      ),
-    );
-  }
-}
-
-class ActivityTimeline extends StatelessWidget {
-  final UserModel? user;
-  const ActivityTimeline({super.key, required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = [
-      'Fiyat eklendi • ${(user?.priceEntries ?? 0)} toplam',
-      '✔ Dogrulandi • ${(user?.validations ?? 0)} toplam',
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Aktivite Gecmisi', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
-            ...entries.asMap().entries.map((entry) => TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: Duration(milliseconds: 280 + (entry.key * 120)),
-              builder: (_, v, child) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 6 * (1 - v)), child: child)),
-              child: ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.circle, size: 10), title: Text(entry.value)),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class SettingsSection extends StatelessWidget {
-  final Map<String, List<_MenuItem>> sections;
-  final Widget Function(List<_MenuItem>) menuBuilder;
-  const SettingsSection({super.key, required this.sections, required this.menuBuilder});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: sections.entries.map((entry) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs, left: 4),
-                  child: Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
-                ),
-                menuBuilder(entry.value),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  const _StatChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 5),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 11)),
-    );
-  }
-}
-
-class _PressableCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-  const _PressableCard({required this.icon, required this.title, required this.onTap});
-
-  @override
-  State<_PressableCard> createState() => _PressableCardState();
-}
-
-class _PressableCardState extends State<_PressableCard> {
+class _PressableScaleState extends State<_PressableScale> {
   bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
       onTapUp: (_) => setState(() => _pressed = false),
-      onTap: () {
-        HapticFeedback.selectionClick();
-        widget.onTap();
-      },
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
       child: AnimatedScale(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
         scale: _pressed ? 0.97 : 1,
-        duration: const Duration(milliseconds: 120),
-        child: AppCard(
-          child: Row(children: [Icon(widget.icon), const SizedBox(width: 8), Expanded(child: Text(widget.title))]),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          opacity: _pressed ? 0.94 : 1,
+          child: widget.child,
         ),
       ),
     );
   }
 }
 
-// =============================================================================
-// Notification Settings Page
-// =============================================================================
-class _NotificationSettingsPage extends StatefulWidget {
-  @override
-  State<_NotificationSettingsPage> createState() => _NotificationSettingsPageState();
-}
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.color, required this.size});
 
-class _NotificationSettingsPageState extends State<_NotificationSettingsPage> {
-  bool _priceDrops = true;
-  bool _newPrices = true;
-  bool _badges = true;
-  bool _system = false;
-  bool _comments = true;
+  final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bildirim Ayarlari')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
-          Card(
-            child: Column(children: [
-              SwitchListTile(
-                title: const Text('Fiyat Dususleri'),
-                subtitle: const Text('Takip ettiginiz urunler ucuzladiginda bildirim alin'),
-                value: _priceDrops,
-                onChanged: (v) => setState(() => _priceDrops = v),
-                activeColor: AppColors.primary,
-                secondary: const Icon(Icons.trending_down, color: AppColors.success),
-              ),
-              const Divider(height: 1, indent: 56),
-              SwitchListTile(
-                title: const Text('Yeni Fiyat Girisleri'),
-                subtitle: const Text('Takip ettiginiz urunlere fiyat eklendiginde'),
-                value: _newPrices,
-                onChanged: (v) => setState(() => _newPrices = v),
-                activeColor: AppColors.primary,
-                secondary: const Icon(Icons.price_change_outlined, color: AppColors.primary),
-              ),
-              const Divider(height: 1, indent: 56),
-              SwitchListTile(
-                title: const Text('Rozetler'),
-                subtitle: const Text('Yeni rozet kazandiginizda'),
-                value: _badges,
-                onChanged: (v) => setState(() => _badges = v),
-                activeColor: AppColors.primary,
-                secondary: const Icon(Icons.emoji_events, color: AppColors.accent),
-              ),
-              const Divider(height: 1, indent: 56),
-              SwitchListTile(
-                title: const Text('Yorumlar'),
-                subtitle: const Text('Yorumlariniza yanit geldiginde'),
-                value: _comments,
-                onChanged: (v) => setState(() => _comments = v),
-                activeColor: AppColors.primary,
-                secondary: const Icon(Icons.comment_outlined, color: AppColors.info),
-              ),
-              const Divider(height: 1, indent: 56),
-              SwitchListTile(
-                title: const Text('Sistem Bildirimleri'),
-                subtitle: const Text('Uygulama guncelleme ve duyurular'),
-                value: _system,
-                onChanged: (v) => setState(() => _system = v),
-                activeColor: AppColors.primary,
-                secondary: const Icon(Icons.campaign_outlined, color: AppColors.textSecondary),
-              ),
-            ]),
-          ),
-        ],
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+        ),
       ),
     );
   }
-}
-
-// =============================================================================
-// Helper classes
-// =============================================================================
-class _MenuItem {
-  final IconData icon;
-  final String title;
-  final VoidCallback? onTap;
-  final Widget? trailing;
-  const _MenuItem({required this.icon, required this.title, this.onTap, this.trailing});
-}
-
-class _BadgeItem {
-  final String emoji;
-  final String name;
-  final String description;
-  final Color color;
-  final bool isEarned;
-  final String? progress;
-  const _BadgeItem({
-    required this.emoji,
-    required this.name,
-    required this.description,
-    required this.color,
-    this.isEarned = false,
-    this.progress,
-  });
 }
