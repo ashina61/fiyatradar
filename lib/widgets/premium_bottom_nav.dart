@@ -79,7 +79,15 @@ class PremiumBottomNav extends StatelessWidget {
                                   height: 44,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(24),
-                                    color: scheme.primaryContainer.withOpacity(0.75),
+                                    color: scheme.primaryContainer.withOpacity(0.68),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: scheme.primary.withOpacity(0.15),
+                                        blurRadius: 16,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -229,8 +237,8 @@ class _NavItem extends StatelessWidget {
           children: [
             AnimatedScale(
               duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              scale: selected ? 1.12 : 1,
+              curve: Curves.easeOutBack,
+              scale: selected ? 1.1 : 1,
               child: Icon(
                 icon,
                 size: 24,
