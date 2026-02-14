@@ -12,6 +12,138 @@ import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 
+enum ProfileMood { growing, stable, underReview, elite }
+
+enum TrustStability { low, medium, high }
+
+ProfileMood getProfileMood(
+  int trend,
+  TrustStability stability,
+  bool hasRecentReport,
+  int streakDays,
+  double trustLevel,
+) {
+  if (trustLevel >= 85 && streakDays >= 7) return ProfileMood.elite;
+  if (hasRecentReport || trend < 0) return ProfileMood.underReview;
+  if (trend > 0 && stability != TrustStability.low) return ProfileMood.growing;
+  return ProfileMood.stable;
+}
+
+class ProfileSignals {
+  const ProfileSignals({
+    required this.trend,
+    required this.stability,
+    required this.hasRecentReport,
+    required this.streakDays,
+    required this.trustLevel,
+    required this.monthlySavings,
+    required this.verifiedActions,
+    required this.priceEntries,
+    required this.reportsResolved,
+    required this.hasAnyImpact,
+  });
+
+  factory ProfileSignals.fromUser(UserModel? user) {
+    final trustLevel = (user?.reliabilityScore ?? 70).clamp(0.0, 100.0);
+    final verifiedActions = user?.validations ?? 0;
+    final priceEntries = user?.priceEntries ?? 0;
+    final reportsResolved = math.max(0, verifiedActions - (priceEntries ~/ 2));
+    final trend = verifiedActions - (priceEntries ~/ 3);
+    final stability = trustLevel >= 80
+        ? TrustStability.high
+        : trustLevel >= 55
+            ? TrustStability.medium
+            : TrustStability.low;
+    final hasRecentReport = trend < -1;
+    final streakDays = verifiedActions == 0 ? 0 : math.max(1, verifiedActions ~/ 2);
+    final monthlySavings = (user?.points ?? 0) * 3.4;
+    final hasAnyImpact = verifiedActions > 0 || priceEntries > 0 || monthlySavings > 1;
+
+    return ProfileSignals(
+      trend: trend,
+      stability: stability,
+      hasRecentReport: hasRecentReport,
+      streakDays: streakDays,
+      trustLevel: trustLevel,
+      monthlySavings: monthlySavings,
+      verifiedActions: verifiedActions,
+      priceEntries: priceEntries,
+      reportsResolved: reportsResolved,
+      hasAnyImpact: hasAnyImpact,
+    );
+  }
+
+  final int trend;
+  final TrustStability stability;
+  final bool hasRecentReport;
+  final int streakDays;
+  final double trustLevel;
+  final double monthlySavings;
+  final int verifiedActions;
+  final int priceEntries;
+  final int reportsResolved;
+  final bool hasAnyImpact;
+
+  ProfileMood get mood =>
+      getProfileMood(trend, stability, hasRecentReport, streakDays, trustLevel);
+}
+
+
+
+class _MoodPresentation {
+  const _MoodPresentation({
+    required this.auraColor,
+    required this.secondaryAuraColor,
+    required this.glowOpacity,
+    required this.heroMessage,
+    required this.reputationInsight,
+  });
+
+  final Color auraColor;
+  final Color secondaryAuraColor;
+  final double glowOpacity;
+  final String heroMessage;
+  final String reputationInsight;
+}
+
+_MoodPresentation _moodPresentation(BuildContext context, ProfileMood mood) {
+  final scheme = Theme.of(context).colorScheme;
+  switch (mood) {
+    case ProfileMood.growing:
+      return _MoodPresentation(
+        auraColor: Color.alphaBlend(scheme.tertiary.withOpacity(0.18), scheme.primary),
+        secondaryAuraColor: scheme.secondary,
+        glowOpacity: 0.2,
+        heroMessage: 'Yükselen güven profili',
+        reputationInsight: 'Bu hafta güvenin yükseliyor. Aynı tempoda devam.',
+      );
+    case ProfileMood.underReview:
+      return _MoodPresentation(
+        auraColor: Color.alphaBlend(scheme.surface.withOpacity(0.3), scheme.primary),
+        secondaryAuraColor: Color.alphaBlend(scheme.surface.withOpacity(0.25), scheme.secondary),
+        glowOpacity: 0.1,
+        heroMessage: 'Profil gözlemde, kalite korunuyor',
+        reputationInsight: 'Sistem gözlemi aktif. Doğrulama yaparak skoru toparla.',
+      );
+    case ProfileMood.elite:
+      return _MoodPresentation(
+        auraColor: Color.alphaBlend(scheme.tertiary.withOpacity(0.45), scheme.primary),
+        secondaryAuraColor: Color.alphaBlend(scheme.tertiary.withOpacity(0.25), scheme.secondary),
+        glowOpacity: 0.26,
+        heroMessage: 'Elit güven standardı',
+        reputationInsight: 'Elit katkıdasın. Topluluğa liderlik ediyorsun.',
+      );
+    case ProfileMood.stable:
+      return _MoodPresentation(
+        auraColor: scheme.primary,
+        secondaryAuraColor: scheme.secondary,
+        glowOpacity: 0.12,
+        heroMessage: 'Profil ritmi stabil',
+        reputationInsight: 'Profil stabil. Daha fazla doğrulama ile seviye atlayabilirsin.',
+      );
+  }
+}
+
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -54,6 +186,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
     final user = userAsync.valueOrNull;
+    final signals = ProfileSignals.fromUser(user);
+    final mood = signals.mood;
 
     return Scaffold(
       body: SafeArea(
@@ -69,22 +203,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               SliverToBoxAdapter(
                 child: ValueListenableBuilder<double>(
                   valueListenable: _scrollT,
-                  builder: (context, t, _) => ProfileHero(user: user, scrollT: t),
+                  builder: (context, t, _) => ProfileHero(user: user, scrollT: t, mood: mood, signals: signals),
                 ),
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 sliver: SliverList.list(
                   children: [
-                    ReputationCard(user: user),
+                    ReputationCard(user: user, signals: signals, mood: mood),
                     const SizedBox(height: 16),
-                    ActivityFeed(user: user),
+                    ActivityFeed(user: user, signals: signals, mood: mood),
                     const SizedBox(height: 16),
-                    ImpactPanel(user: user),
+                    ImpactPanel(user: user, signals: signals),
                     const SizedBox(height: 16),
-                    BadgeCarousel(user: user),
+                    BadgeCarousel(user: user, signals: signals),
                     const SizedBox(height: 16),
                     QuickActionBar(
+                      mood: mood,
                       onMyPrices: _showMyPrices,
                       onReceipts: _showReceipts,
                       onFavorites: _showFavorites,
@@ -151,34 +286,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 }
 
-class ProfileHero extends StatelessWidget {
-  const ProfileHero({super.key, required this.user, required this.scrollT});
+class ProfileHero extends StatefulWidget {
+  const ProfileHero({
+    super.key,
+    required this.user,
+    required this.scrollT,
+    required this.mood,
+    required this.signals,
+  });
 
   final UserModel? user;
   final double scrollT;
+  final ProfileMood mood;
+  final ProfileSignals signals;
+
+  @override
+  State<ProfileHero> createState() => _ProfileHeroState();
+}
+
+class _ProfileHeroState extends State<ProfileHero> with SingleTickerProviderStateMixin {
+  late final AnimationController _sparkleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _sparkleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final trustScore = (user?.reliabilityScore ?? 70).clamp(0.0, 100.0);
+    final user = widget.user;
+    final moodPresentation = _moodPresentation(context, widget.mood);
+    final trustScore = widget.signals.trustLevel;
     final trustBand = trustScore >= 80
         ? 'Elite Contributor'
         : trustScore >= 60
             ? 'Pro Contributor'
             : 'Rising Contributor';
 
-    final baseAura = trustScore >= 80
-        ? 0.18
-        : trustScore >= 60
-            ? 0.12
-            : 0.08;
     final auraOpacity = theme.brightness == Brightness.dark
-        ? baseAura * 0.7
-        : baseAura;
-    final heroScale = (1 - (0.06 * scrollT)).clamp(0.94, 1.0);
-    final heroTranslate = scrollT * 19.2;
-    final avatarParallax = scrollT * 16;
+        ? moodPresentation.glowOpacity * 0.75
+        : moodPresentation.glowOpacity;
+    final heroScale = (1 - (0.06 * widget.scrollT)).clamp(0.94, 1.0);
+    final heroTranslate = widget.scrollT * 19.2;
+    final avatarParallax = widget.scrollT * 16;
 
     return Transform.translate(
       offset: Offset(0, heroTranslate),
@@ -212,18 +374,18 @@ class ProfileHero extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: -30 - (scrollT * 10),
+                  top: -30 - (widget.scrollT * 10),
                   right: -12,
                   child: _GlowOrb(
-                    color: scheme.primary.withOpacity(auraOpacity),
+                    color: moodPresentation.auraColor.withOpacity(auraOpacity),
                     size: 160,
                   ),
                 ),
                 Positioned(
                   left: -42,
-                  bottom: -54 + (scrollT * 12),
+                  bottom: -54 + (widget.scrollT * 12),
                   child: _GlowOrb(
-                    color: scheme.secondary.withOpacity(auraOpacity * 0.85),
+                    color: moodPresentation.secondaryAuraColor.withOpacity(auraOpacity * 0.85),
                     size: 180,
                   ),
                 ),
@@ -239,7 +401,7 @@ class ProfileHero extends StatelessWidget {
                             imageUrl: user?.photoUrl,
                             initials: _initials(user?.name),
                             auraColor:
-                                scheme.primary.withOpacity(auraOpacity + 0.06),
+                                moodPresentation.auraColor.withOpacity(auraOpacity + 0.06),
                           ),
                         ),
                       ),
@@ -256,9 +418,32 @@ class ProfileHero extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Icon(
-                            Icons.verified_rounded,
-                            color: scheme.primary,
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Icon(
+                                Icons.verified_rounded,
+                                color: scheme.primary,
+                              ),
+                              if (widget.mood == ProfileMood.elite)
+                                Positioned(
+                                  top: -3,
+                                  right: -3,
+                                  child: FadeTransition(
+                                    opacity: Tween<double>(begin: 0.25, end: 0.85).animate(
+                                      CurvedAnimation(
+                                        parent: _sparkleController,
+                                        curve: Curves.easeOutCubic,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.auto_awesome_rounded,
+                                      size: 11,
+                                      color: scheme.tertiary,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -270,10 +455,17 @@ class ProfileHero extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        moodPresentation.heroMessage,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       _CollapsibleTrustSliver(
                         trustScore: trustScore,
-                        collapsedT: scrollT,
+                        collapsedT: widget.scrollT,
                       ),
                     ],
                   ),
@@ -388,17 +580,25 @@ class _AvatarTrustRing extends StatelessWidget {
 }
 
 class ReputationCard extends StatelessWidget {
-  const ReputationCard({super.key, required this.user});
+  const ReputationCard({
+    super.key,
+    required this.user,
+    required this.signals,
+    required this.mood,
+  });
 
   final UserModel? user;
+  final ProfileSignals signals;
+  final ProfileMood mood;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final score = (user?.reliabilityScore ?? 0).clamp(0.0, 100.0);
-    final weekly = ((user?.validations ?? 0) - ((user?.priceEntries ?? 0) ~/ 3));
-    final stability = score > 75 ? 'High' : score > 45 ? 'Medium' : 'Low';
+    final score = signals.trustLevel;
+    final weekly = signals.trend;
+    final stability = signals.stability.name[0].toUpperCase() + signals.stability.name.substring(1);
+    final moodPresentation = _moodPresentation(context, mood);
 
     return _GlassCard(
       pulse: true,
@@ -442,13 +642,13 @@ class ReputationCard extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  weekly >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  color: scheme.primary,
+                  weekly >= 0 ? Icons.trending_up_rounded : Icons.trending_flat_rounded,
+                  color: moodPresentation.auraColor,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'AI motoru bu hafta güven eğrisini ${weekly >= 0 ? 'pozitif' : 'dengeli'} okuyor.',
+                    moodPresentation.reputationInsight,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -462,9 +662,16 @@ class ReputationCard extends StatelessWidget {
 }
 
 class ActivityFeed extends StatelessWidget {
-  const ActivityFeed({super.key, required this.user});
+  const ActivityFeed({
+    super.key,
+    required this.user,
+    required this.signals,
+    required this.mood,
+  });
 
   final UserModel? user;
+  final ProfileSignals signals;
+  final ProfileMood mood;
 
   @override
   Widget build(BuildContext context) {
@@ -472,8 +679,46 @@ class ActivityFeed extends StatelessWidget {
     final events = <_ActivityEvent>[
       _ActivityEvent('✔ Price verified', 'AI doğrulama motoru fiyatı güvenli buldu.'),
       _ActivityEvent('🔥 Contribution gained', '+${math.max(1, validations ~/ 5)} etki puanı kazanıldı.'),
+      const _ActivityEvent('📌 Top contributor', 'Katkı yoğunluğu bu hafta öne çıktı.'),
       const _ActivityEvent('⚠ Report received', 'Sistem gözlemi aktif, profil stabilitesi korunuyor.'),
     ];
+
+    if (mood == ProfileMood.underReview) {
+      events
+        ..removeWhere((e) => e.title.contains('Report received'))
+        ..insert(
+          0,
+          const _ActivityEvent('⚠ Report received', 'Sistem gözlemi aktif. İnceleme kartı önceliklendirildi.'),
+        );
+    } else if (mood == ProfileMood.elite) {
+      events
+        ..removeWhere((e) => e.title.contains('Top contributor'))
+        ..insert(
+          0,
+          const _ActivityEvent('👑 Top contributor', 'Topluluk güveninde lider katkı sağlıyorsun.'),
+        );
+    }
+
+    if (signals.verifiedActions + signals.priceEntries == 0) {
+      return _GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Live Activity Feed', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            const _FirstStepCard(
+              title: 'İlk fiyatını ekle',
+              subtitle: 'Veri akışını başlatıp profilini görünür hale getir.',
+            ),
+            const SizedBox(height: 10),
+            const _FirstStepCard(
+              title: 'Bir fiyat doğrula',
+              subtitle: 'Doğrulama adımı güven trendini hızla güçlendirir.',
+            ),
+          ],
+        ),
+      );
+    }
 
     return _GlassCard(
       child: Column(
@@ -486,10 +731,38 @@ class ActivityFeed extends StatelessWidget {
               index: i,
               child: Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: _ActivityRow(event: events[i]),
+                child: _ActivityRow(event: events[i], isPriority: i == 0 && (mood == ProfileMood.underReview || mood == ProfileMood.elite)),
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _FirstStepCard extends StatelessWidget {
+  const _FirstStepCard({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: scheme.surface.withOpacity(0.72),
+        border: Border.all(color: scheme.outlineVariant.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -503,69 +776,62 @@ class _ActivityEvent {
 }
 
 class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.event});
+  const _ActivityRow({required this.event, this.isPriority = false});
 
   final _ActivityEvent event;
+  final bool isPriority;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          margin: const EdgeInsets.only(top: 6),
-          decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.35))),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(event.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(event.subtitle, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class ImpactPanel extends StatelessWidget {
-  const ImpactPanel({super.key, required this.user});
-
-  final UserModel? user;
-
-  @override
-  Widget build(BuildContext context) {
-    final points = user?.points ?? 0;
-    final monthlyImpact = points * 3.4;
-    final streak = math.max(3, (user?.validations ?? 0) ~/ 2);
-
-    return _GlassCard(
-      child: Column(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      padding: isPriority ? const EdgeInsets.all(10) : EdgeInsets.zero,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: isPriority
+            ? scheme.secondaryContainer.withOpacity(0.35)
+            : Colors.transparent,
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Impact Engine', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _CapsuleChip(label: 'Monthly Savings', value: '₺${monthlyImpact.toStringAsFixed(0)}'),
-              const _CapsuleChip(label: 'Top Market', value: 'Migros'),
-              _CapsuleChip(label: 'Activity Streak', value: '$streak days'),
-            ],
+          Container(
+            width: 10,
+            height: 10,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: scheme.outlineVariant.withOpacity(0.35),
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(event.subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -573,10 +839,55 @@ class ImpactPanel extends StatelessWidget {
   }
 }
 
-class BadgeCarousel extends StatefulWidget {
-  const BadgeCarousel({super.key, required this.user});
+class ImpactPanel extends StatelessWidget {
+  const ImpactPanel({super.key, required this.user, required this.signals});
 
   final UserModel? user;
+  final ProfileSignals signals;
+
+  @override
+  Widget build(BuildContext context) {
+    final monthlyImpact = signals.monthlySavings;
+    final streak = signals.streakDays;
+    final highSavings = monthlyImpact >= 500;
+
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Impact Engine', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          if (!signals.hasAnyImpact) const _StartContributingCard()
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _CapsuleChip(
+                  label: 'Monthly Savings',
+                  value: '₺${monthlyImpact.toStringAsFixed(0)}',
+                  emphasized: highSavings,
+                ),
+                const _CapsuleChip(label: 'Top Market', value: 'Migros'),
+                if (streak > 0)
+                  _CapsuleChip(
+                    label: 'Activity Streak',
+                    value: '$streak days',
+                    pulse: true,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class BadgeCarousel extends StatefulWidget {
+  const BadgeCarousel({super.key, required this.user, required this.signals});
+
+  final UserModel? user;
+  final ProfileSignals signals;
 
   @override
   State<BadgeCarousel> createState() => _BadgeCarouselState();
@@ -588,10 +899,12 @@ class _BadgeCarouselState extends State<BadgeCarousel> {
   @override
   Widget build(BuildContext context) {
     final badges = [
-      ('Trust Scout', 'Veri istikrarı yüksek'),
-      ('Market Whisperer', 'Kategori etkisi güçlü'),
-      ('Signal Guard', 'Rapor yönetimi dengeli'),
-    ];
+      ('Doğrulayıcı', 'Onay kaliteni büyütür', widget.signals.verifiedActions),
+      ('Fiyat Avcısı', 'Fiyat girişlerinde hız kazandırır', widget.signals.priceEntries),
+      ('Signal Guard', 'Rapor yönetim ustalığı', widget.signals.reportsResolved),
+    ]..sort((a, b) => b.$3.compareTo(a.$3));
+
+    final recommended = badges.last;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,6 +960,8 @@ class _BadgeCarouselState extends State<BadgeCarousel> {
             },
           ),
         ),
+        const SizedBox(height: 10),
+        _RecommendedBadgeCard(title: recommended.$1),
       ],
     );
   }
@@ -655,12 +970,14 @@ class _BadgeCarouselState extends State<BadgeCarousel> {
 class QuickActionBar extends StatelessWidget {
   const QuickActionBar({
     super.key,
+    required this.mood,
     required this.onMyPrices,
     required this.onReceipts,
     required this.onFavorites,
     required this.onNotifications,
   });
 
+  final ProfileMood mood;
   final VoidCallback onMyPrices;
   final VoidCallback onReceipts;
   final VoidCallback onFavorites;
@@ -684,9 +1001,14 @@ class QuickActionBar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _ActionIcon(label: 'Fiyatlarım', icon: Icons.price_change_outlined, onTap: onMyPrices),
+                _ActionIcon(label: 'Fiyatlarım', icon: Icons.price_change_outlined, onTap: onMyPrices, highlighted: mood == ProfileMood.stable || mood == ProfileMood.growing),
                 _ActionIcon(label: 'Fişlerim', icon: Icons.receipt_long_outlined, onTap: onReceipts),
-                _ActionIcon(label: 'Favoriler', icon: Icons.favorite_outline, onTap: onFavorites),
+                _ActionIcon(
+                  label: mood == ProfileMood.underReview ? 'Doğrulamalar' : mood == ProfileMood.elite ? 'Topluluk' : 'Favoriler',
+                  icon: mood == ProfileMood.underReview ? Icons.shield_outlined : mood == ProfileMood.elite ? Icons.groups_2_outlined : Icons.favorite_outline,
+                  onTap: onFavorites,
+                  highlighted: mood == ProfileMood.underReview || mood == ProfileMood.elite,
+                ),
                 _ActionIcon(label: 'Bildirimler', icon: Icons.notifications_none, onTap: onNotifications),
               ],
             ),
@@ -758,11 +1080,17 @@ class SettingsSection extends ConsumerWidget {
 }
 
 class _ActionIcon extends StatelessWidget {
-  const _ActionIcon({required this.label, required this.icon, required this.onTap});
+  const _ActionIcon({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.highlighted = false,
+  });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -771,8 +1099,16 @@ class _ActionIcon extends StatelessWidget {
         HapticFeedback.selectionClick();
         onTap();
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: highlighted
+              ? Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.5)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -844,28 +1180,129 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _CapsuleChip extends StatelessWidget {
-  const _CapsuleChip({required this.label, required this.value});
+class _RecommendedBadgeCard extends StatelessWidget {
+  const _RecommendedBadgeCard({required this.title});
 
-  final String label;
-  final String value;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(99),
-        color: scheme.secondaryContainer.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(14),
+        color: scheme.surface.withOpacity(0.72),
+        border: Border.all(color: scheme.outlineVariant.withOpacity(0.35)),
+      ),
+      child: Text('Sıradaki önerilen rozet: $title', style: Theme.of(context).textTheme.bodyMedium),
+    );
+  }
+}
+
+class _StartContributingCard extends StatelessWidget {
+  const _StartContributingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: scheme.secondaryContainer.withOpacity(0.35),
+        border: Border.all(color: scheme.outlineVariant.withOpacity(0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text('Katkıya başla', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('İlk fiyat veya doğrulama ile etki motorunu aktive et.', style: Theme.of(context).textTheme.bodyMedium),
         ],
+      ),
+    );
+  }
+}
+
+class _CapsuleChip extends StatefulWidget {
+  const _CapsuleChip({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+    this.pulse = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasized;
+  final bool pulse;
+
+  @override
+  State<_CapsuleChip> createState() => _CapsuleChipState();
+}
+
+class _CapsuleChipState extends State<_CapsuleChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      lowerBound: 0.97,
+      upperBound: 1,
+    );
+    if (widget.pulse) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ScaleTransition(
+      scale: _pulseController,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        scale: widget.emphasized ? 1.05 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            color: scheme.secondaryContainer.withOpacity(0.55),
+            border: widget.emphasized
+                ? Border.all(color: scheme.primary.withOpacity(0.3))
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.label, style: Theme.of(context).textTheme.labelSmall),
+              Text(
+                widget.value,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
