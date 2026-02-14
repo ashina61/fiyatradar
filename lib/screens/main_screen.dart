@@ -20,6 +20,14 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   bool _isNavigating = false;
 
+  late final List<Widget> _screens = const [
+    HomeScreen(key: PageStorageKey('home-tab')),
+    SearchScreen(key: PageStorageKey('search-tab')),
+    SizedBox.shrink(),
+    BasketScreen(key: PageStorageKey('basket-tab')),
+    ProfileScreen(key: PageStorageKey('profile-tab')),
+  ];
+
   Future<void> _openAddPrice() async {
     if (_isNavigating) return;
     _isNavigating = true;
@@ -36,16 +44,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final currentTab = ref.watch(currentTabProvider);
 
-    const screens = [
-      HomeScreen(),
-      SearchScreen(),
-      SizedBox.shrink(),
-      BasketScreen(),
-      ProfileScreen(),
-    ];
-
     return Scaffold(
-      body: IndexedStack(index: currentTab, children: screens),
+      body: IndexedStack(index: currentTab, children: _screens),
       bottomNavigationBar: PremiumBottomNav(
         currentIndex: currentTab,
         onCenterTap: _openAddPrice,

@@ -4,11 +4,67 @@ import '../../../utils/theme.dart';
 
 class BasketHeaderCard extends StatelessWidget {
   final int itemCount;
+  final bool compact;
+  final VoidCallback onAddProduct;
+  final VoidCallback? onCalculate;
+  final bool canCalculate;
 
-  const BasketHeaderCard({super.key, required this.itemCount});
+  const BasketHeaderCard({
+    super.key,
+    required this.itemCount,
+    required this.compact,
+    required this.onAddProduct,
+    required this.onCalculate,
+    required this.canCalculate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primaryDark, AppColors.primary],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$itemCount ürün hazır • Hesapla',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+            IconButton(
+              onPressed: onAddProduct,
+              visualDensity: VisualDensity.compact,
+              iconSize: 20,
+              color: Colors.white,
+              icon: const Icon(Icons.add_shopping_cart_rounded),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.tonal(
+              onPressed: canCalculate ? onCalculate : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.2),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('Hesapla'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -95,6 +151,19 @@ class BasketHeaderCard extends StatelessWidget {
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
                   ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: onAddProduct,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.2),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Ürün Ekle'),
             ),
           ),
         ],

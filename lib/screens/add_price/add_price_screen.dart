@@ -541,14 +541,22 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             return da.compareTo(db);
           });
 
+        // Radius metre cinsinden tutulur. Çok agresif filtreleme UX'i bozduğu için
+        // mesafe bilinmeyen şubeleri ve uzak şubeleri tamamen gizlemiyoruz.
+        const maxRadiusMeters = 20000.0;
         final filteredStores = nearbyStores.where((store) {
           if (_userPosition == null || _isStoreLocationMissing(store)) return true;
-          final distance = distanceMap[store.id] ?? double.infinity;
-          return distance <= 2000;
+          final distance = distanceMap[store.id];
+          if (distance == null) return true;
+          return distance <= maxRadiusMeters;
         }).toList();
 
-        if (_userPosition != null && filteredStores.isNotEmpty) {
-          final nearestStore = filteredStores.first;
+        final visibleStores = filteredStores.isEmpty ? nearbyStores : filteredStores;
+
+        debugPrint('[AddPrice] nearby stores total=${stores.length}, withDistance=${distanceMap.length}, visible=${visibleStores.length}');
+
+        if (_userPosition != null && visibleStores.isNotEmpty) {
+          final nearestStore = visibleStores.first;
           final nearestDistance = distanceMap[nearestStore.id] ?? double.infinity;
           if (nearestDistance <= 30 && _selectedStore == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -558,21 +566,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           }
         }
 
-        if (filteredStores.isEmpty) {
-          return const Center(child: Text('Yakınında mağaza yok. Haritadan pin seç.'));
+        if (visibleStores.isEmpty) {
+          return const Center(child: Text('Yakındaki mağaza bulunamadı.'));
         }
 
         return ListView.separated(
           controller: scrollController,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          itemCount: filteredStores.length + 1,
+          itemCount: visibleStores.length + 1,
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {
-            if (index == filteredStores.length) {
+            if (index == visibleStores.length) {
               return _buildAddNewStoreItem(ctx);
             }
 
-            final store = filteredStores[index];
+            final store = visibleStores[index];
             final distanceText = _distanceText(store, _storeDistanceMeters.isEmpty ? distanceMap : _storeDistanceMeters);
             return ListTile(
               leading: Container(
@@ -838,7 +846,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  bool _isStoreLocationMissing(StoreModel store) => store.lat == 0 || store.lng == 0;
+  bool _isStoreLocationMissing(StoreModel store) =>
+      store.lat == 0 ||
+      store.lng == 0 ||
+      store.lat.abs() > 90 ||
+      store.lng.abs() > 180;
 
   Map<String, double> _buildStoreDistanceMap(List<StoreModel> stores) {
     if (_userPosition == null) return const {};
@@ -889,7 +901,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
     final dist = distanceMap[store.id];
     if (dist == null || dist.isInfinite) {
-      return 'Mesafe bilinmiyor';
+      return '—';
     }
 
     return dist < 1000 ? '${dist.round()} m' : '${(dist / 1000).toStringAsFixed(1)} km';

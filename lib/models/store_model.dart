@@ -39,6 +39,8 @@ class StoreModel {
   factory StoreModel.fromFirestore(DocumentSnapshot doc) {
     final raw = doc.data();
     final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final coordinates = _extractCoordinates(data);
+
     return StoreModel(
       id: doc.id,
       brandId: data['brandId'],
@@ -47,13 +49,12 @@ class StoreModel {
       district: data['district'] ?? '',
       neighborhood: data['neighborhood'] ?? '',
       address: data['address'],
-      lat: (data['lat'] as num?)?.toDouble() ?? 0.0,
-      lng: (data['lng'] as num?)?.toDouble() ?? 0.0,
+      lat: coordinates.$1,
+      lng: coordinates.$2,
       status: _parseStatus(data['status']),
       type: _parseType(data['type']),
       legacyIsOnline: data['isOnline'] as bool?,
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -148,5 +149,50 @@ class StoreModel {
     final displayName = data['displayName']?.toString().trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
     return data['name']?.toString().trim() ?? '';
+  }
+
+  static (double, double) _extractCoordinates(Map<String, dynamic> data) {
+    final directLat = _toDouble(data['lat']);
+    final directLng = _toDouble(data['lng']);
+    if (directLat != null && directLng != null) {
+      return (directLat, directLng);
+    }
+
+    final geoPoint = data['geoPoint'] ?? data['location'] ?? data['coordinates'];
+    if (geoPoint is GeoPoint) {
+      return (geoPoint.latitude, geoPoint.longitude);
+    }
+
+    if (geoPoint is Map) {
+      final map = Map<String, dynamic>.from(geoPoint);
+      final mapLat = _toDouble(map['lat'] ?? map['latitude']);
+      final mapLng = _toDouble(map['lng'] ?? map['longitude'] ?? map['lon']);
+      if (mapLat != null && mapLng != null) {
+        return (mapLat, mapLng);
+      }
+    }
+
+    if (geoPoint is String) {
+      final match = RegExp(r'-?\d+(?:\.\d+)?').allMatches(geoPoint).map((m) => m.group(0)).toList();
+      if (match.length >= 2) {
+        final strLat = double.tryParse(match[0] ?? '');
+        final strLng = double.tryParse(match[1] ?? '');
+        if (strLat != null && strLng != null) {
+          return (strLat, strLng);
+        }
+      }
+    }
+
+    return (0.0, 0.0);
+  }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final normalized = value.replaceAll(',', '.').trim();
+      return double.tryParse(normalized);
+    }
+    return null;
   }
 }
