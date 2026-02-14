@@ -105,16 +105,6 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                   _BasketItemsSection(viewModel: viewModel),
               ],
             ),
-            if (!_isHeaderCompact)
-              Positioned(
-                right: AppSpacing.lg,
-                bottom: 116,
-                child: FloatingActionButton.small(
-                  heroTag: 'basket-mini-add',
-                  onPressed: () => _showProductPicker(context, viewModel),
-                  child: const Icon(Icons.add_rounded),
-                ),
-              ),
             BasketStickyBar(
               itemCount: totalProducts,
               isLoading: viewModel.isCalculating,
