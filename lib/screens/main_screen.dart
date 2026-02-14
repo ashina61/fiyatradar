@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/basket/basket_screen.dart';
+import 'cart/cart_screen_v2.dart';
 import '../widgets/premium_bottom_nav.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';
@@ -24,7 +24,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     HomeScreen(key: PageStorageKey('home-tab')),
     SearchScreen(key: PageStorageKey('search-tab')),
     SizedBox.shrink(),
-    BasketScreen(key: PageStorageKey('basket-tab')),
+    CartScreenV2(key: PageStorageKey('basket-tab')),
     ProfileScreen(key: PageStorageKey('profile-tab')),
   ];
 
