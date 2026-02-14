@@ -9,6 +9,7 @@ import '../../models/basket_item_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../services/cart_comparison_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
