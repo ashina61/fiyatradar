@@ -313,50 +313,56 @@ class _HeroCard extends StatelessWidget {
         scale: scale,
         alignment: Alignment.topCenter,
         child: Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withOpacity(glowOpacity),
-            blurRadius: 24,
-            spreadRadius: 1,
-            offset: const Offset(0, 8),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withOpacity(glowOpacity),
+                blurRadius: 24,
+                spreadRadius: 1,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('En Uygun Market', style: Theme.of(context).textTheme.titleSmall),
+                  const Spacer(),
+                  Icon(Icons.workspace_premium_rounded, color: cs.primary),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(best.storeName, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 6),
+              Text(_formatCurrency(best.totalPrice), style: Theme.of(context).textTheme.displaySmall),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _Pill(
+                    text: '$totalProducts ürün • Eksik ${best.missingCount}',
+                    color: cs.secondaryContainer,
+                    fg: cs.onSecondaryContainer,
+                  ),
+                  if (best.distanceKm != null)
+                    _Pill(
+                      text: '${best.distanceKm!.toStringAsFixed(1)} km',
+                      color: cs.tertiaryContainer,
+                      fg: cs.onTertiaryContainer,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('En Uygun Market', style: Theme.of(context).textTheme.titleSmall),
-              const Spacer(),
-              Icon(Icons.workspace_premium_rounded, color: cs.primary),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(best.storeName, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 6),
-          Text(_formatCurrency(best.totalPrice), style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Pill(text: '$totalProducts ürün • Eksik ${best.missingCount}', color: cs.secondaryContainer, fg: cs.onSecondaryContainer),
-              if (best.distanceKm != null)
-                _Pill(
-                  text: '${best.distanceKm!.toStringAsFixed(1)} km',
-                  color: cs.tertiaryContainer,
-                  fg: cs.onTertiaryContainer,
-                ),
-            ],
-          ),
-        ],
-      )),
     );
   }
 }
