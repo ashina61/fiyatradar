@@ -603,7 +603,7 @@ class BadgesSection extends StatelessWidget {
                 color: Theme.of(context).colorScheme.tertiaryContainer,
               ),
               child: Icon(
-                iconCode is int ? IconData(iconCode, fontFamily: 'MaterialIcons') : Icons.workspace_premium,
+                _badgeIconFromCodePoint(iconCode is int ? iconCode : null),
               ),
             );
           }).toList(growable: false),
@@ -906,7 +906,7 @@ class _BadgeCelebrationSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconData = IconData(iconCodePoint ?? Icons.emoji_events_rounded.codePoint, fontFamily: 'MaterialIcons');
+    final iconData = _badgeIconFromCodePoint(iconCodePoint);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -958,6 +958,27 @@ class _BadgeCelebrationSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+IconData _badgeIconFromCodePoint(int? codePoint) {
+  switch (codePoint) {
+    case null:
+      return Icons.workspace_premium;
+    case 0xe80f:
+      return Icons.emoji_events_rounded;
+    case 0xe8f9:
+      return Icons.workspace_premium;
+    case 0xe838:
+      return Icons.star_rounded;
+    case 0xe153:
+      return Icons.local_fire_department_rounded;
+    case 0xe865:
+      return Icons.check_circle_rounded;
+    case 0xe8dc:
+      return Icons.verified_rounded;
+    default:
+      return Icons.workspace_premium;
   }
 }
 
