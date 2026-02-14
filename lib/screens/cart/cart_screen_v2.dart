@@ -256,6 +256,7 @@ class _CartTabContent extends StatelessWidget {
           itemCount: itemCount,
           summary: viewModel.pricingSummary,
           isLoading: viewModel.isCalculating,
+          onAddProduct: onAddProduct,
           onCalculate: onCalculate,
         ),
       ],
@@ -584,12 +585,14 @@ class CartBottomSummaryBar extends StatelessWidget {
     required this.itemCount,
     required this.summary,
     required this.isLoading,
+    required this.onAddProduct,
     required this.onCalculate,
   });
 
   final int itemCount;
   final BasketPricingSummary? summary;
   final bool isLoading;
+  final VoidCallback onAddProduct;
   final VoidCallback onCalculate;
 
   @override
@@ -632,7 +635,7 @@ class CartBottomSummaryBar extends StatelessWidget {
                           Text(
                             best != null
                                 ? 'Tahmini toplam: ${formatTRY(best.total)}'
-                                : 'En uygun marketi bul',
+                                : 'Tahmini toplam: —',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -652,6 +655,11 @@ class CartBottomSummaryBar extends StatelessWidget {
                             )
                           : const Icon(Icons.auto_graph_rounded),
                       label: const Text('Hesapla'),
+                    ),
+                    IconButton(
+                      onPressed: onAddProduct,
+                      tooltip: 'Ürün ekle',
+                      icon: const Icon(Icons.add_rounded),
                     ),
                   ],
                 ),
