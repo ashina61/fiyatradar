@@ -218,7 +218,6 @@ class _CartTabContent extends StatelessWidget {
             slivers: [
               CartCollapsibleHeader(
                 itemCount: itemCount,
-                onAddProduct: onAddProduct,
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -258,7 +257,6 @@ class _CartTabContent extends StatelessWidget {
           summary: viewModel.pricingSummary,
           isLoading: viewModel.isCalculating,
           onCalculate: onCalculate,
-          onAddProduct: onAddProduct,
         ),
       ],
     );
@@ -269,11 +267,9 @@ class CartCollapsibleHeader extends StatelessWidget {
   const CartCollapsibleHeader({
     super.key,
     required this.itemCount,
-    required this.onAddProduct,
   });
 
   final int itemCount;
-  final VoidCallback onAddProduct;
 
   @override
   Widget build(BuildContext context) {
@@ -305,11 +301,6 @@ class CartCollapsibleHeader extends StatelessWidget {
                             '$itemCount ürün hazır',
                             style: theme.textTheme.titleSmall,
                           ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: onAddProduct,
-                          icon: const Icon(Icons.add_rounded),
-                          tooltip: 'Ürün ekle',
                         ),
                       ],
                     )
@@ -594,14 +585,12 @@ class CartBottomSummaryBar extends StatelessWidget {
     required this.summary,
     required this.isLoading,
     required this.onCalculate,
-    required this.onAddProduct,
   });
 
   final int itemCount;
   final BasketPricingSummary? summary;
   final bool isLoading;
   final VoidCallback onCalculate;
-  final VoidCallback onAddProduct;
 
   @override
   Widget build(BuildContext context) {
@@ -663,11 +652,6 @@ class CartBottomSummaryBar extends StatelessWidget {
                             )
                           : const Icon(Icons.auto_graph_rounded),
                       label: const Text('Hesapla'),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: onAddProduct,
-                      icon: const Icon(Icons.add_rounded),
                     ),
                   ],
                 ),
