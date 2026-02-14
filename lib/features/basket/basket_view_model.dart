@@ -1,14 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/basket_item_model.dart';
+import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
+import '../../services/cart_comparison_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
 import 'basket_pricing.dart';
 import 'basket_repository.dart';
 
@@ -16,10 +19,14 @@ class BasketViewModel extends ChangeNotifier {
   BasketViewModel({
     required this.firestoreService,
     required this.repository,
+    required this.locationService,
+    this.comparisonService = const CartComparisonService(),
   });
 
   final FirestoreService firestoreService;
   final BasketRepository repository;
+  final LocationService locationService;
+  final CartComparisonService comparisonService;
 
   StreamSubscription<List<Map<String, dynamic>>>? _basketSubscription;
   StreamSubscription<List<ProductModel>>? _productsSubscription;
@@ -32,6 +39,10 @@ class BasketViewModel extends ChangeNotifier {
   List<BasketItemModel> items = [];
   Map<String, ProductModel> productMap = {};
   BasketPricingSummary? pricingSummary;
+  CartComparisonResult? comparisonResult;
+  Map<String, PriceModel?> latestProductPrices = {};
+  bool hasLocationPermission = false;
+  String? calculationNotice;
   Map<String, String> marketNames = {};
   int lastPriceDocumentCount = 0;
 
@@ -43,6 +54,10 @@ class BasketViewModel extends ChangeNotifier {
     items = [];
     productMap = {};
     pricingSummary = null;
+    comparisonResult = null;
+    latestProductPrices = {};
+    hasLocationPermission = false;
+    calculationNotice = null;
     marketNames = {};
     lastPriceDocumentCount = 0;
     errorMessage = null;
@@ -119,62 +134,60 @@ class BasketViewModel extends ChangeNotifier {
     if (userId == null || items.isEmpty) return;
     isCalculating = true;
     errorMessage = null;
+    calculationNotice = null;
     notifyListeners();
 
-    final descriptors = items.map((item) {
-      final product = productMap[item.productId];
-      final barcode = product?.barcode?.trim();
-      final name = product?.name.trim();
-      return BasketItemDescriptor(
-        key: _itemKey(item, product),
-        productId: item.productId,
-        barcode: barcode != null && barcode.isNotEmpty ? barcode : null,
-        name: name != null && name.isNotEmpty ? name : null,
-        normalizedName: name != null && name.isNotEmpty ? _normalizeName(name) : null,
-      );
-    }).toList();
-
-    debugPrint('[BasketPricing] items keys: ${descriptors.map((e) => e.key).join(', ')}');
+    final descriptors = items
+        .map((item) => BasketItemDescriptor(
+              key: item.productId,
+              productId: item.productId,
+            ))
+        .toList();
 
     try {
       final fetchResult = await repository.fetchPricesForBasketItems(descriptors);
       lastPriceDocumentCount = fetchResult.priceDocumentCount;
       marketNames = fetchResult.marketNames;
-      debugPrint('[BasketPricing] firestore price docs: ${fetchResult.priceDocumentCount}');
 
-      final inputs = items.map((item) {
-        final product = productMap[item.productId];
-        return BasketItemInput(
-          key: _itemKey(item, product),
-          name: product?.name ?? 'Urun',
-          quantity: item.quantity,
-        );
-      }).toList();
+      final pricesIndex = {
+        for (final entry in fetchResult.latestPricesByItem.entries)
+          entry.key: {
+            for (final priceEntry in entry.value.entries)
+              priceEntry.key: priceEntry.value.price,
+          },
+      };
 
       pricingSummary = calculateBasketPricing(
-        items: inputs,
-        pricesIndex: fetchResult.pricesIndex,
+        items: items
+            .map(
+              (item) => BasketItemInput(
+                key: item.productId,
+                name: productMap[item.productId]?.name ?? 'Urun',
+                quantity: item.quantity,
+              ),
+            )
+            .toList(),
+        pricesIndex: pricesIndex,
         marketNames: fetchResult.marketNames,
       );
 
-      for (final descriptor in descriptors) {
-        final count = fetchResult.pricesIndex[descriptor.key]?.length ?? 0;
-        debugPrint('[BasketPricing] item ${descriptor.key} -> $count market');
-      }
+      latestProductPrices = comparisonService.buildLatestProductPrices(
+        items: items,
+        latestPricesByItem: fetchResult.latestPricesByItem,
+      );
 
-      final missing = pricingSummary?.mixedResult.missingKeys ?? [];
-      if (missing.isNotEmpty) {
-        debugPrint('[BasketPricing] missing items: ${missing.join(', ')}');
-      }
-
-      if (pricingSummary?.bestSingleMarket == null) {
-        final reasons = pricingSummary?.perMarketTotals.entries
-                .map((entry) =>
-                    '${entry.key}: missing=${entry.value.missingKeys.join(', ')}')
-                .join(' | ') ??
-            '-';
-        debugPrint('[BasketPricing] best single market yok. Eksikler: $reasons');
-      }
+      final stores = await firestoreService.getAllStoresStream().first;
+      final position = await locationService.getCurrentPosition();
+      hasLocationPermission = position != null;
+      comparisonResult = comparisonService.compare(
+        items: items,
+        productMap: productMap,
+        latestPricesByItem: fetchResult.latestPricesByItem,
+        marketNames: marketNames,
+        stores: stores,
+        userPosition: position,
+      );
+      calculationNotice = comparisonResult?.notice;
     } catch (error) {
       if (error is FirebaseException &&
           (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
@@ -188,39 +201,6 @@ class BasketViewModel extends ChangeNotifier {
       isCalculating = false;
       notifyListeners();
     }
-  }
-
-  String _itemKey(BasketItemModel item, ProductModel? product) {
-    if (item.productId.trim().isNotEmpty) {
-      return item.productId.trim();
-    }
-    final barcode = product?.barcode?.trim();
-    if (barcode != null && barcode.isNotEmpty) {
-      return barcode;
-    }
-    final name = product?.name.trim();
-    if (name != null && name.isNotEmpty) {
-      return _normalizeName(name);
-    }
-    return item.productId;
-  }
-
-  String _normalizeName(String value) {
-    final trimmed = value.trim().toLowerCase();
-    final replaced = trimmed
-        .replaceAll('ı', 'i')
-        .replaceAll('İ', 'i')
-        .replaceAll('ş', 's')
-        .replaceAll('Ş', 's')
-        .replaceAll('ğ', 'g')
-        .replaceAll('Ğ', 'g')
-        .replaceAll('ü', 'u')
-        .replaceAll('Ü', 'u')
-        .replaceAll('ö', 'o')
-        .replaceAll('Ö', 'o')
-        .replaceAll('ç', 'c')
-        .replaceAll('Ç', 'c');
-    return replaced.replaceAll(RegExp(r'\s+'), ' ');
   }
 
   @override
@@ -237,6 +217,7 @@ final basketViewModelProvider =
   final viewModel = BasketViewModel(
     firestoreService: firestore,
     repository: BasketRepository(),
+    locationService: LocationService(),
   );
 
   ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {

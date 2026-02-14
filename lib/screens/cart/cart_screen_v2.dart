@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/basket/basket_pricing.dart';
 import '../../features/basket/basket_view_model.dart';
 import '../../models/basket_item_model.dart';
+import '../../models/price_model.dart';
 import '../../models/product_model.dart';
+import '../../services/cart_comparison_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/formatters.dart';
@@ -26,20 +28,8 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
   void initState() {
     super.initState();
     ref.listenManual<BasketViewModel>(basketViewModelProvider, (previous, next) {
-      final error = next.errorMessage;
-      if (error != null && error != previous?.errorMessage && mounted) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(error),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-      }
-
-      final summary = next.pricingSummary;
-      if (mounted && summary != null && summary != previous?.pricingSummary) {
+      final result = next.comparisonResult;
+      if (mounted && result != null && result != previous?.comparisonResult) {
         _showResultSheet(next);
       }
     });
@@ -87,6 +77,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
                                     child: CartItemCard(
                                       item: item,
                                       product: viewModel.productMap[item.productId],
+                                      latestPrice: viewModel.latestProductPrices[item.productId],
                                       onQuantityChanged: (qty) =>
                                           viewModel.updateQuantity(item.productId, qty),
                                       onRemove: () => viewModel.updateQuantity(item.productId, 0),
@@ -96,6 +87,23 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
                             ),
                 ),
               ),
+              if (viewModel.errorMessage != null || viewModel.calculationNotice != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        viewModel.errorMessage ?? viewModel.calculationNotice ?? '',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           bottomNavigationBar: CartBottomSummaryBar(
@@ -127,20 +135,16 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> {
   }
 
   Future<void> _showResultSheet(BasketViewModel viewModel) async {
-    final summary = viewModel.pricingSummary;
-    if (summary == null) return;
+    final result = viewModel.comparisonResult;
+    if (result == null) return;
 
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => CartResultSheet(
-        summary: summary,
-        marketNames: viewModel.marketNames,
-        itemMap: {
-          for (final item in viewModel.items)
-            item.productId: viewModel.productMap[item.productId]?.name ?? 'Ürün',
-        },
+        result: result,
+        hasLocationPermission: viewModel.hasLocationPermission,
       ),
     );
   }
@@ -316,12 +320,14 @@ class CartItemCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.product,
+    required this.latestPrice,
     required this.onQuantityChanged,
     required this.onRemove,
   });
 
   final BasketItemModel item;
   final ProductModel? product;
+  final PriceModel? latestPrice;
   final ValueChanged<int> onQuantityChanged;
   final VoidCallback onRemove;
 
@@ -378,6 +384,24 @@ class CartItemCard extends StatelessWidget {
                     child: Text(
                       product!.category,
                       style: theme.textTheme.labelSmall?.copyWith(color: cs.primary),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                if (latestPrice != null)
+                  Text(
+                    'Son fiyat: ${formatTRY(latestPrice!.price)}',
+                    style: theme.textTheme.labelMedium,
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Fiyat yok',
+                      style: theme.textTheme.labelSmall?.copyWith(color: cs.onErrorContainer),
                     ),
                   ),
               ],
@@ -610,23 +634,18 @@ class CartBottomSummaryBar extends StatelessWidget {
 class CartResultSheet extends StatelessWidget {
   const CartResultSheet({
     super.key,
-    required this.summary,
-    required this.marketNames,
-    required this.itemMap,
+    required this.result,
+    required this.hasLocationPermission,
   });
 
-  final BasketPricingSummary summary;
-  final Map<String, String> marketNames;
-  final Map<String, String> itemMap;
+  final CartComparisonResult result;
+  final bool hasLocationPermission;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final best = summary.bestSingleMarket;
-    final alternatives = summary.perMarketTotals.entries
-        .where((entry) => entry.value.missingKeys.isEmpty)
-        .toList()
-      ..sort((a, b) => a.value.total.compareTo(b.value.total));
+    final best = result.bestMarket;
+    final alternatives = result.lowestThree;
 
     return SafeArea(
       child: Container(
@@ -680,35 +699,83 @@ class CartResultSheet extends StatelessWidget {
                       ],
                     ),
                   ),
+                const SizedBox(height: 12),
+                if (hasLocationPermission && result.nearestMarket != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('En yakın market'),
+                    subtitle: Text(
+                      '${result.nearestMarket!.marketName} • ${result.nearestMarket!.distanceKm?.toStringAsFixed(1)} km',
+                    ),
+                    trailing: Text(formatTRY(result.nearestMarket!.total)),
+                  )
+                else
+                  const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('En yakın market'),
+                    subtitle: Text('Konum izni verirsen yakın marketi gösterebiliriz.'),
+                  ),
                 const SizedBox(height: 16),
-                Text('Alternatifler', style: Theme.of(context).textTheme.titleMedium),
+                Text('En düşük 3 market', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 ...alternatives.take(3).map(
                       (entry) => ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.storefront_outlined),
-                        title: Text(marketNames[entry.key] ?? entry.key),
-                        trailing: Text(formatTRY(entry.value.total)),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(entry.marketName)),
+                            if (entry.hasMissingProducts)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.errorContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Eksik ürün',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(color: cs.onErrorContainer),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: entry.distanceKm == null
+                            ? null
+                            : Text('${entry.distanceKm!.toStringAsFixed(1)} km'),
+                        trailing: Text(formatTRY(entry.total)),
                       ),
                     ),
                 const SizedBox(height: 12),
-                Text('Ürün Bazlı Dağılım', style: Theme.of(context).textTheme.titleMedium),
+                Text('Ürün bazlı fiyatlar', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                ...summary.mixedResult.perItemChoice.entries.map(
+                ...result.sortedMarkets.map(
                   (entry) {
-                    final choice = entry.value;
                     return ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: const EdgeInsets.only(bottom: 8),
-                      title: Text(itemMap[entry.key] ?? entry.key),
-                      subtitle: Text('${choice.marketName} • ${formatTRY(choice.unitPrice)}'),
+                      title: Text(entry.marketName),
+                      subtitle: Text(
+                        entry.hasMissingProducts
+                            ? 'Eksik ürün: ${entry.missingProductIds.length}'
+                            : 'Toplam ${formatTRY(entry.total)}',
+                      ),
                       children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${choice.quantity} adet • Toplam ${formatTRY(choice.lineTotal)}',
+                        for (final line in entry.lines)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(line.productName),
+                            subtitle: Text('${line.quantity} adet • ${formatTRY(line.unitPrice)}'),
+                            trailing: Text(formatTRY(line.lineTotal)),
                           ),
-                        ),
+                        if (entry.hasMissingProducts)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Eksik ürün sayısı: ${entry.missingProductIds.length}'),
+                          ),
                       ],
                     );
                   },
