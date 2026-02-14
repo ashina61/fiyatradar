@@ -68,6 +68,33 @@ class PriceModel {
   bool get isTrustedPrice => netScore > 10;
   bool get shouldAutoHide => netScore < -5;
 
+  static double _parsePriceValue(dynamic rawValue) {
+    if (rawValue is num) return rawValue.toDouble();
+    if (rawValue is! String) return 0;
+
+    var normalized = rawValue.trim();
+    if (normalized.isEmpty) return 0;
+
+    normalized = normalized
+        .replaceAll('₺', '')
+        .replaceAll('TL', '')
+        .replaceAll(RegExp(r'\s+'), '');
+
+    if (normalized.contains(',') && normalized.contains('.')) {
+      final lastComma = normalized.lastIndexOf(',');
+      final lastDot = normalized.lastIndexOf('.');
+      if (lastComma > lastDot) {
+        normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+      } else {
+        normalized = normalized.replaceAll(',', '');
+      }
+    } else if (normalized.contains(',')) {
+      normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+    }
+
+    return double.tryParse(normalized) ?? 0;
+  }
+
   factory PriceModel.fromFirestore(DocumentSnapshot doc) {
     final raw = doc.data();
     final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
@@ -79,7 +106,7 @@ class PriceModel {
       productId: data['productId'] ?? '',
       barcode: data['barcode'] ?? data['productBarcode'],
       userId: data['userId'] ?? '',
-      price: (data['price'] as num?)?.toDouble() ?? 0.0,
+      price: _parsePriceValue(data['price']),
       branchStoreId: data['branchStoreId'] ?? data['storeId'] ?? '',
       chainId: data['chainId'],
       currency: data['currency'] ?? 'TRY',

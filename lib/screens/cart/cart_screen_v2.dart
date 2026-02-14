@@ -11,6 +11,7 @@ import '../../features/basket/cart_comparison_state.dart';
 import '../../models/basket_item_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
+import '../../models/store_model.dart';
 import '../../services/cart_comparison_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
@@ -119,6 +120,8 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                   if (!mounted) return;
                   _tabController.animateTo(1);
                 },
+                onSelectStores: () => _showStoreFilterSheet(context, viewModel),
+                selectedStoreNames: viewModel.selectedStoreNames,
               ),
             ],
           ),
@@ -126,6 +129,109 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, __) => const Scaffold(body: SizedBox.shrink()),
+    );
+  }
+
+
+  Future<void> _showStoreFilterSheet(BuildContext context, BasketViewModel viewModel) async {
+    await viewModel.loadStoresIfNeeded();
+    if (!context.mounted) return;
+
+    final initialSelection = Set<String>.from(viewModel.selectedStoreIds);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final tempSelection = Set<String>.from(initialSelection);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final nearbyStores = viewModel.nearbyStores;
+            final onlineStores = viewModel.onlineStores;
+
+            Widget buildStoreList(List<StoreModel> stores) {
+              if (stores.isEmpty) {
+                return const Center(child: Text('Bu sekmede mağaza bulunamadı.'));
+              }
+              return ListView.builder(
+                itemCount: stores.length,
+                itemBuilder: (_, index) {
+                  final store = stores[index];
+                  final isSelected = tempSelection.contains(store.id);
+                  return CheckboxListTile(
+                    value: isSelected,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(store.displayName),
+                    subtitle: store.isOnline
+                        ? const Text('Online')
+                        : Text([store.neighborhood, store.district].where((e) => e.isNotEmpty).join(', ')),
+                    onChanged: (value) {
+                      setModalState(() {
+                        if (value == true) {
+                          tempSelection.add(store.id);
+                        } else {
+                          tempSelection.remove(store.id);
+                        }
+                      });
+                    },
+                  );
+                },
+              );
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                ),
+                child: DefaultTabController(
+                  length: 2,
+                  child: SizedBox(
+                    height: MediaQuery.of(ctx).size.height * 0.72,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Mağaza Seç', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        Chip(label: Text('Seçili: ${tempSelection.length} mağaza')),
+                        const SizedBox(height: 8),
+                        const TabBar(
+                          tabs: [
+                            Tab(text: 'Yakınımda'),
+                            Tab(text: 'Online'),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              buildStoreList(nearbyStores),
+                              buildStoreList(onlineStores),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              viewModel.setSelectedStoreIds(Set<String>.from(tempSelection));
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Uygula'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -599,6 +705,14 @@ class CartBottomSummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final best = summary?.bestSingleMarket;
+    final missingCount = summary?.mixedResult.missingKeys.length ?? 0;
+    final mixedTotal = summary?.mixedResult.total;
+
+    final totalLabel = best != null
+        ? 'Tahmini toplam: ${formatTRY(best.total)}'
+        : mixedTotal != null
+            ? 'Kısmi toplam: ${formatTRY(mixedTotal)} • Eksik fiyat: $missingCount ürün'
+            : 'Tahmini toplam: Hesapla ile güncellenecek';
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -633,9 +747,7 @@ class CartBottomSummaryBar extends StatelessWidget {
                           Text('$itemCount ürün', style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 4),
                           Text(
-                            best != null
-                                ? 'Tahmini toplam: ${formatTRY(best.total)}'
-                                : 'Tahmini toplam: —',
+                            totalLabel,
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall

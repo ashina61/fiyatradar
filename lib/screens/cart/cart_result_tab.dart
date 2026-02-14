@@ -12,6 +12,8 @@ class CartResultTab extends StatelessWidget {
     required this.onGoToCart,
     required this.onAddPrice,
     required this.onRetry,
+    required this.onSelectStores,
+    required this.selectedStoreNames,
   });
 
   final CartComparisonState state;
@@ -19,6 +21,8 @@ class CartResultTab extends StatelessWidget {
   final VoidCallback onGoToCart;
   final VoidCallback onAddPrice;
   final VoidCallback onRetry;
+  final VoidCallback onSelectStores;
+  final List<String> selectedStoreNames;
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +32,15 @@ class CartResultTab extends StatelessWidget {
       case CartComparisonStatus.loading:
         return const _LoadingState();
       case CartComparisonStatus.success:
-        return _SuccessState(state: state);
+        return _SuccessState(state: state, selectedStoreNames: selectedStoreNames);
       case CartComparisonStatus.empty:
-        return _EmptyState(state: state, onAddPrice: onAddPrice, onCalculate: onCalculate);
+        return _EmptyState(
+          state: state,
+          onAddPrice: onAddPrice,
+          onCalculate: onCalculate,
+          onSelectStores: onSelectStores,
+          selectedStoreNames: selectedStoreNames,
+        );
       case CartComparisonStatus.error:
         return _ErrorState(state: state, onRetry: onRetry);
     }
@@ -152,9 +162,10 @@ class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderS
 }
 
 class _SuccessState extends StatelessWidget {
-  const _SuccessState({required this.state});
+  const _SuccessState({required this.state, required this.selectedStoreNames});
 
   final CartComparisonState state;
+  final List<String> selectedStoreNames;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +209,17 @@ class _SuccessState extends StatelessWidget {
               .bodyMedium
               ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
+
+        if (selectedStoreNames.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Seçili mağazalar: ${selectedStoreNames.join(', ')}',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ],
         const SizedBox(height: 10),
         ...markets.asMap().entries.map(
               (entry) => Padding(
@@ -546,11 +568,19 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.state, required this.onAddPrice, required this.onCalculate});
+  const _EmptyState({
+    required this.state,
+    required this.onAddPrice,
+    required this.onCalculate,
+    required this.onSelectStores,
+    required this.selectedStoreNames,
+  });
 
   final CartComparisonState state;
   final VoidCallback onAddPrice;
   final VoidCallback onCalculate;
+  final VoidCallback onSelectStores;
+  final List<String> selectedStoreNames;
 
   @override
   Widget build(BuildContext context) {
@@ -580,6 +610,13 @@ class _EmptyState extends StatelessWidget {
                       ),
                     ),
               ],
+              if (selectedStoreNames.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Seçili mağazalar: ${selectedStoreNames.join(', ')}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -590,7 +627,7 @@ class _EmptyState extends StatelessWidget {
                     label: const Text('Fiyat Ekle'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: onCalculate,
+                    onPressed: onSelectStores,
                     icon: const Icon(Icons.store_mall_directory_rounded),
                     label: const Text('Mağaza Seç'),
                   ),
