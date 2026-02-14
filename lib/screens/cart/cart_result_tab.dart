@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../features/basket/cart_comparison_state.dart';
 
@@ -161,14 +162,22 @@ class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderS
   }
 }
 
-class _SuccessState extends StatelessWidget {
+class _SuccessState extends StatefulWidget {
   const _SuccessState({required this.state, required this.selectedStoreNames});
 
   final CartComparisonState state;
   final List<String> selectedStoreNames;
 
   @override
+  State<_SuccessState> createState() => _SuccessStateState();
+}
+
+class _SuccessStateState extends State<_SuccessState> {
+  double _scrollOffset = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final best = state.bestMarket;
     if (best == null) return const SizedBox.shrink();
 
@@ -185,73 +194,138 @@ class _SuccessState extends StatelessWidget {
     final minTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a < b ? a : b);
     final maxTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a > b ? a : b);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, child) => Opacity(
-            opacity: value,
-            child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child),
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          setState(() => _scrollOffset = notification.metrics.pixels.clamp(0, 220));
+        }
+        return false;
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child),
+            ),
+            child: _HeroCard(
+              best: best,
+              totalProducts: state.missingProducts.length + best.lines.length,
+              scrollFactor: _scrollOffset,
+            ),
           ),
-          child: _HeroCard(best: best, totalProducts: state.missingProducts.length + best.lines.length),
-        ),
-        const SizedBox(height: 10),
-        _MiniInsights(best: best, nearest: nearest),
-        const SizedBox(height: 18),
-        Text('Market Karşılaştırma', style: Theme.of(context).textTheme.titleLarge),
-        Text(
-          'Sepetin toplamı markete göre değişebilir.',
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-
-        if (selectedStoreNames.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
+          _MiniInsights(best: best, nearest: nearest),
+          const SizedBox(height: 18),
+          Text('Market Karşılaştırma', style: Theme.of(context).textTheme.titleLarge),
           Text(
-            'Seçili mağazalar: ${selectedStoreNames.join(', ')}',
+            'Sepetin toplamı markete göre değişebilir.',
             style: Theme.of(context)
                 .textTheme
-                .bodySmall
+                .bodyMedium
                 ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
-        ],
-        const SizedBox(height: 10),
-        ...markets.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _PremiumMarketRowCard(
-                  market: entry.value,
-                  rank: entry.key + 1,
-                  minTotal: minTotal,
-                  maxTotal: maxTotal,
+          if (widget.selectedStoreNames.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: 10),
+          ...markets.asMap().entries.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: Duration(milliseconds: 320 + (entry.key * 40)),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) => Opacity(
+                      opacity: value,
+                      child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child),
+                    ),
+                    child: _PremiumMarketRowCard(
+                      market: entry.value,
+                      rank: entry.key + 1,
+                      minTotal: minTotal,
+                      maxTotal: maxTotal,
+                    ),
+                  ),
                 ),
               ),
-            ),
-      ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final text = _buildShareText(markets.take(3).toList());
+                    await Clipboard.setData(ClipboardData(text: text));
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Sonuç panoya kopyalandı.')),
+                    );
+                  },
+                  icon: const Icon(Icons.content_copy_rounded),
+                  label: const Text('Kopyala'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => Share.share(_buildShareText(markets.take(3).toList())),
+                  icon: const Icon(Icons.share_rounded),
+                  label: const Text('Paylaş'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.best, required this.totalProducts});
+  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor});
 
   final CartMarketResultSummary best;
   final int totalProducts;
+  final double scrollFactor;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    final parallaxY = scrollFactor * 0.15;
+    final scale = scrollFactor > 80 ? 0.96 : 1 - ((scrollFactor / 80) * 0.04);
+    final glowOpacity = (0.08 + (scrollFactor / 220) * 0.12).clamp(0.08, 0.2);
+
+    return Transform.translate(
+      offset: Offset(0, parallaxY),
+      child: Transform.scale(
+        scale: scale,
+        alignment: Alignment.topCenter,
+        child: Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(glowOpacity),
+            blurRadius: 24,
+            spreadRadius: 1,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +356,7 @@ class _HeroCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
+      )),
     );
   }
 }
@@ -463,7 +537,11 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                       ],
                     ),
                   ),
-                  Column(
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutBack,
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(_formatCurrency(market.totalPrice), style: Theme.of(context).textTheme.titleLarge),
@@ -475,7 +553,7 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     ],
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -505,13 +583,18 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                         color: cs.surfaceContainerHighest,
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic,
-                            width: MediaQuery.of(context).size.width * (0.2 + (normalized * 0.55)),
-                            decoration: BoxDecoration(
-                              color: widget.rank == 1 ? cs.primary : cs.secondary,
-                              borderRadius: BorderRadius.circular(999),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) => TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: 0.2 + (normalized * 0.55)),
+                              duration: const Duration(milliseconds: 420),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) => Container(
+                                width: constraints.maxWidth * value,
+                                decoration: BoxDecoration(
+                                  color: widget.rank == 1 ? cs.primary : cs.secondary,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -527,39 +610,43 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
               ),
             ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            child: !_expanded
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Column(
-                      children: [
-                        for (final line in market.lines)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(line.productName),
-                            subtitle: Text('${line.quantity} adet × ${_formatCurrency(line.unitPrice)}'),
-                            trailing: Text(_formatCurrency(line.lineTotal)),
-                          ),
-                        if (market.missingCount > 0)
-                          for (var index = 0; index < market.missingCount; index++)
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutBack,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              opacity: _expanded ? 1 : 0,
+              child: !_expanded
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        children: [
+                          for (final line in market.lines)
                             ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                'Ürün #${index + 1}',
-                                style: TextStyle(color: cs.onSurfaceVariant),
-                              ),
-                              trailing: Text(
-                                'Fiyat yok',
-                                style: TextStyle(color: cs.onSurfaceVariant),
-                              ),
+                              title: Text(line.productName),
+                              subtitle: Text('${line.quantity} adet × ${_formatCurrency(line.unitPrice)}'),
+                              trailing: Text(_formatCurrency(line.lineTotal)),
                             ),
-                      ],
+                          if (market.missingCount > 0)
+                            for (var index = 0; index < market.missingCount; index++)
+                              ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  'Ürün #${index + 1}',
+                                  style: TextStyle(color: cs.onSurfaceVariant),
+                                ),
+                                trailing: Text(
+                                  'Fiyat yok',
+                                  style: TextStyle(color: cs.onSurfaceVariant),
+                                ),
+                              ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
         ],
       ),
@@ -598,7 +685,7 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bu sepet için yeterli fiyat verisi yok', style: Theme.of(context).textTheme.titleMedium),
+              Text('Yeterli fiyat verisi yok', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               if (state.missingProducts.isNotEmpty) ...[
                 Text('Fiyatı olmayan ürünler', style: Theme.of(context).textTheme.labelLarge),
@@ -639,6 +726,11 @@ class _EmptyState extends StatelessWidget {
       ],
     );
   }
+}
+
+String _buildShareText(List<CartMarketResultSummary> markets) {
+  final rows = markets.map((m) => '${m.storeName} ${_formatCurrency(m.totalPrice)}').join(' | ');
+  return 'FiyatSepeti Sonuç: $rows';
 }
 
 class _ErrorState extends StatelessWidget {

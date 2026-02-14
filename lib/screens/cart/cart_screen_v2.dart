@@ -308,7 +308,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
   }
 }
 
-class _CartTabContent extends StatelessWidget {
+class _CartTabContent extends StatefulWidget {
   const _CartTabContent({
     required this.viewModel,
     required this.itemCount,
@@ -324,39 +324,63 @@ class _CartTabContent extends StatelessWidget {
   final VoidCallback onCalculate;
 
   @override
+  State<_CartTabContent> createState() => _CartTabContentState();
+}
+
+class _CartTabContentState extends State<_CartTabContent> {
+  late final ScrollController _scrollController;
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()
+      ..addListener(() {
+        setState(() => _scrollOffset = _scrollController.offset.clamp(0, 220));
+      });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Expanded(
           child: CustomScrollView(
+            controller: _scrollController,
             slivers: [
               CartCollapsibleHeader(
-                itemCount: itemCount,
+                itemCount: widget.itemCount,
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 sliver: SliverToBoxAdapter(
-                  child: viewModel.isLoadingItems
+                  child: widget.viewModel.isLoadingItems
                       ? const Center(
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: CircularProgressIndicator(),
                           ),
                         )
-                      : viewModel.items.isEmpty
-                          ? _EmptyState(onAdd: onAddProduct)
+                      : widget.viewModel.items.isEmpty
+                          ? _EmptyState(onAdd: widget.onAddProduct)
                           : Column(
                               children: [
-                                for (final item in viewModel.items)
+                                for (final item in widget.viewModel.items)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
                                     child: CartItemCard(
                                       item: item,
-                                      product: viewModel.productMap[item.productId],
+                                      product: widget.viewModel.productMap[item.productId],
                                       lastKnownPrice: item.lastKnownPrice,
                                       onQuantityChanged: (qty) =>
-                                          viewModel.updateQuantity(item.productId, qty),
-                                      onRemove: () => viewModel.updateQuantity(item.productId, 0),
+                                          widget.viewModel.updateQuantity(item.productId, qty),
+                                      onRemove: () => widget.viewModel.updateQuantity(item.productId, 0),
                                     ),
                                   ),
                               ],
@@ -367,11 +391,12 @@ class _CartTabContent extends StatelessWidget {
           ),
         ),
         CartBottomSummaryBar(
-          itemCount: itemCount,
-          estimatedTotal: estimatedTotal,
-          isLoading: viewModel.isCalculating,
-          onAddProduct: onAddProduct,
-          onCalculate: onCalculate,
+          itemCount: widget.itemCount,
+          estimatedTotal: widget.estimatedTotal,
+          isLoading: widget.viewModel.isCalculating,
+          onAddProduct: widget.onAddProduct,
+          onCalculate: widget.onCalculate,
+          scrollOffset: _scrollOffset,
         ),
       ],
     );
@@ -701,6 +726,7 @@ class CartBottomSummaryBar extends StatelessWidget {
     required this.isLoading,
     required this.onAddProduct,
     required this.onCalculate,
+    required this.scrollOffset,
   });
 
   final int itemCount;
@@ -708,28 +734,42 @@ class CartBottomSummaryBar extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onAddProduct;
   final VoidCallback onCalculate;
+  final double scrollOffset;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final totalLabel = estimatedTotal.hasMissingPrices
-        ? 'Kısmi toplam: ${formatTRY(estimatedTotal.total, trailingSymbol: true, keepTrailingZeros: true)} • Eksik fiyat: ${estimatedTotal.missingPriceCount} ürün'
-        : 'Tahmini toplam: ${formatTRY(estimatedTotal.total, trailingSymbol: true, keepTrailingZeros: true)}';
+    final blurTarget = scrollOffset > 120 ? 18.0 : 8.0;
+    final shadowOpacity = (0.08 + (scrollOffset / 240) * 0.12).clamp(0.08, 0.2);
+    final sweepOpacity = (0.12 - (scrollOffset / 260) * 0.06).clamp(0.04, 0.12);
+    final totalPrefix = estimatedTotal.hasMissingPrices ? 'Kısmi toplam' : 'Tahmini toplam';
+    final totalSuffix = estimatedTotal.hasMissingPrices ? ' • Eksik: ${estimatedTotal.missingPriceCount} ürün' : '';
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 8, end: blurTarget),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        builder: (context, blur, _) => ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+            child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: cs.surface.withOpacity(0.74),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
+              boxShadow: [
+                BoxShadow(color: cs.shadow.withOpacity(shadowOpacity), blurRadius: 20 + scrollOffset * 0.08, offset: const Offset(0, 10)),
+              ],
             ),
-            child: Column(
+            child: RepaintBoundary(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _SummaryLightSweep(opacity: sweepOpacity)),
+                  Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (isLoading)
@@ -748,27 +788,28 @@ class CartBottomSummaryBar extends StatelessWidget {
                         children: [
                           Text('$itemCount ürün', style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 4),
-                          Text(
-                            totalLabel,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
+                          Row(children: [
+                            Text('$totalPrefix: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                            Expanded(child: _AnimatedCurrency(value: estimatedTotal.total)),
+                            if (totalSuffix.isNotEmpty)
+                              Text(totalSuffix, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                          ]),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-                      icon: isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.auto_graph_rounded),
-                      label: const Text('Hesapla'),
+                    _PressScale(
+                      child: FilledButton.icon(
+                        onPressed: itemCount == 0 || isLoading ? null : onCalculate,
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_graph_rounded),
+                        label: const Text('Hesapla'),
+                      ),
                     ),
                     IconButton(
                       onPressed: onAddProduct,
@@ -777,11 +818,113 @@ class CartBottomSummaryBar extends StatelessWidget {
                     ),
                   ],
                 ),
-              ],
+              ]),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedCurrency extends StatelessWidget {
+  const _AnimatedCurrency({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedValue, _) {
+        final formatted = formatTRY(animatedValue, trailingSymbol: false, keepTrailingZeros: true);
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.98, end: 1),
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutBack,
+          builder: (_, scale, child) => Transform.scale(scale: scale, alignment: Alignment.centerLeft, child: child),
+          child: RichText(
+            text: TextSpan(
+              style: textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
+              children: [
+                TextSpan(text: formatted, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                TextSpan(text: ' ₺', style: textTheme.bodySmall),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SummaryLightSweep extends StatefulWidget {
+  const _SummaryLightSweep({required this.opacity});
+
+  final double opacity;
+
+  @override
+  State<_SummaryLightSweep> createState() => _SummaryLightSweepState();
+}
+
+class _SummaryLightSweepState extends State<_SummaryLightSweep> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))
+    ..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final x = -1.2 + (_controller.value * 2.4);
+          return Transform.translate(
+            offset: Offset(MediaQuery.sizeOf(context).width * x, 0),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Container(
+                width: 120,
+                height: 2,
+                color: cs.onSurface.withOpacity(widget.opacity),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PressScale extends StatefulWidget {
+  const _PressScale({required this.child});
+  final Widget child;
+
+  @override
+  State<_PressScale> createState() => _PressScaleState();
+}
+
+class _PressScaleState extends State<_PressScale> {
+  double _scale = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _scale = 0.98),
+      onTapCancel: () => setState(() => _scale = 1),
+      onTapUp: (_) => setState(() => _scale = 1),
+      child: AnimatedScale(scale: _scale, duration: const Duration(milliseconds: 140), curve: Curves.easeOutCubic, child: widget.child),
     );
   }
 }
