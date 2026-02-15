@@ -1,13 +1,13 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/points_service.dart';
 import '../../utils/theme.dart';
+import '../add_price/add_price_screen.dart';
 import '../auth/login_screen.dart';
 
 final _pointsServiceProvider = Provider<PointsService>((ref) => PointsService());
@@ -20,55 +20,15 @@ class PointsScreen extends ConsumerStatefulWidget {
 }
 
 class _PointsScreenState extends ConsumerState<PointsScreen> {
-  final Set<String> _seenEarnedBadges = <String>{};
-  final List<PointsActivityItem> _activities = [];
-  DocumentSnapshot<Map<String, dynamic>>? _activityCursor;
-  bool _hasMore = true;
-  bool _isLoadingMore = false;
-  bool _badgeSeeded = false;
-  String? _activityError;
-
-
-  Future<void> _loadMoreActivity(String uid) async {
-    if (_isLoadingMore || !_hasMore) return;
-    setState(() {
-      _isLoadingMore = true;
-      _activityError = null;
-    });
-    try {
-      final page = await ref.read(_pointsServiceProvider).streamPointsActivity(uid, startAfter: _activityCursor);
-      setState(() {
-        _activities.addAll(page.items);
-        _activityCursor = page.lastDocument;
-        _hasMore = page.hasMore;
-      });
-    } on FirebaseException catch (e) {
-      setState(() => _activityError = _firebaseMessage(e));
-    } catch (_) {
-      setState(() => _activityError = 'Aktivite listesi yüklenirken beklenmeyen bir hata oluştu.');
-    } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
-    }
-  }
-
-  String _firebaseMessage(FirebaseException e) {
-    switch (e.code) {
-      case 'permission-denied':
-        return 'Bu alanı görüntüleme izniniz bulunmuyor.';
-      case 'unavailable':
-        return 'Sunucuya ulaşılamadı. Lütfen internet bağlantınızı kontrol edin.';
-      default:
-        return 'Veriler alınırken bir sorun oluştu.';
-    }
-  }
+  final Set<String> _seenUnlocked = <String>{};
+  bool _seeded = false;
 
   @override
   Widget build(BuildContext context) {
-    final userAsync = ref.watch(authStateProvider);
-
-    return userAsync.when(
-      data: (authUser) {
-        if (authUser == null) {
+    final authAsync = ref.watch(authStateProvider);
+    return authAsync.when(
+      data: (user) {
+        if (user == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Puanlar')),
             body: Center(
@@ -79,120 +39,87 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
             ),
           );
         }
-
-        final service = ref.read(_pointsServiceProvider);
-        return Scaffold(
-          appBar: AppBar(title: const Text('Puanlar')),
-          body: StreamBuilder<UserPointsProfile>(
-            stream: service.getUserPointsProfile(authUser.uid),
-            builder: (context, profileSnapshot) {
-              if (profileSnapshot.hasError) {
-                final message = profileSnapshot.error is FirebaseException
-                    ? _firebaseMessage(profileSnapshot.error! as FirebaseException)
-                    : 'Profil bilgileri çözümlenemedi.';
-                return _SectionState(message: message, icon: Icons.error_outline);
-              }
-              if (!profileSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final profile = profileSnapshot.data!;
-              return StreamBuilder<List<PointsBadgeView>>(
-                stream: service.streamBadges(profile.uid),
-                builder: (context, badgesSnapshot) {
-                  final badges = badgesSnapshot.data ?? const <PointsBadgeView>[];
-                  _notifyNewBadge(badges);
-                  return StreamBuilder<List<PointsRule>>(
-                    stream: service.streamPointsRules(),
-                    builder: (context, rulesSnapshot) {
-                      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: service.pointsActivityQuery(profile.uid).snapshots(),
-                        builder: (context, activitySnapshot) {
-                          List<PointsActivityItem> firstPage = const [];
-                          if (activitySnapshot.hasData) {
-                            final docs = activitySnapshot.data!.docs;
-                            firstPage = docs
-                                .map(
-                                  (doc) => PointsActivityItem(
-                                    id: doc.id,
-                                    type: (doc.data()['type'] as String?) ?? 'other',
-                                    title: (doc.data()['title'] as String?) ?? 'Aktivite',
-                                    points: (doc.data()['points'] as num?)?.toInt() ?? 0,
-                                    createdAt: (doc.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-                                    meta: (doc.data()['meta'] as Map<String, dynamic>?) ?? const {},
-                                  ),
-                                )
-                                .toList();
-                            _activityCursor = docs.isNotEmpty ? docs.last : null;
-                            _hasMore = docs.length >= 20;
-                            _activities
-                              ..clear()
-                              ..addAll(firstPage);
-                          }
-
-                          return ListView(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            children: [
-                              PointsHeroSemiRing(profile: profile, weeklyPoints: _weeklyPoints(firstPage)),
-                              const SizedBox(height: AppSpacing.xl),
-                              BadgesGrid(
-                                badges: badges,
-                                loading: badgesSnapshot.connectionState == ConnectionState.waiting && badges.isEmpty,
-                                error: badgesSnapshot.error,
-                              ),
-                              const SizedBox(height: AppSpacing.xl),
-                              GoalsCards(activities: firstPage),
-                              const SizedBox(height: AppSpacing.xl),
-                              PointsRulesList(
-                                rules: rulesSnapshot.data ?? const [],
-                                loading: rulesSnapshot.connectionState == ConnectionState.waiting,
-                                error: rulesSnapshot.error,
-                              ),
-                              const SizedBox(height: AppSpacing.xl),
-                              ActivityTimeline(
-                                initialActivities: _activities,
-                                loading: activitySnapshot.connectionState == ConnectionState.waiting,
-                                error: activitySnapshot.error ?? _activityError,
-                                isLoadingMore: _isLoadingMore,
-                                hasMore: _hasMore,
-                                onLoadMore: () => _loadMoreActivity(profile.uid),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
+        final pointsService = ref.read(_pointsServiceProvider);
+        return FutureBuilder<void>(
+          future: pointsService.ensurePointsDefaultsSeeded(),
+          builder: (context, seedSnap) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Puanlar')),
+              body: SafeArea(
+                child: StreamBuilder<UserPointsProfile>(
+                  stream: pointsService.streamUserProfile(user.uid),
+                  builder: (context, profileSnap) {
+                    final profile = profileSnap.data;
+                    return StreamBuilder<List<PointsRule>>(
+                      stream: pointsService.streamPointsRules(),
+                      builder: (context, rulesSnap) {
+                        return StreamBuilder<List<PointsBadge>>(
+                          stream: pointsService.streamBadges(user.uid),
+                          builder: (context, badgeSnap) {
+                            final badges = badgeSnap.data ?? const <PointsBadge>[];
+                            _notifyBadgeUnlock(badges);
+                            return StreamBuilder<List<PointsActivityItem>>(
+                              stream: pointsService.streamActivity(user.uid),
+                              builder: (context, activitySnap) {
+                                final activities = activitySnap.data ?? const <PointsActivityItem>[];
+                                return ListView(
+                                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 120),
+                                  children: [
+                                    if (profile == null) const _SkeletonCard(height: 260) else _HeroCard(profile: profile, activities: activities),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _GoalsCard(
+                                      profile: profile,
+                                      activities: activities,
+                                      onPriceGoalTap: _goToAddPrice,
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _RulesCard(rules: rulesSnap.data ?? const []),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _BadgesCard(badges: badges),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            );
+          },
         );
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, _) => Scaffold(body: Center(child: Text('Oturum alınamadı: $error'))),
+      error: (_, __) => const Scaffold(body: SizedBox.shrink()),
     );
   }
 
-  int _weeklyPoints(List<PointsActivityItem> items) {
-    final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-    return items.where((e) => e.createdAt.isAfter(weekAgo)).fold(0, (sum, item) => sum + item.points);
+  void _goToAddPrice() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const AddPriceScreen()));
   }
 
-  void _notifyNewBadge(List<PointsBadgeView> badges) {
+  void _notifyBadgeUnlock(List<PointsBadge> badges) {
     if (!mounted) return;
-    final earnedNow = badges.where((b) => b.isEarned).toList();
-    if (!_badgeSeeded) {
-      _seenEarnedBadges.addAll(earnedNow.map((e) => e.definition.id));
-      _badgeSeeded = true;
+    final unlocked = badges.where((e) => e.isUnlocked).toList();
+    if (!_seeded) {
+      _seenUnlocked.addAll(unlocked.map((e) => e.id));
+      _seeded = true;
       return;
     }
-    for (final badge in earnedNow) {
-      if (_seenEarnedBadges.add(badge.definition.id)) {
+    for (final badge in unlocked) {
+      if (_seenUnlocked.add(badge.id)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('🎉 Yeni rozet kazandın: ${badge.definition.title}')),
+          showDialog<void>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Yeni rozet kazandın!'),
+              content: Text(badge.title),
+            ),
           );
         });
       }
@@ -200,395 +127,367 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
   }
 }
 
-class PointsHeroSemiRing extends StatelessWidget {
-  const PointsHeroSemiRing({super.key, required this.profile, required this.weeklyPoints});
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.profile, required this.activities});
 
   final UserPointsProfile profile;
-  final int weeklyPoints;
+  final List<PointsActivityItem> activities;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: const [AppShadows.medium],
-      ),
+    final weekly = activities.where((e) => e.createdAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold<int>(0, (s, e) => s + e.points);
+    return _SectionCard(
       child: Column(
         children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: profile.ringProgress),
-            duration: const Duration(milliseconds: 820),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, _) {
-              return SizedBox(
-                width: 240,
-                height: 130,
-                child: CustomPaint(
-                  painter: _SemiRingPainter(progress: value),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TweenAnimationBuilder<int>(
-                          tween: IntTween(begin: 0, end: profile.totalPoints),
-                          duration: const Duration(milliseconds: 800),
-                          builder: (_, points, __) => Text('$points', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w700)),
-                        ),
-                        const Text('Puan', style: TextStyle(color: AppColors.textSecondary)),
-                        const SizedBox(height: 6),
-                        Chip(label: Text('${profile.tier} Üye'), visualDensity: VisualDensity.compact),
-                      ],
-                    ),
+          SizedBox(
+            height: 210,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 220,
+                  height: 220,
+                  child: CustomPaint(painter: _RingPainter(progress: profile.progress)),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${profile.totalPoints}', style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: -1)),
+                      const Text('Puan', style: TextStyle(color: AppColors.textSecondary)),
+                    ],
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text('${profile.nextTier} seviyeye ${profile.remainingPoints} puan kaldı', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            alignment: WrapAlignment.center,
+            children: [
+              Chip(label: Text(profile.level)),
+              if (profile.nextLevel != null)
+                Chip(label: Text('Sonraki: ${profile.nextLevel!.title}')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (profile.nextLevel != null)
+            Text('Kalan: ${profile.remainingForNextLevel} puan', style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('Bu hafta +$weeklyPoints puan', style: const TextStyle(color: AppColors.textSecondary)),
+          Text(
+            weekly == 0 ? 'Bu hafta henüz puan yok' : 'Bu hafta +$weekly puan',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
   }
 }
 
-class _SemiRingPainter extends CustomPainter {
-  const _SemiRingPainter({required this.progress});
-  final double progress;
+class _GoalsCard extends StatelessWidget {
+  const _GoalsCard({required this.profile, required this.activities, required this.onPriceGoalTap});
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(8, 8, size.width - 16, (size.width - 16));
-    final bg = Paint()
-      ..color = const Color(0xFFEFE3D7)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 13;
-    final fg = Paint()
-      ..color = const Color(0xFFD6A84B)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 13;
-    canvas.drawArc(rect, math.pi, math.pi, false, bg);
-    canvas.drawArc(rect, math.pi, math.pi * progress.clamp(0, 1), false, fg);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SemiRingPainter oldDelegate) => oldDelegate.progress != progress;
-}
-
-class BadgesGrid extends StatelessWidget {
-  const BadgesGrid({super.key, required this.badges, required this.loading, required this.error});
-
-  final List<PointsBadgeView> badges;
-  final bool loading;
-  final Object? error;
+  final UserPointsProfile? profile;
+  final List<PointsActivityItem> activities;
+  final VoidCallback onPriceGoalTap;
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = activities.where((a) => a.createdAt.year == now.year && a.createdAt.month == now.month && a.createdAt.day == now.day);
+    final price = today.where((a) => a.type == 'price_add').length;
+    final verify = today.where((a) => a.type == 'verification').length;
+    final weekStreak = _weekStreak(activities);
+
     return _SectionCard(
-      title: 'Başarılarım',
-      child: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? _SectionState(message: 'Rozetler şu an yüklenemiyor.', icon: Icons.error_outline)
-              : badges.isEmpty
-                  ? const _SectionState(message: 'Henüz rozet tanımı yok.', icon: Icons.workspace_premium_outlined)
-                  : GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: math.min(8, badges.length),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                      itemBuilder: (context, index) {
-                        final badge = badges[index];
-                        final earned = badge.isEarned;
-                        return InkWell(
-                          onTap: () => _showBadgeSheet(context, badge),
-                          child: Opacity(
-                            opacity: earned ? 1 : 0.4,
-                            child: Container(
-                              decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.md)),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Icon(_iconFor(badge.definition.iconKey), color: AppColors.primary),
-                                  if (!earned) const Positioned(right: 6, top: 6, child: Icon(Icons.lock, size: 14)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-    );
-  }
-
-  IconData _iconFor(String key) {
-    switch (key) {
-      case 'flame':
-        return Icons.local_fire_department;
-      case 'diamond':
-        return Icons.diamond_outlined;
-      default:
-        return Icons.bolt;
-    }
-  }
-
-  void _showBadgeSheet(BuildContext context, PointsBadgeView badge) {
-    final earnedText = badge.userBadge?.earnedAt == null
-        ? 'Henüz kazanılmadı'
-        : 'Kazanıldı: ${DateFormat('d MMMM y', 'tr_TR').format(badge.userBadge!.earnedAt!)}';
-    final progress = badge.userBadge?.progress ?? 0;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      title: 'Hedefler',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
           children: [
-            Text(badge.definition.title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(badge.definition.description),
-            const SizedBox(height: 12),
-            Text('İlerleme: $progress/${badge.definition.requirementTarget}'),
-            const SizedBox(height: 6),
-            Text(earnedText, style: const TextStyle(color: AppColors.textSecondary)),
+            _GoalChip(title: 'Bugün Fiyat', progress: '$price/1', reward: '+5', onTap: onPriceGoalTap),
+            const SizedBox(width: AppSpacing.sm),
+            _GoalChip(title: 'Bugün Doğrulama', progress: '$verify/1', reward: '+2'),
+            const SizedBox(width: AppSpacing.sm),
+            _GoalChip(title: 'Hafta Seri', progress: '$weekStreak/7', reward: '+2'),
           ],
         ),
       ),
     );
   }
-}
 
-class GoalsCards extends StatelessWidget {
-  const GoalsCards({super.key, required this.activities});
-
-  final List<PointsActivityItem> activities;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = activities.where((a) => a.createdAt.day == now.day && a.createdAt.month == now.month && a.createdAt.year == now.year).toList();
-    final week = activities.where((a) => a.createdAt.isAfter(now.subtract(const Duration(days: 7)))).toList();
-
-    final addedToday = today.where((a) => a.type == 'price_add').length;
-    final verifyToday = today.where((a) => a.type == 'verification').length;
-    final streak = _calculateStreak(week);
-
-    return _SectionCard(
-      title: 'Hedefler',
-      child: Row(
-        children: [
-          _goal('Bugün', 'Fiyat ekle', '$addedToday/1', '+5'),
-          const SizedBox(width: 8),
-          _goal('Bugün', 'Doğrulama yap', '$verifyToday/1', '+5'),
-          const SizedBox(width: 8),
-          _goal('Hafta', 'Seri', '$streak/7', ''),
-        ],
-      ),
-    );
-  }
-
-  Widget _goal(String badge, String title, String progress, String point) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.md)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(badge, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          Text(progress),
-          if (point.isNotEmpty) Text(point, style: const TextStyle(color: AppColors.primary)),
-        ]),
-      ),
-    );
-  }
-
-  int _calculateStreak(List<PointsActivityItem> week) {
-    final uniqueDays = week.map((e) => DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day)).toSet();
-    var streak = 0;
-    for (var i = 0; i < 7; i++) {
-      final day = DateTime.now().subtract(Duration(days: i));
-      if (uniqueDays.contains(DateTime(day.year, day.month, day.day))) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    return streak;
+  int _weekStreak(List<PointsActivityItem> items) {
+    final meaningful = items.where((e) => e.type == 'price_add' || e.type == 'verification').toList();
+    final days = meaningful.map((e) => DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day)).toSet().length;
+    return days.clamp(0, 7);
   }
 }
 
-class PointsRulesList extends StatelessWidget {
-  const PointsRulesList({super.key, required this.rules, required this.loading, required this.error});
+class _RulesCard extends StatelessWidget {
+  const _RulesCard({required this.rules});
 
   final List<PointsRule> rules;
-  final bool loading;
-  final Object? error;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Puan Nasıl Kazanılır?',
-      child: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? const _SectionState(message: 'Kural listesi getirilemedi.', icon: Icons.rule_folder_outlined)
-              : rules.isEmpty
-                  ? const _SectionState(message: 'Aktif puan kuralı bulunmuyor.', icon: Icons.rule)
-                  : Column(
-                      children: rules
-                          .map(
-                            (rule) => ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.bolt),
-                              title: Text(rule.title),
-                              subtitle: Text('${rule.description}${rule.dailyLimit != null ? '\nGünlük limit: ${rule.dailyLimit}' : ''}'),
-                              trailing: Text('+${rule.points}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                            ),
-                          )
-                          .toList(),
+      child: rules.isEmpty
+          ? const _PremiumEmpty(icon: Icons.auto_awesome, title: 'Kurallar hazırlanıyor', subtitle: 'Yeni görevler yakında burada görünecek.')
+          : Column(
+              children: rules
+                  .map(
+                    (e) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.bolt_rounded, color: AppColors.primary),
+                      title: Text(e.title),
+                      subtitle: Text(e.description),
+                      trailing: Text('+${e.points}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
+                  )
+                  .toList(),
+            ),
     );
   }
 }
 
-class ActivityTimeline extends StatelessWidget {
-  const ActivityTimeline({
-    super.key,
-    required this.initialActivities,
-    required this.loading,
-    required this.error,
-    required this.isLoadingMore,
-    required this.hasMore,
-    required this.onLoadMore,
-  });
+class _BadgesCard extends StatelessWidget {
+  const _BadgesCard({required this.badges});
 
-  final List<PointsActivityItem> initialActivities;
-  final bool loading;
-  final Object? error;
-  final bool isLoadingMore;
-  final bool hasMore;
-  final VoidCallback onLoadMore;
+  final List<PointsBadge> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final display = badges.isEmpty
+        ? List<PointsBadge>.generate(
+            5,
+            (i) => const PointsBadge(
+              id: 'locked',
+              title: 'Kilitli',
+              description: 'Yakında',
+              iconKey: 'star',
+              unlockCondition: '',
+              isActive: true,
+            ),
+          )
+        : badges;
+
+    return _SectionCard(
+      title: 'Başarılarım',
+      child: SizedBox(
+        height: 115,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemBuilder: (context, index) => _BadgeTile(badge: display[index]),
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+          itemCount: display.length,
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({required this.activities, required this.onCtaTap});
+
+  final List<PointsActivityItem> activities;
+  final VoidCallback onCtaTap;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Aktivite',
-      child: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? const _SectionState(message: 'Aktivite akışı yüklenemedi.', icon: Icons.timeline)
-              : initialActivities.isEmpty
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Henüz aktivite yok. İlk fiyatını ekle ve puan kazanmaya başla.'),
-                        const SizedBox(height: 8),
-                        OutlinedButton(onPressed: () {}, child: const Text('İlk katkını yap')),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ..._grouped(context, initialActivities),
-                        if (hasMore)
-                          TextButton(
-                            onPressed: isLoadingMore ? null : onLoadMore,
-                            child: Text(isLoadingMore ? 'Yükleniyor...' : 'Daha fazla'),
-                          ),
-                      ],
+      child: activities.isEmpty
+          ? Column(
+              children: [
+                const _PremiumEmpty(icon: Icons.local_fire_department_outlined, title: 'Henüz aktivite yok', subtitle: 'İlk katkınla puan yolculuğunu başlat.'),
+                const SizedBox(height: AppSpacing.sm),
+                FilledButton(onPressed: onCtaTap, child: const Text('İlk katkını yap')),
+              ],
+            )
+          : Column(
+              children: activities
+                  .map(
+                    (e) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(radius: 14, backgroundColor: AppColors.surfaceVariant, child: const Icon(Icons.bolt, size: 14)),
+                      title: Text(_activityLabel(e.type)),
+                      trailing: Text('+${e.points}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
+                  )
+                  .toList(),
+            ),
     );
   }
 
-  List<Widget> _grouped(BuildContext context, List<PointsActivityItem> items) {
-    final map = <String, List<PointsActivityItem>>{'Bugün': [], 'Dün': [], 'Bu Hafta': [], 'Daha Eski': []};
-    final now = DateTime.now();
-    for (final item in items) {
-      final diff = now.difference(item.createdAt);
-      if (diff.inDays == 0) {
-        map['Bugün']!.add(item);
-      } else if (diff.inDays == 1) {
-        map['Dün']!.add(item);
-      } else if (diff.inDays < 7) {
-        map['Bu Hafta']!.add(item);
-      } else {
-        map['Daha Eski']!.add(item);
-      }
+  String _activityLabel(String type) {
+    switch (type) {
+      case 'price_add':
+        return 'Fiyat ekledin';
+      case 'verification':
+        return 'Doğrulama yaptın';
+      case 'comment':
+        return 'Yorum yaptın';
+      case 'report_confirmed':
+        return 'Bildirimin onaylandı';
+      case 'invite_reward':
+        return 'Arkadaş daveti ödülü';
+      case 'streak_bonus':
+        return 'Seri bonusu kazandın';
+      default:
+        return 'Katkı yaptın';
     }
+  }
+}
 
-    final widgets = <Widget>[];
-    map.forEach((title, list) {
-      if (list.isEmpty) return;
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      ));
-      widgets.addAll(
-        list.map(
-          (item) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.fiber_manual_record, size: 10),
-            title: Text(item.title),
-            subtitle: Text(_relative(item.createdAt)),
-            trailing: Text('+${item.points}'),
-          ),
-        ),
-      );
-    });
-    return widgets;
+class _RingPainter extends CustomPainter {
+  const _RingPainter({required this.progress});
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 14;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 16
+      ..color = const Color(0xFFEFE5DB);
+    final fill = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 16
+      ..shader = const LinearGradient(colors: [Color(0xFFD4AF6D), Color(0xFFB8863B)]).createShader(rect);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, track);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress.clamp(0, 1), false, fill);
   }
 
-  String _relative(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    if (diff.inHours < 24) return '${diff.inHours} saat önce';
-    return DateFormat('d MMM', 'tr_TR').format(date);
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+class _GoalChip extends StatelessWidget {
+  const _GoalChip({required this.title, required this.progress, required this.reward, this.onTap});
+
+  final String title;
+  final String progress;
+  final String reward;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Ink(
+        width: 150,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(progress, style: const TextStyle(color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          Text(reward, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _BadgeTile extends StatelessWidget {
+  const _BadgeTile({required this.badge});
+
+  final PointsBadge badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = badge.isUnlocked;
+    return Container(
+      width: 98,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: BackdropFilter(
+          filter: unlocked ? ImageFilter.blur(sigmaX: 0, sigmaY: 0) : ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(unlocked ? Icons.workspace_premium_rounded : Icons.lock_outline, color: AppColors.primary),
+              const SizedBox(height: 6),
+              Text(unlocked ? badge.title : 'Kilitli', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(unlocked ? 'Açıldı' : 'Yakında', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-
-  final String title;
+  const _SectionCard({this.title, required this.child});
+  final String? title;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.xl), boxShadow: const [AppShadows.small]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
-        child,
-      ]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        boxShadow: const [AppShadows.small],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
+            Text(title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          child,
+        ],
+      ),
     );
   }
 }
 
-class _SectionState extends StatelessWidget {
-  const _SectionState({required this.message, required this.icon});
+class _PremiumEmpty extends StatelessWidget {
+  const _PremiumEmpty({required this.icon, required this.title, required this.subtitle});
 
-  final String message;
   final IconData icon;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: AppColors.textSecondary),
-        const SizedBox(height: 8),
-        Text(message, textAlign: TextAlign.center),
-      ]),
+    return Column(
+      children: [
+        Icon(icon, color: AppColors.secondaryDark),
+        const SizedBox(height: AppSpacing.sm),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+      ],
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({required this.height});
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.xl)),
     );
   }
 }

@@ -21,6 +21,7 @@ import '../models/actual_item_model.dart';
 import '../models/actual_model.dart';
 import '../utils/safe_query_builder.dart';
 import '../services/storage_service.dart';
+import 'points_service.dart';
 
 class DuplicatePriceException implements Exception {
   const DuplicatePriceException(this.message);
@@ -32,6 +33,7 @@ class DuplicatePriceException implements Exception {
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PointsService _pointsService = PointsService();
   final Set<String> _offFetchInFlight = <String>{};
 
   void _logFirestoreQueryError(
@@ -742,6 +744,18 @@ class FirestoreService {
   }
 
   Future<String> addPriceReport(PriceModel price) async {
+    final duplicateSince = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 24)));
+    final duplicateQuery = await _pricesRef
+        .where('productId', isEqualTo: price.productId)
+        .where('branchStoreId', isEqualTo: price.branchStoreId)
+        .where('price', isEqualTo: price.price)
+        .where('createdAt', isGreaterThanOrEqualTo: duplicateSince)
+        .limit(1)
+        .get();
+    if (duplicateQuery.docs.isNotEmpty) {
+      throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');
+    }
+
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
@@ -768,6 +782,7 @@ class FirestoreService {
     );
 
     final priceRef = _pricesRef.doc();
+    final priceEntryRef = _firestore.collection('price_entries').doc(priceRef.id);
     final uniqueRef = _priceUniqueKeysRef.doc(uniqueKey);
     final dedupeRef = _priceDedupeKeysRef.doc(dedupeKey);
 
@@ -784,6 +799,19 @@ class FirestoreService {
       payload['uniqueKey'] = uniqueKey;
       payload['verificationStatus'] = payload['verificationStatus'] ?? 'pending';
       txn.set(priceRef, payload);
+      txn.set(priceEntryRef, {
+        'productId': price.productId,
+        'storeId': price.chainId,
+        'branchId': price.branchStoreId,
+        'price': price.price,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdByUid': price.userId,
+        'createdByName': price.userName,
+        'createdByTrustScore': price.addedByTrustScoreSnapshot,
+        'verificationUp': 0,
+        'verificationDown': 0,
+        'verifiedBy': <String, String>{},
+      });
       txn.set(uniqueRef, {
         'uniqueKey': uniqueKey,
         'priceReportId': priceRef.id,
@@ -831,6 +859,18 @@ class FirestoreService {
     }
 
     print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
+
+    await _pointsService.awardEvent(
+      uid: price.userId,
+      eventType: 'price_add',
+      meta: {
+        'productId': price.productId,
+        'storeId': price.chainId,
+        'branchId': price.branchStoreId,
+        'priceEntryId': priceRef.id,
+      },
+    );
+    await _pointsService.markReferralFirstContribution(price.userId);
 
     return priceRef.id;
   }
@@ -1051,15 +1091,30 @@ class FirestoreService {
   double _toRadians(double degree) => degree * 0.017453292519943295;
 
   Future<void> verifyPrice(String priceId, String voterId, bool isVerified) async {
+    final priceDoc = await _pricesRef.doc(priceId).get();
+    final data = priceDoc.data() ?? <String, dynamic>{};
+    final createdByUid = (data['createdByUid'] ?? data['userId'] ?? '').toString();
+    if (createdByUid == voterId) return;
+    final verifiedBy = List<String>.from(data['verifiedBy'] ?? const []);
+    if (verifiedBy.contains(voterId)) return;
+
     final field = isVerified ? 'verifiedCount' : 'unverifiedCount';
     await _pricesRef.doc(priceId).update({
       field: FieldValue.increment(1),
       'verifiedBy': FieldValue.arrayUnion([voterId]),
     });
-    await _usersRef.doc(voterId).update({
-      'validations': FieldValue.increment(1),
-      'points': FieldValue.increment(AppConstants.pointsForValidation),
-    });
+    await _firestore.collection('price_entries').doc(priceId).set({
+      if (isVerified) 'verificationUp': FieldValue.increment(1),
+      if (!isVerified) 'verificationDown': FieldValue.increment(1),
+      'verifiedBy.$voterId': isVerified ? 'up' : 'down',
+    }, SetOptions(merge: true));
+    await _usersRef.doc(voterId).set({'validations': FieldValue.increment(1)}, SetOptions(merge: true));
+    await _pointsService.awardEvent(
+      uid: voterId,
+      eventType: 'verification',
+      meta: {'priceEntryId': priceId, 'vote': isVerified ? 'up' : 'down'},
+      ensureUniqueByMeta: true,
+    );
   }
 
   /// Upvote a price report
@@ -1124,16 +1179,15 @@ class FirestoreService {
     await _firestore.collection('reports').add({
       'targetType': 'priceEntry',
       'targetId': priceId,
+      'priceEntryId': priceId,
       'contextId': contextId,
       'reason': reason,
       'reporterUserId': userId,
+      'reporterUid': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
       'resolvedBy': null,
       'resolvedAt': null,
-    });
-    await _usersRef.doc(userId).update({
-      'points': FieldValue.increment(AppConstants.pointsForReportPrice),
     });
   }
 
@@ -1202,9 +1256,13 @@ class FirestoreService {
 
   Future<String> addComment(CommentModel comment) async {
     final doc = await _commentsRef.add(comment.toFirestore());
-    await _usersRef.doc(comment.userId).update({
-      'points': FieldValue.increment(AppConstants.pointsForComment),
-    });
+    if (comment.text.trim().length >= 12) {
+      await _pointsService.awardEvent(
+        uid: comment.userId,
+        eventType: 'comment',
+        meta: {'commentId': doc.id, 'productId': comment.productId},
+      );
+    }
     return doc.id;
   }
 
@@ -1628,6 +1686,9 @@ class FirestoreService {
       if (status != 'pending') 'resolvedAt': FieldValue.serverTimestamp(),
       if (resolutionNote != null) 'resolutionNote': resolutionNote,
     });
+    if (status == 'confirmed') {
+      await _pointsService.handleReportConfirmed(reportId);
+    }
   }
 
   Future<void> deleteReport(String reportId) async {

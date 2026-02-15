@@ -1153,8 +1153,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       await firestoreService.addPriceReport(priceModel);
       final authService = ref.read(authServiceProvider);
       await authService.incrementPriceEntries(userModel.uid);
-      await authService.addPoints(
-          userModel.uid, AppConstants.pointsForPriceEntry);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1165,7 +1163,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Fiyat eklendi! +${AppConstants.pointsForPriceEntry} puan kazandiniz',
+                    'Fiyat eklendi! Puanın hesabına işlendi.',
                   ),
                 ),
               ],
