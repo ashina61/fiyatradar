@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
@@ -102,7 +103,7 @@ class StorageService {
 
   Future<Map<String, String>> uploadPackshotVariants({
     required String productId,
-    required List<int> imageBytes,
+    required Uint8List imageBytes,
   }) async {
     final decoded = img.decodeImage(imageBytes);
     if (decoded == null) {
@@ -112,17 +113,17 @@ class StorageService {
     final thumb = img.copyResize(decoded, width: 256);
     final medium = img.copyResize(decoded, width: 768);
 
-    final thumbRef = _storage.ref().child('packshots/$productId/thumb.webp');
-    final mediumRef = _storage.ref().child('packshots/$productId/medium.webp');
+    final thumbRef = _storage.ref().child('packshots/$productId/thumb.jpg');
+    final mediumRef = _storage.ref().child('packshots/$productId/medium.jpg');
 
     final metadata = SettableMetadata(
-      contentType: 'image/webp',
+      contentType: 'image/jpeg',
       cacheControl: 'public,max-age=31536000',
       customMetadata: {'generatedAt': DateTime.now().toIso8601String()},
     );
 
-    await thumbRef.putData(img.encodeWebP(thumb, quality: 86), metadata);
-    await mediumRef.putData(img.encodeWebP(medium, quality: 90), metadata);
+    await thumbRef.putData(Uint8List.fromList(img.encodeJpg(thumb, quality: 86)), metadata);
+    await mediumRef.putData(Uint8List.fromList(img.encodeJpg(medium, quality: 90)), metadata);
 
     return {
       'imageThumbUrl': await thumbRef.getDownloadURL(),
