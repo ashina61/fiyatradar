@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/product_provider.dart';
+import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../models/product_model.dart';
@@ -1173,6 +1174,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           _selectedStore = null;
           _selectedCategory = null;
         });
+      }
+    } on DuplicatePriceException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm)),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

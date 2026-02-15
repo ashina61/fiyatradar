@@ -20,6 +20,8 @@ import '../product/product_detail_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../campaign/campaign_detail_screen.dart';
 import '../campaign/campaigns_screen.dart';
+import '../deals/deals_screen.dart';
+import '../neighborhood/neighborhood_markets_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -70,6 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final recommendedAsync = ref.watch(recommendedProductsProvider);
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
+    final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -121,6 +124,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DealsScreen())),
+                        icon: const Icon(Icons.local_offer_outlined),
+                        label: const Text('Aktüel'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NeighborhoodMarketsScreen())),
+                        icon: const Icon(Icons.storefront_outlined),
+                        label: const Text('Mahalle Pazarları'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.lg),
+                child: recentlyViewedAsync.when(
+                  data: (items) => _buildRecentlyViewedSection(theme, items),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
             ),

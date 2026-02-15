@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
@@ -97,6 +98,39 @@ class PointsScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                LinearProgressIndicator(
+                  value: ((points % 500) / 500).clamp(0, 1),
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                const SizedBox(height: 8),
+                Text('Bir sonraki seviyeye ${500 - (points % 500)} puan kaldı'),
+                const SizedBox(height: AppSpacing.lg),
+                const Text(
+                  'Son Puan Hareketleri',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance.collection('users').doc(user.uid).collection('points_log').orderBy('createdAt', descending: true).limit(10).snapshots(),
+                  builder: (context, snapshot) {
+                    final docs = snapshot.data?.docs ?? const [];
+                    if (docs.isEmpty) return const Text('Henüz puan hareketi yok.');
+                    return Column(
+                      children: docs.map((doc) {
+                        final data = doc.data();
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.bolt, size: 18),
+                          title: Text((data['type'] ?? 'puan').toString()),
+                          trailing: Text('+${data['points'] ?? 0}'),
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 const Text(

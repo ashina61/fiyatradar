@@ -26,6 +26,11 @@ class PriceModel {
   final int unverifiedCount;
   final bool isApproved;
   final bool isPending;
+  final String verificationStatus;
+  final String? userAvatarUrl;
+  final String trustLabel;
+  final int trustPercent;
+  final String? uniqueKey;
 
   PriceModel({
     required this.id,
@@ -51,6 +56,11 @@ class PriceModel {
     this.unverifiedCount = 0,
     this.isApproved = false,
     this.isPending = true,
+    this.verificationStatus = 'pending',
+    this.userAvatarUrl,
+    this.trustLabel = 'Yeni',
+    this.trustPercent = 30,
+    this.uniqueKey,
   });
 
   DateTime get createdAt => reportedAt;
@@ -128,6 +138,11 @@ class PriceModel {
       unverifiedCount: data['unverifiedCount'] ?? 0,
       isApproved: data['isApproved'] ?? false,
       isPending: data['isPending'] ?? true,
+      verificationStatus: (data['verificationStatus'] ?? 'pending').toString(),
+      userAvatarUrl: data['userAvatarUrl'] as String?,
+      trustLabel: (data['trustLabel'] ?? 'Yeni').toString(),
+      trustPercent: (data['trustPercent'] as num?)?.toInt() ?? 30,
+      uniqueKey: data['uniqueKey'] as String?,
     );
   }
 
@@ -164,6 +179,11 @@ class PriceModel {
       'unverifiedCount': unverifiedCount,
       'isApproved': isApproved,
       'isPending': isPending,
+      'verificationStatus': verificationStatus,
+      'userAvatarUrl': userAvatarUrl,
+      'trustLabel': trustLabel,
+      'trustPercent': trustPercent,
+      'uniqueKey': uniqueKey,
     };
   }
 
@@ -191,6 +211,11 @@ class PriceModel {
     int? unverifiedCount,
     bool? isApproved,
     bool? isPending,
+    String? verificationStatus,
+    String? userAvatarUrl,
+    String? trustLabel,
+    int? trustPercent,
+    String? uniqueKey,
   }) {
     return PriceModel(
       id: id ?? this.id,
@@ -216,6 +241,11 @@ class PriceModel {
       unverifiedCount: unverifiedCount ?? this.unverifiedCount,
       isApproved: isApproved ?? this.isApproved,
       isPending: isPending ?? this.isPending,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      userAvatarUrl: userAvatarUrl ?? this.userAvatarUrl,
+      trustLabel: trustLabel ?? this.trustLabel,
+      trustPercent: trustPercent ?? this.trustPercent,
+      uniqueKey: uniqueKey ?? this.uniqueKey,
     );
   }
 
