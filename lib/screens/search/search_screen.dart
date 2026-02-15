@@ -7,6 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/theme.dart';
 import '../../widgets/home_product_card.dart';
 import '../product/product_detail_screen.dart';
+import '../deals/deals_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -57,6 +58,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           child: Column(
             children: [
               _buildSearchBar(theme, state),
+              _buildAktuelCard(theme),
               _buildModeTabs(theme, state),
               _buildCategoryChips(theme, state),
               Expanded(child: _buildBody(theme, state)),
@@ -119,6 +121,32 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
               borderRadius: BorderRadius.circular(AppRadius.lg),
               borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildAktuelCard(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DealsScreen())),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            gradient: const LinearGradient(colors: [Color(0xFF8E44AD), Color(0xFF5E35B1)]),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.local_offer, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('Aktüel Fırsatlar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+              Icon(Icons.chevron_right, color: Colors.white),
+            ],
           ),
         ),
       ),

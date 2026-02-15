@@ -472,7 +472,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final commentsAsync = ref.watch(productCommentsProvider(widget.productId));
     final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
     final storesAsync = ref.watch(allStoresStreamProvider);
-    final isSaved = ref.watch(isProductSavedProvider(widget.productId));
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final isFavoriteAsync = uid == null ? const AsyncValue.data(false) : ref.watch(StreamProvider<bool>((ref) => ref.read(firestoreServiceProvider).isFavoriteStream(uid: uid, productId: widget.productId)));
 
@@ -534,22 +533,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             _buildHeroAction(
                               icon: (isFavoriteAsync.valueOrNull ?? false) ? Icons.favorite : Icons.favorite_border,
                               active: (isFavoriteAsync.valueOrNull ?? false),
-                              onTap: uid == null ? null : () async {
-                                await ref.read(firestoreServiceProvider).toggleFavorite(uid: uid, productId: widget.productId, payload: {'productName': product.name, 'imageUrl': product.mainImage});
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildHeroAction(
-                              icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
-                              active: isSaved,
-                              onTap: () async {
-                                await ref.read(userNotifierProvider.notifier).toggleSavedProduct(widget.productId);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(isSaved ? 'Urun kaldirildi' : 'Urun kaydedildi'), behavior: SnackBarBehavior.floating),
-                                  );
-                                }
-                              },
+                              onTap: uid == null
+                                  ? null
+                                  : () async {
+                                      await ref.read(firestoreServiceProvider).toggleFavorite(
+                                            uid: uid,
+                                            productId: widget.productId,
+                                            payload: {'productId': product.id, 'productName': product.name, 'imageUrl': product.mainImage},
+                                          );
+                                    },
                             ),
                             const SizedBox(width: 8),
                             _buildHeroAction(
@@ -864,20 +856,37 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   .map(
                     (price) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              price.storeName?.trim().isNotEmpty == true ? price.storeName!.trim() : 'Mağaza',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  price.storeName?.trim().isNotEmpty == true ? price.storeName!.trim() : 'Mağaza',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatPrice(price.price),
+                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatPrice(price.price),
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              Text('Ekleyen: ${(price.addedByDisplayName ?? price.userName ?? 'Anonim').trim()}', style: Theme.of(context).textTheme.bodySmall),
+                              if (price.addedByLevelSnapshot?.isNotEmpty == true)
+                                Chip(label: Text(price.addedByLevelSnapshot!), visualDensity: VisualDensity.compact),
+                              Chip(label: Text('Güven: %${price.addedByTrustScoreSnapshot.round()}'), visualDensity: VisualDensity.compact),
+                              if (price.addedByVerifiedBadge) const Icon(Icons.verified_rounded, size: 16, color: Colors.blue),
+                            ],
                           ),
                         ],
                       ),
