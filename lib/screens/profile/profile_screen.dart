@@ -4,7 +4,9 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
@@ -13,6 +15,7 @@ import '../../utils/theme.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -27,6 +30,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _unlockHandled = false;
   bool _showUnlockOverlay = false;
   Map<String, dynamic>? _unlockedBadge;
+  String? _lastShownBadgeId;
 
   Future<ProfileBundle> _loadProfileBundle(UserModel fallbackUser) async {
     try {
@@ -35,22 +39,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return ProfileBundle.empty(fallbackUser);
       }
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get()
-          .timeout(const Duration(seconds: 8));
-
+      final firestore = FirebaseFirestore.instance;
+      final doc = await firestore.collection('users').doc(uid).get().timeout(const Duration(seconds: 8));
       final profileData = (doc.data() ?? <String, dynamic>{});
 
       List<Map<String, dynamic>> activities = const [];
       try {
-        final query = await FirebaseFirestore.instance
+        final query = await firestore
             .collection('users')
             .doc(uid)
-            .collection('activities')
+            .collection('activity')
             .orderBy('createdAt', descending: true)
-            .limit(8)
+            .limit(12)
             .get()
             .timeout(const Duration(seconds: 8));
         activities = query.docs.map((e) => e.data()).toList(growable: false);
@@ -58,10 +58,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         activities = _readActivityListFromUserDoc(profileData);
       }
 
+      final badgesFuture = firestore.collection('badges').orderBy('order').get();
+      final userBadgesFuture = firestore.collection('users').doc(uid).collection('badges').get();
+      final pricesFuture = firestore
+          .collection('users')
+          .doc(uid)
+          .collection('prices')
+          .orderBy('date', descending: true)
+          .limit(200)
+          .get();
+
+      final results = await Future.wait([badgesFuture, userBadgesFuture, pricesFuture]).timeout(
+        const Duration(seconds: 10),
+      );
+
+      final badgeMaster = (results[0] as QuerySnapshot<Map<String, dynamic>>)
+          .docs
+          .map((e) => {'id': e.id, ...e.data()})
+          .toList(growable: false);
+      final userBadgeIds = (results[1] as QuerySnapshot<Map<String, dynamic>>).docs.map((e) => e.id).toSet();
+      final userPrices = (results[2] as QuerySnapshot<Map<String, dynamic>>).docs.map((e) => e.data()).toList(growable: false);
+
       return ProfileBundle.fromData(
         fallbackUser: fallbackUser,
         profileData: profileData,
         activities: activities,
+        badgeMaster: badgeMaster,
+        userBadgeIds: userBadgeIds,
+        userPrices: userPrices,
       );
     } on TimeoutException {
       return ProfileBundle.error(
@@ -112,12 +136,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _handleUnlockOverlay(ProfileBundle bundle) {
-    if (_unlockHandled || !bundle.justUnlockedBadge || bundle.unlockedBadge == null || !mounted) {
+    final badgeId = (bundle.unlockedBadge?['id'] ?? bundle.unlockedBadge?['name'] ?? '').toString();
+    if (_unlockHandled || !bundle.justUnlockedBadge || bundle.unlockedBadge == null || !mounted || badgeId.isEmpty || badgeId == _lastShownBadgeId) {
       return;
     }
 
     _unlockHandled = true;
     _markUnlockAsSeen();
+    HapticFeedback.lightImpact();
+    _lastShownBadgeId = badgeId;
     setState(() {
       _showUnlockOverlay = true;
       _unlockedBadge = bundle.unlockedBadge;
@@ -133,6 +160,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
 
+    if (FirebaseAuth.instance.currentUser == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      });
+      return const Scaffold(body: _ProfileLoadingView());
+    }
+
     final fallbackUser = UserModel(
       uid: 'misafir',
       email: '',
@@ -143,7 +181,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Profil')),
         body: userAsync.when(
           loading: () => const _ProfileLoadingView(),
           error: (_, __) {
@@ -199,7 +236,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _ProfileScaffoldBody extends StatelessWidget {
+class _ProfileScaffoldBody extends StatefulWidget {
   const _ProfileScaffoldBody({
     required this.bundle,
     required this.user,
@@ -219,75 +256,117 @@ class _ProfileScaffoldBody extends StatelessWidget {
   final VoidCallback onDismissOverlay;
 
   @override
+  State<_ProfileScaffoldBody> createState() => _ProfileScaffoldBodyState();
+}
+
+class _ProfileScaffoldBodyState extends State<_ProfileScaffoldBody> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final profile = bundle.profile;
+    final profile = widget.bundle.profile;
 
     return Stack(
       children: [
         RefreshIndicator(
-          onRefresh: () async => onRetry(),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.background,
-                  Theme.of(context).colorScheme.surface,
-                ],
+          onRefresh: () async => widget.onRetry(),
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: 340,
+                title: const Text('Profil'),
+                flexibleSpace: AnimatedBuilder(
+                  animation: _scrollController,
+                  builder: (context, child) {
+                    final offset = _scrollController.hasClients ? _scrollController.offset.clamp(0, 220) : 0.0;
+                    final t = (offset / 220);
+                    final scale = 1 - (0.08 * t);
+                    final blur = 0.5 + (3 * t);
+                    final radius = 24 + (6 * t);
+
+                    return FlexibleSpaceBar(
+                      background: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 86, 16, 12),
+                        child: Transform.scale(
+                          scale: scale,
+                          alignment: Alignment.topCenter,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(radius),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                              child: Opacity(
+                                opacity: 1 - (0.08 * t),
+                                child: ProfileHeroCard(
+                                  displayName: profile.displayName,
+                                  avatarUrl: profile.avatarUrl,
+                                  trustScore: profile.trustScore,
+                                  levelName: profile.levelName,
+                                  onEditProfile: widget.onEditProfile,
+                                  avatarChangedAt: profile.avatarChangedAt,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                if (bundle.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ErrorCard(
-                      message: bundle.errorMessage!,
-                      onRetry: onRetry,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    if (widget.bundle.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ErrorCard(
+                          message: widget.bundle.errorMessage!,
+                          onRetry: widget.onRetry,
+                        ),
+                      ),
+                    StatChipsRow(
+                      streakDays: profile.streakDays,
+                      monthlySavings: profile.monthlySavings,
+                      topMarketName: profile.topMarketName,
                     ),
-                  ),
-                ProfileHeroCard(
-                  displayName: profile.displayName,
-                  avatarUrl: profile.avatarUrl,
-                  trustScore: profile.trustScore,
-                  levelName: profile.levelName,
-                  onEditProfile: onEditProfile,
+                    const SizedBox(height: 16),
+                    QuickActionsBar(userId: widget.user.uid),
+                    const SizedBox(height: 16),
+                    BadgeCinema(
+                      badges: profile.badges,
+                      animateFirstUnlock: widget.bundle.justUnlockedBadge,
+                    ),
+                    const SizedBox(height: 16),
+                    LiveActivityTimeline(activities: widget.bundle.activities),
+                    const SizedBox(height: 16),
+                    PremiumSettingsPanel(user: widget.user, onEditProfile: widget.onEditProfile),
+                  ]),
                 ),
-                const SizedBox(height: 16),
-                StatChipsRow(
-                  streakDays: profile.streakDays,
-                  monthlySavings: profile.monthlySavings,
-                  topMarketName: profile.topMarketName,
-                ),
-                const SizedBox(height: 16),
-                QuickActionsBar(userId: user.uid),
-                const SizedBox(height: 16),
-                BadgeCinema(
-                  badges: profile.badges,
-                  animateFirstUnlock: bundle.justUnlockedBadge,
-                ),
-                const SizedBox(height: 16),
-                LiveActivityTimeline(activities: bundle.activities),
-                const SizedBox(height: 16),
-                PremiumSettingsPanel(user: user, onEditProfile: onEditProfile),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         UnlockBadgeToastOverlay(
-          visible: showUnlockOverlay,
-          badge: unlockedBadge,
-          onDismiss: onDismissOverlay,
+          visible: widget.showUnlockOverlay,
+          badge: widget.unlockedBadge,
+          onDismiss: widget.onDismissOverlay,
         ),
       ],
     );
   }
 }
 
-class ProfileHeroCard extends StatelessWidget {
+class ProfileHeroCard extends StatefulWidget {
   const ProfileHeroCard({
     super.key,
     required this.displayName,
@@ -295,6 +374,7 @@ class ProfileHeroCard extends StatelessWidget {
     required this.trustScore,
     required this.levelName,
     required this.onEditProfile,
+    required this.avatarChangedAt,
   });
 
   final String displayName;
@@ -302,11 +382,40 @@ class ProfileHeroCard extends StatelessWidget {
   final double trustScore;
   final String levelName;
   final VoidCallback onEditProfile;
+  final DateTime? avatarChangedAt;
+
+  @override
+  State<ProfileHeroCard> createState() => _ProfileHeroCardState();
+}
+
+class _ProfileHeroCardState extends State<ProfileHeroCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _rippleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rippleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileHeroCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.avatarChangedAt != null && widget.avatarChangedAt != oldWidget.avatarChangedAt) {
+      _rippleController.forward(from: 0);
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  @override
+  void dispose() {
+    _rippleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final safeScore = trustScore.clamp(0, 100).toDouble();
+    final safeScore = widget.trustScore.clamp(0, 100).toDouble();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -314,54 +423,83 @@ class ProfileHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
           colors: [
-            cs.surface.withOpacity(0.92),
-            cs.secondaryContainer.withOpacity(0.25),
+            const Color(0xFFEAD8A8).withOpacity(0.46),
+            cs.surface.withOpacity(0.94),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 34,
-                backgroundColor: cs.surface,
-                backgroundImage: (avatarUrl ?? '').isNotEmpty ? NetworkImage(avatarUrl!) : null,
-                child: (avatarUrl ?? '').isEmpty
-                    ? Text(
-                        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'K',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
-                      )
-                    : null,
+              SizedBox(
+                width: 88,
+                height: 88,
+                child: AnimatedBuilder(
+                  animation: _rippleController,
+                  builder: (context, _) {
+                    final t = _rippleController.value;
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (t > 0)
+                          Container(
+                            width: 66 + (28 * t),
+                            height: 66 + (28 * t),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFD4AF37).withOpacity((0.25 * (1 - t)).clamp(0, 0.25)),
+                            ),
+                          ),
+                        if (t > 0)
+                          Container(
+                            width: 66 + (40 * t),
+                            height: 66 + (40 * t),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFD4AF37).withOpacity((0.18 * (1 - t)).clamp(0, 0.2)),
+                              ),
+                            ),
+                          ),
+                        CircleAvatar(
+                          radius: 38,
+                          backgroundColor: cs.surface,
+                          backgroundImage: (widget.avatarUrl ?? '').isNotEmpty ? NetworkImage(widget.avatarUrl!) : null,
+                          child: (widget.avatarUrl ?? '').isEmpty
+                              ? Text(
+                                  widget.displayName.isNotEmpty ? widget.displayName[0].toUpperCase() : 'K',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 24),
+                                )
+                              : null,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
+                    Row(
                       children: [
-                        Text(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                        Expanded(
+                          child: Text(
+                            widget.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
                         ),
-                        const Icon(Icons.verified_rounded, color: AppColors.primaryDark, size: 20),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded, color: Colors.blue, size: 16),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -372,16 +510,15 @@ class ProfileHeroCard extends StatelessWidget {
                         color: cs.secondaryContainer.withOpacity(0.45),
                       ),
                       child: Text(
-                        '$levelName seviyesi',
+                        '${widget.levelName} seviyesi',
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               IconButton.filledTonal(
-                onPressed: onEditProfile,
+                onPressed: widget.onEditProfile,
                 icon: const Icon(Icons.edit_rounded),
                 tooltip: 'Profili Düzenle',
               ),
@@ -489,6 +626,7 @@ class BadgeCinema extends StatefulWidget {
   });
 
   final List<Map<String, dynamic>> badges;
+  final DateTime? avatarChangedAt;
   final bool animateFirstUnlock;
 
   @override
@@ -689,6 +827,12 @@ class QuickActionsBar extends StatelessWidget {
                       );
                       return;
                     }
+                    if (action.title == 'Fişlerim') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ReceiptsScreen(userId: userId)),
+                      );
+                      return;
+                    }
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('${action.title} özelliği yakında.')),
@@ -726,29 +870,26 @@ class LiveActivityTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = [
-      {
-        'title': 'Fiyat doğrulandı',
-        'description': 'Paylaştığın fiyat topluluk tarafından doğrulandı.',
-      },
-      {
-        'title': 'Katkı kazanıldı',
-        'description': 'Bugün yeni katkı puanları kazandın.',
-      },
-      {
-        'title': 'Rapor alındı',
-        'description': 'Gönderdiğin bildirim başarıyla alındı.',
-      },
-    ];
-
-    final list = activities.isEmpty ? fallback : activities;
+    final list = activities;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Canlı Aktivite Akışı', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 10),
-        ...list.map(
+        if (list.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.55)),
+              color: Theme.of(context).colorScheme.surface,
+            ),
+            child: const Text('Henüz aktivite yok.'),
+          )
+        else
+          ...list.map(
           (activity) {
             final title = (activity['title'] ?? 'Aktivite').toString();
             final icon = _timelineIcon(title);
@@ -842,8 +983,13 @@ class PremiumSettingsPanel extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
             ),
           ),
-        const SizedBox(height: 8),
-        const _AboutSection(),
+        _SettingsTile(
+          icon: Icons.info_outline_rounded,
+          title: 'Hakkında',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AboutScreen()),
+          ),
+        ),
         _SettingsTile(
           icon: Icons.logout_rounded,
           title: 'Çıkış Yap',
@@ -974,7 +1120,7 @@ class _UnlockBadgeToastOverlayState extends State<UnlockBadgeToastOverlay>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🏆 Yeni Rozet Kazandın', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text('🎉 Yeni Rozet Kazandın!', style: TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 10),
                         CircleAvatar(
                           radius: 24,
@@ -1016,13 +1162,13 @@ class _TrustScoreRing extends StatelessWidget {
     final safe = score.clamp(0, 100).toDouble();
 
     return SizedBox(
-      width: 110,
-      height: 110,
+      width: 96,
+      height: 96,
       child: Stack(
         alignment: Alignment.center,
         children: [
           CustomPaint(
-            size: const Size(110, 110),
+            size: const Size(96, 96),
             painter: _RingPainter(
               progress: safe / 100,
               backgroundColor: cs.outlineVariant.withOpacity(0.3),
@@ -1034,7 +1180,7 @@ class _TrustScoreRing extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('%${safe.round()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
+                Text('%${safe.round()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 const SizedBox(height: 2),
                 Text('Güven Skoru', style: Theme.of(context).textTheme.labelSmall),
               ],
@@ -1228,24 +1374,68 @@ class NotificationSettingsScreen extends StatefulWidget {
 }
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
-  bool priceVerification = true;
-  bool badgeUnlock = true;
-  bool community = true;
-  bool system = true;
+  bool _loading = true;
+  bool push = true;
+  bool priceAlerts = true;
+  bool campaign = true;
+  bool quietHours = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final prefs = Map<String, dynamic>.from((doc.data()?['prefs'] ?? {}) as Map);
+    if (!mounted) return;
+    setState(() {
+      push = prefs['pushNotifications'] != false;
+      priceAlerts = prefs['priceAlerts'] != false;
+      campaign = prefs['campaignNotifications'] != false;
+      quietHours = prefs['quietHours'] == true;
+      _loading = false;
+    });
+  }
+
+  Future<void> _saveKey(String key, bool value) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'prefs': {key: value},
+    }, SetOptions(merge: true));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Bildirim Ayarları')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _toggleTile('Fiyat doğrulama bildirimi', priceVerification, (v) => setState(() => priceVerification = v)),
-          _toggleTile('Rozet kazanımı bildirimi', badgeUnlock, (v) => setState(() => badgeUnlock = v)),
-          _toggleTile('Topluluk etkileşimi bildirimi', community, (v) => setState(() => community = v)),
-          _toggleTile('Sistem duyuruları', system, (v) => setState(() => system = v)),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _toggleTile('Push bildirimleri', push, (v) async {
+                  setState(() => push = v);
+                  await _saveKey('pushNotifications', v);
+                }),
+                _toggleTile('Fiyat alarmı bildirimleri', priceAlerts, (v) async {
+                  setState(() => priceAlerts = v);
+                  await _saveKey('priceAlerts', v);
+                }),
+                _toggleTile('Kampanya bildirimleri', campaign, (v) async {
+                  setState(() => campaign = v);
+                  await _saveKey('campaignNotifications', v);
+                }),
+                _toggleTile('Sessiz saatler', quietHours, (v) async {
+                  setState(() => quietHours = v);
+                  await _saveKey('quietHours', v);
+                }),
+              ],
+            ),
     );
   }
 
@@ -1275,15 +1465,64 @@ class SecurityScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Güvenlik')),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          _SimpleActionCard(title: 'Şifre değiştir', icon: Icons.lock_reset_rounded),
-          _SimpleActionCard(title: 'Oturumları görüntüle', icon: Icons.history_toggle_off_rounded),
-          _SimpleActionCard(title: 'Cihaz listesi', icon: Icons.devices_rounded),
-          _SimpleActionCard(title: 'İki adımlı doğrulama (yakında)', icon: Icons.verified_user_rounded),
+        children: [
           _SimpleActionCard(
-            title: 'Hesap silme isteği',
+            title: 'Profili Düzenle',
+            icon: Icons.edit_rounded,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+            ),
+          ),
+          _SimpleActionCard(
+            title: 'Şifre sıfırlama e-postası gönder',
+            icon: Icons.lock_reset_rounded,
+            onTap: () async {
+              final email = FirebaseAuth.instance.currentUser?.email;
+              if (email == null) return;
+              await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Şifre sıfırlama e-postası gönderildi.')),
+              );
+            },
+          ),
+          _SimpleActionCard(
+            title: 'Veri & Gizlilik',
+            icon: Icons.privacy_tip_rounded,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
+          ),
+          _SimpleActionCard(
+            title: 'Hesabı sil',
             icon: Icons.delete_forever_rounded,
             isDanger: true,
+            onTap: () async {
+              final result = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Hesabı sil'),
+                      content: const Text('Bu işlem geri alınamaz. Devam etmek istiyor musun?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+                      ],
+                    ),
+                  ) ??
+                  false;
+              if (!result) return;
+              final user = FirebaseAuth.instance.currentUser;
+              final uid = user?.uid;
+              if (uid != null) {
+                await FirebaseFirestore.instance.collection('users').doc(uid).update({'deletionRequestedAt': FieldValue.serverTimestamp()});
+              }
+              await user?.delete();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
           ),
         ],
       ),
@@ -1292,10 +1531,16 @@ class SecurityScreen extends StatelessWidget {
 }
 
 class _SimpleActionCard extends StatelessWidget {
-  const _SimpleActionCard({required this.title, required this.icon, this.isDanger = false});
+  const _SimpleActionCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+    this.isDanger = false,
+  });
 
   final String title;
   final IconData icon;
+  final VoidCallback onTap;
   final bool isDanger;
 
   @override
@@ -1308,6 +1553,7 @@ class _SimpleActionCard extends StatelessWidget {
         border: Border.all(color: (isDanger ? AppColors.error : AppColors.outlineVariant).withOpacity(0.5)),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Icon(icon, color: isDanger ? AppColors.error : AppColors.primaryDark),
         title: Text(title, style: TextStyle(color: isDanger ? AppColors.error : null)),
         trailing: const Icon(Icons.chevron_right_rounded),
@@ -1316,58 +1562,86 @@ class _SimpleActionCard extends StatelessWidget {
   }
 }
 
-class MyPricesScreen extends StatelessWidget {
+class MyPricesScreen extends StatefulWidget {
   const MyPricesScreen({super.key, required this.userId});
 
   final String userId;
 
   @override
+  State<MyPricesScreen> createState() => _MyPricesScreenState();
+}
+
+class _MyPricesScreenState extends State<MyPricesScreen> {
+  String _filter = '30';
+
+  @override
   Widget build(BuildContext context) {
+    final base = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.userId)
+        .collection('prices')
+        .orderBy('date', descending: true);
+
+    final stream = _filter == 'all'
+        ? base.snapshots()
+        : base.where(
+            'date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(Duration(days: _filter == '7' ? 7 : 30))),
+          ).snapshots();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Fiyatlarım')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('prices')
-            .orderBy('date', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final docs = snapshot.data?.docs ?? const [];
-          if (docs.isEmpty) {
-            return const Center(child: Text('Henüz fiyat eklemedin'));
-          }
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index].data();
-              final name = _stringFromAny(data['productName']) ?? 'Ürün adı yok';
-              final store = _stringFromAny(data['store']) ?? 'Mağaza belirtilmedi';
-              final price = _numFromAny(data['price']);
-              final date = data['date'];
-              final dateText = date is Timestamp
-                  ? '${date.toDate().day}.${date.toDate().month}.${date.toDate().year}'
-                  : 'Tarih yok';
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: '7', label: Text('Son 7 gün')),
+                ButtonSegment(value: '30', label: Text('Son 30 gün')),
+                ButtonSegment(value: 'all', label: Text('Tümü')),
+              ],
+              selected: {_filter},
+              onSelectionChanged: (value) => setState(() => _filter = value.first),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: stream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Bir hata oluştu, tekrar dene.'));
+                }
+                final docs = snapshot.data?.docs ?? const [];
+                if (docs.isEmpty) {
+                  return const Center(child: Text('Henüz fiyat eklemedin.'));
+                }
+                return ListView.builder(
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data();
+                    final name = _stringFromAny(data['productName']) ?? 'Ürün adı yok';
+                    final store = _stringFromAny(data['store']) ?? 'Mağaza belirtilmedi';
+                    final price = _numFromAny(data['price']);
+                    final date = data['date'];
+                    final dateText = date is Timestamp
+                        ? '${date.toDate().day}.${date.toDate().month}.${date.toDate().year} ${date.toDate().hour.toString().padLeft(2, '0')}:${date.toDate().minute.toString().padLeft(2, '0')}'
+                        : 'Tarih yok';
 
-              return Container(
-                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: Theme.of(context).colorScheme.surface,
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
-                ),
-                child: ListTile(
-                  title: Text(name),
-                  subtitle: Text('$store • $dateText'),
-                  trailing: Text(price == null ? '₺0' : '₺${price.toStringAsFixed(2)}'),
-                ),
-              );
-            },
-          );
-        },
+                    return ListTile(
+                      title: Text(name),
+                      subtitle: Text('$store • $dateText'),
+                      trailing: Text(price == null ? '₺0' : '₺${price.toStringAsFixed(2)}'),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1388,6 +1662,9 @@ class FavoritesScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Bir hata oluştu, tekrar dene.'));
+          }
           final docs = snapshot.data?.docs ?? const [];
           if (docs.isEmpty) {
             return const Center(child: Text('Henüz favorin yok'));
@@ -1407,13 +1684,21 @@ class FavoritesScreen extends StatelessWidget {
               final title = _stringFromAny(data['name']) ?? 'Ürün';
               final image = _stringFromAny(data['imageUrl']);
 
-              return Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: Theme.of(context).colorScheme.surface,
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
-                ),
-                child: Column(
+              return InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  final productId = _stringFromAny(data['productId']) ?? doc.id;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+                  ),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
@@ -1449,7 +1734,8 @@ class FavoritesScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              );
+              ),
+            );
             },
           );
         },
@@ -1458,29 +1744,83 @@ class FavoritesScreen extends StatelessWidget {
   }
 }
 
-class _AboutSection extends StatelessWidget {
-  const _AboutSection();
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Theme.of(context).colorScheme.surface,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      appBar: AppBar(title: const Text('Hakkında')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Text('Hakkında', style: TextStyle(fontWeight: FontWeight.w700)),
-          SizedBox(height: 8),
-          Text('FiyatRadar v1.0.0'),
-          Text('Geliştirici: FiyatRadar Ekibi'),
-          Text('Gizlilik politikası: https://fiyatradar.app/privacy'),
-          Text('Kullanım şartları: https://fiyatradar.app/terms'),
+          const ListTile(title: Text('FiyatRadar'), subtitle: Text('Sürüm: 1.0.0')),
+          const ListTile(title: Text('Geliştirici'), subtitle: Text('FiyatRadar Ekibi')),
+          ListTile(
+            title: const Text('Gizlilik Politikası'),
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/privacy')),
+          ),
+          ListTile(
+            title: const Text('Kullanım Şartları'),
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
+          ),
+          ListTile(
+            title: const Text('Lisanslar'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showLicensePage(context: context),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class ReceiptsScreen extends StatelessWidget {
+  const ReceiptsScreen({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Fişlerim')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('receipts')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Bir hata oluştu, tekrar dene.'));
+          }
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Henüz fiş eklemedin.'));
+          }
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              final market = _stringFromAny(data['market']) ?? 'Market belirtilmedi';
+              final total = _numFromAny(data['total']);
+              final ts = data['createdAt'];
+              final dateText = ts is Timestamp ? '${ts.toDate().day}.${ts.toDate().month}.${ts.toDate().year}' : 'Tarih yok';
+              return ListTile(
+                leading: const Icon(Icons.receipt_long_rounded),
+                title: Text(market),
+                subtitle: Text(dateText),
+                trailing: Text(total == null ? '₺0' : '₺${total.toStringAsFixed(2)}'),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -1696,10 +2036,16 @@ class ProfileBundle {
     required UserModel fallbackUser,
     required Map<String, dynamic> profileData,
     required List<Map<String, dynamic>> activities,
+    required List<Map<String, dynamic>> badgeMaster,
+    required Set<String> userBadgeIds,
+    required List<Map<String, dynamic>> userPrices,
   }) {
     final profile = ProfileViewData.fromSources(
       fallbackUser: fallbackUser,
       profileData: profileData,
+      badgeMaster: badgeMaster,
+      userBadgeIds: userBadgeIds,
+      userPrices: userPrices,
     );
 
     final justUnlocked = profileData['justUnlockedBadge'] == true || profileData['newBadgeFlag'] == true;
@@ -1724,6 +2070,7 @@ class ProfileViewData {
     required this.monthlySavings,
     required this.topMarketName,
     required this.badges,
+    required this.avatarChangedAt,
   });
 
   final String displayName;
@@ -1734,10 +2081,14 @@ class ProfileViewData {
   final String monthlySavings;
   final String topMarketName;
   final List<Map<String, dynamic>> badges;
+  final DateTime? avatarChangedAt;
 
   factory ProfileViewData.fromSources({
     required UserModel fallbackUser,
     required Map<String, dynamic> profileData,
+    List<Map<String, dynamic>> badgeMaster = const [],
+    Set<String> userBadgeIds = const <String>{},
+    List<Map<String, dynamic>> userPrices = const [],
   }) {
     final resolvedDisplayName = _stringFromAny(
       profileData['displayName'] ?? profileData['name'] ?? fallbackUser.name,
@@ -1750,6 +2101,7 @@ class ProfileViewData {
             ?.toDouble() ??
         0;
 
+    final derivedStats = _deriveStats(userPrices);
     return ProfileViewData(
       displayName: displayName,
       avatarUrl: _stringFromAny(
@@ -1757,15 +2109,35 @@ class ProfileViewData {
       ),
       trustScore: trustScore,
       levelName: _stringFromAny(profileData['levelName']) ?? _computeLevelName(trustScore),
-      streakDays: _numFromAny(profileData['streakDays'] ?? profileData['streak'])?.toInt() ?? 0,
-      monthlySavings: _formatCurrency(profileData['monthlySavings']),
-      topMarketName: _stringFromAny(profileData['topMarketName'] ?? profileData['bestMarket']) ?? 'Belirtilmedi',
-      badges: _extractBadges(profileData),
+      streakDays: _numFromAny(profileData['streakDays'] ?? profileData['streak'])?.toInt() ?? derivedStats.streakDays,
+      monthlySavings: _formatCurrency(profileData['monthlySavings'] ?? derivedStats.monthlySavings),
+      topMarketName: _stringFromAny(profileData['topMarketName'] ?? profileData['bestMarket']) ?? derivedStats.topMarket,
+      badges: _extractBadges(profileData, badgeMaster, userBadgeIds, fallbackUser.isAdmin || profileData['isAdmin'] == true),
+      avatarChangedAt: _dateFromAny(profileData['avatarUpdatedAt']),
     );
   }
 }
 
-List<Map<String, dynamic>> _extractBadges(Map<String, dynamic> data) {
+List<Map<String, dynamic>> _extractBadges(
+  Map<String, dynamic> data,
+  List<Map<String, dynamic>> badgeMaster,
+  Set<String> userBadgeIds,
+  bool isAdmin,
+) {
+  if (badgeMaster.isNotEmpty) {
+    return badgeMaster.map((badge) {
+      final id = (badge['id'] ?? '').toString();
+      final unlocked = isAdmin || userBadgeIds.contains(id);
+      return {
+        'id': id,
+        'name': badge['name'] ?? 'Rozet',
+        'description': badge['criteria'] ?? badge['description'] ?? 'Topluluk rozeti',
+        'iconCodePoint': badge['iconCodePoint'],
+        'isUnlocked': unlocked,
+      };
+    }).toList(growable: false);
+  }
+
   final rawBadges = data['badgesUnlocked'] ?? data['badges'];
   if (rawBadges is! List || rawBadges.isEmpty) return const [];
 
@@ -1801,7 +2173,7 @@ Map<String, dynamic>? _extractUnlockedBadge(Map<String, dynamic> data) {
     return Map<String, dynamic>.from(direct);
   }
 
-  final badges = _extractBadges(data);
+  final badges = _extractBadges(data, const [], const <String>{}, false);
   if (badges.isEmpty) return null;
 
   final firstUnlocked = badges.where((b) => b['isUnlocked'] == true).cast<Map<String, dynamic>>();
@@ -1826,6 +2198,61 @@ String? _stringFromAny(dynamic value) {
   final text = value.toString().trim();
   if (text.isEmpty || text.toLowerCase() == 'null') return null;
   return text;
+}
+
+
+DateTime? _dateFromAny(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is String) return DateTime.tryParse(value);
+  return null;
+}
+
+_PriceStats _deriveStats(List<Map<String, dynamic>> prices) {
+  if (prices.isEmpty) {
+    return const _PriceStats(streakDays: 0, monthlySavings: 0, topMarket: 'Belirtilmedi');
+  }
+
+  final now = DateTime.now();
+  final lastMonth = now.subtract(const Duration(days: 30));
+  final marketCounts = <String, int>{};
+  var monthlySavings = 0.0;
+  final days = <DateTime>{};
+
+  for (final price in prices) {
+    final store = _stringFromAny(price['store']) ?? _stringFromAny(price['market']) ?? 'Belirtilmedi';
+    marketCounts.update(store, (v) => v + 1, ifAbsent: () => 1);
+    final ts = _dateFromAny(price['date']);
+    if (ts != null) {
+      days.add(DateTime(ts.year, ts.month, ts.day));
+      if (ts.isAfter(lastMonth)) {
+        final save = _numFromAny(price['saving'])?.toDouble() ?? 0;
+        monthlySavings += save;
+      }
+    }
+  }
+
+  int streak = 0;
+  var cursor = DateTime(now.year, now.month, now.day);
+  while (days.contains(cursor)) {
+    streak++;
+    cursor = cursor.subtract(const Duration(days: 1));
+  }
+
+  var topMarket = 'Belirtilmedi';
+  if (marketCounts.isNotEmpty) {
+    topMarket = marketCounts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
+  return _PriceStats(streakDays: streak, monthlySavings: monthlySavings, topMarket: topMarket);
+}
+
+class _PriceStats {
+  const _PriceStats({required this.streakDays, required this.monthlySavings, required this.topMarket});
+
+  final int streakDays;
+  final double monthlySavings;
+  final String topMarket;
 }
 
 num? _numFromAny(dynamic value) {
