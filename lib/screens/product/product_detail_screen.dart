@@ -1026,7 +1026,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildHeroAction({required IconData icon, required VoidCallback onTap, bool active = false}) {
+  Widget _buildHeroAction({required IconData icon, VoidCallback? onTap, bool active = false}) {
     return Material(
       color: Colors.black.withOpacity(0.25),
       shape: const CircleBorder(),
