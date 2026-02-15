@@ -219,7 +219,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ImageProvider<Object>? avatarImage = _avatarFile != null
+    final ImageProvider? avatarImage = _avatarFile != null
         ? FileImage(_avatarFile!)
         : (_avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null);
 
