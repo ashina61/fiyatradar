@@ -1136,6 +1136,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         storeName: _selectedStore!.displayName,
         barcode: _selectedProduct!.barcode,
         reportedAt: DateTime.now(),
+        addedByDisplayName: userModel.name,
+        addedByTrustScoreSnapshot: userModel.reliabilityScore,
+        addedByLevelSnapshot: userModel.points >= 500 ? 'Gümüş Üye' : 'Bronz Üye',
+        addedByVerifiedBadge: userModel.isAdmin,
       );
 
       await firestoreService.addPriceReport(priceModel);

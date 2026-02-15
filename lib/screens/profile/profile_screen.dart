@@ -23,112 +23,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int _reloadKey = 0;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _badgeSubscription;
-  String? _lastBadgeEventId;
 
-  @override
-  void initState() {
-    super.initState();
-    _listenBadgeEvents();
-  }
-
-  @override
-  void dispose() {
-    _badgeSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _listenBadgeEvents() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    _badgeSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('badgeEvents')
-        .where('seen', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted || snapshot.docs.isEmpty) return;
-      final doc = snapshot.docs.first;
-      if (_lastBadgeEventId == doc.id) return;
-      _lastBadgeEventId = doc.id;
-      _showBadgeDialog(doc);
-    });
-  }
-
-  Future<void> _showBadgeDialog(DocumentSnapshot<Map<String, dynamic>> doc) async {
-    final data = doc.data() ?? <String, dynamic>{};
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isDismissible: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFF8E1), Color(0xFFFFECB3)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.amber.withOpacity(0.25),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('🎉 Yeni Rozet Kazandın!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              Container(
-                width: 92,
-                height: 92,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 24),
-                  ],
-                ),
-                child: _MaterialCodePointIcon(
-                  codePoint: (data['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint,
-                  size: 52,
-                  color: Colors.amber.shade700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text((data['badgeName'] ?? 'Özel rozet').toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(
-                (data['description'] ?? 'Katkın için teşekkürler.').toString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black87),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Harika!'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    await doc.reference.update({'seen': true, 'seenAt': FieldValue.serverTimestamp()});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -184,8 +79,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 14),
                     _QuickBar(uid: uid),
                     const SizedBox(height: 14),
-                    _BadgeCinema(badges: data.badges),
-                    const SizedBox(height: 14),
                     _SettingsList(
                       isAdmin: userModel?.isAdmin == true,
                       onReload: () => setState(() => _reloadKey++),
@@ -218,27 +111,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
-    final badgeMaster = await FirebaseFirestore.instance.collection('badges').limit(6).get();
-    final userBadges = await userRef.collection('badges').get();
-    final unlockedIds = userBadges.docs.map((e) => e.id).toSet();
-
-    final badges = badgeMaster.docs.map((doc) {
-      final badgeData = doc.data();
-      return {
-        'id': doc.id,
-        'name': badgeData['name'] ?? 'Rozet',
-        'description': badgeData['description'] ?? 'Topluluk rozeti',
-        'iconCodePoint': badgeData['iconCodePoint'] ?? Icons.military_tech.codePoint,
-        'unlocked': unlockedIds.contains(doc.id),
-      };
-    }).toList();
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
       levelName: (data['levelName'] ?? 'Elmas seviyesi').toString(),
-      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100),
-      badges: badges,
+      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100)
     );
   }
 }
@@ -416,68 +294,6 @@ class _QuickItem extends StatelessWidget {
     );
   }
 }
-
-class _BadgeCinema extends StatelessWidget {
-  const _BadgeCinema({required this.badges});
-
-  final List<Map<String, dynamic>> badges;
-
-  @override
-  Widget build(BuildContext context) {
-    final slots = badges.isEmpty
-        ? List.generate(6, (index) => {'name': 'Kilitli Rozet', 'description': 'Henüz açılmadı', 'unlocked': false, 'iconCodePoint': Icons.lock.codePoint})
-        : badges;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Rozet Sineması', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 124,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: slots.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final badge = slots[index];
-              final unlocked = badge['unlocked'] == true;
-              return Container(
-                width: 170,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: unlocked
-                      ? const LinearGradient(colors: [Color(0xFFFFF3CD), Color(0xFFFFE08A)])
-                      : null,
-                  color: unlocked ? null : Theme.of(context).colorScheme.surfaceVariant,
-                  border: Border.all(color: unlocked ? Colors.amber : AppColors.outlineVariant),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(
-                    children: [
-                      _MaterialCodePointIcon(
-                        codePoint: (badge['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint,
-                        color: unlocked ? Colors.amber.shade800 : Colors.grey,
-                      ),
-                      const Spacer(),
-                      Icon(unlocked ? Icons.auto_awesome_rounded : Icons.lock_rounded, size: 18),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text((badge['name'] ?? 'Rozet').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text((badge['description'] ?? '').toString(), maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-                ]),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 
 class _MaterialCodePointIcon extends StatelessWidget {
   const _MaterialCodePointIcon({
@@ -660,7 +476,24 @@ class FavoritesScreen extends StatelessWidget {
           }
           final docs = snapshot.data?.docs ?? const [];
           if (docs.isEmpty) {
-            return const Center(child: Text('Favorin yok.'));
+            return Center(
+              child: Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.favorite_border, size: 42),
+                    SizedBox(height: 8),
+                    Text('Henüz favori ürünün yok.'),
+                  ],
+                ),
+              ),
+            );
           }
           return ListView.builder(
             itemCount: docs.length,
@@ -670,6 +503,11 @@ class FavoritesScreen extends StatelessWidget {
                 leading: const Icon(Icons.favorite, color: Colors.red),
                 title: Text((data['productName'] ?? 'Ürün').toString()),
                 subtitle: Text((data['storeName'] ?? 'Market').toString()),
+                onTap: () {
+                  final productId = (data['productId'] ?? '').toString();
+                  if (productId.isEmpty) return;
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)));
+                },
               );
             },
           );
@@ -793,12 +631,10 @@ class _ProfileData {
     required this.photoUrl,
     required this.levelName,
     required this.trustScore,
-    required this.badges,
   });
 
   final String displayName;
   final String photoUrl;
   final String levelName;
   final double trustScore;
-  final List<Map<String, dynamic>> badges;
 }

@@ -31,6 +31,10 @@ class PriceModel {
   final String trustLabel;
   final int trustPercent;
   final String? uniqueKey;
+  final String? addedByDisplayName;
+  final double addedByTrustScoreSnapshot;
+  final String? addedByLevelSnapshot;
+  final bool addedByVerifiedBadge;
 
   PriceModel({
     required this.id,
@@ -61,6 +65,10 @@ class PriceModel {
     this.trustLabel = 'Yeni',
     this.trustPercent = 30,
     this.uniqueKey,
+    this.addedByDisplayName,
+    this.addedByTrustScoreSnapshot = 0,
+    this.addedByLevelSnapshot,
+    this.addedByVerifiedBadge = false,
   });
 
   DateTime get createdAt => reportedAt;
@@ -143,6 +151,10 @@ class PriceModel {
       trustLabel: (data['trustLabel'] ?? 'Yeni').toString(),
       trustPercent: (data['trustPercent'] as num?)?.toInt() ?? 30,
       uniqueKey: data['uniqueKey'] as String?,
+      addedByDisplayName: (data['addedByDisplayName'] ?? data['userName']) as String?,
+      addedByTrustScoreSnapshot: (data['addedByTrustScoreSnapshot'] as num?)?.toDouble() ?? 0,
+      addedByLevelSnapshot: data['addedByLevelSnapshot'] as String?,
+      addedByVerifiedBadge: data['addedByVerifiedBadge'] == true,
     );
   }
 
@@ -184,6 +196,10 @@ class PriceModel {
       'trustLabel': trustLabel,
       'trustPercent': trustPercent,
       'uniqueKey': uniqueKey,
+      'addedByDisplayName': addedByDisplayName,
+      'addedByTrustScoreSnapshot': addedByTrustScoreSnapshot,
+      'addedByLevelSnapshot': addedByLevelSnapshot,
+      'addedByVerifiedBadge': addedByVerifiedBadge,
     };
   }
 
@@ -216,6 +232,10 @@ class PriceModel {
     String? trustLabel,
     int? trustPercent,
     String? uniqueKey,
+    String? addedByDisplayName,
+    double? addedByTrustScoreSnapshot,
+    String? addedByLevelSnapshot,
+    bool? addedByVerifiedBadge,
   }) {
     return PriceModel(
       id: id ?? this.id,
@@ -246,6 +266,10 @@ class PriceModel {
       trustLabel: trustLabel ?? this.trustLabel,
       trustPercent: trustPercent ?? this.trustPercent,
       uniqueKey: uniqueKey ?? this.uniqueKey,
+      addedByDisplayName: addedByDisplayName ?? this.addedByDisplayName,
+      addedByTrustScoreSnapshot: addedByTrustScoreSnapshot ?? this.addedByTrustScoreSnapshot,
+      addedByLevelSnapshot: addedByLevelSnapshot ?? this.addedByLevelSnapshot,
+      addedByVerifiedBadge: addedByVerifiedBadge ?? this.addedByVerifiedBadge,
     );
   }
 

@@ -128,41 +128,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DealsScreen())),
-                        icon: const Icon(Icons.local_offer_outlined),
-                        label: const Text('Aktüel'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NeighborhoodMarketsScreen())),
-                        icon: const Icon(Icons.storefront_outlined),
-                        label: const Text('Mahalle Pazarları'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.lg),
-                child: recentlyViewedAsync.when(
-                  data: (items) => _buildRecentlyViewedSection(theme, items),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
 
             // ---------- Banner Carousel ----------
             SliverToBoxAdapter(
@@ -184,6 +149,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   data: (categories) => _buildCategoriesSection(theme, categories),
                   loading: () => _buildCategoriesLoading(theme),
                   error: (_, __) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: recentlyViewedAsync.when(
+                  data: (items) => _buildRecentlyViewedSection(theme, items),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DealsScreen())),
+                        icon: const Icon(Icons.local_offer_outlined),
+                        label: const Text('Aktüel'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NeighborhoodMarketsScreen())),
+                        icon: const Icon(Icons.storefront_outlined),
+                        label: const Text('Mahalle Pazarları'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

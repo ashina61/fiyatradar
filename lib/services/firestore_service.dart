@@ -1697,15 +1697,15 @@ class FirestoreService {
     }, SetOptions(merge: true));
 
     final list = await _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).get();
-    if (list.docs.length > 15) {
-      for (final doc in list.docs.skip(15)) {
+    if (list.docs.length > 10) {
+      for (final doc in list.docs.skip(10)) {
         await doc.reference.delete();
       }
     }
   }
 
   Stream<List<Map<String, dynamic>>> recentlyViewedStream(String uid) {
-    return _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).limit(15).snapshots().map((snapshot) {
+    return _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).limit(10).snapshots().map((snapshot) {
       return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
     });
   }
