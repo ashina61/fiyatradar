@@ -134,6 +134,11 @@ final allBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
   return ref.watch(firestoreServiceProvider).getAllBrands();
 });
 
+final activeBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getActiveBrands();
+});
+
 // =========================================================================
 // STORES (Subeler)
 // =========================================================================
@@ -183,6 +188,16 @@ final dealItemsProvider = StreamProvider.family<List<Map<String, dynamic>>, Stri
   return ref.watch(firestoreServiceProvider).getDealItems(dealId);
 });
 
+
+final favoriteOverrideProvider = StateProvider.family<bool?, String>((ref, productId) => null);
+
+final isFavoriteProvider = StreamProvider.family<bool, String>((ref, productId) {
+  if (!firebaseInitialized || productId.trim().isEmpty) return Stream.value(false);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return Stream.value(false);
+  return ref.watch(firestoreServiceProvider).isFavoriteStream(uid: user.uid, productId: productId);
+});
+
 final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   final user = ref.watch(authStateProvider).valueOrNull;
@@ -194,3 +209,10 @@ final neighborhoodMarketsProvider = StreamProvider<List<Map<String, dynamic>>>((
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).neighborhoodMarketsStream();
 });
+
+
+final activeNeighborhoodMarketsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).neighborhoodMarketsStream(onlyActive: true);
+});
+

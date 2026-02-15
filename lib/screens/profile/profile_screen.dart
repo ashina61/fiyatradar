@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../models/product_model.dart';
+import '../../services/firestore_service.dart';
 import '../../utils/theme.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -457,17 +459,67 @@ class MyPricesScreen extends StatelessWidget {
   }
 }
 
-class FavoritesScreen extends StatelessWidget {
+class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key, required this.userId});
 
   final String userId;
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  final Map<String, ProductModel> _productCache = <String, ProductModel>{};
+  Set<String> _loadingIds = <String>{};
+
+  Future<void> _ensureProducts(List<String> productIds) async {
+    final missing = productIds.where((id) => id.isNotEmpty && !_productCache.containsKey(id)).toSet();
+    if (missing.isEmpty) return;
+    if (_loadingIds.containsAll(missing)) return;
+
+    setState(() => _loadingIds = {..._loadingIds, ...missing});
+    try {
+      final products = await FirestoreService().getProductsByIds(missing.toList());
+      if (!mounted) return;
+      setState(() {
+        for (final product in products) {
+          _productCache[product.id] = product;
+        }
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingIds = _loadingIds.difference(missing));
+      }
+    }
+  }
+
+  Future<void> _removeFavorite(String productId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .collection('favorites')
+          .doc(productId)
+          .delete();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Favoriler')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('users').doc(userId).collection('favorites').orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.userId)
+            .collection('favorites')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -475,6 +527,7 @@ class FavoritesScreen extends StatelessWidget {
           if (snapshot.hasError) {
             return _ListError(onRetry: () => (context as Element).markNeedsBuild());
           }
+
           final docs = snapshot.data?.docs ?? const [];
           if (docs.isEmpty) {
             return Center(
@@ -496,19 +549,53 @@ class FavoritesScreen extends StatelessWidget {
               ),
             );
           }
+
+          final productIds = docs
+              .map((doc) => (doc.data()['productId'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toList();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _ensureProducts(productIds);
+          });
+
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final data = docs[index].data();
-              return ListTile(
-                leading: const Icon(Icons.favorite, color: Colors.red),
-                title: Text((data['productName'] ?? 'Ürün').toString()),
-                subtitle: Text((data['storeName'] ?? 'Market').toString()),
-                onTap: () {
-                  final productId = (data['productId'] ?? '').toString();
-                  if (productId.isEmpty) return;
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)));
-                },
+              final productId = (data['productId'] ?? '').toString();
+              final product = _productCache[productId];
+              final title = product?.name ?? (data['productName'] ?? 'Ürün').toString();
+              final subtitle = product?.brand ?? 'Ürün';
+              final image = product?.effectiveImage;
+
+              return Dismissible(
+                key: ValueKey('fav-$productId'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red.withOpacity(0.12),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Icon(Icons.delete_outline, color: Colors.red),
+                ),
+                onDismissed: (_) => _removeFavorite(productId),
+                child: ListTile(
+                  leading: image == null
+                      ? const Icon(Icons.favorite, color: Colors.red)
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(image, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.favorite, color: Colors.red)),
+                        ),
+                  title: Text(title),
+                  subtitle: Text(subtitle),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.favorite, color: Colors.red),
+                    onPressed: () => _removeFavorite(productId),
+                  ),
+                  onTap: () {
+                    if (productId.isEmpty) return;
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)));
+                  },
+                ),
               );
             },
           );

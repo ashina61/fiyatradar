@@ -7,7 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/theme.dart';
 import '../../widgets/home_product_card.dart';
 import '../product/product_detail_screen.dart';
-import '../deals/deals_screen.dart';
+import '../actual/actuals_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -133,7 +133,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DealsScreen())),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActualsScreen())),
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

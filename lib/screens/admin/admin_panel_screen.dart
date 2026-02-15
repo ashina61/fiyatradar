@@ -30,6 +30,8 @@ import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
 
 import '../../widgets/barcode_scanner_sheet.dart';
+import 'actual_management_tab.dart';
+import 'neighborhood_markets_management_tab.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -45,7 +47,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 11, vsync: this);
   }
 
   @override
@@ -100,6 +102,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
+            Tab(text: 'Aktüel Yönetimi', icon: Icon(Icons.local_offer_outlined)),
+            Tab(text: 'Mahalle Pazarları', icon: Icon(Icons.shopping_basket_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
             Tab(text: 'Kullanicilar', icon: Icon(Icons.people_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
@@ -115,6 +119,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _CategoryManagementTab(),
           _BannerManagementTab(),
           _CampaignManagementTab(),
+          ActualManagementTab(),
+          NeighborhoodMarketsManagementTab(),
           _ReportsManagementTab(),
           _UserManagementTab(),
           _StatisticsTab(),
@@ -210,8 +216,8 @@ class _StoreHubTabState extends State<_StoreHubTab>
           child: TabBar(
             controller: _tabController,
             tabs: const [
-              Tab(text: 'Magazalar'),
-              Tab(text: 'Oneriler'),
+              Tab(text: 'Ana Mağazalar'),
+              Tab(text: 'Şubeler'),
             ],
           ),
         ),
@@ -219,8 +225,8 @@ class _StoreHubTabState extends State<_StoreHubTab>
           child: TabBarView(
             controller: _tabController,
             children: const [
+              _BrandManagementTab(),
               _StoreManagementTab(initialFilter: 'active'),
-              _StoreSuggestionsTab(),
             ],
           ),
         ),
@@ -876,62 +882,57 @@ class _InfoChip extends StatelessWidget {
 class _BrandManagementTab extends ConsumerWidget {
   const _BrandManagementTab();
 
-  void _showAddBrandDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    BrandType selectedType = BrandType.chain;
+  Future<void> _showBrandDialog(BuildContext context, WidgetRef ref, {BrandModel? brand}) async {
+    final nameController = TextEditingController(text: brand?.name ?? '');
+    final logoController = TextEditingController(text: brand?.logoUrl ?? '');
+    bool isActive = brand?.isActive ?? true;
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: const Icon(Icons.business_outlined, color: AppColors.primary, size: 20),
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(brand == null ? 'Ana Mağaza Ekle' : 'Ana Mağaza Düzenle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Mağaza Adı *')),
+                TextField(controller: logoController, decoration: const InputDecoration(labelText: 'Logo URL')),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: isActive,
+                  onChanged: (value) => setState(() => isActive = value),
+                  title: const Text('Aktif'),
+                ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text('Yeni Zincir Ekle'),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Zincir Adi', hintText: 'Orn: A-101, BIM, Migros', prefixIcon: Icon(Icons.business)),
-                autofocus: true,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<BrandType>(
-                value: selectedType,
-                decoration: const InputDecoration(labelText: 'Tur', prefixIcon: Icon(Icons.category_outlined)),
-                items: const [
-                  DropdownMenuItem(value: BrandType.chain, child: Text('Zincir')),
-                  DropdownMenuItem(value: BrandType.online, child: Text('Online')),
-                  DropdownMenuItem(value: BrandType.local, child: Text('Yerel')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setDialogState(() => selectedType = val);
-                },
-              ),
-            ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
+            FilledButton(
               onPressed: () async {
-                if (nameController.text.isEmpty) return;
-                final brand = BrandModel(
-                  id: '',
-                  name: nameController.text.trim(),
-                  type: selectedType,
-                  createdAt: DateTime.now(),
-                );
-                await ref.read(firestoreServiceProvider).addBrand(brand);
+                if (nameController.text.trim().isEmpty) return;
+                if (brand == null) {
+                  await ref.read(firestoreServiceProvider).addBrand(
+                    BrandModel(
+                      id: '',
+                      name: nameController.text.trim(),
+                      type: BrandType.chain,
+                      logoUrl: logoController.text.trim().isEmpty ? null : logoController.text.trim(),
+                      isActive: isActive,
+                      createdAt: DateTime.now(),
+                    ),
+                  );
+                } else {
+                  await ref.read(firestoreServiceProvider).updateBrand(brand.id, {
+                    'name': nameController.text.trim(),
+                    'logoUrl': logoController.text.trim(),
+                    'isActive': isActive,
+                  });
+                }
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Ekle'),
+              child: const Text('Kaydet'),
             ),
           ],
         ),
@@ -939,82 +940,47 @@ class _BrandManagementTab extends ConsumerWidget {
     );
   }
 
-  Color _typeColor(BrandType type) {
-    switch (type) {
-      case BrandType.chain: return AppColors.primary;
-      case BrandType.online: return AppColors.info;
-      case BrandType.local: return AppColors.accent;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final brandsAsync = ref.watch(allBrandsProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_brand',
-        onPressed: () => _showAddBrandDialog(context, ref),
+        onPressed: () => _showBrandDialog(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('Zincir Ekle'),
+        label: const Text('Ana Mağaza Ekle'),
       ),
       body: brandsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Ana mağazalar yüklenemedi')),
         data: (brands) {
-          if (brands.isEmpty) {
-            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.business_outlined, size: 64, color: theme.hintColor),
-              const SizedBox(height: AppSpacing.md),
-              Text('Henuz zincir yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
-            ]));
-          }
+          if (brands.isEmpty) return const Center(child: Text('Henüz ana mağaza yok'));
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
             itemCount: brands.length,
             itemBuilder: (context, index) {
               final brand = brands[index];
-              final color = _typeColor(brand.type);
               return Card(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                  leading: Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.md)),
-                    child: Icon(Icons.business, color: color, size: 22),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.surfaceVariant,
+                    backgroundImage: (brand.logoUrl ?? '').trim().isNotEmpty ? NetworkImage(brand.logoUrl!.trim()) : null,
+                    child: (brand.logoUrl ?? '').trim().isEmpty ? const Icon(Icons.business) : null,
                   ),
-                  title: Text(brand.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                  subtitle: Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.xs)),
-                        child: Text(brand.typeLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
-                      ),
-                    ]),
+                  title: Text(brand.name),
+                  subtitle: Text(brand.isActive ? 'Aktif' : 'Pasif'),
+                  trailing: Switch(
+                    value: brand.isActive,
+                    onChanged: (value) => ref.read(firestoreServiceProvider).updateBrand(brand.id, {'isActive': value}),
                   ),
-                  trailing: IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-                      child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-                    ),
-                    onPressed: () {
-                      ref.read(firestoreServiceProvider).deleteBrand(brand.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${brand.name} silindi'), behavior: SnackBarBehavior.floating),
-                      );
-                    },
-                  ),
+                  onTap: () => _showBrandDialog(context, ref, brand: brand),
                 ),
               );
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Zincirler yuklenemedi')),
       ),
     );
   }
@@ -1083,7 +1049,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
     double? selectedLng = (store != null && store.lng != 0) ? store.lng : null;
     StoreType selectedType = store?.type ?? StoreType.local;
 
-    final brands = ref.read(allBrandsProvider).valueOrNull ?? [];
+    final brands = ref.read(activeBrandsProvider).valueOrNull ?? [];
 
     await showDialog(
       context: context,
@@ -1091,7 +1057,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
         builder: (ctx, setDialogState) {
           final hasName = nameController.text.trim().isNotEmpty;
           final hasLocation = selectedType == StoreType.online || (selectedLat != null && selectedLng != null);
-          final canSave = hasName && hasLocation;
+          final canSave = hasName && hasLocation && selectedBrandId != null;
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -1102,11 +1068,8 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: selectedBrandId,
-                    decoration: const InputDecoration(labelText: 'Zincir (opsiyonel)', prefixIcon: Icon(Icons.business)),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Yerel / Bagimsiz')),
-                      ...brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))),
-                    ],
+                    decoration: const InputDecoration(labelText: 'Ana Mağaza *', prefixIcon: Icon(Icons.business)),
+                    items: brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))).toList(),
                     onChanged: (val) => setDialogState(() => selectedBrandId = val),
                   ),
                   const SizedBox(height: AppSpacing.md),
