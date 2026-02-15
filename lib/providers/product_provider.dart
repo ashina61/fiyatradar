@@ -9,6 +9,7 @@ import '../models/store_suggestion_model.dart';
 import '../models/category_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../services/firestore_service.dart';
+import 'auth_provider.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
@@ -169,4 +170,27 @@ final pendingProductSuggestionsProvider =
     StreamProvider<List<ProductSuggestionModel>>((ref) {
   if (!firebaseInitialized) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
+});
+
+
+final weeklyDealsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getWeeklyDeals();
+});
+
+final dealItemsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, dealId) {
+  if (!firebaseInitialized || dealId.isEmpty) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getDealItems(dealId);
+});
+
+final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).recentlyViewedStream(user.uid);
+});
+
+final neighborhoodMarketsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (!firebaseInitialized) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).neighborhoodMarketsStream();
 });

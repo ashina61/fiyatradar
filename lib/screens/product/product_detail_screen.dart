@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -472,6 +473,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
     final storesAsync = ref.watch(allStoresStreamProvider);
     final isSaved = ref.watch(isProductSavedProvider(widget.productId));
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final isFavoriteAsync = uid == null ? const AsyncValue.data(false) : ref.watch(StreamProvider<bool>((ref) => ref.read(firestoreServiceProvider).isFavoriteStream(uid: uid, productId: widget.productId)));
 
     return productAsync.when(
       loading: () => Scaffold(
@@ -491,6 +494,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         }
 
         final categoryColor = _colorForCategory(product.category);
+        if (uid != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(firestoreServiceProvider).addRecentlyViewed(uid: uid, product: product);
+          });
+        }
         final priceHistory = priceHistoryAsync.valueOrNull;
         final stores = storesAsync.valueOrNull ?? const <StoreModel>[];
         final branchStore = _resolveBranchStoreData(priceHistory, stores);
@@ -523,6 +531,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         right: 8,
                         child: Row(
                           children: [
+                            _buildHeroAction(
+                              icon: (isFavoriteAsync.valueOrNull ?? false) ? Icons.favorite : Icons.favorite_border,
+                              active: (isFavoriteAsync.valueOrNull ?? false),
+                              onTap: uid == null ? null : () async {
+                                await ref.read(firestoreServiceProvider).toggleFavorite(uid: uid, productId: widget.productId, payload: {'productName': product.name, 'imageUrl': product.mainImage});
+                              },
+                            ),
+                            const SizedBox(width: 8),
                             _buildHeroAction(
                               icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
                               active: isSaved,

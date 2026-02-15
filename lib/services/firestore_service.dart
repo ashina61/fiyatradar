@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import '../models/product_model.dart';
 import '../models/price_model.dart';
@@ -15,6 +17,14 @@ import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../models/category_model.dart';
 import '../utils/safe_query_builder.dart';
+
+class DuplicatePriceException implements Exception {
+  const DuplicatePriceException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -48,6 +58,11 @@ class FirestoreService {
       _firestore.collection('storeSuggestions');
   CollectionReference<Map<String, dynamic>> get _productSuggestionsRef =>
       _firestore.collection('productSuggestions');
+  CollectionReference<Map<String, dynamic>> get _priceUniqueKeysRef => _firestore.collection('priceUniqueKeys');
+  CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
+  CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
+  CollectionReference<Map<String, dynamic>> get _stockValidationRef => _firestore.collection('stock_validation');
+  CollectionReference<Map<String, dynamic>> get _neighborhoodMarketsRef => _firestore.collection('neighborhood_markets');
   DocumentReference<Map<String, dynamic>> get _maintenanceRef =>
       _firestore.collection('app_config').doc('maintenance');
 
@@ -582,20 +597,64 @@ class FirestoreService {
     return addPriceReport(price);
   }
 
+  String _priceDayKey(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '${date.year}$m$d';
+  }
+
+  String _buildPriceUniqueKey({
+    required String productId,
+    required String marketId,
+    required String branchId,
+    required double price,
+    required DateTime reportedAt,
+  }) {
+    final raw = '$productId|$marketId|$branchId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
+    return sha1.convert(utf8.encode(raw)).toString();
+  }
+
   Future<String> addPriceReport(PriceModel price) async {
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
     final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
+    final uniqueKey = _buildPriceUniqueKey(
+      productId: price.productId,
+      marketId: price.chainId ?? '',
+      branchId: price.branchStoreId,
+      price: price.price,
+      reportedAt: price.reportedAt,
+    );
+    final priceRef = _pricesRef.doc();
+    final uniqueRef = _priceUniqueKeysRef.doc(uniqueKey);
 
-    final doc = await _pricesRef.add(price.toFirestore());
-
-    // Update product's price entry count
-    await _productsRef.doc(price.productId).update({
-      'priceEntryCount': FieldValue.increment(1),
-      'lastPrice': price.price,
-      'lastStore': price.storeName,
-      'updatedAt': FieldValue.serverTimestamp(),
+    await _firestore.runTransaction((txn) async {
+      final uniqueDoc = await txn.get(uniqueRef);
+      if (uniqueDoc.exists) {
+        throw const DuplicatePriceException('Bu fiyat zaten eklenmiş. Aynı gün aynı şube için tekrar ekleyemezsin.');
+      }
+      final payload = price.copyWith(id: priceRef.id, uniqueKey: uniqueKey).toFirestore();
+      payload['id'] = priceRef.id;
+      payload['uniqueKey'] = uniqueKey;
+      payload['verificationStatus'] = payload['verificationStatus'] ?? 'pending';
+      txn.set(priceRef, payload);
+      txn.set(uniqueRef, {
+        'uniqueKey': uniqueKey,
+        'priceReportId': priceRef.id,
+        'productId': price.productId,
+        'marketId': price.chainId,
+        'branchId': price.branchStoreId,
+        'price': price.price,
+        'dayKey': _priceDayKey(price.reportedAt),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      txn.update(_productsRef.doc(price.productId), {
+        'priceEntryCount': FieldValue.increment(1),
+        'lastPrice': price.price,
+        'lastStore': price.storeName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
 
     var notificationCount = 0;
@@ -609,16 +668,14 @@ class FirestoreService {
         storeName: price.storeName,
       );
     } on FirebaseException catch (e, st) {
-      // Fiyat yazimi basariliysa, takipci query hatasini sadece debug'a yaz.
       _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
     } catch (e, st) {
       _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
     }
 
-    // ignore: avoid_print
     print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
 
-    return doc.id;
+    return priceRef.id;
   }
 
   Future<int> _createFollowerNotifications({
@@ -1456,4 +1513,230 @@ class FirestoreService {
     }
     return results;
   }
+  Stream<List<Map<String, dynamic>>> getWeeklyDeals() {
+    return _weeklyDealsRef.orderBy('startDate', descending: true).snapshots().map((snapshot) {
+      return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> getDealItems(String dealId) {
+    return _weeklyDealsRef.doc(dealId).collection('deal_items').snapshots().map((snapshot) {
+      return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    });
+  }
+
+  Stream<Map<String, int>> getStockSummary({required String dealItemId, required String branchId}) {
+    return _stockReportsRef
+        .where('dealItemId', isEqualTo: dealItemId)
+        .where('branchId', isEqualTo: branchId)
+        .snapshots()
+        .map((snapshot) {
+      var inStock = 0;
+      var low = 0;
+      var out = 0;
+      for (final doc in snapshot.docs) {
+        final status = (doc.data()['status'] ?? '').toString();
+        if (status == 'in_stock') inStock++;
+        if (status == 'low_stock') low++;
+        if (status == 'out_of_stock') out++;
+      }
+      return {
+        'in_stock': inStock,
+        'low_stock': low,
+        'out_of_stock': out,
+      };
+    });
+  }
+
+  Future<bool> submitStockReport({
+    required String uid,
+    required String dealItemId,
+    required String branchId,
+    required String status,
+  }) async {
+    final reportId = '${uid}_${dealItemId}_$branchId';
+    final rewardId = '${uid}_${dealItemId}_$branchId';
+    final now = DateTime.now();
+    var rewarded = false;
+    await _firestore.runTransaction((txn) async {
+      final reportRef = _stockReportsRef.doc(reportId);
+      final rewardRef = _firestore.collection('stock_report_rewards').doc(rewardId);
+      final userRef = _usersRef.doc(uid);
+      final rewardSnap = await txn.get(rewardRef);
+      final lastRewardAt = (rewardSnap.data()?['lastRewardAt'] as Timestamp?)?.toDate();
+      final canReward = lastRewardAt == null || now.difference(lastRewardAt).inHours >= 6;
+
+      txn.set(reportRef, {
+        'dealItemId': dealItemId,
+        'branchId': branchId,
+        'status': status,
+        'createdByUid': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (canReward) {
+        rewarded = true;
+        txn.set(rewardRef, {'lastRewardAt': Timestamp.fromDate(now)}, SetOptions(merge: true));
+        txn.set(userRef.collection('points_log').doc(), {
+          'type': 'stock_report',
+          'points': 2,
+          'dealItemId': dealItemId,
+          'branchId': branchId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        txn.update(userRef, {'points': FieldValue.increment(2)});
+        txn.set(userRef.collection('stats').doc('summary'), {
+          'stockReportsCount': FieldValue.increment(1),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
+
+    await _grantStockHunterBadges(uid);
+    return rewarded;
+  }
+
+  Future<void> _grantStockHunterBadges(String uid) async {
+    final userRef = _usersRef.doc(uid);
+    final statsDoc = await userRef.collection('stats').doc('summary').get();
+    final count = (statsDoc.data()?['stockReportsCount'] as num?)?.toInt() ?? 0;
+    final tiers = <int, String>{20: 'stock_hunter_1', 50: 'stock_hunter_2', 100: 'stock_hunter_3'};
+    for (final threshold in tiers.keys.toList()..sort()) {
+      if (count < threshold) continue;
+      final badgeId = tiers[threshold]!;
+      final badgeRef = userRef.collection('badges').doc(badgeId);
+      final badgeDoc = await badgeRef.get();
+      if (badgeDoc.exists) continue;
+      await badgeRef.set({
+        'badgeId': badgeId,
+        'unlockedAt': FieldValue.serverTimestamp(),
+      });
+      await userRef.collection('badgeEvents').add({
+        'badgeId': badgeId,
+        'badgeName': 'Stok Avcısı',
+        'description': 'Stok bildirimi katkın için teşekkürler.',
+        'seen': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  Future<bool> validateStockReport({
+    required String reportId,
+    required String validatorUid,
+    required String result,
+  }) async {
+    final validationId = '${reportId}_$validatorUid';
+    final validationRef = _stockValidationRef.doc(validationId);
+    final reportRef = _stockReportsRef.doc(reportId);
+    bool rewarded = false;
+
+    await _firestore.runTransaction((txn) async {
+      final existing = await txn.get(validationRef);
+      if (existing.exists) return;
+      txn.set(validationRef, {
+        'reportId': reportId,
+        'validatorUid': validatorUid,
+        'result': result,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    });
+
+    final correctCount = await _stockValidationRef.where('reportId', isEqualTo: reportId).where('result', isEqualTo: 'correct').get();
+    if (correctCount.size >= 3) {
+      await _firestore.runTransaction((txn) async {
+        final reportDoc = await txn.get(reportRef);
+        final reportData = reportDoc.data() ?? <String, dynamic>{};
+        if (reportData['bonusAwarded'] == true) return;
+        final ownerUid = (reportData['createdByUid'] ?? '').toString();
+        if (ownerUid.isEmpty) return;
+        final userRef = _usersRef.doc(ownerUid);
+        txn.update(reportRef, {'bonusAwarded': true});
+        txn.update(userRef, {'points': FieldValue.increment(3)});
+        txn.set(userRef.collection('points_log').doc(), {
+          'type': 'stock_validation_bonus',
+          'points': 3,
+          'reportId': reportId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        rewarded = true;
+      });
+    }
+    return rewarded;
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> pointsLogStream(String uid) {
+    return _usersRef.doc(uid).collection('points_log').orderBy('createdAt', descending: true).limit(40).snapshots();
+  }
+
+  Future<void> toggleFavorite({required String uid, required String productId, Map<String, dynamic>? payload}) async {
+    final ref = _usersRef.doc(uid).collection('favorites').doc(productId);
+    final doc = await ref.get();
+    if (doc.exists) {
+      await ref.delete();
+      return;
+    }
+    await ref.set({
+      'productId': productId,
+      'createdAt': FieldValue.serverTimestamp(),
+      ...?payload,
+    });
+  }
+
+  Stream<bool> isFavoriteStream({required String uid, required String productId}) {
+    return _usersRef.doc(uid).collection('favorites').doc(productId).snapshots().map((doc) => doc.exists);
+  }
+
+  Future<void> addRecentlyViewed({required String uid, required ProductModel product}) async {
+    final ref = _usersRef.doc(uid).collection('recently_viewed').doc(product.id);
+    await ref.set({
+      'productId': product.id,
+      'productName': product.name,
+      'imageUrl': product.mainImage,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final list = await _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).get();
+    if (list.docs.length > 15) {
+      for (final doc in list.docs.skip(15)) {
+        await doc.reference.delete();
+      }
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> recentlyViewedStream(String uid) {
+    return _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).limit(15).snapshots().map((snapshot) {
+      return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    });
+  }
+
+  Future<String> addNeighborhoodMarket({
+    required String uid,
+    required String name,
+    required String city,
+    required String district,
+    required String neighborhood,
+    required List<String> days,
+    GeoPoint? location,
+  }) async {
+    final doc = await _neighborhoodMarketsRef.add({
+      'name': name,
+      'city': city,
+      'district': district,
+      'neighborhood': neighborhood,
+      'days': days,
+      'location': location,
+      'verified': false,
+      'createdByUid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  Stream<List<Map<String, dynamic>>> neighborhoodMarketsStream() {
+    return _neighborhoodMarketsRef.orderBy('createdAt', descending: true).snapshots().map((snapshot) {
+      return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    });
+  }
+
 }
