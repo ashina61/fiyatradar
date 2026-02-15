@@ -219,6 +219,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ImageProvider<Object>? avatarImage = _avatarFile != null
+        ? FileImage(_avatarFile!)
+        : (_avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profili Düzenle')),
       body: _loading
@@ -231,9 +235,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onTap: _pickAvatar,
                     child: CircleAvatar(
                       radius: 48,
-                      backgroundImage: _avatarFile != null
-                          ? FileImage(_avatarFile!)
-                          : (_avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null),
+                      backgroundImage: avatarImage,
                       child: _avatarFile == null && _avatarUrl.isEmpty ? const Icon(Icons.add_a_photo_rounded) : null,
                     ),
                   ),
