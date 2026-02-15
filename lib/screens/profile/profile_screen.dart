@@ -306,7 +306,7 @@ class ProfileHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final safeScore = trustScore.clamp(0, 100);
+    final safeScore = trustScore.clamp(0, 100).toDouble();
 
     return Container(
       padding: const EdgeInsets.all(20),
