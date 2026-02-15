@@ -219,9 +219,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ImageProvider? avatarImage = _avatarFile != null
-        ? FileImage(_avatarFile!)
-        : (_avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null);
+    ImageProvider<Object>? avatarImage;
+    if (_avatarFile != null) {
+      avatarImage = FileImage(_avatarFile!);
+    } else if (_avatarUrl.isNotEmpty) {
+      avatarImage = NetworkImage(_avatarUrl);
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profili Düzenle')),
