@@ -99,8 +99,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 24),
                   ],
                 ),
-                child: Icon(
-                  IconData((data['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint, fontFamily: 'MaterialIcons'),
+                child: _MaterialCodePointIcon(
+                  codePoint: (data['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint,
                   size: 52,
                   color: Colors.amber.shade700,
                 ),
@@ -456,8 +456,8 @@ class _BadgeCinema extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(
                     children: [
-                      Icon(
-                        IconData((badge['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint, fontFamily: 'MaterialIcons'),
+                      _MaterialCodePointIcon(
+                        codePoint: (badge['iconCodePoint'] as int?) ?? Icons.workspace_premium.codePoint,
                         color: unlocked ? Colors.amber.shade800 : Colors.grey,
                       ),
                       const Spacer(),
@@ -475,6 +475,36 @@ class _BadgeCinema extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+
+class _MaterialCodePointIcon extends StatelessWidget {
+  const _MaterialCodePointIcon({
+    required this.codePoint,
+    this.size,
+    this.color,
+  });
+
+  final int codePoint;
+  final double? size;
+  final Color? color;
+
+  static const _materialSymbolsFallback = [
+    Icons.workspace_premium,
+    Icons.military_tech,
+    Icons.auto_awesome_rounded,
+    Icons.lock_rounded,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = _materialSymbolsFallback.firstWhere(
+      (candidate) => candidate.codePoint == codePoint,
+      orElse: () => Icons.workspace_premium,
+    );
+
+    return Icon(icon, size: size, color: color);
   }
 }
 
