@@ -695,6 +695,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildRecentlyViewedSection(ThemeData theme, List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        const _SectionHeader(
+          title: 'Son Incelediklerin',
+          icon: Icons.history,
+          iconColor: AppColors.secondary,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: 108,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final productId = (item['productId'] ?? item['id'] ?? '').toString();
+              final productName = (item['productName'] ?? 'Urun').toString();
+              final imageUrl = (item['imageUrl'] ?? '').toString();
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                onTap: productId.isEmpty
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailScreen(productId: productId),
+                          ),
+                        );
+                      },
+                child: SizedBox(
+                  width: 90,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          child: imageUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: AppColors.surfaceVariant,
+                                    child: const Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: AppColors.textTertiary,
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: AppColors.surfaceVariant,
+                                  child: const Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        productName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   IconData _categoryIcon(String iconName) {
     switch (iconName) {
       case 'devices':
