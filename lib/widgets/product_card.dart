@@ -47,7 +47,7 @@ class ProductCard extends ConsumerWidget {
                   child: Hero(
                     tag: 'product_${product.id}',
                     child: AppNetworkImage(
-                      imageUrl: product.mainImage,
+                      imageUrl: product.effectiveImage,
                       cacheKey: 'product_card_${product.id}',
                       borderRadius: BorderRadius.circular(AppRadius.md),
                     ),

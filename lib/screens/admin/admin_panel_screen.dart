@@ -326,8 +326,6 @@ class _ProductManagementTab extends ConsumerWidget {
     final barcodeController = TextEditingController();
     final descriptionController = TextEditingController();
     final Set<String> selectedCategories = <String>{};
-    final List<File> selectedImages = [];
-    final picker = ImagePicker();
     bool isUploading = false;
     String? uploadError;
     Timer? barcodeDebounce;
@@ -413,29 +411,17 @@ class _ProductManagementTab extends ConsumerWidget {
                 barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
                 description: descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                 imageUrls: openFoodFactsImageUrl != null ? [openFoodFactsImageUrl!] : const [],
+                imageUrl: openFoodFactsImageUrl,
+                imageSource: openFoodFactsImageUrl != null ? 'openfoodfacts' : 'admin_manual',
+                imageApproved: openFoodFactsImageUrl != null,
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
               ));
 
-              final List<String> imageUrls = [];
-              if (selectedImages.isNotEmpty) {
-                final storageService = StorageService();
-                final urls = await storageService.uploadMultipleImages(
-                  files: selectedImages,
-                  folder: 'products/$productId',
-                );
-                imageUrls.addAll(urls);
-              }
-
-              final allImageUrls = <String>[];
-              if (openFoodFactsImageUrl != null) {
-                allImageUrls.add(openFoodFactsImageUrl!);
-              }
-              allImageUrls.addAll(imageUrls);
-
               await service.updateProduct(productId, {
-                if (allImageUrls.isNotEmpty) 'imageUrls': allImageUrls,
-                if (allImageUrls.isNotEmpty) 'mainImage': allImageUrls.first,
+                if (openFoodFactsImageUrl != null) 'imageUrl': openFoodFactsImageUrl,
+                if (openFoodFactsImageUrl != null) 'imageSource': 'openfoodfacts',
+                if (openFoodFactsImageUrl != null) 'imageApproved': true,
                 'updatedAt': DateTime.now(),
               });
 
@@ -443,7 +429,6 @@ class _ProductManagementTab extends ConsumerWidget {
               brandController.clear();
               barcodeController.clear();
               descriptionController.clear();
-              selectedImages.clear();
               selectedCategories.clear();
               barcodeDebounce?.cancel();
 
@@ -564,95 +549,6 @@ class _ProductManagementTab extends ConsumerWidget {
                     )
                     .toList(),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Urun Gorselleri',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final images = await picker.pickMultiImage(imageQuality: 85);
-                        if (images.isNotEmpty) {
-                          setDialogState(() {
-                            selectedImages.addAll(images.map((e) => File(e.path)));
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: const Text('Galeriden Sec'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final image = await picker.pickImage(
-                          source: ImageSource.camera,
-                          imageQuality: 85,
-                        );
-                        if (image != null) {
-                          setDialogState(() {
-                            selectedImages.add(File(image.path));
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                      label: const Text('Kamera'),
-                    ),
-                  ),
-                ],
-              ),
-              if (selectedImages.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  height: 70,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context, index) {
-                      final file = selectedImages[index];
-                      return Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            child: Image.file(
-                              file,
-                              width: 70,
-                              height: 70,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: GestureDetector(
-                              onTap: () {
-                                setDialogState(() => selectedImages.removeAt(index));
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close, size: 14, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-                    itemCount: selectedImages.length,
-                  ),
-                ),
-              ],
               if (isFetchingBarcode) ...[
                 const SizedBox(height: AppSpacing.sm),
                 const LinearProgressIndicator(minHeight: 2),
@@ -893,17 +789,50 @@ class _ProductManagementTab extends ConsumerWidget {
                           const SizedBox(width: AppSpacing.xs),
                           if (product.lastStore != null) _InfoChip(icon: Icons.store_outlined, label: product.lastStore!),
                         ]),
+                        if ((product.effectiveImage ?? '').isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Bu ürün için görsel yok — AI Packshot oluşturabilirsiniz.',
+                              style: TextStyle(fontSize: 11, color: AppColors.warning),
+                            ),
+                          ),
                       ])),
-                      IconButton(
-                        onPressed: () => _showEditProductDialog(
-                          context,
-                          ref,
-                          product,
-                          categoriesAsync.valueOrNull ?? const [],
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        color: theme.hintColor,
-                        tooltip: 'Duzenle',
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              try {
+                                await ref.read(firestoreServiceProvider).createAiPackshot(
+                                  product: product,
+                                  storageService: StorageService(),
+                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI Packshot oluşturuldu.')));
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Packshot hatası: $e')));
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+                            color: theme.colorScheme.primary,
+                            tooltip: 'AI Packshot Oluştur',
+                          ),
+                          IconButton(
+                            onPressed: () => _showEditProductDialog(
+                              context,
+                              ref,
+                              product,
+                              categoriesAsync.valueOrNull ?? const [],
+                            ),
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            color: theme.hintColor,
+                            tooltip: 'Duzenle',
+                          ),
+                        ],
                       ),
                     ]),
                   ),

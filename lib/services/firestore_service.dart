@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../models/product_model.dart';
 import '../models/price_model.dart';
 import '../models/comment_model.dart';
@@ -17,6 +18,7 @@ import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../models/category_model.dart';
 import '../utils/safe_query_builder.dart';
+import '../services/storage_service.dart';
 
 class DuplicatePriceException implements Exception {
   const DuplicatePriceException(this.message);
@@ -28,6 +30,7 @@ class DuplicatePriceException implements Exception {
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Set<String> _offFetchInFlight = <String>{};
 
   void _logFirestoreQueryError(
     String context,
@@ -386,6 +389,9 @@ class FirestoreService {
           final list = snapshot.docs
               .map((doc) => ProductModel.fromFirestore(doc))
               .toList();
+          for (final product in list) {
+            _ensureOpenFoodFactsImage(product);
+          }
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
@@ -406,9 +412,75 @@ class FirestoreService {
   Future<ProductModel?> getProduct(String productId) async {
     final doc = await _productsRef.doc(productId).get();
     if (doc.exists) {
-      return ProductModel.fromFirestore(doc);
+      final product = ProductModel.fromFirestore(doc);
+      await _ensureOpenFoodFactsImage(product);
+      return product;
     }
     return null;
+  }
+
+
+  Future<void> _ensureOpenFoodFactsImage(ProductModel product) async {
+    if ((product.effectiveImage ?? '').isNotEmpty) return;
+    final barcode = product.barcode?.trim() ?? '';
+    if (barcode.isEmpty) return;
+    if (_offFetchInFlight.contains(product.id)) return;
+    _offFetchInFlight.add(product.id);
+
+    try {
+      final uri = Uri.parse('https://world.openfoodfacts.org/api/v2/product/$barcode.json');
+      final response = await http.get(uri, headers: const {
+        'User-Agent': 'FiyatRadar/1.0 (image-fallback)',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) return;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final productData = body['product'] as Map<String, dynamic>?;
+      final imageFront = (productData?['image_front_url'] ?? '').toString();
+      if (imageFront.isEmpty) return;
+      await _productsRef.doc(product.id).set({
+        'imageUrl': imageFront,
+        'mainImage': imageFront,
+        'imageSource': 'openfoodfacts',
+        'imageApproved': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Sessizce gec.
+    } finally {
+      _offFetchInFlight.remove(product.id);
+    }
+  }
+
+  Future<Map<String, dynamic>> createAiPackshot({
+    required ProductModel product,
+    required StorageService storageService,
+  }) async {
+    final prompt = 'Ultra realistic Turkish grocery store packshot, front facing product, clean white background, soft supermarket lighting, realistic packaging, no watermark, high detail commercial food photography. Product: ${product.brand} ${product.name} Turkey packaging';
+    final uri = Uri.parse('https://image.pollinations.ai/prompt/${Uri.encodeComponent(prompt)}');
+    final response = await http.get(uri).timeout(const Duration(seconds: 40));
+    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      throw Exception('AI packshot olusturulamadi.');
+    }
+
+    final urls = await storageService.uploadPackshotVariants(
+      productId: product.id,
+      imageBytes: response.bodyBytes,
+    );
+
+    final payload = {
+      'imageThumbUrl': urls['imageThumbUrl'],
+      'imageMediumUrl': urls['imageMediumUrl'],
+      'imageUrl': urls['imageMediumUrl'],
+      'mainImage': urls['imageThumbUrl'],
+      'imageSource': 'ai_packshot',
+      'aiGenerated': true,
+      'aiPrompt': prompt,
+      'imageApproved': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    await updateProduct(product.id, payload);
+    return payload;
   }
 
 
@@ -1692,7 +1764,7 @@ class FirestoreService {
     await ref.set({
       'productId': product.id,
       'productName': product.name,
-      'imageUrl': product.mainImage,
+      'imageUrl': product.effectiveImage,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 

@@ -59,15 +59,15 @@ class HomeProductCard extends ConsumerWidget {
                       topLeft: Radius.circular(AppRadius.lg),
                       topRight: Radius.circular(AppRadius.lg),
                     ),
-                    image: product.mainImage != null
+                    image: product.effectiveImage != null
                         ? DecorationImage(
-                            image: NetworkImage(product.mainImage!),
+                            image: NetworkImage(product.effectiveImage!),
                             fit: BoxFit.contain,
                             onError: (_, __) {},
                           )
                         : null,
                   ),
-                  child: product.mainImage == null
+                  child: product.effectiveImage == null
                       ? Center(
                           child: Icon(
                             _iconForCategory(product.category),

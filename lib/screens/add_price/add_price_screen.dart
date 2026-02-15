@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../providers/product_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
@@ -178,7 +176,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final nameController = TextEditingController(text: _productController.text.trim());
     final barcodeController = TextEditingController();
     final categoryController = TextEditingController(text: _selectedCategory ?? '');
-    XFile? selectedImage;
     bool isSubmitting = false;
 
     await showDialog(
@@ -206,17 +203,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       controller: categoryController,
                       decoration: const InputDecoration(labelText: 'Kategori (opsiyonel)'),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final picker = ImagePicker();
-                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-                        if (image == null) return;
-                        setDialogState(() => selectedImage = image);
-                      },
-                      icon: const Icon(Icons.photo_camera_outlined),
-                      label: Text(selectedImage == null ? 'Foto ekle (opsiyonel)' : 'Foto seçildi'),
-                    ),
                   ],
                 ),
               ),
@@ -230,19 +216,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           if (name.isEmpty) return;
                           setDialogState(() => isSubmitting = true);
                           try {
-                            String? photoUrl;
-                            if (selectedImage != null) {
-                              photoUrl = await ref.read(storageServiceProvider).uploadImage(
-                                    file: File(selectedImage!.path),
-                                    folder: 'product_suggestions',
-                                  );
-                            }
-
                             await ref.read(firestoreServiceProvider).addProductSuggestion(
                                   name: name,
                                   barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
                                   category: categoryController.text.trim().isEmpty ? null : categoryController.text.trim(),
-                                  photoUrl: photoUrl,
+                                  photoUrl: null,
                                   userId: user.uid,
                                 );
 
