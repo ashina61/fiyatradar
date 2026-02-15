@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -110,29 +111,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         (badge['description'] ?? 'Topluluk katkınla yeni seviyeye ulaştın.').toString();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => _BadgeCelebrationDialog(
-          badgeName: badgeName,
-          badgeDescription: badgeDescription,
-          iconCodePoint: badge['iconCodePoint'] is int ? badge['iconCodePoint'] as int : null,
-          onDone: () async {
-            Navigator.of(context).pop();
-            await _clearNewBadgeFlag();
-          },
-          onShare: () async {
-            Navigator.of(context).pop();
-            await _clearNewBadgeFlag();
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Paylaşım özelliği yakında aktif olacak.')),
-            );
-          },
-        ),
+      _showYeniRozetPopup(
+        badgeName: badgeName,
+        badgeDescription: badgeDescription,
+        iconCodePoint: badge['iconCodePoint'] is int ? badge['iconCodePoint'] as int : null,
       );
     });
+  }
+
+  Future<void> _showYeniRozetPopup({
+    required String badgeName,
+    required String badgeDescription,
+    int? iconCodePoint,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _BadgeCelebrationDialog(
+        badgeName: badgeName,
+        badgeDescription: badgeDescription,
+        iconCodePoint: iconCodePoint,
+        onDone: () async {
+          Navigator.of(context).pop();
+          await _clearNewBadgeFlag();
+        },
+        onShare: () async {
+          Navigator.of(context).pop();
+          await _clearNewBadgeFlag();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Paylaşım özelliği yakında aktif olacak.')),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _clearNewBadgeFlag() async {
@@ -362,122 +375,128 @@ class ProfileHeaderCard extends StatelessWidget {
                 : 'Başlangıç';
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.surface,
-                  AppColors.secondary.withOpacity(0.16),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: AppColors.primary.withOpacity(0.14)),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.12),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.88),
+                AppColors.secondary.withOpacity(0.22),
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundImage: (avatarUrl ?? '').isNotEmpty ? NetworkImage(avatarUrl!) : null,
-                      child: (avatarUrl ?? '').isEmpty
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : 'M',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                              overflow: TextOverflow.ellipsis,
+            border: Border.all(color: Colors.white.withOpacity(0.45)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.10),
+                blurRadius: 26,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 31,
+                    backgroundColor: Colors.white,
+                    backgroundImage: (avatarUrl ?? '').isNotEmpty ? NetworkImage(avatarUrl!) : null,
+                    child: (avatarUrl ?? '').isEmpty
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : 'M',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.verified_rounded, color: AppColors.accentDark, size: 18),
-                        ],
-                      ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified_rounded, color: AppColors.accentDark, size: 18),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Topluluk seviyesi: $level',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: onEdit,
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.7),
-                      ),
-                      icon: const Icon(Icons.edit_rounded),
-                      tooltip: 'Profili Düzenle',
+                  ),
+                  IconButton(
+                    onPressed: onEdit,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withOpacity(0.8),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Icon(Icons.shield_rounded, size: 18, color: AppColors.primaryDark),
-                    const SizedBox(width: 8),
-                    Text('Güven Skoru %${trustScore.round()} • $level'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: (trustScore / 100).clamp(0, 1),
-                    minHeight: 8,
-                    backgroundColor: AppColors.outlineVariant,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryDark),
+                    icon: const Icon(Icons.edit_rounded),
+                    tooltip: 'Profili Düzenle',
                   ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _InfoChip(label: 'Aylık Tasarruf', value: monthlySavings),
-                    _InfoChip(label: 'Seri', value: '$streak gün'),
-                    _InfoChip(label: 'En iyi market', value: bestMarket),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.18),
-                      Colors.transparent,
-                      Colors.white.withOpacity(0.08),
-                    ],
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Icon(Icons.shield_rounded, size: 18, color: AppColors.primaryDark),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Güven Skoru %${trustScore.round()} • $level',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: LinearProgressIndicator(
+                  value: (trustScore / 100).clamp(0, 1),
+                  minHeight: 8,
+                  backgroundColor: AppColors.outlineVariant,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryDark),
                 ),
               ),
-            ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(label: 'Aylık Tasarruf', value: monthlySavings),
+                  _InfoChip(label: 'Seri', value: '$streak gün'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Bu ay en çok tasarruf ettiğin market: $bestMarket',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -491,15 +510,16 @@ class ProfileQuickShortcuts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(22),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -513,7 +533,7 @@ class ProfileQuickShortcuts extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                     onTap: item.onTap,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 6),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -553,58 +573,85 @@ class BadgeGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Rozetler', style: TextStyle(fontWeight: FontWeight.w700)),
+        const Text('Rozet Galerisi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 10),
-        Column(
-          children: badges.map((badge) {
+        GridView.builder(
+          itemCount: badges.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.95,
+          ),
+          itemBuilder: (context, index) {
+            final badge = badges[index];
             final level = (badge['level'] ?? 'Seviye 1').toString();
-            final double progress =
-                ((badge['progress'] ?? 0.5) as num).toDouble().clamp(0.0, 1.0).toDouble();
+            final progress = ((badge['progress'] ?? 0.5) as num).toDouble().clamp(0.0, 1.0);
+            final isUnlocked = (badge['isUnlocked'] as bool?) ?? progress >= 1;
+
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.accent.withOpacity(0.2),
-                    ),
-                    child: Icon(_badgeIconFromCodePoint(badge['iconCodePoint'] as int?)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text((badge['name'] ?? 'Doğrulayıcı').toString(),
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 2),
-                        Text((badge['description'] ?? 'Topluluk katkısı rozeti').toString()),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            minHeight: 6,
-                            value: progress,
-                            backgroundColor: AppColors.outlineVariant,
-                          ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.accent.withOpacity(0.2),
                         ),
-                      ],
+                        child: Icon(_badgeIconFromCodePoint(badge['iconCodePoint'] as int?)),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                        size: 18,
+                        color: isUnlocked ? AppColors.primaryDark : AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    (badge['name'] ?? 'Doğrulayıcı').toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    (badge['description'] ?? 'Topluluk katkısı rozeti').toString(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Spacer(),
+                  Text(
+                    level,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      value: progress,
+                      backgroundColor: AppColors.outlineVariant,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(level, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ],
               ),
             );
-          }).toList(growable: false),
+          },
         ),
       ],
     );
@@ -638,7 +685,7 @@ class ActivityFeed extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Canlı Aktivite Akışı', style: TextStyle(fontWeight: FontWeight.w700)),
+        const Text('Canlı Aktivite Akışı', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 10),
         ...list.map(
           (activity) => Container(
@@ -689,6 +736,7 @@ class SettingsSection extends ConsumerWidget {
             color: Theme.of(context).colorScheme.surfaceContainerHigh,
           ),
           child: SwitchListTile.adaptive(
+            secondary: const Icon(Icons.dark_mode_rounded, color: AppColors.primaryDark),
             title: const Text('Karanlık Mod'),
             value: themeMode == ThemeMode.dark,
             onChanged: (_) => ref.read(themeModeProvider.notifier).toggleDarkMode(),
@@ -722,6 +770,26 @@ class SettingsSection extends ConsumerWidget {
           title: 'Çıkış Yap',
           color: Colors.red.shade600,
           onTap: () async {
+            final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Çıkış yapılsın mı?'),
+                    content: const Text('Hesabından çıkış yapmak istediğine emin misin?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Vazgeç'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Çıkış Yap'),
+                      ),
+                    ],
+                  ),
+                ) ??
+                false;
+            if (!shouldLogout) return;
+
             await ref.read(authServiceProvider).signOut();
             if (!context.mounted) return;
             Navigator.of(context).pushAndRemoveUntil(
