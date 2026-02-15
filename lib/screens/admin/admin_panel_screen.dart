@@ -3356,6 +3356,7 @@ class _StatisticsTab extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
 
           const SizedBox(height: AppSpacing.lg),
           Card(
