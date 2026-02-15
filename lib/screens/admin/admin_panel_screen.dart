@@ -3196,6 +3196,11 @@ class _StatisticsTab extends ConsumerWidget {
     final usersAsync = ref.watch(allUsersProvider);
     final reportsAsync = ref.watch(reportsProvider);
     final maintenanceAsync = ref.watch(maintenanceModeProvider);
+    final badgeLogsStream = FirebaseFirestore.instance
+        .collection('badge_unlock_logs')
+        .orderBy('date', descending: true)
+        .limit(20)
+        .snapshots();
 
     final productCount = productsAsync.valueOrNull?.length ?? 0;
     final storeCount = storesAsync.valueOrNull?.length ?? 0;
@@ -3348,6 +3353,59 @@ class _StatisticsTab extends ConsumerWidget {
                       ]),
                     );
                   }),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: AppSpacing.lg),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Rozet Kazanımları', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: AppSpacing.sm),
+                  StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: badgeLogsStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final docs = snapshot.data?.docs ?? const [];
+                      if (docs.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(AppSpacing.sm),
+                          child: Text('Henüz rozet kazanım kaydı yok.'),
+                        );
+                      }
+
+                      return Column(
+                        children: docs.map((doc) {
+                          final data = doc.data();
+                          final username = (data['username'] ?? data['userName'] ?? 'Kullanıcı').toString();
+                          final badge = (data['badge'] ?? data['badgeName'] ?? 'Rozet').toString();
+                          final dt = data['date'];
+                          String dateText = 'Tarih yok';
+                          if (dt is Timestamp) {
+                            final d = dt.toDate();
+                            dateText = '${d.day}.${d.month}.${d.year}';
+                          }
+
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFD4AF37)),
+                            title: Text(username),
+                            subtitle: Text('$badge • $dateText'),
+                          );
+                        }).toList(growable: false),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
