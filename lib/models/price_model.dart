@@ -5,6 +5,7 @@ class PriceModel {
   final String productId;
   final String? barcode;
   final String userId;
+  final String? createdByUid;
   final double price;
   final String branchStoreId;
   final String? chainId;
@@ -46,6 +47,7 @@ class PriceModel {
     required this.productId,
     this.barcode,
     required this.userId,
+    this.createdByUid,
     required this.price,
     required this.branchStoreId,
     this.chainId,
@@ -133,7 +135,8 @@ class PriceModel {
       id: doc.id,
       productId: data['productId'] ?? '',
       barcode: data['barcode'] ?? data['productBarcode'],
-      userId: data['userId'] ?? '',
+      userId: data['userId'] ?? data['createdByUid'] ?? '',
+      createdByUid: (data['createdByUid'] ?? data['userId']) as String?,
       price: _parsePriceValue(data['price']),
       branchStoreId: (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString(),
       chainId: data['chainId'],
@@ -183,6 +186,7 @@ class PriceModel {
       'productId': productId,
       'barcode': barcode,
       'userId': userId,
+      'createdByUid': createdByUid ?? userId,
       'price': price,
       'branchStoreId': priceSourceType == 'branch' ? branchStoreId : null,
       'branchId': priceSourceType == 'branch' ? branchStoreId : null,
@@ -229,6 +233,7 @@ class PriceModel {
     String? productId,
     String? barcode,
     String? userId,
+    String? createdByUid,
     double? price,
     String? branchStoreId,
     String? chainId,
@@ -268,6 +273,7 @@ class PriceModel {
       productId: productId ?? this.productId,
       barcode: barcode ?? this.barcode,
       userId: userId ?? this.userId,
+      createdByUid: createdByUid ?? this.createdByUid,
       price: price ?? this.price,
       branchStoreId: branchStoreId ?? this.branchStoreId,
       chainId: chainId ?? this.chainId,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -326,6 +327,85 @@ class _ProductManagementTab extends ConsumerWidget {
     }
   }
 
+
+  Future<bool> _isAdminAllowed() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final userData = userDoc.data() ?? <String, dynamic>{};
+    if (userData['isAdmin'] == true) return true;
+
+    final adminsDoc = await FirebaseFirestore.instance.collection('settings').doc('admins').get();
+    final adminsData = adminsDoc.data() ?? <String, dynamic>{};
+    final allowedUids = List<String>.from(adminsData['uids'] ?? const []);
+    return allowedUids.contains(uid);
+  }
+
+  Future<void> _pickAndUploadProductImage({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String productId,
+    String? currentImagePath,
+    void Function(String imageUrl, String imagePath)? onUploaded,
+  }) async {
+    final isAdminAllowed = await _isAdminAllowed();
+    if (!isAdminAllowed) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Yalnızca admin görsel yükleyebilir.')),
+        );
+      }
+      return;
+    }
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 88);
+    if (picked == null) return;
+
+    final storageService = StorageService();
+    try {
+      if (currentImagePath != null && currentImagePath.trim().isNotEmpty) {
+        try {
+          await storageService.deleteByPath(currentImagePath.trim());
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Eski görsel silinemedi, yeni görsel yüklenecek.')),
+            );
+          }
+        }
+      }
+
+      final result = await storageService.uploadProductCoverImage(
+        file: File(picked.path),
+        productId: productId,
+      );
+
+      await ref.read(firestoreServiceProvider).updateProduct(productId, {
+        'imageUrl': result.downloadUrl,
+        'imagePath': result.storagePath,
+        'imageSource': 'admin_upload',
+        'imageApproved': true,
+        'updatedAt': DateTime.now(),
+      });
+
+      onUploaded?.call(result.downloadUrl, result.storagePath);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ürün görseli güncellendi.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Görsel yüklenemedi: $e')),
+        );
+      }
+    }
+  }
+
   void _showAddProductDialog(BuildContext context, WidgetRef ref, List<CategoryModel> categories) {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
@@ -338,6 +418,7 @@ class _ProductManagementTab extends ConsumerWidget {
     bool isFetchingBarcode = false;
     String? barcodeHint;
     String? openFoodFactsImageUrl;
+    File? selectedImageFile;
 
     showDialog(
       context: context,
@@ -424,12 +505,26 @@ class _ProductManagementTab extends ConsumerWidget {
                 updatedAt: DateTime.now(),
               ));
 
-              await service.updateProduct(productId, {
-                if (openFoodFactsImageUrl != null) 'imageUrl': openFoodFactsImageUrl,
-                if (openFoodFactsImageUrl != null) 'imageSource': 'openfoodfacts',
-                if (openFoodFactsImageUrl != null) 'imageApproved': true,
-                'updatedAt': DateTime.now(),
-              });
+              if (selectedImageFile != null) {
+                final upload = await StorageService().uploadProductCoverImage(
+                  file: selectedImageFile!,
+                  productId: productId,
+                );
+                await service.updateProduct(productId, {
+                  'imageUrl': upload.downloadUrl,
+                  'imagePath': upload.storagePath,
+                  'imageSource': 'admin_upload',
+                  'imageApproved': true,
+                  'updatedAt': DateTime.now(),
+                });
+              } else {
+                await service.updateProduct(productId, {
+                  if (openFoodFactsImageUrl != null) 'imageUrl': openFoodFactsImageUrl,
+                  if (openFoodFactsImageUrl != null) 'imageSource': 'openfoodfacts',
+                  if (openFoodFactsImageUrl != null) 'imageApproved': true,
+                  'updatedAt': DateTime.now(),
+                });
+              }
 
               nameController.clear();
               brandController.clear();
@@ -523,6 +618,22 @@ class _ProductManagementTab extends ConsumerWidget {
               TextField(
                 controller: brandController,
                 decoration: const InputDecoration(labelText: 'Marka', prefixIcon: Icon(Icons.branding_watermark)),
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 88);
+                  if (picked == null) return;
+                  setDialogState(() {
+                    selectedImageFile = File(picked.path);
+                    openFoodFactsImageUrl = null;
+                    barcodeHint = null;
+                  });
+                },
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(selectedImageFile == null ? 'Görsel Yükle' : 'Görsel seçildi'),
               ),
               const SizedBox(height: AppSpacing.md),
               Align(
@@ -630,6 +741,9 @@ class _ProductManagementTab extends ConsumerWidget {
     final descriptionController = TextEditingController(text: product.description ?? '');
     final Set<String> selectedCategories = {...product.categories};
     bool isSaving = false;
+    File? selectedImageFile;
+    String? currentImageUrl = product.effectiveImage;
+    String? currentImagePath = product.imagePath;
 
     showDialog(
       context: context,
@@ -648,6 +762,24 @@ class _ProductManagementTab extends ConsumerWidget {
                 TextField(controller: barcodeController, decoration: const InputDecoration(labelText: 'Barkod (Opsiyonel)')),
                 const SizedBox(height: AppSpacing.md),
                 TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Marka')),
+                const SizedBox(height: AppSpacing.md),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 88);
+                    if (picked == null) return;
+                    setDialogState(() {
+                      selectedImageFile = File(picked.path);
+                    });
+                  },
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(selectedImageFile == null ? 'Görsel Yükle' : 'Yeni görsel seçildi'),
+                ),
+                if ((currentImageUrl ?? '').isNotEmpty && selectedImageFile == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Mevcut görsel kullanılacak', style: Theme.of(context).textTheme.bodySmall),
+                  ),
                 const SizedBox(height: AppSpacing.md),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -696,6 +828,29 @@ class _ProductManagementTab extends ConsumerWidget {
 
                       setDialogState(() => isSaving = true);
                       try {
+                        String? nextImageUrl = currentImageUrl;
+                        String? nextImagePath = currentImagePath;
+                        if (selectedImageFile != null) {
+                          final storageService = StorageService();
+                          if ((currentImagePath ?? '').trim().isNotEmpty) {
+                            try {
+                              await storageService.deleteByPath(currentImagePath!.trim());
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Eski görsel silinemedi, yeni görsel yüklenecek.')),
+                                );
+                              }
+                            }
+                          }
+                          final upload = await storageService.uploadProductCoverImage(
+                            file: selectedImageFile!,
+                            productId: product.id,
+                          );
+                          nextImageUrl = upload.downloadUrl;
+                          nextImagePath = upload.storagePath;
+                        }
+
                         await ref.read(firestoreServiceProvider).updateProduct(product.id, {
                           'name': nameController.text.trim(),
                           'brand': brandController.text.trim().isEmpty ? 'Genel' : brandController.text.trim(),
@@ -703,6 +858,10 @@ class _ProductManagementTab extends ConsumerWidget {
                           'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                           'categories': selectedCategories.toList(),
                           'category': selectedCategories.first,
+                          'imageUrl': nextImageUrl,
+                          'imagePath': nextImagePath,
+                          'imageSource': selectedImageFile != null ? 'admin_upload' : product.imageSource,
+                          'imageApproved': (nextImageUrl ?? '').isNotEmpty,
                           'updatedAt': DateTime.now(),
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -799,7 +958,7 @@ class _ProductManagementTab extends ConsumerWidget {
                           const Padding(
                             padding: EdgeInsets.only(top: 4),
                             child: Text(
-                              'Bu ürün için görsel yok — AI Packshot oluşturabilirsiniz.',
+                              'Bu ürün için görsel yok. Görsel Yükle ile ekleyin.',
                               style: TextStyle(fontSize: 11, color: AppColors.warning),
                             ),
                           ),
@@ -808,24 +967,15 @@ class _ProductManagementTab extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            onPressed: () async {
-                              try {
-                                await ref.read(firestoreServiceProvider).createAiPackshot(
-                                  product: product,
-                                  storageService: StorageService(),
-                                );
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI Packshot oluşturuldu.')));
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Packshot hatası: $e')));
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+                            onPressed: () => _pickAndUploadProductImage(
+                              context: context,
+                              ref: ref,
+                              productId: product.id,
+                              currentImagePath: product.imagePath,
+                            ),
+                            icon: const Icon(Icons.photo_library_outlined, size: 20),
                             color: theme.colorScheme.primary,
-                            tooltip: 'AI Packshot Oluştur',
+                            tooltip: 'Görsel Yükle',
                           ),
                           IconButton(
                             onPressed: () => _showEditProductDialog(

@@ -64,8 +64,9 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _productSuggestionsRef =>
       _firestore.collection('productSuggestions');
   CollectionReference<Map<String, dynamic>> get _priceUniqueKeysRef => _firestore.collection('priceUniqueKeys');
+  CollectionReference<Map<String, dynamic>> get _priceDedupeKeysRef => _firestore.collection('priceDedupeKeys');
   CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
-  CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('actuals');
+  CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('campaigns');
   CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
   CollectionReference<Map<String, dynamic>> get _stockValidationRef => _firestore.collection('stock_validation');
   CollectionReference<Map<String, dynamic>> get _neighborhoodMarketsRef => _firestore.collection('neighborhood_markets');
@@ -725,6 +726,21 @@ class FirestoreService {
     return sha1.convert(utf8.encode(raw)).toString();
   }
 
+
+  String _normalizeAddress(String? raw) {
+    return (raw ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _buildPriceDedupeKey({
+    required String productId,
+    required String placeId,
+    required String normalizedAddress,
+    required double price,
+  }) {
+    final raw = '$productId|$placeId|$normalizedAddress|${price.toStringAsFixed(2)}';
+    return sha1.convert(utf8.encode(raw)).toString();
+  }
+
   Future<String> addPriceReport(PriceModel price) async {
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
@@ -740,15 +756,30 @@ class FirestoreService {
       price: price.price,
       reportedAt: price.reportedAt,
     );
+    final normalizedAddress = _normalizeAddress(price.storeLocation);
+    final dedupePlaceId = price.priceSourceType == 'neighborhood_market'
+        ? (price.neighborhoodMarketId ?? '')
+        : price.branchStoreId;
+    final dedupeKey = _buildPriceDedupeKey(
+      productId: price.productId,
+      placeId: dedupePlaceId,
+      normalizedAddress: normalizedAddress,
+      price: price.price,
+    );
+
     final priceRef = _pricesRef.doc();
     final uniqueRef = _priceUniqueKeysRef.doc(uniqueKey);
+    final dedupeRef = _priceDedupeKeysRef.doc(dedupeKey);
 
     await _firestore.runTransaction((txn) async {
       final uniqueDoc = await txn.get(uniqueRef);
-      if (uniqueDoc.exists) {
-        throw const DuplicatePriceException('Bu fiyat zaten eklenmiş. Aynı gün aynı kaynak için tekrar ekleyemezsin.');
+      final dedupeDoc = await txn.get(dedupeRef);
+      if (uniqueDoc.exists || dedupeDoc.exists) {
+        throw const DuplicatePriceException('Aynı fiyat zaten eklenmiş.');
       }
       final payload = price.copyWith(id: priceRef.id, uniqueKey: uniqueKey).toFirestore();
+      payload['createdByUid'] = price.userId;
+      payload['dedupeKey'] = dedupeKey;
       payload['id'] = priceRef.id;
       payload['uniqueKey'] = uniqueKey;
       payload['verificationStatus'] = payload['verificationStatus'] ?? 'pending';
@@ -763,6 +794,16 @@ class FirestoreService {
         'priceSourceType': price.priceSourceType,
         'price': price.price,
         'dayKey': _priceDayKey(price.reportedAt),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      txn.set(dedupeRef, {
+        'dedupeKey': dedupeKey,
+        'priceReportId': priceRef.id,
+        'productId': price.productId,
+        'placeId': dedupePlaceId,
+        'normalizedAddress': normalizedAddress,
+        'price': price.price,
         'createdAt': FieldValue.serverTimestamp(),
       });
       txn.update(_productsRef.doc(price.productId), {
@@ -1362,6 +1403,25 @@ class FirestoreService {
     return UserModel.fromFirestore(doc);
   }
 
+
+
+  Future<Map<String, dynamic>> getUserTrustProfile(String uid) async {
+    if (uid.trim().isEmpty) {
+      return {
+        'displayName': 'Kullanıcı',
+        'trustScorePercent': 0,
+        'tierName': 'Standart',
+      };
+    }
+
+    final doc = await _usersRef.doc(uid).get();
+    final data = doc.data() ?? <String, dynamic>{};
+    return {
+      'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
+      'trustScorePercent': ((data['reliabilityScore'] ?? data['trustScorePercent'] ?? 0) as num).toInt(),
+      'tierName': (data['tierName'] ?? data['levelName'] ?? 'Standart').toString(),
+    };
+  }
   // =========================================================================
   // SEARCH HISTORY
   // =========================================================================
