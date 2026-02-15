@@ -62,8 +62,9 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                               stream: pointsService.streamActivity(user.uid),
                               builder: (context, activitySnap) {
                                 final activities = activitySnap.data ?? const <PointsActivityItem>[];
+                                final listPadding = const EdgeInsets.symmetric(horizontal: 16).copyWith(top: AppSpacing.lg, bottom: 120);
                                 return ListView(
-                                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 120),
+                                  padding: listPadding,
                                   children: [
                                     if (profile == null) const _SkeletonCard(height: 260) else _HeroCard(profile: profile, activities: activities),
                                     const SizedBox(height: AppSpacing.lg),
@@ -136,51 +137,54 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final weekly = activities.where((e) => e.createdAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold<int>(0, (s, e) => s + e.points);
-    return _SectionCard(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 210,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 220,
-                  height: 220,
-                  child: CustomPaint(painter: _RingPainter(progress: profile.progress)),
-                ),
-                Transform.translate(
-                  offset: const Offset(0, 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${profile.totalPoints}', style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: -1)),
-                      const Text('Puan', style: TextStyle(color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            alignment: WrapAlignment.center,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: _SectionCard(
+          child: Column(
             children: [
-              Chip(label: Text(profile.level)),
+              SizedBox(
+                height: 210,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: CustomPaint(painter: _RingPainter(progress: profile.progress)),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('${profile.totalPoints}', style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: -1)),
+                        const Text('Puan', style: TextStyle(color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(profile.level),
+                  if (profile.nextLevel != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('Sonraki: ${profile.nextLevel!.title}'),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
               if (profile.nextLevel != null)
-                Chip(label: Text('Sonraki: ${profile.nextLevel!.title}')),
+                Text('Kalan: ${profile.remainingForNextLevel} puan', style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(
+                weekly == 0 ? 'Bu hafta henüz puan yok' : 'Bu hafta +$weekly puan',
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (profile.nextLevel != null)
-            Text('Kalan: ${profile.remainingForNextLevel} puan', style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            weekly == 0 ? 'Bu hafta henüz puan yok' : 'Bu hafta +$weekly puan',
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -300,12 +304,17 @@ class _ActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Aktivite',
+      contentCrossAxisAlignment: CrossAxisAlignment.center,
       child: activities.isEmpty
           ? Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const _PremiumEmpty(icon: Icons.local_fire_department_outlined, title: 'Henüz aktivite yok', subtitle: 'İlk katkınla puan yolculuğunu başlat.'),
                 const SizedBox(height: AppSpacing.sm),
-                FilledButton(onPressed: onCtaTap, child: const Text('İlk katkını yap')),
+                Align(
+                  alignment: Alignment.center,
+                  child: FilledButton(onPressed: onCtaTap, child: const Text('İlk katkını yap')),
+                ),
               ],
             )
           : Column(
@@ -431,9 +440,10 @@ class _BadgeTile extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({this.title, required this.child});
+  const _SectionCard({this.title, required this.child, this.contentCrossAxisAlignment = CrossAxisAlignment.start});
   final String? title;
   final Widget child;
+  final CrossAxisAlignment contentCrossAxisAlignment;
 
   @override
   Widget build(BuildContext context) {
@@ -445,7 +455,7 @@ class _SectionCard extends StatelessWidget {
         boxShadow: const [AppShadows.small],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: contentCrossAxisAlignment,
         children: [
           if (title != null) ...[
             Text(title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
