@@ -17,6 +17,8 @@ import '../models/campaign_basket_model.dart';
 import '../models/store_suggestion_model.dart';
 import '../models/product_suggestion_model.dart';
 import '../models/category_model.dart';
+import '../models/actual_item_model.dart';
+import '../models/actual_model.dart';
 import '../utils/safe_query_builder.dart';
 import '../services/storage_service.dart';
 
@@ -63,6 +65,7 @@ class FirestoreService {
       _firestore.collection('productSuggestions');
   CollectionReference<Map<String, dynamic>> get _priceUniqueKeysRef => _firestore.collection('priceUniqueKeys');
   CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
+  CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('actuals');
   CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
   CollectionReference<Map<String, dynamic>> get _stockValidationRef => _firestore.collection('stock_validation');
   CollectionReference<Map<String, dynamic>> get _neighborhoodMarketsRef => _firestore.collection('neighborhood_markets');
@@ -75,6 +78,18 @@ class FirestoreService {
 
   Stream<List<BrandModel>> getAllBrands() {
     return _brandsRef.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => BrandModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    });
+  }
+
+
+  Stream<List<BrandModel>> getActiveBrands() {
+    final query = SafeQueryBuilder.safeWhere(_brandsRef, 'isActive', true, expectedType: bool);
+    return query.snapshots().map((snapshot) {
       final list = snapshot.docs
           .map((doc) => BrandModel.fromFirestore(doc))
           .toList();
@@ -620,6 +635,29 @@ class FirestoreService {
   }
 
 
+
+  Future<PriceModel?> getLatestPriceForNeighborhoodMarket({
+    required String productId,
+    required String neighborhoodMarketId,
+  }) async {
+    try {
+      var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+      query = SafeQueryBuilder.safeWhere(query, 'priceSourceType', 'neighborhood_market', expectedType: String);
+      query = SafeQueryBuilder.safeWhere(query, 'neighborhoodMarketId', neighborhoodMarketId, expectedType: String);
+      query = SafeQueryBuilder.safeOrderBy(query, 'reportedAt', descending: true);
+      final snapshot = await query.limit(1).get();
+
+      if (snapshot.docs.isEmpty) return null;
+      return PriceModel.fromFirestore(snapshot.docs.first);
+    } on FirebaseException catch (e, st) {
+      _logFirestoreQueryError('getLatestPriceForNeighborhoodMarket', e, st);
+      return null;
+    } catch (e, st) {
+      _logFirestoreQueryError('getLatestPriceForNeighborhoodMarket', e, st);
+      return null;
+    }
+  }
+
   Future<PriceModel?> getLatestPriceForStore({
     required String productId,
     required String branchStoreId,
@@ -678,11 +716,12 @@ class FirestoreService {
   String _buildPriceUniqueKey({
     required String productId,
     required String marketId,
-    required String branchId,
+    required String sourceId,
+    required String priceSourceType,
     required double price,
     required DateTime reportedAt,
   }) {
-    final raw = '$productId|$marketId|$branchId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
+    final raw = '$productId|$marketId|$priceSourceType|$sourceId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
     return sha1.convert(utf8.encode(raw)).toString();
   }
 
@@ -694,7 +733,10 @@ class FirestoreService {
     final uniqueKey = _buildPriceUniqueKey(
       productId: price.productId,
       marketId: price.chainId ?? '',
-      branchId: price.branchStoreId,
+      sourceId: price.priceSourceType == 'neighborhood_market'
+          ? (price.neighborhoodMarketId ?? '')
+          : price.branchStoreId,
+      priceSourceType: price.priceSourceType,
       price: price.price,
       reportedAt: price.reportedAt,
     );
@@ -704,7 +746,7 @@ class FirestoreService {
     await _firestore.runTransaction((txn) async {
       final uniqueDoc = await txn.get(uniqueRef);
       if (uniqueDoc.exists) {
-        throw const DuplicatePriceException('Bu fiyat zaten eklenmiş. Aynı gün aynı şube için tekrar ekleyemezsin.');
+        throw const DuplicatePriceException('Bu fiyat zaten eklenmiş. Aynı gün aynı kaynak için tekrar ekleyemezsin.');
       }
       final payload = price.copyWith(id: priceRef.id, uniqueKey: uniqueKey).toFirestore();
       payload['id'] = priceRef.id;
@@ -716,7 +758,9 @@ class FirestoreService {
         'priceReportId': priceRef.id,
         'productId': price.productId,
         'marketId': price.chainId,
-        'branchId': price.branchStoreId,
+        'branchId': price.priceSourceType == 'branch' ? price.branchStoreId : null,
+        'neighborhoodMarketId': price.priceSourceType == 'neighborhood_market' ? price.neighborhoodMarketId : null,
+        'priceSourceType': price.priceSourceType,
         'price': price.price,
         'dayKey': _priceDayKey(price.reportedAt),
         'createdAt': FieldValue.serverTimestamp(),
@@ -1585,6 +1629,72 @@ class FirestoreService {
     }
     return results;
   }
+
+  Stream<List<ActualModel>> getActualsForAdmin({bool? isActive}) {
+    Query<Map<String, dynamic>> query = _actualsRef.orderBy('startDate', descending: true);
+    if (isActive != null) {
+      query = query.where('isActive', isEqualTo: isActive);
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs.map(ActualModel.fromFirestore).toList());
+  }
+
+  Stream<List<ActualModel>> getActiveActualsForUser() {
+    return _actualsRef
+        .where('isActive', isEqualTo: true)
+        .orderBy('startDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      final now = DateTime.now();
+      return snapshot.docs.map(ActualModel.fromFirestore).where((actual) {
+        return !actual.startDate.isAfter(now) && !actual.endDate.isBefore(now);
+      }).toList();
+    });
+  }
+
+  Stream<List<ActualItemModel>> getActualItems(String actualId, {bool onlyActive = false}) {
+    Query<Map<String, dynamic>> query = _actualsRef.doc(actualId).collection('items').orderBy('createdAt', descending: false);
+    if (onlyActive) {
+      query = query.where('isActive', isEqualTo: true);
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs.map(ActualItemModel.fromFirestore).toList());
+  }
+
+  Future<String> addActual(ActualModel actual) async {
+    final payload = actual.toFirestore();
+    payload['createdAt'] = FieldValue.serverTimestamp();
+    payload['updatedAt'] = FieldValue.serverTimestamp();
+    final doc = await _actualsRef.add(payload);
+    return doc.id;
+  }
+
+  Future<void> updateActual(String actualId, Map<String, dynamic> data) async {
+    final payload = Map<String, dynamic>.from(data);
+    payload['updatedAt'] = FieldValue.serverTimestamp();
+    await _actualsRef.doc(actualId).update(payload);
+  }
+
+  Future<void> setActualActive(String actualId, bool isActive) async {
+    await _actualsRef.doc(actualId).update({
+      'isActive': isActive,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<String> addActualItem(String actualId, ActualItemModel item) async {
+    final payload = item.toFirestore();
+    payload['createdAt'] = FieldValue.serverTimestamp();
+    final doc = await _actualsRef.doc(actualId).collection('items').add(payload);
+    return doc.id;
+  }
+
+  Future<void> updateActualItem(String actualId, String itemId, Map<String, dynamic> data) async {
+    await _actualsRef.doc(actualId).collection('items').doc(itemId).update(data);
+  }
+
+  Future<void> deleteActualItem(String actualId, String itemId) async {
+    await _actualsRef.doc(actualId).collection('items').doc(itemId).delete();
+  }
+
   Stream<List<Map<String, dynamic>>> getWeeklyDeals() {
     return _weeklyDealsRef.orderBy('startDate', descending: true).snapshots().map((snapshot) {
       return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
@@ -1783,30 +1893,37 @@ class FirestoreService {
   }
 
   Future<String> addNeighborhoodMarket({
-    required String uid,
     required String name,
     required String city,
     required String district,
     required String neighborhood,
-    required List<String> days,
-    GeoPoint? location,
+    required bool isActive,
   }) async {
     final doc = await _neighborhoodMarketsRef.add({
       'name': name,
       'city': city,
       'district': district,
       'neighborhood': neighborhood,
-      'days': days,
-      'location': location,
-      'verified': false,
-      'createdByUid': uid,
+      'isActive': isActive,
       'createdAt': FieldValue.serverTimestamp(),
     });
     return doc.id;
   }
 
-  Stream<List<Map<String, dynamic>>> neighborhoodMarketsStream() {
-    return _neighborhoodMarketsRef.orderBy('createdAt', descending: true).snapshots().map((snapshot) {
+  Future<void> updateNeighborhoodMarket(String marketId, Map<String, dynamic> data) async {
+    await _neighborhoodMarketsRef.doc(marketId).update(data);
+  }
+
+  Future<void> setNeighborhoodMarketActive(String marketId, bool isActive) async {
+    await _neighborhoodMarketsRef.doc(marketId).update({'isActive': isActive});
+  }
+
+  Stream<List<Map<String, dynamic>>> neighborhoodMarketsStream({bool onlyActive = false}) {
+    Query<Map<String, dynamic>> query = _neighborhoodMarketsRef.orderBy('createdAt', descending: true);
+    if (onlyActive) {
+      query = query.where('isActive', isEqualTo: true);
+    }
+    return query.snapshots().map((snapshot) {
       return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
     });
   }

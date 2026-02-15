@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/price_model.dart';
 import '../models/product_model.dart';
+import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../utils/formatters.dart';
 import '../utils/theme.dart';
@@ -29,6 +30,34 @@ class HomeProductCard extends ConsumerWidget {
     final categoryColor = _colorForCategory(product.category);
     final hasPrice = product.lastPrice != null;
     final priceHistoryAsync = ref.watch(productPriceHistoryProvider(product.id));
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final isFavoriteAsync = ref.watch(isFavoriteProvider(product.id));
+    final overrideFavorite = ref.watch(favoriteOverrideProvider(product.id));
+    final isFavorite = overrideFavorite ?? (isFavoriteAsync.valueOrNull ?? false);
+
+    Future<void> onFavoriteTap() async {
+      if (user == null) return;
+      final previous = isFavorite;
+      final next = !previous;
+      ref.read(favoriteOverrideProvider(product.id).notifier).state = next;
+      try {
+        await ref.read(firestoreServiceProvider).toggleFavorite(
+          uid: user.uid,
+          productId: product.id,
+          payload: {
+            'productId': product.id,
+            'productName': product.name,
+            'imageUrl': product.effectiveImage,
+          },
+        );
+        ref.read(favoriteOverrideProvider(product.id).notifier).state = null;
+      } catch (_) {
+        ref.read(favoriteOverrideProvider(product.id).notifier).state = previous;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
+        );
+      }
+    }
 
     return GestureDetector(
       onTap: onTap,
@@ -76,6 +105,26 @@ class HomeProductCard extends ConsumerWidget {
                           ),
                         )
                       : null,
+                ),
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: InkWell(
+                    onTap: onFavoriteTap,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.92),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: isFavorite ? Colors.red : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
                 ),
                 if (product.priceEntryCount >= 2 && product.lastPrice != null)
                   Positioned(
@@ -206,7 +255,6 @@ class HomeProductCard extends ConsumerWidget {
     if (difference.inDays < 7) return '${difference.inDays} gun once';
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
-
 }
 
 Color _colorForCategory(String category) {
@@ -259,6 +307,6 @@ IconData _iconForCategory(String category) {
     case 'Otomotiv':
       return Icons.directions_car;
     default:
-      return Icons.category;
+      return Icons.inventory_2;
   }
 }

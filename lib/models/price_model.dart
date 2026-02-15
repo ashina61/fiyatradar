@@ -8,6 +8,8 @@ class PriceModel {
   final double price;
   final String branchStoreId;
   final String? chainId;
+  final String priceSourceType;
+  final String? neighborhoodMarketId;
   final String currency;
   final DateTime reportedAt;
   final String? photoUrl;
@@ -47,6 +49,8 @@ class PriceModel {
     required this.price,
     required this.branchStoreId,
     this.chainId,
+    this.priceSourceType = 'branch',
+    this.neighborhoodMarketId,
     this.currency = 'TRY',
     required this.reportedAt,
     this.photoUrl,
@@ -131,8 +135,10 @@ class PriceModel {
       barcode: data['barcode'] ?? data['productBarcode'],
       userId: data['userId'] ?? '',
       price: _parsePriceValue(data['price']),
-      branchStoreId: data['branchStoreId'] ?? data['storeId'] ?? '',
+      branchStoreId: (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString(),
       chainId: data['chainId'],
+      priceSourceType: (data['priceSourceType'] ?? 'branch').toString(),
+      neighborhoodMarketId: data['neighborhoodMarketId'] as String?,
       currency: data['currency'] ?? 'TRY',
       reportedAt:
           (data['reportedAt'] as Timestamp?)?.toDate() ??
@@ -178,10 +184,13 @@ class PriceModel {
       'barcode': barcode,
       'userId': userId,
       'price': price,
-      'branchStoreId': branchStoreId,
+      'branchStoreId': priceSourceType == 'branch' ? branchStoreId : null,
+      'branchId': priceSourceType == 'branch' ? branchStoreId : null,
+      'neighborhoodMarketId': priceSourceType == 'neighborhood_market' ? neighborhoodMarketId : null,
+      'priceSourceType': priceSourceType,
       'chainId': chainId,
       // Legacy field kept for backward-compatibility with existing queries.
-      'storeId': branchStoreId,
+      'storeId': priceSourceType == 'branch' ? branchStoreId : null,
       'currency': currency,
       'reportedAt': Timestamp.fromDate(reportedAt),
       'photoUrl': photoUrl,
@@ -223,6 +232,8 @@ class PriceModel {
     double? price,
     String? branchStoreId,
     String? chainId,
+    String? priceSourceType,
+    String? neighborhoodMarketId,
     String? currency,
     DateTime? reportedAt,
     String? photoUrl,
@@ -260,6 +271,8 @@ class PriceModel {
       price: price ?? this.price,
       branchStoreId: branchStoreId ?? this.branchStoreId,
       chainId: chainId ?? this.chainId,
+      priceSourceType: priceSourceType ?? this.priceSourceType,
+      neighborhoodMarketId: neighborhoodMarketId ?? this.neighborhoodMarketId,
       currency: currency ?? this.currency,
       reportedAt: reportedAt ?? this.reportedAt,
       photoUrl: photoUrl ?? this.photoUrl,

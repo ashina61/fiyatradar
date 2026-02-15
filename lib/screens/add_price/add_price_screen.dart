@@ -23,6 +23,7 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 }
 
 enum StorePickerTab { nearby, online }
+enum PriceSourceType { branch, neighborhoodMarket }
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -30,6 +31,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _priceController = TextEditingController();
 
   StoreModel? _selectedStore;
+  Map<String, dynamic>? _selectedNeighborhoodMarket;
+  PriceSourceType _priceSourceType = PriceSourceType.branch;
   String? _selectedCategory;
   ProductModel? _selectedProduct;
   List<ProductModel> _productSuggestions = const [];
@@ -1052,10 +1055,22 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       );
       return;
     }
-    if (_selectedStore == null) {
+    if (_priceSourceType == PriceSourceType.branch && _selectedStore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Lutfen bir magaza (sube) secin'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm)),
+        ),
+      );
+      return;
+    }
+
+    if (_priceSourceType == PriceSourceType.neighborhoodMarket && _selectedNeighborhoodMarket == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Lütfen bir mahalle pazarı seçin'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1084,15 +1099,24 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       final priceText = _priceController.text.replaceAll(',', '.');
       final price = double.tryParse(priceText) ?? 0.0;
 
-      final latestPrice = await firestoreService.getLatestPriceForStore(
-        productId: _selectedProduct!.id,
-        branchStoreId: _selectedStore!.id,
-      );
+      final latestPrice = _priceSourceType == PriceSourceType.branch
+          ? await firestoreService.getLatestPriceForStore(
+              productId: _selectedProduct!.id,
+              branchStoreId: _selectedStore!.id,
+            )
+          : await firestoreService.getLatestPriceForNeighborhoodMarket(
+              productId: _selectedProduct!.id,
+              neighborhoodMarketId: (_selectedNeighborhoodMarket!['id'] ?? '').toString(),
+            );
       if (latestPrice != null && (latestPrice.price - price).abs() <= 0.01) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Bu ürün için aynı mağazada aynı fiyat zaten mevcut.'),
+              content: Text(
+                _priceSourceType == PriceSourceType.branch
+                    ? 'Bu ürün için aynı mağazada aynı fiyat zaten mevcut.'
+                    : 'Bu ürün için aynı pazarda aynı fiyat zaten mevcut.',
+              ),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -1109,9 +1133,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         userId: userModel.uid,
         userName: userModel.name,
         price: price,
-        branchStoreId: _selectedStore!.id,
-        chainId: _selectedStore!.brandId,
-        storeName: _selectedStore!.displayName,
+        branchStoreId: _priceSourceType == PriceSourceType.branch ? _selectedStore!.id : '',
+        chainId: _priceSourceType == PriceSourceType.branch ? _selectedStore!.brandId : null,
+        priceSourceType: _priceSourceType == PriceSourceType.branch ? 'branch' : 'neighborhood_market',
+        neighborhoodMarketId: _priceSourceType == PriceSourceType.neighborhoodMarket
+            ? (_selectedNeighborhoodMarket!['id'] ?? '').toString()
+            : null,
+        storeName: _priceSourceType == PriceSourceType.branch
+            ? _selectedStore!.displayName
+            : '🧺 ${(_selectedNeighborhoodMarket!['name'] ?? 'Mahalle Pazarı').toString()}',
         barcode: _selectedProduct!.barcode,
         reportedAt: DateTime.now(),
         addedByDisplayName: userModel.name,
@@ -1154,7 +1184,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         setState(() {
           _selectedProduct = null;
           _selectedStore = null;
+          _selectedNeighborhoodMarket = null;
           _selectedCategory = null;
+          _priceSourceType = PriceSourceType.branch;
         });
       }
     } on DuplicatePriceException catch (e) {
@@ -1425,110 +1457,176 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              // Step 3: Store (Branch) selection
               Text(
-                'Magaza (Sube) Secin',
+                'Fiyat Türü',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
+              RadioListTile<PriceSourceType>(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Market Şubesi'),
+                value: PriceSourceType.branch,
+                groupValue: _priceSourceType,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _priceSourceType = value;
+                    _selectedNeighborhoodMarket = null;
+                  });
+                },
+              ),
+              RadioListTile<PriceSourceType>(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Mahalle Pazarı'),
+                value: PriceSourceType.neighborhoodMarket,
+                groupValue: _priceSourceType,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _priceSourceType = value;
+                    _selectedStore = null;
+                  });
+                },
+              ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Store selection button
-              InkWell(
-                onTap: _showStorePicker,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    border: Border.all(
+              // Step 3: Source selection
+              if (_priceSourceType == PriceSourceType.branch) ...[
+                Text(
+                  'Magaza (Sube) Secin',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                InkWell(
+                  onTap: _showStorePicker,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _selectedStore != null
+                            ? AppColors.primary.withOpacity(0.5)
+                            : AppColors.outline,
+                        width: _selectedStore != null ? 2 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       color: _selectedStore != null
-                          ? AppColors.primary.withOpacity(0.5)
-                          : AppColors.outline,
-                      width: _selectedStore != null ? 2 : 1,
+                          ? AppColors.primary.withOpacity(0.05)
+                          : null,
                     ),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    color: _selectedStore != null
-                        ? AppColors.primary.withOpacity(0.05)
-                        : null,
-                  ),
-                  child: _selectedStore != null
-                      ? Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(AppRadius.sm),
-                              ),
-                              child: Icon(
+                    child: _selectedStore != null
+                        ? Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                ),
+                                child: Icon(
                                   _selectedStore!.isOnline ? Icons.language : Icons.store,
                                   color: AppColors.primary,
                                   size: 20,
                                 ),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _selectedStore!.isOnline
-                                        ? '🌐 ${_selectedStore!.displayName}'
-                                        : _selectedStore!.displayName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  if (_selectedStore!.isOnline)
-                                    const Text(
-                                      'Online mağaza • Konum gerektirmez',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    )
-                                  else if (_selectedStore!.neighborhood.isNotEmpty)
-                                    Text(
-                                      '${_selectedStore!.neighborhood}, ${_selectedStore!.district}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                ],
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () {
-                                setState(() => _selectedStore = null);
-                              },
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            const Icon(Icons.location_on_outlined,
-                                color: AppColors.textSecondary),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: Text(
-                                'Yakındaki veya online bir mağaza seçin',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 14,
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedStore!.isOnline
+                                          ? '🌐 ${_selectedStore!.displayName}'
+                                          : _selectedStore!.displayName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    if (_selectedStore!.isOnline)
+                                      const Text(
+                                        'Online mağaza • Konum gerektirmez',
+                                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                      )
+                                    else if (_selectedStore!.neighborhood.isNotEmpty)
+                                      Text(
+                                        '${_selectedStore!.neighborhood}, ${_selectedStore!.district}',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                      ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            const Icon(Icons.chevron_right,
-                                color: AppColors.textSecondary),
-                          ],
-                        ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () {
+                                  setState(() => _selectedStore = null);
+                                },
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              const Icon(Icons.location_on_outlined, color: AppColors.textSecondary),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Text(
+                                  'Yakındaki veya online bir mağaza seçin',
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
+              ] else ...[
+                Text(
+                  'Mahalle Pazarı Seçin',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ref.watch(activeNeighborhoodMarketsProvider).when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, __) => const Text('Mahalle pazarları yüklenemedi.'),
+                      data: (markets) {
+                        final selectedId = (_selectedNeighborhoodMarket?['id'] ?? '').toString();
+                        return DropdownButtonFormField<String>(
+                          value: selectedId.isEmpty ? null : selectedId,
+                          decoration: const InputDecoration(
+                            labelText: 'Mahalle Pazarı',
+                            prefixIcon: Icon(Icons.shopping_basket_outlined),
+                          ),
+                          items: markets
+                              .map(
+                                (market) => DropdownMenuItem<String>(
+                                  value: (market['id'] ?? '').toString(),
+                                  child: Text('${(market['name'] ?? '-').toString()} • ${(market['district'] ?? '').toString()}'),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            Map<String, dynamic>? selected;
+                            for (final market in markets) {
+                              if ((market['id'] ?? '').toString() == value) {
+                                selected = market;
+                                break;
+                              }
+                            }
+                            setState(() => _selectedNeighborhoodMarket = selected);
+                          },
+                          validator: (value) {
+                            if (_priceSourceType == PriceSourceType.neighborhoodMarket && (value == null || value.isEmpty)) {
+                              return 'Mahalle pazarı seçin';
+                            }
+                            return null;
+                          },
+                        );
+                      },
+                    ),
+              ],
               const SizedBox(height: AppSpacing.md),
 
               // Legal Disclaimer

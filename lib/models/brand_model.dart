@@ -7,6 +7,7 @@ class BrandModel {
   final String name;
   final BrandType type;
   final String? logoUrl;
+  final bool isActive;
   final DateTime createdAt;
 
   BrandModel({
@@ -14,6 +15,7 @@ class BrandModel {
     required this.name,
     required this.type,
     this.logoUrl,
+    this.isActive = true,
     required this.createdAt,
   });
 
@@ -25,6 +27,7 @@ class BrandModel {
       name: data['name'] ?? '',
       type: _parseBrandType(data['type']),
       logoUrl: data['logoUrl'],
+      isActive: data['isActive'] as bool? ?? true,
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -35,6 +38,7 @@ class BrandModel {
       'name': name,
       'type': type.name,
       'logoUrl': logoUrl,
+      'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -68,6 +72,7 @@ class BrandModel {
     String? name,
     BrandType? type,
     String? logoUrl,
+    bool? isActive,
     DateTime? createdAt,
   }) {
     return BrandModel(
@@ -75,6 +80,7 @@ class BrandModel {
       name: name ?? this.name,
       type: type ?? this.type,
       logoUrl: logoUrl ?? this.logoUrl,
+      isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
     );
   }

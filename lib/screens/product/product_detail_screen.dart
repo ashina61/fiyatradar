@@ -473,7 +473,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
     final storesAsync = ref.watch(allStoresStreamProvider);
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final isFavoriteAsync = uid == null ? const AsyncValue.data(false) : ref.watch(StreamProvider<bool>((ref) => ref.read(firestoreServiceProvider).isFavoriteStream(uid: uid, productId: widget.productId)));
+    final isFavoriteAsync = ref.watch(isFavoriteProvider(widget.productId));
+    final favoriteOverride = ref.watch(favoriteOverrideProvider(widget.productId));
+    final isFavorite = favoriteOverride ?? (isFavoriteAsync.valueOrNull ?? false);
 
     return productAsync.when(
       loading: () => Scaffold(
@@ -531,16 +533,33 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         child: Row(
                           children: [
                             _buildHeroAction(
-                              icon: (isFavoriteAsync.valueOrNull ?? false) ? Icons.favorite : Icons.favorite_border,
-                              active: (isFavoriteAsync.valueOrNull ?? false),
+                              icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+                              active: isFavorite,
                               onTap: uid == null
                                   ? null
                                   : () async {
-                                      await ref.read(firestoreServiceProvider).toggleFavorite(
-                                            uid: uid,
-                                            productId: widget.productId,
-                                            payload: {'productId': product.id, 'productName': product.name, 'imageUrl': product.effectiveImage},
+                                      final previous = isFavorite;
+                                      final next = !previous;
+                                      ref.read(favoriteOverrideProvider(widget.productId).notifier).state = next;
+                                      try {
+                                        await ref.read(firestoreServiceProvider).toggleFavorite(
+                                              uid: uid,
+                                              productId: widget.productId,
+                                              payload: {
+                                                'productId': product.id,
+                                                'productName': product.name,
+                                                'imageUrl': product.effectiveImage,
+                                              },
+                                            );
+                                        ref.read(favoriteOverrideProvider(widget.productId).notifier).state = null;
+                                      } catch (_) {
+                                        ref.read(favoriteOverrideProvider(widget.productId).notifier).state = previous;
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
                                           );
+                                        }
+                                      }
                                     },
                             ),
                             const SizedBox(width: 8),
@@ -863,7 +882,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  price.storeName?.trim().isNotEmpty == true ? price.storeName!.trim() : 'Mağaza',
+                                  _displayPriceSourceName(price),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontWeight: FontWeight.w600),
@@ -1208,7 +1227,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 4),
                         Tooltip(
-                          message: '${price.storeName}\n${_formatPrice(price.price)}'
+                          message: '${_displayPriceSourceName(price)}\n${_formatPrice(price.price)}'
                             '${price.isTrustedPrice ? '\nGuvenilir Fiyat' : ''}',
                           child: Container(
                             height: barHeight,
@@ -1710,6 +1729,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   String _formatPrice(double price) => formatTRY(price);
+
+  String _displayPriceSourceName(PriceModel price) {
+    final raw = (price.storeName ?? '').trim();
+    if (price.priceSourceType == 'neighborhood_market') {
+      final clean = raw.replaceFirst(RegExp(r'^🧺\s*'), '').trim();
+      return '🧺 ${clean.isEmpty ? 'Mahalle Pazarı' : clean}';
+    }
+    return raw.isNotEmpty ? raw : 'Mağaza';
+  }
 
   String _formatPriceShort(double price) => formatTRY(price);
 
