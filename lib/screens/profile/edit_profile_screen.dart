@@ -89,6 +89,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'city': _cityController.text.trim(),
         'photoUrl': photoUrl ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
+        if (_avatarFile != null) 'avatarUpdatedAt': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 8));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n?.profileUpdated ?? 'Profil güncellendi.')));
