@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
 class StorageService {
@@ -79,16 +80,6 @@ class StorageService {
     );
   }
 
-  Future<String> uploadProductImage({
-    required File file,
-    required String productId,
-  }) async {
-    return await uploadImage(
-      file: file,
-      folder: 'products/$productId',
-    );
-  }
-
   Future<({String downloadUrl, String storagePath})> uploadCategoryImage({
     required File file,
     required String categoryId,
@@ -105,6 +96,38 @@ class StorageService {
     final snapshot = await uploadTask;
     final downloadUrl = await snapshot.ref.getDownloadURL();
     return (downloadUrl: downloadUrl, storagePath: storagePath);
+  }
+
+
+
+  Future<Map<String, String>> uploadPackshotVariants({
+    required String productId,
+    required List<int> imageBytes,
+  }) async {
+    final decoded = img.decodeImage(imageBytes);
+    if (decoded == null) {
+      throw Exception('Gorsel verisi okunamadi.');
+    }
+
+    final thumb = img.copyResize(decoded, width: 256);
+    final medium = img.copyResize(decoded, width: 768);
+
+    final thumbRef = _storage.ref().child('packshots/$productId/thumb.webp');
+    final mediumRef = _storage.ref().child('packshots/$productId/medium.webp');
+
+    final metadata = SettableMetadata(
+      contentType: 'image/webp',
+      cacheControl: 'public,max-age=31536000',
+      customMetadata: {'generatedAt': DateTime.now().toIso8601String()},
+    );
+
+    await thumbRef.putData(img.encodeWebP(thumb, quality: 86), metadata);
+    await mediumRef.putData(img.encodeWebP(medium, quality: 90), metadata);
+
+    return {
+      'imageThumbUrl': await thumbRef.getDownloadURL(),
+      'imageMediumUrl': await mediumRef.getDownloadURL(),
+    };
   }
 
   Future<void> deleteByPath(String path) async {

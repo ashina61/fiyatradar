@@ -539,7 +539,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                       await ref.read(firestoreServiceProvider).toggleFavorite(
                                             uid: uid,
                                             productId: widget.productId,
-                                            payload: {'productId': product.id, 'productName': product.name, 'imageUrl': product.mainImage},
+                                            payload: {'productId': product.id, 'productName': product.name, 'imageUrl': product.effectiveImage},
                                           );
                                     },
                             ),
@@ -611,7 +611,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                AppConstants.priceDisclaimer,
+                                '${AppConstants.priceDisclaimer}\nGörseller temsilidir. Marka sahipleri ile resmi bağlantı bulunmaz.',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.textTertiary.withOpacity(0.7),
@@ -882,10 +882,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             runSpacing: 4,
                             children: [
                               Text('Ekleyen: ${(price.addedByDisplayName ?? price.userName ?? 'Anonim').trim()}', style: Theme.of(context).textTheme.bodySmall),
-                              if (price.addedByLevelSnapshot?.isNotEmpty == true)
-                                Chip(label: Text(price.addedByLevelSnapshot!), visualDensity: VisualDensity.compact),
-                              Chip(label: Text('Güven: %${price.addedByTrustScoreSnapshot.round()}'), visualDensity: VisualDensity.compact),
-                              if (price.addedByVerifiedBadge) const Icon(Icons.verified_rounded, size: 16, color: Colors.blue),
+                              Chip(
+                                label: Text('${(price.createdByBadgeSnapshot ?? price.addedByLevelSnapshot ?? 'Standart')} • %${(price.createdByTrustScoreSnapshot > 0 ? price.createdByTrustScoreSnapshot : price.addedByTrustScoreSnapshot).round()}'),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              if (price.createdByVerifiedSnapshot || price.addedByVerifiedBadge) const Icon(Icons.verified_rounded, size: 16, color: Colors.blue),
                             ],
                           ),
                         ],
@@ -1071,7 +1072,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   String? _resolveProductImageUrl(ProductModel product) {
-    if ((product.mainImage ?? '').trim().isNotEmpty) return product.mainImage!.trim();
+    if ((product.effectiveImage ?? '').trim().isNotEmpty) return product.effectiveImage!.trim();
     if (product.imageUrls.isNotEmpty) {
       return product.imageUrls.firstWhere(
         (url) => url.trim().isNotEmpty,

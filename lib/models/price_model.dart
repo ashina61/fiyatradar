@@ -35,6 +35,9 @@ class PriceModel {
   final double addedByTrustScoreSnapshot;
   final String? addedByLevelSnapshot;
   final bool addedByVerifiedBadge;
+  final double createdByTrustScoreSnapshot;
+  final String? createdByBadgeSnapshot;
+  final bool createdByVerifiedSnapshot;
 
   PriceModel({
     required this.id,
@@ -69,6 +72,9 @@ class PriceModel {
     this.addedByTrustScoreSnapshot = 0,
     this.addedByLevelSnapshot,
     this.addedByVerifiedBadge = false,
+    this.createdByTrustScoreSnapshot = 0,
+    this.createdByBadgeSnapshot,
+    this.createdByVerifiedSnapshot = false,
   });
 
   DateTime get createdAt => reportedAt;
@@ -152,9 +158,12 @@ class PriceModel {
       trustPercent: (data['trustPercent'] as num?)?.toInt() ?? 30,
       uniqueKey: data['uniqueKey'] as String?,
       addedByDisplayName: (data['addedByDisplayName'] ?? data['userName']) as String?,
-      addedByTrustScoreSnapshot: (data['addedByTrustScoreSnapshot'] as num?)?.toDouble() ?? 0,
-      addedByLevelSnapshot: data['addedByLevelSnapshot'] as String?,
-      addedByVerifiedBadge: data['addedByVerifiedBadge'] == true,
+      addedByTrustScoreSnapshot: (data['addedByTrustScoreSnapshot'] as num?)?.toDouble() ?? (data['createdByTrustScoreSnapshot'] as num?)?.toDouble() ?? 0,
+      addedByLevelSnapshot: (data['addedByLevelSnapshot'] ?? data['createdByBadgeSnapshot']) as String?,
+      addedByVerifiedBadge: data['addedByVerifiedBadge'] == true || data['createdByVerifiedSnapshot'] == true,
+      createdByTrustScoreSnapshot: (data['createdByTrustScoreSnapshot'] as num?)?.toDouble() ?? (data['addedByTrustScoreSnapshot'] as num?)?.toDouble() ?? 0,
+      createdByBadgeSnapshot: (data['createdByBadgeSnapshot'] ?? data['addedByLevelSnapshot']) as String?,
+      createdByVerifiedSnapshot: data['createdByVerifiedSnapshot'] == true || data['addedByVerifiedBadge'] == true,
     );
   }
 
@@ -200,6 +209,9 @@ class PriceModel {
       'addedByTrustScoreSnapshot': addedByTrustScoreSnapshot,
       'addedByLevelSnapshot': addedByLevelSnapshot,
       'addedByVerifiedBadge': addedByVerifiedBadge,
+      'createdByTrustScoreSnapshot': createdByTrustScoreSnapshot,
+      'createdByBadgeSnapshot': createdByBadgeSnapshot,
+      'createdByVerifiedSnapshot': createdByVerifiedSnapshot,
     };
   }
 
@@ -236,6 +248,9 @@ class PriceModel {
     double? addedByTrustScoreSnapshot,
     String? addedByLevelSnapshot,
     bool? addedByVerifiedBadge,
+    double? createdByTrustScoreSnapshot,
+    String? createdByBadgeSnapshot,
+    bool? createdByVerifiedSnapshot,
   }) {
     return PriceModel(
       id: id ?? this.id,
@@ -270,6 +285,9 @@ class PriceModel {
       addedByTrustScoreSnapshot: addedByTrustScoreSnapshot ?? this.addedByTrustScoreSnapshot,
       addedByLevelSnapshot: addedByLevelSnapshot ?? this.addedByLevelSnapshot,
       addedByVerifiedBadge: addedByVerifiedBadge ?? this.addedByVerifiedBadge,
+      createdByTrustScoreSnapshot: createdByTrustScoreSnapshot ?? this.createdByTrustScoreSnapshot,
+      createdByBadgeSnapshot: createdByBadgeSnapshot ?? this.createdByBadgeSnapshot,
+      createdByVerifiedSnapshot: createdByVerifiedSnapshot ?? this.createdByVerifiedSnapshot,
     );
   }
 

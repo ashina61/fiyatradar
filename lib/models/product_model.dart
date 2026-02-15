@@ -7,6 +7,13 @@ class ProductModel {
   final List<String> categories;
   final String? mainImage;
   final List<String> imageUrls;
+  final String? imageUrl;
+  final String? imageThumbUrl;
+  final String? imageMediumUrl;
+  final String imageSource;
+  final bool aiGenerated;
+  final String? aiPrompt;
+  final bool imageApproved;
   final String? description;
   final String? barcode;
   final int viewCount;
@@ -23,6 +30,13 @@ class ProductModel {
     this.categories = const [],
     this.mainImage,
     this.imageUrls = const [],
+    this.imageUrl,
+    this.imageThumbUrl,
+    this.imageMediumUrl,
+    this.imageSource = 'admin_manual',
+    this.aiGenerated = false,
+    this.aiPrompt,
+    this.imageApproved = false,
     this.description,
     this.barcode,
     this.viewCount = 0,
@@ -47,8 +61,15 @@ class ProductModel {
       name: data['name'] ?? '',
       brand: data['brand'] ?? '',
       categories: parsedCategories,
-      mainImage: data['mainImage'],
+      mainImage: data['mainImage'] ?? data['imageThumbUrl'] ?? data['imageMediumUrl'] ?? data['imageUrl'],
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
+      imageUrl: data['imageUrl'] as String?,
+      imageThumbUrl: data['imageThumbUrl'] as String?,
+      imageMediumUrl: data['imageMediumUrl'] as String?,
+      imageSource: (data['imageSource'] ?? 'admin_manual').toString(),
+      aiGenerated: data['aiGenerated'] == true,
+      aiPrompt: data['aiPrompt'] as String?,
+      imageApproved: data['imageApproved'] == true,
       description: data['description'],
       barcode: data['barcode'],
       viewCount: data['viewCount'] ?? 0,
@@ -66,8 +87,15 @@ class ProductModel {
       'brand': brand,
       'categories': categories,
       'category': categories.isNotEmpty ? categories.first : null,
-      'mainImage': mainImage,
+      'mainImage': effectiveImage,
       'imageUrls': imageUrls,
+      'imageUrl': imageUrl,
+      'imageThumbUrl': imageThumbUrl,
+      'imageMediumUrl': imageMediumUrl,
+      'imageSource': imageSource,
+      'aiGenerated': aiGenerated,
+      'aiPrompt': aiPrompt,
+      'imageApproved': imageApproved,
       'description': description,
       'barcode': barcode,
       'viewCount': viewCount,
@@ -86,6 +114,13 @@ class ProductModel {
     List<String>? categories,
     String? mainImage,
     List<String>? imageUrls,
+    String? imageUrl,
+    String? imageThumbUrl,
+    String? imageMediumUrl,
+    String? imageSource,
+    bool? aiGenerated,
+    String? aiPrompt,
+    bool? imageApproved,
     String? description,
     String? barcode,
     int? viewCount,
@@ -102,6 +137,13 @@ class ProductModel {
       categories: categories ?? this.categories,
       mainImage: mainImage ?? this.mainImage,
       imageUrls: imageUrls ?? this.imageUrls,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imageThumbUrl: imageThumbUrl ?? this.imageThumbUrl,
+      imageMediumUrl: imageMediumUrl ?? this.imageMediumUrl,
+      imageSource: imageSource ?? this.imageSource,
+      aiGenerated: aiGenerated ?? this.aiGenerated,
+      aiPrompt: aiPrompt ?? this.aiPrompt,
+      imageApproved: imageApproved ?? this.imageApproved,
       description: description ?? this.description,
       barcode: barcode ?? this.barcode,
       viewCount: viewCount ?? this.viewCount,
@@ -128,5 +170,14 @@ class ProductModel {
       return [legacyCategory];
     }
     return const [];
+  }
+
+  String? get effectiveImage {
+    if (imageThumbUrl != null && imageThumbUrl!.isNotEmpty) return imageThumbUrl;
+    if (imageMediumUrl != null && imageMediumUrl!.isNotEmpty) return imageMediumUrl;
+    if (imageUrl != null && imageUrl!.isNotEmpty) return imageUrl;
+    if (mainImage != null && mainImage!.isNotEmpty) return mainImage;
+    if (imageUrls.isNotEmpty) return imageUrls.first;
+    return null;
   }
 }
