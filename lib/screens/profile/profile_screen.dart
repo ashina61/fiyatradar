@@ -622,6 +622,7 @@ class BadgeCinema extends StatefulWidget {
   const BadgeCinema({
     super.key,
     required this.badges,
+    this.avatarChangedAt,
     this.animateFirstUnlock = false,
   });
 
