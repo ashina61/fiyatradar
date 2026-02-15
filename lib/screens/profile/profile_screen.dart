@@ -1196,13 +1196,10 @@ class ProfileViewData {
     required UserModel fallbackUser,
     required Map<String, dynamic> profileData,
   }) {
-    final displayName = _stringFromAny(
-          profileData['displayName'] ?? profileData['name'] ?? fallbackUser.name,
-        )
-            .trim()
-            .isEmpty
-        ? 'Kullanıcı'
-        : _stringFromAny(profileData['displayName'] ?? profileData['name'] ?? fallbackUser.name);
+    final resolvedDisplayName = _stringFromAny(
+      profileData['displayName'] ?? profileData['name'] ?? fallbackUser.name,
+    );
+    final displayName = resolvedDisplayName ?? 'Kullanıcı';
 
     final trustScore = _numFromAny(
           profileData['trustScore'] ?? profileData['reliabilityScore'] ?? fallbackUser.reliabilityScore,
