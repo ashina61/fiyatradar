@@ -99,6 +99,25 @@ class StorageService {
     return (downloadUrl: downloadUrl, storagePath: storagePath);
   }
 
+  Future<({String downloadUrl, String storagePath})> uploadProductCoverImage({
+    required File file,
+    required String productId,
+  }) async {
+    final storagePath = 'product_images/$productId/cover.jpg';
+    final ref = _storage.ref().child(storagePath);
+    final uploadTask = ref.putFile(
+      file,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        cacheControl: 'public,max-age=31536000',
+        customMetadata: {'uploadedAt': DateTime.now().toIso8601String()},
+      ),
+    );
+    final snapshot = await uploadTask;
+    final downloadUrl = await snapshot.ref.getDownloadURL();
+    return (downloadUrl: downloadUrl, storagePath: storagePath);
+  }
+
 
 
   Future<Map<String, String>> uploadPackshotVariants({

@@ -10,6 +10,7 @@ class ProductModel {
   final String? imageUrl;
   final String? imageThumbUrl;
   final String? imageMediumUrl;
+  final String? imagePath;
   final String imageSource;
   final bool aiGenerated;
   final String? aiPrompt;
@@ -33,6 +34,7 @@ class ProductModel {
     this.imageUrl,
     this.imageThumbUrl,
     this.imageMediumUrl,
+    this.imagePath,
     this.imageSource = 'admin_manual',
     this.aiGenerated = false,
     this.aiPrompt,
@@ -66,6 +68,7 @@ class ProductModel {
       imageUrl: data['imageUrl'] as String?,
       imageThumbUrl: data['imageThumbUrl'] as String?,
       imageMediumUrl: data['imageMediumUrl'] as String?,
+      imagePath: data['imagePath'] as String?,
       imageSource: (data['imageSource'] ?? 'admin_manual').toString(),
       aiGenerated: data['aiGenerated'] == true,
       aiPrompt: data['aiPrompt'] as String?,
@@ -92,6 +95,7 @@ class ProductModel {
       'imageUrl': imageUrl,
       'imageThumbUrl': imageThumbUrl,
       'imageMediumUrl': imageMediumUrl,
+      'imagePath': imagePath,
       'imageSource': imageSource,
       'aiGenerated': aiGenerated,
       'aiPrompt': aiPrompt,
@@ -117,6 +121,7 @@ class ProductModel {
     String? imageUrl,
     String? imageThumbUrl,
     String? imageMediumUrl,
+    String? imagePath,
     String? imageSource,
     bool? aiGenerated,
     String? aiPrompt,
@@ -140,6 +145,7 @@ class ProductModel {
       imageUrl: imageUrl ?? this.imageUrl,
       imageThumbUrl: imageThumbUrl ?? this.imageThumbUrl,
       imageMediumUrl: imageMediumUrl ?? this.imageMediumUrl,
+      imagePath: imagePath ?? this.imagePath,
       imageSource: imageSource ?? this.imageSource,
       aiGenerated: aiGenerated ?? this.aiGenerated,
       aiPrompt: aiPrompt ?? this.aiPrompt,

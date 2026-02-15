@@ -616,6 +616,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       // Price card
                       _buildPriceCard(
                         product,
+                        latestPrice: (priceHistory != null && priceHistory.isNotEmpty) ? priceHistory.first : null,
                         branchStore: branchStore,
                         showNearbyGlow: isNearbyStore,
                       ),
@@ -862,6 +863,69 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+
+  Widget _buildTrustBadge({
+    required String tierName,
+    required int trustPercent,
+  }) {
+    return InkWell(
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Güven Profili', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Text('$tierName • %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              const Text('Güven skoru topluluk doğrulamalarına göre hesaplanır.'),
+            ],
+          ),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Text('$tierName • %$trustPercent', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _buildPriceContributor(PriceModel price) {
+    final uid = (price.createdByUid ?? price.userId).trim();
+    return FutureBuilder<Map<String, dynamic>>(
+      future: ref.read(firestoreServiceProvider).getUserTrustProfile(uid),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const {
+          'displayName': 'Kullanıcı',
+          'trustScorePercent': 0,
+          'tierName': 'Standart',
+        };
+        final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
+        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
+        final tierName = (data['tierName'] ?? 'Standart').toString();
+
+        return Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}', style: Theme.of(context).textTheme.bodySmall),
+            _buildTrustBadge(tierName: tierName, trustPercent: trustPercent),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCheapestStoresSection(List<PriceModel> prices) {
     final sorted = [...prices]..sort((a, b) => a.price.compareTo(b.price));
     final cheapest = sorted.take(3).toList();
@@ -900,12 +964,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             spacing: 6,
                             runSpacing: 4,
                             children: [
-                              Text('Ekleyen: ${(price.addedByDisplayName ?? price.userName ?? 'Anonim').trim()}', style: Theme.of(context).textTheme.bodySmall),
-                              Chip(
-                                label: Text('${(price.createdByBadgeSnapshot ?? price.addedByLevelSnapshot ?? 'Standart')} • %${(price.createdByTrustScoreSnapshot > 0 ? price.createdByTrustScoreSnapshot : price.addedByTrustScoreSnapshot).round()}'),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              if (price.createdByVerifiedSnapshot || price.addedByVerifiedBadge) const Icon(Icons.verified_rounded, size: 16, color: Colors.blue),
+                              _buildPriceContributor(price),
                             ],
                           ),
                         ],
@@ -919,6 +978,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildPriceCard(
     ProductModel product, {
+    required PriceModel? latestPrice,
     required _BranchStoreData? branchStore,
     required bool showNearbyGlow,
   }) {
@@ -960,6 +1020,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     color: AppColors.primary,
                   ),
                 ),
+                const SizedBox(height: 4),
+                if (latestPrice != null) _buildPriceContributor(latestPrice),
               ],
             ),
           ),
