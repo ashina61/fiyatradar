@@ -263,9 +263,12 @@ class _ProfileScaffoldBody extends StatelessWidget {
                   topMarketName: profile.topMarketName,
                 ),
                 const SizedBox(height: 16),
-                QuickActionsBar(),
+                QuickActionsBar(userId: user.uid),
                 const SizedBox(height: 16),
-                BadgeCinema(badges: profile.badges),
+                BadgeCinema(
+                  badges: profile.badges,
+                  animateFirstUnlock: bundle.justUnlockedBadge,
+                ),
                 const SizedBox(height: 16),
                 LiveActivityTimeline(activities: bundle.activities),
                 const SizedBox(height: 16),
@@ -346,17 +349,17 @@ class ProfileHeroCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
                       children: [
-                        Expanded(
-                          child: Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
                         const Icon(Icons.verified_rounded, color: AppColors.primaryDark, size: 20),
                       ],
@@ -387,22 +390,7 @@ class ProfileHeroCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              SizedBox(
-                width: 74,
-                height: 74,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: safeScore / 100,
-                      strokeWidth: 7,
-                      backgroundColor: cs.outlineVariant.withOpacity(0.4),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryDark),
-                    ),
-                    Text('%${safeScore.round()}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ],
-                ),
-              ),
+              _TrustScoreRing(score: safeScore),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -493,20 +481,80 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class BadgeCinema extends StatelessWidget {
-  const BadgeCinema({super.key, required this.badges});
+class BadgeCinema extends StatefulWidget {
+  const BadgeCinema({
+    super.key,
+    required this.badges,
+    this.animateFirstUnlock = false,
+  });
 
   final List<Map<String, dynamic>> badges;
+  final bool animateFirstUnlock;
+
+  @override
+  State<BadgeCinema> createState() => _BadgeCinemaState();
+}
+
+class _BadgeCinemaState extends State<BadgeCinema> with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+  bool _playedFirstUnlock = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    if (widget.animateFirstUnlock) {
+      _playedFirstUnlock = true;
+      _glowController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant BadgeCinema oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animateFirstUnlock && !_playedFirstUnlock) {
+      _playedFirstUnlock = true;
+      _glowController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final badges = widget.badges;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Rozet Sineması', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 10),
         if (badges.isEmpty)
-          const EmptyStateCard(message: 'Henüz rozetin yok. Katkı yaptıkça yeni rozetler açılacak.')
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 90,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 4,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) => _LockedBadgePreview(glowController: _glowController),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Katkı yaptıkça yeni rozetler açılacak.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          )
         else
           SizedBox(
             height: 132,
@@ -557,10 +605,9 @@ class BadgeCinema extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          Icon(
-                            unlocked ? Icons.workspace_premium_rounded : Icons.lock_rounded,
-                            color: unlocked ? AppColors.primaryDark : Colors.grey,
-                            size: 18,
+                          _AnimatedBadgeLockIcon(
+                            unlocked: unlocked,
+                            playUnlockAnimation: widget.animateFirstUnlock && index == 0 && unlocked,
                           ),
                         ],
                       ),
@@ -590,7 +637,9 @@ class BadgeCinema extends StatelessWidget {
 }
 
 class QuickActionsBar extends StatelessWidget {
-  QuickActionsBar({super.key});
+  QuickActionsBar({super.key, required this.userId});
+
+  final String userId;
 
   final List<_QuickActionData> _actions = const [
     _QuickActionData(title: 'Fiyatlarım', icon: Icons.sell_rounded),
@@ -625,6 +674,18 @@ class QuickActionsBar extends StatelessWidget {
                     if (action.title == 'Bildirimler') {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      );
+                      return;
+                    }
+                    if (action.title == 'Fiyatlarım') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => MyPricesScreen(userId: userId)),
+                      );
+                      return;
+                    }
+                    if (action.title == 'Favoriler') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => FavoritesScreen(userId: userId)),
                       );
                       return;
                     }
@@ -763,17 +824,15 @@ class PremiumSettingsPanel extends ConsumerWidget {
           icon: Icons.notifications_rounded,
           title: 'Bildirim Ayarları',
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
           ),
         ),
         _SettingsTile(
           icon: Icons.security_rounded,
           title: 'Güvenlik',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Güvenlik ayarları yakında.')),
-            );
-          },
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SecurityScreen()),
+          ),
         ),
         if (user.isAdmin)
           _SettingsTile(
@@ -783,15 +842,18 @@ class PremiumSettingsPanel extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
             ),
           ),
+        const SizedBox(height: 8),
+        const _AboutSection(),
         _SettingsTile(
           icon: Icons.logout_rounded,
           title: 'Çıkış Yap',
-          color: Colors.red.shade600,
+          color: AppColors.error,
           onTap: () async {
-            final shouldLogout = await showDialog<bool>(
+            final shouldLogout =
+                await showDialog<bool>(
                   context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Çıkış yapılsın mı?'),
+                  builder: (context) => AlertDialog(
+                    title: const Text('Çıkış Yap'),
                     content: const Text('Hesabından çıkış yapmak istediğine emin misin?'),
                     actions: [
                       TextButton(
@@ -938,6 +1000,487 @@ class _UnlockBadgeToastOverlayState extends State<UnlockBadgeToastOverlay>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TrustScoreRing extends StatelessWidget {
+  const _TrustScoreRing({required this.score});
+
+  final double score;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final safe = score.clamp(0, 100).toDouble();
+
+    return SizedBox(
+      width: 110,
+      height: 110,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(110, 110),
+            painter: _RingPainter(
+              progress: safe / 100,
+              backgroundColor: cs.outlineVariant.withOpacity(0.3),
+              progressColor: AppColors.primaryDark,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('%${safe.round()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
+                const SizedBox(height: 2),
+                Text('Güven Skoru', style: Theme.of(context).textTheme.labelSmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.progress,
+    required this.backgroundColor,
+    required this.progressColor,
+  });
+
+  final double progress;
+  final Color backgroundColor;
+  final Color progressColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 8.0;
+    final center = size.center(Offset.zero);
+    final radius = (size.width - stroke) / 2;
+
+    final bgPaint = Paint()
+      ..color = backgroundColor
+      ..strokeWidth = stroke
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..strokeWidth = stroke
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, bgPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -1.57,
+      6.28318 * progress.clamp(0, 1),
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.progressColor != progressColor;
+  }
+}
+
+class _LockedBadgePreview extends StatelessWidget {
+  const _LockedBadgePreview({required this.glowController});
+
+  final AnimationController glowController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: glowController,
+      builder: (context, child) {
+        final glow = Curves.easeOut.transform(glowController.value);
+        return Container(
+          width: 84,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5 + (glow * 0.3))),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD4AF37).withOpacity(0.08 + glow * 0.18),
+                blurRadius: 8 + (10 * glow),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 1.6, sigmaY: 1.6),
+              child: Opacity(
+                opacity: 0.3,
+                child: const Center(
+                  child: Icon(Icons.lock_rounded, color: Color(0xFFD4AF37), size: 26),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AnimatedBadgeLockIcon extends StatefulWidget {
+  const _AnimatedBadgeLockIcon({
+    required this.unlocked,
+    required this.playUnlockAnimation,
+  });
+
+  final bool unlocked;
+  final bool playUnlockAnimation;
+
+  @override
+  State<_AnimatedBadgeLockIcon> createState() => _AnimatedBadgeLockIconState();
+}
+
+class _AnimatedBadgeLockIconState extends State<_AnimatedBadgeLockIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    if (widget.playUnlockAnimation) {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedBadgeLockIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.playUnlockAnimation && !oldWidget.playUnlockAnimation) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.playUnlockAnimation) {
+      return Icon(
+        widget.unlocked ? Icons.workspace_premium_rounded : Icons.lock_rounded,
+        color: widget.unlocked ? AppColors.primaryDark : Colors.grey,
+        size: 18,
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        final lockOpacity = (1 - (t * 2)).clamp(0.0, 1.0);
+        final premiumOpacity = ((t - 0.45) * 2).clamp(0.0, 1.0);
+        final shake = t < 0.45 ? (1 - t / 0.45) * 3.0 : 0.0;
+
+        return Transform.translate(
+          offset: Offset(shake * ((t * 20).floor().isEven ? 1 : -1), 0),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: lockOpacity,
+                child: Transform.scale(
+                  scale: 1 - (t * 0.35),
+                  child: const Icon(Icons.lock_rounded, color: Colors.grey, size: 18),
+                ),
+              ),
+              Opacity(
+                opacity: premiumOpacity,
+                child: const Icon(Icons.workspace_premium_rounded, color: AppColors.primaryDark, size: 18),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class NotificationSettingsScreen extends StatefulWidget {
+  const NotificationSettingsScreen({super.key});
+
+  @override
+  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+  bool priceVerification = true;
+  bool badgeUnlock = true;
+  bool community = true;
+  bool system = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Bildirim Ayarları')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _toggleTile('Fiyat doğrulama bildirimi', priceVerification, (v) => setState(() => priceVerification = v)),
+          _toggleTile('Rozet kazanımı bildirimi', badgeUnlock, (v) => setState(() => badgeUnlock = v)),
+          _toggleTile('Topluluk etkileşimi bildirimi', community, (v) => setState(() => community = v)),
+          _toggleTile('Sistem duyuruları', system, (v) => setState(() => system = v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggleTile(String title, bool value, ValueChanged<bool> onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+      ),
+      child: SwitchListTile.adaptive(
+        value: value,
+        onChanged: onChanged,
+        title: Text(title),
+      ),
+    );
+  }
+}
+
+class SecurityScreen extends StatelessWidget {
+  const SecurityScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Güvenlik')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          _SimpleActionCard(title: 'Şifre değiştir', icon: Icons.lock_reset_rounded),
+          _SimpleActionCard(title: 'Oturumları görüntüle', icon: Icons.history_toggle_off_rounded),
+          _SimpleActionCard(title: 'Cihaz listesi', icon: Icons.devices_rounded),
+          _SimpleActionCard(title: 'İki adımlı doğrulama (yakında)', icon: Icons.verified_user_rounded),
+          _SimpleActionCard(
+            title: 'Hesap silme isteği',
+            icon: Icons.delete_forever_rounded,
+            isDanger: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimpleActionCard extends StatelessWidget {
+  const _SimpleActionCard({required this.title, required this.icon, this.isDanger = false});
+
+  final String title;
+  final IconData icon;
+  final bool isDanger;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: (isDanger ? AppColors.error : AppColors.outlineVariant).withOpacity(0.5)),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: isDanger ? AppColors.error : AppColors.primaryDark),
+        title: Text(title, style: TextStyle(color: isDanger ? AppColors.error : null)),
+        trailing: const Icon(Icons.chevron_right_rounded),
+      ),
+    );
+  }
+}
+
+class MyPricesScreen extends StatelessWidget {
+  const MyPricesScreen({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Fiyatlarım')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('prices')
+            .orderBy('date', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Henüz fiyat eklemedin'));
+          }
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              final name = _stringFromAny(data['productName']) ?? 'Ürün adı yok';
+              final store = _stringFromAny(data['store']) ?? 'Mağaza belirtilmedi';
+              final price = _numFromAny(data['price']);
+              final date = data['date'];
+              final dateText = date is Timestamp
+                  ? '${date.toDate().day}.${date.toDate().month}.${date.toDate().year}'
+                  : 'Tarih yok';
+
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+                ),
+                child: ListTile(
+                  title: Text(name),
+                  subtitle: Text('$store • $dateText'),
+                  trailing: Text(price == null ? '₺0' : '₺${price.toStringAsFixed(2)}'),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class FavoritesScreen extends StatelessWidget {
+  const FavoritesScreen({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Favoriler')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('users').doc(userId).collection('favorites').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Henüz favorin yok'));
+          }
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.86,
+            ),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data();
+              final title = _stringFromAny(data['name']) ?? 'Ürün';
+              final image = _stringFromAny(data['imageUrl']);
+
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: image == null
+                            ? Container(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                child: const Icon(Icons.image_not_supported_rounded),
+                              )
+                            : Image.network(image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded)),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => doc.reference.delete(),
+                            icon: const Icon(Icons.favorite, color: AppColors.error),
+                            tooltip: 'Favoriden kaldır',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AboutSection extends StatelessWidget {
+  const _AboutSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Hakkında', style: TextStyle(fontWeight: FontWeight.w700)),
+          SizedBox(height: 8),
+          Text('FiyatRadar v1.0.0'),
+          Text('Geliştirici: FiyatRadar Ekibi'),
+          Text('Gizlilik politikası: https://fiyatradar.app/privacy'),
+          Text('Kullanım şartları: https://fiyatradar.app/terms'),
+        ],
       ),
     );
   }
