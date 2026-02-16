@@ -1066,8 +1066,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required _BranchStoreData? branchStore,
     required bool showNearbyGlow,
   }) {
-    final hasStore = branchStore?.displayName != null && branchStore!.displayName!.isNotEmpty;
-    final storeClickable = hasStore && (branchStore.hasMapsQuery || branchStore.hasCoordinates);
+    final storeName = branchStore?.displayName?.trim();
+    final hasStore = storeName != null && storeName.isNotEmpty;
+    final storeClickable = hasStore && (branchStore!.hasMapsQuery || branchStore.hasCoordinates);
 
     return Container(
       decoration: BoxDecoration(
@@ -1083,7 +1084,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         border: Border.all(color: const Color(0xFFE1D0BD)),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFB78A5A).withOpacity(0.12),
+            color: const Color(0xFFB78A5A).withOpacity(0.12),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -1092,7 +1093,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       child: Container(
         margin: const EdgeInsets.all(1),
         padding: const EdgeInsets.all(AppSpacing.lg),
-        constraints: BoxConstraints(minHeight: hasStore ? 176 : 150),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -1105,147 +1105,230 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           borderRadius: BorderRadius.circular(AppRadius.lg - 1),
           border: Border.all(color: const Color(0xFFE9D7C4)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Son Fiyat',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
-                    style: const TextStyle(
-                      fontSize: 58,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                      color: Color(0xFFB15C13),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  if (latestPrice != null) _buildPriceContributor(latestPrice),
-                ],
-              ),
-            ),
-            if (hasStore) ...[
-              Container(
-                width: 1,
-                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                color: AppColors.outlineVariant.withOpacity(0.45),
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chipMaxWidth = (constraints.maxWidth - 4).clamp(140.0, 280.0);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Mağaza',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.2,
-                          ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Son Fiyat',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
                         ),
-                        const SizedBox(height: 24),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: chipMaxWidth),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(22),
-                              onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
-                              child: Container(
-                                constraints: const BoxConstraints(minHeight: 62),
-                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(color: const Color(0xFFE8DED3)),
-                                  boxShadow: showNearbyGlow
-                                      ? [
-                                          BoxShadow(
-                                            color: AppColors.primary.withOpacity(0.2),
-                                            blurRadius: 14,
-                                            spreadRadius: 0.5,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ]
-                                      : [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.04),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                ),
-                                child: Opacity(
-                                  opacity: storeClickable ? 1 : 0.75,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.storefront_outlined, size: 22, color: AppColors.textSecondary),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          branchStore!.displayName!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 52,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                          color: Color(0xFFB15C13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                SizedBox(
+                  width: 188,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Mağaza',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
+                          child: Ink(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: const Color(0xFFE8DED3)),
+                              boxShadow: showNearbyGlow
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.16),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
-                                      if (storeClickable) ...[
-                                        const SizedBox(width: 10),
-                                        const Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textSecondary),
-                                      ],
+                                    ]
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.035),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
                                     ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    hasStore ? storeName : 'Mağaza bilinmiyor',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                if (storeClickable) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+                                ],
+                              ],
                             ),
                           ),
                         ),
-                        if (showNearbyGlow) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(AppRadius.full),
-                              border: Border.all(color: AppColors.primary.withOpacity(0.24)),
-                            ),
-                            child: const Text(
-                              'Buradasın',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
+                      ),
+                      if (showNearbyGlow) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.24)),
+                          ),
+                          child: const Text(
+                            'Buradasın',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
                             ),
                           ),
-                        ],
+                        ),
                       ],
-                    );
-                  },
+                    ],
+                  ),
                 ),
-              ),
+              ],
+            ),
+            if (latestPrice != null) ...[
+              const SizedBox(height: 16),
+              _buildLastPriceContributorRow(latestPrice),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLastPriceContributorRow(PriceModel price) {
+    final uid = (price.createdByUid ?? price.userId).trim();
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
+      builder: (context, snapshot) {
+        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
+        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+        final data = snapshot.data ?? {
+          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
+          'trustScorePercent': fallbackScore,
+          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
+        };
+        final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
+        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
+        final tierName = (data['tierName'] ?? 'Standart').toString();
+
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildLastPriceTrustChip(
+              displayName: displayName.isEmpty ? 'Kullanıcı' : displayName,
+              tierName: tierName,
+              trustPercent: trustPercent,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLastPriceTrustChip({
+    required String displayName,
+    required String tierName,
+    required int trustPercent,
+  }) {
+    final chipColor = _trustChipColor(tierName);
+    final tierVisual = _trustTierIcon(tierName);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.full),
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              const Text('Doğrulamalar ve katkı geçmişine göre güncellenir.'),
+            ],
+          ),
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: chipColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          border: Border.all(color: chipColor.withOpacity(0.35)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (tierVisual.emoji != null)
+              Text(tierVisual.emoji!, style: const TextStyle(fontSize: 14))
+            else if (tierVisual.icon != null)
+              Icon(tierVisual.icon, size: 14, color: chipColor),
+            const SizedBox(width: 4),
+            Text(
+              '%$trustPercent',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: chipColor),
+            ),
           ],
         ),
       ),
