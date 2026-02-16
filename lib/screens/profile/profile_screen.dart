@@ -74,7 +74,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
-                      isAdmin: userModel?.isAdmin == true || userModel?.role == 'admin',
+                      showVerifiedBadge: (userModel?.isAdmin == true || userModel?.role == 'admin') || data.verifiedBadge,
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                         if (mounted) setState(() => _reloadKey++);
@@ -120,7 +120,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
       levelName: (data['levelName'] ?? 'Elmas seviyesi').toString(),
-      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100)
+      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100),
+      verifiedBadge: (data['verifiedBadge'] as bool?) ?? false,
     );
   }
 }
@@ -131,7 +132,7 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.avatarUrl,
     required this.trustScore,
     required this.levelName,
-    required this.isAdmin,
+    required this.showVerifiedBadge,
     required this.onEdit,
   });
 
@@ -139,7 +140,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   final String avatarUrl;
   final double trustScore;
   final String levelName;
-  final bool isAdmin;
+  final bool showVerifiedBadge;
   final VoidCallback onEdit;
 
   @override
@@ -180,7 +181,7 @@ class _PremiumHeaderCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                       ),
                     ),
-                    if (isAdmin) ...[
+                    if (showVerifiedBadge) ...[
                       const SizedBox(width: 4),
                       const Icon(Icons.verified_rounded, size: 18, color: Colors.blue),
                     ],
@@ -733,10 +734,12 @@ class _ProfileData {
     required this.photoUrl,
     required this.levelName,
     required this.trustScore,
+    required this.verifiedBadge,
   });
 
   final String displayName;
   final String photoUrl;
   final String levelName;
   final double trustScore;
+  final bool verifiedBadge;
 }
