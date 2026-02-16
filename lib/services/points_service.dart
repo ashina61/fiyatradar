@@ -405,11 +405,11 @@ class PointsService {
 
   Stream<List<PointsActivityItem>> streamActivity(String uid) {
     return _firestore
-        .collection('points_activity')
+        .collection('users')
         .doc(uid)
-        .collection('items')
+        .collection('points_activity')
         .orderBy('createdAt', descending: true)
-        .limit(10)
+        .limit(30)
         .snapshots()
         .map((snap) => snap.docs
             .map(
@@ -444,8 +444,10 @@ class PointsService {
       final userRef = _users.doc(uid);
       final dailyRef = userRef.collection('points_daily').doc(dayKey);
       final activityRef = _firestore.collection('points_activity').doc(uid).collection('items').doc();
-      final uniqueKey = ensureUniqueByMeta && meta['priceEntryId'] != null
-          ? '${normalizedType}_${meta['priceEntryId']}'
+      final userActivityRef = userRef.collection('points_activity').doc();
+      final uniqueMetaId = meta['priceEntryId'] ?? meta['priceId'];
+      final uniqueKey = ensureUniqueByMeta && uniqueMetaId != null
+          ? '${normalizedType}_${uniqueMetaId}'
           : null;
       final uniqueRef = uniqueKey == null ? null : userRef.collection('points_event_uniques').doc(uniqueKey);
       final levels = await _levels();
@@ -469,7 +471,7 @@ class PointsService {
           } else {
             txn.set(uniqueRef, {
               'eventType': normalizedType,
-              'meta': {'priceEntryId': meta['priceEntryId']},
+              'meta': {'priceEntryId': uniqueMetaId},
               'createdAt': FieldValue.serverTimestamp(),
             });
           }
@@ -504,7 +506,7 @@ class PointsService {
           );
         }
 
-        txn.set(activityRef, {
+        final activityPayload = {
           'type': normalizedType,
           'createdAt': FieldValue.serverTimestamp(),
           'pointsDelta': awardedDelta,
@@ -514,7 +516,10 @@ class PointsService {
             if (!shouldAwardPoints) 'dailyCapReached': cap != null && currentCount >= cap,
             if (!shouldAwardPoints && uniqueRef != null) 'duplicateEvent': true,
           },
-        });
+        };
+
+        txn.set(activityRef, activityPayload);
+        txn.set(userActivityRef, activityPayload);
 
         if (awardedDelta > 0) {
           txn.set(userRef, {

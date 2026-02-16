@@ -16,6 +16,9 @@ class UserModel {
   final String? role;
   final List<String> savedProducts;
   final double reliabilityScore;
+  final int reliabilityVotesTotal;
+  final int reliabilityVotesUp;
+  final int reliabilityVotesDown;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
@@ -34,7 +37,10 @@ class UserModel {
     this.isAdmin = false,
     this.role,
     this.savedProducts = const [],
-    this.reliabilityScore = 100.0,
+    this.reliabilityScore = 0.0,
+    this.reliabilityVotesTotal = 0,
+    this.reliabilityVotesUp = 0,
+    this.reliabilityVotesDown = 0,
     required this.createdAt,
     this.lastLoginAt,
   });
@@ -57,7 +63,10 @@ class UserModel {
       isAdmin: data['isAdmin'] ?? false,
       role: data['role'],
       savedProducts: List<String>.from(data['savedProducts'] ?? []),
-      reliabilityScore: (data['reliabilityScore'] ?? 100.0).toDouble(),
+      reliabilityScore: (data['reliabilityScore'] ?? 0.0).toDouble(),
+      reliabilityVotesTotal: (data['reliabilityVotesTotal'] as num?)?.toInt() ?? 0,
+      reliabilityVotesUp: (data['reliabilityVotesUp'] as num?)?.toInt() ?? 0,
+      reliabilityVotesDown: (data['reliabilityVotesDown'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -79,6 +88,9 @@ class UserModel {
       'role': role,
       'savedProducts': savedProducts,
       'reliabilityScore': reliabilityScore,
+      'reliabilityVotesTotal': reliabilityVotesTotal,
+      'reliabilityVotesUp': reliabilityVotesUp,
+      'reliabilityVotesDown': reliabilityVotesDown,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
     };
@@ -100,6 +112,9 @@ class UserModel {
     String? role,
     List<String>? savedProducts,
     double? reliabilityScore,
+    int? reliabilityVotesTotal,
+    int? reliabilityVotesUp,
+    int? reliabilityVotesDown,
     DateTime? createdAt,
     DateTime? lastLoginAt,
   }) {
@@ -119,6 +134,9 @@ class UserModel {
       role: role ?? this.role,
       savedProducts: savedProducts ?? this.savedProducts,
       reliabilityScore: reliabilityScore ?? this.reliabilityScore,
+      reliabilityVotesTotal: reliabilityVotesTotal ?? this.reliabilityVotesTotal,
+      reliabilityVotesUp: reliabilityVotesUp ?? this.reliabilityVotesUp,
+      reliabilityVotesDown: reliabilityVotesDown ?? this.reliabilityVotesDown,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
     );
