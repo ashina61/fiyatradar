@@ -46,7 +46,7 @@ class PriceVoteResult {
 
   final PriceVoteStatus status;
 
-  bool get shouldAward => status == PriceVoteStatus.newVote || status == PriceVoteStatus.changedVote;
+  bool get shouldAward => status == PriceVoteStatus.newVote;
 }
 
 class PriceStatusMigrationResult {
@@ -777,7 +777,7 @@ class FirestoreService {
       payload['createdByUid'] = price.userId;
       payload['dedupeKey'] = dedupeKey;
       payload['id'] = priceRef.id;
-      payload['verificationStatus'] = payload['verificationStatus'] ?? 'pending';
+      payload['verificationStatus'] = payload['verificationStatus'] ?? 'unverified';
       txn.set(priceRef, payload);
       txn.set(priceEntryRef, {
         'productId': price.productId,
@@ -1067,132 +1067,203 @@ class FirestoreService {
 
   double _toRadians(double degree) => degree * 0.017453292519943295;
 
-  Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
+  Future<PriceVoteResult> voteOnPrice({
+    required String priceId,
+    required String priceOwnerUid,
+    required int vote,
+    required String voterUid,
+  }) async {
+    if (vote != 1 && vote != -1) {
+      return const PriceVoteResult(PriceVoteStatus.ignored);
+    }
+
     try {
-      final voteValue = isVerified ? 'yes' : 'no';
-      final result = await _firestore.runTransaction<String>((txn) async {
+      final result = await _firestore.runTransaction<PriceVoteStatus>((txn) async {
         final priceRef = _pricesRef.doc(priceId);
-        final voteRef = priceRef.collection('votes').doc(voterId);
-        final voterRef = _usersRef.doc(voterId);
+        final voteRef = priceRef.collection('votes').doc(voterUid);
+        final ownerRef = _usersRef.doc(priceOwnerUid);
 
         final priceSnap = await txn.get(priceRef);
-        if (!priceSnap.exists) return 'missing_price';
+        if (!priceSnap.exists) return PriceVoteStatus.ignored;
 
-        final data = Map<String, dynamic>.from(priceSnap.data() ?? const <String, dynamic>{});
-        if ((data['status'] ?? 'active').toString() != 'active') return 'inactive_price';
+        final priceData = Map<String, dynamic>.from(priceSnap.data() ?? const <String, dynamic>{});
+        final status = (priceData['status'] ?? 'active').toString();
+        if (status != 'active') return PriceVoteStatus.ignored;
 
-        final ownerUid = (data['createdByUid'] ?? data['userId'] ?? '').toString();
-        if (ownerUid.isEmpty || ownerUid == voterId) return 'invalid_owner';
+        final ownerUidFromDoc = (priceData['createdByUid'] ?? priceData['userId'] ?? '').toString();
+        final ownerUid = ownerUidFromDoc.isNotEmpty ? ownerUidFromDoc : priceOwnerUid;
+        if (ownerUid.trim().isEmpty || ownerUid == voterUid) {
+          return PriceVoteStatus.ignored;
+        }
 
-        final existingVoteSnap = await txn.get(voteRef);
-        final ownerRef = _usersRef.doc(ownerUid);
+        final upCurrent = (priceData['upVotes'] as num?)?.toInt() ??
+            (priceData['verifyYesCount'] as num?)?.toInt() ??
+            (priceData['verification'] is Map ? ((priceData['verification'] as Map)['upCount'] as num?)?.toInt() : null) ??
+            0;
+        final downCurrent = (priceData['downVotes'] as num?)?.toInt() ??
+            (priceData['verifyNoCount'] as num?)?.toInt() ??
+            (priceData['verification'] is Map ? ((priceData['verification'] as Map)['downCount'] as num?)?.toInt() : null) ??
+            0;
 
-        if (!existingVoteSnap.exists) {
+        final voteSnap = await txn.get(voteRef);
+        final previousVoteRaw = (voteSnap.data()?['vote'] as num?)?.toInt();
+        final previousValue = (voteSnap.data()?['value'] ?? '').toString();
+        final previousVote = previousVoteRaw ??
+            (previousValue == 'yes' || previousValue == 'up'
+                ? 1
+                : previousValue == 'no' || previousValue == 'down'
+                    ? -1
+                    : 0);
+
+        if (previousVote == vote) {
+          return PriceVoteStatus.alreadyVoted;
+        }
+
+        var up = upCurrent;
+        var down = downCurrent;
+        var ownerUpDelta = 0;
+        var ownerDownDelta = 0;
+        late final PriceVoteStatus voteStatus;
+
+        if (!voteSnap.exists || previousVote == 0) {
+          if (vote == 1) {
+            up += 1;
+            ownerUpDelta += 1;
+          } else {
+            down += 1;
+            ownerDownDelta += 1;
+          }
+          voteStatus = PriceVoteStatus.newVote;
           txn.set(voteRef, {
-            'uid': voterId,
-            'value': voteValue,
+            'uid': voterUid,
+            'vote': vote,
+            'value': vote == 1 ? 'yes' : 'no',
             'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } else {
+          if (previousVote == 1) {
+            up -= 1;
+            ownerUpDelta -= 1;
+          } else if (previousVote == -1) {
+            down -= 1;
+            ownerDownDelta -= 1;
+          }
+
+          if (vote == 1) {
+            up += 1;
+            ownerUpDelta += 1;
+          } else {
+            down += 1;
+            ownerDownDelta += 1;
+          }
+
+          voteStatus = PriceVoteStatus.changedVote;
+          txn.set(voteRef, {
+            'uid': voterUid,
+            'vote': vote,
+            'value': vote == 1 ? 'yes' : 'no',
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
-
-          final yesInc = voteValue == 'yes' ? 1 : 0;
-          final noInc = voteValue == 'no' ? 1 : 0;
-          txn.set(priceRef, {
-            'verifyYesCount': FieldValue.increment(yesInc),
-            'verifyNoCount': FieldValue.increment(noInc),
-            'upVotes': FieldValue.increment(yesInc),
-            'downVotes': FieldValue.increment(noInc),
-            'verifiedCount': FieldValue.increment(yesInc),
-            'unverifiedCount': FieldValue.increment(noInc),
-            'verification.upCount': FieldValue.increment(yesInc),
-            'verification.downCount': FieldValue.increment(noInc),
-            'verification.score': FieldValue.increment(yesInc - noInc),
-            'score': FieldValue.increment(yesInc - noInc),
-            'verificationScore': FieldValue.increment(yesInc - noInc),
-            'verification.updatedAt': FieldValue.serverTimestamp(),
-            'lastVerifiedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-
-          txn.set(voterRef, {'validations': FieldValue.increment(1)}, SetOptions(merge: true));
-          txn.set(ownerRef, {
-            if (voteValue == 'yes') 'trust.upTotal': FieldValue.increment(1),
-            if (voteValue == 'no') 'trust.downTotal': FieldValue.increment(1),
-          }, SetOptions(merge: true));
-          return 'new_vote';
         }
 
-        final voteData = existingVoteSnap.data() ?? const <String, dynamic>{};
-        final previousValue = (voteData['value'] ?? voteData['vote'] ?? '').toString() == 'up' ? 'yes' : (voteData['value'] ?? voteData['vote'] ?? '').toString() == 'down' ? 'no' : (voteData['value'] ?? voteData['vote'] ?? '').toString();
-        if (previousValue == voteValue) {
-          return 'already_voted';
-        }
+        if (up < 0) up = 0;
+        if (down < 0) down = 0;
 
-        txn.set(voteRef, {
-          'uid': voterId,
-          'value': voteValue,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        final score = up - down;
+        final total = up + down;
+        final verificationStatus = total < 3
+            ? 'unverified'
+            : (score >= 3 && up >= 3)
+                ? 'trusted'
+                : (down >= 3 && score <= -2)
+                    ? 'contested'
+                    : 'unverified';
 
-        final yesDelta = voteValue == 'yes' ? 1 : -1;
-        final noDelta = voteValue == 'no' ? 1 : -1;
         txn.set(priceRef, {
-          'verifyYesCount': FieldValue.increment(yesDelta),
-          'verifyNoCount': FieldValue.increment(noDelta),
-          'upVotes': FieldValue.increment(yesDelta),
-          'downVotes': FieldValue.increment(noDelta),
-          'verifiedCount': FieldValue.increment(yesDelta),
-          'unverifiedCount': FieldValue.increment(noDelta),
-          'verification.upCount': FieldValue.increment(yesDelta),
-          'verification.downCount': FieldValue.increment(noDelta),
-          'verification.score': FieldValue.increment(yesDelta - noDelta),
-          'score': FieldValue.increment(yesDelta - noDelta),
-          'verificationScore': FieldValue.increment(yesDelta - noDelta),
+          'upVotes': up,
+          'downVotes': down,
+          'verifyYesCount': up,
+          'verifyNoCount': down,
+          'verifiedCount': up,
+          'unverifiedCount': down,
+          'score': score,
+          'verificationScore': score,
+          'verificationStatus': verificationStatus,
+          'verification.upCount': up,
+          'verification.downCount': down,
+          'verification.score': score,
           'verification.updatedAt': FieldValue.serverTimestamp(),
           'lastVerifiedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+
+        final ownerSnap = await txn.get(ownerRef);
+        final ownerData = ownerSnap.data() ?? <String, dynamic>{};
+        var reliabilityUp = (ownerData['reliabilityVotesUp'] as num?)?.toInt() ?? 0;
+        var reliabilityDown = (ownerData['reliabilityVotesDown'] as num?)?.toInt() ?? 0;
+
+        reliabilityUp += ownerUpDelta;
+        reliabilityDown += ownerDownDelta;
+        if (reliabilityUp < 0) reliabilityUp = 0;
+        if (reliabilityDown < 0) reliabilityDown = 0;
+
+        final reliabilityTotal = reliabilityUp + reliabilityDown;
+        final reliabilityScore = reliabilityTotal == 0
+            ? 0
+            : ((reliabilityUp / reliabilityTotal) * 100).round().clamp(0, 100);
+
         txn.set(ownerRef, {
-          if (voteValue == 'yes') ...{
-            'trust.upTotal': FieldValue.increment(1),
-            'trust.downTotal': FieldValue.increment(-1),
-          } else ...{
-            'trust.downTotal': FieldValue.increment(1),
-            'trust.upTotal': FieldValue.increment(-1),
-          },
+          'reliabilityVotesTotal': reliabilityTotal,
+          'reliabilityVotesUp': reliabilityUp,
+          'reliabilityVotesDown': reliabilityDown,
+          'reliabilityScore': reliabilityScore,
+          'trust.upTotal': reliabilityUp,
+          'trust.downTotal': reliabilityDown,
+          'trust.score': reliabilityUp - reliabilityDown,
+          'trust.trustPercent': reliabilityScore,
+          'trustScorePercent': reliabilityScore,
+          'tierName': _trustTierFromScore(reliabilityScore),
+          'levelName': _trustTierFromScore(reliabilityScore),
+          'level': _trustTierFromScore(reliabilityScore),
+          'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        return 'changed_vote';
+
+        return voteStatus;
       });
 
-      if (result == 'already_voted') return const PriceVoteResult(PriceVoteStatus.alreadyVoted);
-      if (result != 'new_vote' && result != 'changed_vote') return const PriceVoteResult(PriceVoteStatus.ignored);
-
-      await _pointsService.awardEvent(
-        uid: voterId,
-        eventType: 'verify_vote',
-        meta: {'priceEntryId': priceId, 'vote': voteValue},
-        ensureUniqueByMeta: false,
-      );
-
-      await _incrementVoterTrustForVote(voterId);
-
-      final latestPriceSnap = await _pricesRef.doc(priceId).get();
-      final ownerUid = ((latestPriceSnap.data()?['createdByUid'] ?? latestPriceSnap.data()?['userId']) ?? '').toString();
-      if (ownerUid.isNotEmpty) {
-        await _applyPriceAuthorTrustThreshold(priceId: priceId, ownerUid: ownerUid);
-        await _refreshUserTrust(ownerUid);
+      if (result == PriceVoteStatus.newVote) {
+        await _pointsService.awardEvent(
+          uid: voterUid,
+          eventType: 'verify_vote',
+          meta: {'priceId': priceId},
+          ensureUniqueByMeta: true,
+        );
       }
-      await _refreshUserTrust(voterId);
-      return PriceVoteResult(result == 'new_vote' ? PriceVoteStatus.newVote : PriceVoteStatus.changedVote);
-    } on AlreadyVotedException {
-      rethrow;
+
+      return PriceVoteResult(result);
     } on FirebaseException catch (e, st) {
-      _logFirestoreQueryError('verifyPrice', e, st);
+      _logFirestoreQueryError('voteOnPrice', e, st);
       return const PriceVoteResult(PriceVoteStatus.ignored);
     } catch (e, st) {
-      _logFirestoreQueryError('verifyPrice', e, st);
+      _logFirestoreQueryError('voteOnPrice', e, st);
       return const PriceVoteResult(PriceVoteStatus.ignored);
     }
+  }
+
+  Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
+    final priceSnap = await _pricesRef.doc(priceId).get();
+    final data = priceSnap.data() ?? const <String, dynamic>{};
+    final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
+    if (ownerUid.isEmpty) {
+      return const PriceVoteResult(PriceVoteStatus.ignored);
+    }
+
+    return voteOnPrice(
+      priceId: priceId,
+      priceOwnerUid: ownerUid,
+      vote: isVerified ? 1 : -1,
+      voterUid: voterId,
+    );
   }
 
   Future<bool> hasUserVotedPrice(String priceId, String userId) async {
@@ -1209,10 +1280,13 @@ class FirestoreService {
     return _pricesRef.doc(priceId).collection('votes').doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
       final data = snap.data() ?? const <String, dynamic>{};
-      final raw = (data['value'] ?? data['vote'] ?? '').toString();
-      if (raw == 'up') return 'yes';
-      if (raw == 'down') return 'no';
-      return raw.isEmpty ? null : raw;
+      final vote = (data['vote'] as num?)?.toInt();
+      if (vote == 1) return 'yes';
+      if (vote == -1) return 'no';
+      final raw = (data['value'] ?? '').toString();
+      if (raw == 'up' || raw == 'yes') return 'yes';
+      if (raw == 'down' || raw == 'no') return 'no';
+      return null;
     });
   }
 

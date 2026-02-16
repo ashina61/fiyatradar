@@ -894,6 +894,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
+  String _trustTierIcon(String tierName) {
+    switch (tierName.toLowerCase()) {
+      case 'elmas':
+        return '💎';
+      case 'altın':
+      case 'altin':
+        return '🥇';
+      case 'gümüş':
+      case 'gumus':
+        return '🥈';
+      case 'bronz':
+        return '🥉';
+      default:
+        return '○';
+    }
+  }
 
   Widget _buildTrustBadge({
     required String displayName,
@@ -901,6 +917,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required int trustPercent,
   }) {
     final chipColor = _trustChipColor(tierName);
+    final icon = _trustTierIcon(tierName);
     return InkWell(
       onTap: () => showModalBottomSheet<void>(
         context: context,
@@ -913,23 +930,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             children: [
               Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              Text('$tierName • %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text('Güvenirlik: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text('Güven skoru topluluk doğrulamalarına göre hesaplanır.'),
+              Text('Seviye: $tierName'),
             ],
           ),
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: chipColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: chipColor.withOpacity(0.35)),
         ),
-        child: Text(
-          '$tierName • %$trustPercent',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: chipColor),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 4),
+            Text(
+              tierName,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: chipColor),
+            ),
+          ],
         ),
       ),
     );
@@ -1409,7 +1433,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         isSelected: voteValue == 'yes',
                         isEnabled: isLoggedIn,
                         successSignal: _verifySuccessSignal,
-                        onTap: () => _verifyLatestPrice(latestPrice.id, true),
+                        onTap: () => _verifyLatestPrice(latestPrice, true),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
@@ -1424,7 +1448,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         isSelected: voteValue == 'no',
                         isEnabled: isLoggedIn,
                         successSignal: _rejectSuccessSignal,
-                        onTap: () => _verifyLatestPrice(latestPrice.id, false),
+                        onTap: () => _verifyLatestPrice(latestPrice, false),
                       ),
                     ),
                   ],
@@ -1457,7 +1481,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Future<void> _verifyLatestPrice(String priceId, bool isVerified) async {
+  Future<void> _verifyLatestPrice(PriceModel price, bool isVerified) async {
     final user = ref.read(userModelStreamProvider).valueOrNull;
     if (user == null) {
       if (mounted) {
@@ -1471,12 +1495,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final service = ref.read(firestoreServiceProvider);
 
     try {
-      final result = await service.verifyPrice(priceId, user.uid, isVerified);
+      final ownerUid = (price.createdByUid ?? price.userId).trim();
+      final result = await service.voteOnPrice(
+        priceId: price.id,
+        priceOwnerUid: ownerUid,
+        vote: isVerified ? 1 : -1,
+        voterUid: user.uid,
+      );
       if (result.status == PriceVoteStatus.alreadyVoted) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bu oyu zaten verdin'),
+            content: Text('Zaten oy verdin'),
             behavior: SnackBarBehavior.floating,
           ),
         );

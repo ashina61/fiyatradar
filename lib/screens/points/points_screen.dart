@@ -335,16 +335,40 @@ class _ActivityCard extends StatelessWidget {
               ],
             )
           : Column(
-              children: activities
-                  .map(
-                    (e) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(radius: 14, backgroundColor: AppColors.surfaceVariant, child: const Icon(Icons.bolt, size: 14)),
-                      title: Text(_activityLabel(e.type)),
-                      trailing: Text('+${e.points}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              children: [
+                for (var i = 0; i < activities.length; i++)
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey('activity_${activities[i].id}'),
+                    tween: Tween(begin: 0, end: 1),
+                    duration: Duration(milliseconds: 220 + (i * 20)),
+                    curve: Curves.easeOut,
+                    builder: (context, value, child) => Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, (1 - value) * 8),
+                        child: child,
+                      ),
                     ),
-                  )
-                  .toList(),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surfaceVariant,
+                          border: Border.all(color: AppColors.outline.withOpacity(0.35)),
+                        ),
+                        child: const Icon(Icons.bolt, size: 14),
+                      ),
+                      title: Text(_activityLabel(activities[i].type)),
+                      trailing: Text(
+                        '${activities[i].points >= 0 ? '+' : ''}${activities[i].points}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+              ],
             ),
     );
   }
@@ -356,15 +380,12 @@ class _ActivityCard extends StatelessWidget {
         return 'Fiyat ekledin';
       case 'verification':
       case 'price_verify':
-        return 'Doğrulama yaptın';
-      case 'comment':
-        return 'Yorum yaptın';
-      case 'report_confirmed':
-        return 'Bildirimin onaylandı';
-      case 'invite_reward':
-        return 'Arkadaş daveti ödülü';
+      case 'verify_vote':
+        return 'Fiyat doğruladın';
       case 'streak_bonus':
         return 'Seri bonusu kazandın';
+      case 'admin_action':
+        return 'Admin işlemi';
       default:
         return 'Katkı yaptın';
     }
