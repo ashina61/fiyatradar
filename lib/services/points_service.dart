@@ -108,6 +108,8 @@ class PointsBadge {
     required this.isActive,
     this.isUnlocked = false,
     this.progress = 0,
+    this.unlockedAt,
+    this.seenAt,
   });
 
   final String id;
@@ -118,6 +120,20 @@ class PointsBadge {
   final bool isActive;
   final bool isUnlocked;
   final int progress;
+  final DateTime? unlockedAt;
+  final DateTime? seenAt;
+}
+
+class PendingBadgeUnlock {
+  const PendingBadgeUnlock({
+    required this.badgeId,
+    required this.badgeTitle,
+    required this.unlockedAt,
+  });
+
+  final String badgeId;
+  final String badgeTitle;
+  final DateTime unlockedAt;
 }
 
 class PointsActivityItem {
@@ -142,6 +158,39 @@ class PointsService {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
+
+  static const Map<String, Map<String, String>> _badgeDefinitions = {
+    'badge_admin': {
+      'title': 'Admin',
+      'description': 'Yönetici hesabı rozeti.',
+      'iconKey': 'crown',
+      'unlockCondition': 'user.role == "admin"',
+    },
+    'badge_first_price': {
+      'title': 'İlk Katkı',
+      'description': 'İlk fiyatını ekledin.',
+      'iconKey': 'spark',
+      'unlockCondition': 'user price_add count >= 1',
+    },
+    'badge_verifier_10': {
+      'title': 'Doğrulayıcı',
+      'description': '10 fiyat doğruladın.',
+      'iconKey': 'shield_check',
+      'unlockCondition': 'verification count >= 10',
+    },
+    'badge_streak_7': {
+      'title': 'Seri Ustası',
+      'description': '7 gün üst üste katkı yaptın.',
+      'iconKey': 'flame',
+      'unlockCondition': 'streakDays >= 7',
+    },
+    'badge_points_500': {
+      'title': '500 Puan',
+      'description': '500 puana ulaştın.',
+      'iconKey': 'star',
+      'unlockCondition': 'totalPoints >= 500',
+    },
+  };
 
   Future<void> ensurePointsDefaultsSeeded() async {
     await _firestore.collection('points_rules').doc('default').set({
@@ -215,56 +264,19 @@ class PointsService {
     }, SetOptions(merge: true));
 
     final badgeCol = _firestore.collection('badges').doc('default').collection('badges');
-    final badgeSnap = await badgeCol.limit(1).get();
-    if (badgeSnap.docs.isEmpty) {
-      final batch = _firestore.batch();
-      final seed = [
-        {
-          'id': 'badge_first_price',
-          'title': 'İlk Katkı',
-          'description': 'İlk fiyatını ekledin.',
-          'iconKey': 'spark',
-          'unlockCondition': 'total price_add count >= 1',
-          'isActive': true,
-        },
-        {
-          'id': 'badge_verifier_10',
-          'title': 'Doğrulayıcı',
-          'description': '10 fiyat doğruladın.',
-          'iconKey': 'shield_check',
-          'unlockCondition': 'total verification count >= 10',
-          'isActive': true,
-        },
-        {
-          'id': 'badge_streak_7',
-          'title': 'Seri Ustası',
-          'description': '7 gün üst üste katkı yaptın.',
-          'iconKey': 'flame',
-          'unlockCondition': 'streakDays >= 7',
-          'isActive': true,
-        },
-        {
-          'id': 'badge_points_100',
-          'title': '100 Puan',
-          'description': '100 puana ulaştın.',
-          'iconKey': 'star',
-          'unlockCondition': 'totalPoints >= 100',
-          'isActive': true,
-        },
-        {
-          'id': 'badge_trust_50',
-          'title': 'Güvenilir Katılımcı',
-          'description': 'Güven puanın %50 üzerine çıktı.',
-          'iconKey': 'verified',
-          'unlockCondition': 'trustScore >= 50',
-          'isActive': true,
-        },
-      ];
-      for (final badge in seed) {
-        batch.set(badgeCol.doc(badge['id'] as String), badge);
-      }
-      await batch.commit();
+    final batch = _firestore.batch();
+    for (final entry in _badgeDefinitions.entries) {
+      batch.set(badgeCol.doc(entry.key), {
+        'id': entry.key,
+        'title': entry.value['title'],
+        'description': entry.value['description'],
+        'iconKey': entry.value['iconKey'],
+        'unlockCondition': entry.value['unlockCondition'],
+        'isActive': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
+    await batch.commit();
   }
 
   Stream<List<PointsRule>> streamPointsRules() {
@@ -309,15 +321,18 @@ class PointsService {
   Stream<List<PointsBadge>> streamBadges(String uid) {
     final defsStream = _firestore.collection('badges').doc('default').collection('badges').snapshots();
     final userStream = _firestore.collection('user_badges').doc(uid).collection('items').snapshots();
+
     return defsStream.asyncMap((defs) async {
       final user = await userStream.first;
-      final userDoc = await _users.doc(uid).get();
-      final userData = userDoc.data() ?? <String, dynamic>{};
-      final isAdmin = userData['isAdmin'] == true || (userData['role'] ?? '').toString() == 'admin';
       final unlocked = {for (final doc in user.docs) doc.id: doc.data()};
-      final badges = defs.docs.map((doc) {
+      final orderedDefs = defs.docs
+          .where((doc) => _badgeDefinitions.containsKey(doc.id))
+          .toList()
+        ..sort((a, b) => a.id.compareTo(b.id));
+
+      return orderedDefs.map((doc) {
         final data = doc.data();
-        final userBadge = unlocked[doc.id];
+        final userBadge = unlocked[doc.id] ?? const <String, dynamic>{};
         return PointsBadge(
           id: doc.id,
           title: (data['title'] ?? '').toString(),
@@ -325,28 +340,49 @@ class PointsService {
           iconKey: (data['iconKey'] ?? 'star').toString(),
           unlockCondition: (data['unlockCondition'] ?? '').toString(),
           isActive: (data['isActive'] as bool?) ?? true,
-          isUnlocked: (userBadge?['isUnlocked'] as bool?) ?? false,
-          progress: (userBadge?['progress'] as num?)?.toInt() ?? 0,
+          isUnlocked: (userBadge['isUnlocked'] as bool?) ?? false,
+          progress: (userBadge['progress'] as num?)?.toInt() ?? 0,
+          unlockedAt: (userBadge['unlockedAt'] as Timestamp?)?.toDate(),
+          seenAt: (userBadge['seenAt'] as Timestamp?)?.toDate(),
         );
       }).where((e) => e.isActive).toList();
-
-      if (isAdmin) {
-        badges.insert(
-          0,
-          const PointsBadge(
-            id: 'badge_admin',
-            title: 'Admin Rozeti',
-            description: 'Yönetici rozeti her zaman aktif.',
-            iconKey: 'verified',
-            unlockCondition: 'role == admin',
-            isActive: true,
-            isUnlocked: true,
-            progress: 100,
-          ),
-        );
-      }
-      return badges;
     });
+  }
+
+  Stream<PendingBadgeUnlock?> streamLatestUnseenUnlockedBadge(String uid) {
+    return _firestore.collection('user_badges').doc(uid).collection('items').snapshots().asyncMap((snapshot) async {
+      if (snapshot.docs.isEmpty) return null;
+
+      final defs = await _firestore.collection('badges').doc('default').collection('badges').get();
+      final defsMap = {for (final doc in defs.docs) doc.id: doc.data()};
+
+      final candidates = <PendingBadgeUnlock>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final isUnlocked = (data['isUnlocked'] as bool?) ?? false;
+        final seenAt = data['seenAt'] as Timestamp?;
+        if (!isUnlocked || seenAt != null) continue;
+
+        final def = defsMap[doc.id];
+        if (def == null) continue;
+        final unlockedAt = (data['unlockedAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+        candidates.add(PendingBadgeUnlock(
+          badgeId: doc.id,
+          badgeTitle: (def['title'] ?? doc.id).toString(),
+          unlockedAt: unlockedAt,
+        ));
+      }
+
+      if (candidates.isEmpty) return null;
+      candidates.sort((a, b) => b.unlockedAt.compareTo(a.unlockedAt));
+      return candidates.first;
+    });
+  }
+
+  Future<void> acknowledgeBadgeUnlock({required String uid, required String badgeId}) async {
+    await _firestore.collection('user_badges').doc(uid).collection('items').doc(badgeId).set({
+      'seenAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Stream<List<PointsActivityItem>> streamActivity(String uid) {
@@ -517,39 +553,65 @@ class PointsService {
   }
 
   Future<void> _evaluateBadges(String uid) async {
-    final profile = await streamUserProfile(uid).first;
-    final activity = await streamActivity(uid).first;
-    final allActivity = await _firestore.collection('points_activity').doc(uid).collection('items').get();
-    final priceCount = allActivity.docs.where((d) => d.data()['type'] == 'price_add').length;
-    final verificationCount = allActivity.docs.where((d) => d.data()['type'] == 'verification').length;
+    await recomputeUserGamification(uid);
+  }
 
-    final defs = await _firestore.collection('badges').doc('default').collection('badges').where('isActive', isEqualTo: true).get();
-    for (final doc in defs.docs) {
-      var unlock = false;
-      switch (doc.id) {
-        case 'badge_first_price':
-          unlock = priceCount >= 1;
-          break;
-        case 'badge_verifier_10':
-          unlock = verificationCount >= 10;
-          break;
-        case 'badge_streak_7':
-          unlock = profile.streakDays >= 7;
-          break;
-        case 'badge_points_100':
-          unlock = profile.totalPoints >= 100;
-          break;
-        case 'badge_trust_50':
-          unlock = profile.trustScore >= 50;
-          break;
+  Future<void> recomputeUserGamification(String uid) async {
+    await ensurePointsDefaultsSeeded();
+
+    final userRef = _users.doc(uid);
+    final userDoc = await userRef.get();
+    if (!userDoc.exists) return;
+
+    final userData = userDoc.data() ?? const <String, dynamic>{};
+    final totalPoints = (userData['totalPoints'] as num?)?.toInt() ??
+        (userData['pointsTotal'] as num?)?.toInt() ??
+        (userData['points'] as num?)?.toInt() ??
+        0;
+    final streakDays = (userData['streakDays'] as num?)?.toInt() ?? 0;
+    final role = (userData['role'] ?? '').toString();
+    final isAdmin = (userData['isAdmin'] as bool?) ?? role == 'admin';
+
+    final level = await _levelForPoints(totalPoints);
+    await userRef.set({
+      'totalPoints': totalPoints,
+      'pointsTotal': totalPoints,
+      'points': totalPoints,
+      'level': level?.title ?? 'Standart',
+      'levelName': level?.title ?? 'Standart',
+      'tierName': level?.title ?? 'Standart',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
+    final activityDocs = activitySnap.docs;
+    final activityPriceCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'price_add').length;
+    final activityVerificationCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'verification').length;
+    final priceCount = math.max((userData['priceEntries'] as num?)?.toInt() ?? 0, activityPriceCount);
+    final verificationCount = math.max((userData['validations'] as num?)?.toInt() ?? 0, activityVerificationCount);
+
+    final unlockMap = <String, bool>{
+      'badge_admin': isAdmin || role == 'admin',
+      'badge_first_price': priceCount >= 1,
+      'badge_verifier_10': verificationCount >= 10,
+      'badge_streak_7': streakDays >= 7,
+      'badge_points_500': totalPoints >= 500,
+    };
+
+    final userBadgesRef = _firestore.collection('user_badges').doc(uid).collection('items');
+    for (final entry in unlockMap.entries) {
+      final ref = userBadgesRef.doc(entry.key);
+      final snap = await ref.get();
+      final wasUnlocked = (snap.data()?['isUnlocked'] as bool?) ?? false;
+      final payload = <String, dynamic>{
+        'isUnlocked': entry.value,
+        'progress': entry.value ? 100 : 0,
+      };
+      if (entry.value && !wasUnlocked) {
+        payload['unlockedAt'] = FieldValue.serverTimestamp();
+        payload['seenAt'] = null;
       }
-      final userBadgeRef = _firestore.collection('user_badges').doc(uid).collection('items').doc(doc.id);
-      final current = await userBadgeRef.get();
-      if (unlock && !current.exists) {
-        await userBadgeRef.set({'isUnlocked': true, 'unlockedAt': FieldValue.serverTimestamp(), 'progress': 100});
-      } else if (!unlock && !current.exists) {
-        await userBadgeRef.set({'isUnlocked': false, 'progress': activity.length});
-      }
+      await ref.set(payload, SetOptions(merge: true));
     }
   }
 
