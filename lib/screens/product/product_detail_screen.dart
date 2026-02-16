@@ -1593,5 +1593,298 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+  Widget _buildCommentsSection(
+    BuildContext context,
+    List<CommentModel> comments, {
+    String? highlightedCommentId,
+  }) {
+    return Column(
+      children: [
+        if (comments.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.comment_outlined,
+                      size: 48, color: AppColors.textTertiary),
+                  SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Henuz yorum yok',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...comments.map((comment) {
+            final isHighlighted =
+                highlightedCommentId != null && comment.id == highlightedCommentId;
+            return Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: isHighlighted
+                    ? AppColors.primary.withOpacity(0.06)
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(
+                  color: isHighlighted ? AppColors.primary : AppColors.outline,
+                  width: isHighlighted ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: comment.userPhotoUrl != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  comment.userPhotoUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Center(
+                                    child: Text(
+                                      comment.userName.isNotEmpty
+                                          ? comment.userName[0]
+                                          : 'A',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  comment.userName.isNotEmpty
+                                      ? comment.userName[0]
+                                      : 'A',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  comment.userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (comment.authorRole == 'admin') ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.verified,
+                                    size: 14,
+                                    color: Colors.blue,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              _formatTimeAgo(comment.createdAt),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _showReportCommentDialog(comment),
+                        child: const Icon(Icons.flag_outlined,
+                            size: 16, color: AppColors.textTertiary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    comment.text,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
 
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _showAddCommentDialog(context),
+            icon: const Icon(Icons.add_comment_outlined, size: 18),
+            label: const Text('Yorum Ekle'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _shareProduct(ProductModel product) {
+    final productName =
+        product.name.trim().isEmpty ? 'Ürün' : product.name.trim();
+    final currentPrice =
+        product.lastPrice != null ? formatTRY(product.lastPrice!) : 'Fiyat yok';
+    final store = (product.lastStore ?? '').trim().isNotEmpty
+        ? product.lastStore!.trim()
+        : 'Mağaza bilinmiyor';
+    final message = '$productName\n'
+        'Güncel fiyat: $currentPrice\n'
+        'Mağaza: $store\n'
+        'FiyatRadar';
+
+    Share.share(message);
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} dakika once';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} saat once';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gun once';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
+
+  String _formatPrice(double price) => formatTRY(price);
+
+  String _displayPriceSourceName(PriceModel price) {
+    final raw = (price.storeName ?? '').trim();
+    return raw.isNotEmpty ? raw : 'Mağaza';
+  }
+
+  String _formatPriceShort(double price) => formatTRY(price);
+
+  Color _colorForCategory(String category) {
+    switch (category) {
+      case 'Elektronik':
+        return AppColors.primary;
+      case 'Gida':
+        return AppColors.secondary;
+      case 'Temizlik':
+        return AppColors.info;
+      case 'Kisisel Bakim':
+        return AppColors.accent;
+      case 'Ev & Yasam':
+        return AppColors.secondaryDark;
+      case 'Giyim':
+        return AppColors.error;
+      case 'Spor':
+        return AppColors.primaryDark;
+      case 'Oyuncak':
+        return AppColors.accentDark;
+      case 'Kitap':
+        return AppColors.primaryLight;
+      case 'Otomotiv':
+        return AppColors.secondaryLight;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'Elektronik':
+        return Icons.devices;
+      case 'Gida':
+        return Icons.restaurant;
+      case 'Temizlik':
+        return Icons.cleaning_services;
+      case 'Kisisel Bakim':
+        return Icons.face;
+      case 'Ev & Yasam':
+        return Icons.home;
+      case 'Giyim':
+        return Icons.checkroom;
+      case 'Spor':
+        return Icons.sports;
+      case 'Oyuncak':
+        return Icons.toys;
+      case 'Kitap':
+        return Icons.book;
+      case 'Otomotiv':
+        return Icons.directions_car;
+      default:
+        return Icons.category;
+    }
+  }
+
+
+}
+
+class _BranchStoreData {
+  final String branchStoreId;
+  final String? chainId;
+  final String? displayName;
+  final String? neighborhood;
+  final String? district;
+  final String? city;
+  final double? lat;
+  final double? lng;
+  final bool isOnline;
+
+  const _BranchStoreData({
+    required this.branchStoreId,
+    this.chainId,
+    this.displayName,
+    this.neighborhood,
+    this.district,
+    this.city,
+    this.lat,
+    this.lng,
+    this.isOnline = false,
+  });
+
+  bool get hasCoordinates => lat != null && lng != null && lat != 0 && lng != 0;
+
+  String get mapsQuery {
+    if (isOnline) return '';
+
+    final queryParts = [displayName, neighborhood, district, city]
+        .where((part) => part != null && part!.trim().isNotEmpty)
+        .map((part) => part!.trim())
+        .toList();
+
+    return queryParts.join(' ');
+  }
+
+  bool get hasMapsQuery => mapsQuery.isNotEmpty;
 }
