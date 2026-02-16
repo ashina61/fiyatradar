@@ -1692,10 +1692,13 @@ class FirestoreService {
       final level = levelRaw.trim().isEmpty
           ? _trustTierFromScore(score)
           : _standardizeTrustTierName(levelRaw);
+      final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
       return {
         'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
         'trustScorePercent': score,
         'tierName': level,
+        'upTotal': (trust['upTotal'] as num?)?.toInt() ?? 0,
+        'downTotal': (trust['downTotal'] as num?)?.toInt() ?? 0,
       };
     });
   }
@@ -1717,10 +1720,13 @@ class FirestoreService {
         ? _trustTierFromScore(score)
         : _standardizeTrustTierName(levelRaw);
 
+    final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
     return {
       'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
       'trustScorePercent': score,
       'tierName': level,
+      'upTotal': (trust['upTotal'] as num?)?.toInt() ?? 0,
+      'downTotal': (trust['downTotal'] as num?)?.toInt() ?? 0,
     };
   }
 

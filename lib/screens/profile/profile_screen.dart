@@ -11,6 +11,7 @@ import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/theme.dart';
+import '../../utils/trust_tier.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -162,58 +163,41 @@ class _PremiumHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trust = trustScore.round().clamp(0, 100);
+    final tier = trustTierFromScore(trust);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFFAEC), Color(0xFFF3D78A), Color(0xFFE2B252)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          stops: [0, 0.55, 1],
+          colors: [Color(0xFFFFF9EE), Color(0xFFF5E8D0)],
         ),
-        border: Border.all(color: const Color(0xFFFFF4D8).withOpacity(0.85), width: 1.2),
+        border: Border.all(color: const Color(0xFFE5C88F)),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF9A6C1A).withOpacity(0.18), blurRadius: 28, offset: const Offset(0, 14)),
+          BoxShadow(color: const Color(0xFFB8863B).withOpacity(0.12), blurRadius: 18, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 30,
-                  backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl.isEmpty
-                      ? Text(
-                          displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF3D2A00)),
-                        )
-                      : null,
-                ),
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: const Color(0xFFFFE8B7),
+                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl.isEmpty
+                    ? Text(displayName.isEmpty ? 'K' : displayName[0].toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF3D2A00)))
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF332200),
-                        ),
-                      ),
+                      child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF332200))),
                     ),
                     if (isAdmin) ...[
                       const SizedBox(width: 4),
@@ -222,63 +206,34 @@ class _PremiumHeaderCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton.filled(
+              IconButton(
                 onPressed: onEdit,
+                icon: const Icon(Icons.edit_rounded, size: 20),
                 style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF4A3000),
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withOpacity(0.72),
+                  foregroundColor: const Color(0xFF5A3D0C),
                 ),
-                icon: const Icon(Icons.edit_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.75),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF7A5506).withOpacity(0.18)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7A5506).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.workspace_premium_rounded, size: 20, color: Color(0xFF5B3D00)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        levelName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF332200),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        badgeDescription,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF5B4A2B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: tier.color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: tier.color.withOpacity(0.35)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(tier.emoji),
+                  const SizedBox(width: 6),
+                  Text(levelName.isEmpty ? tier.label : levelName, style: TextStyle(fontWeight: FontWeight.w700, color: tier.color)),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -291,24 +246,8 @@ class _PremiumHeaderCard extends StatelessWidget {
               Expanded(child: _MetricChip(label: 'Seri', value: '$streakDays gün')),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _TrustSegmentedBar(score: trustScore),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Güven skoru, son doğrulamalarının doğruluk oranına ve topluluk geri bildirimlerine göre yenilenir.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: Color(0xFF4B3812),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 12),
+          _TrustMiniCard(score: trust.toDouble()),
         ],
       ),
     );
@@ -324,9 +263,9 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: Colors.white.withOpacity(0.76),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE7CF9B)),
       ),
@@ -341,66 +280,67 @@ class _MetricChip extends StatelessWidget {
   }
 }
 
-class _TrustSegmentedBar extends StatelessWidget {
-  const _TrustSegmentedBar({required this.score});
+class _TrustMiniCard extends StatelessWidget {
+  const _TrustMiniCard({required this.score});
 
   final double score;
 
   @override
   Widget build(BuildContext context) {
-    final segments = List<int>.generate(10, (index) => index);
-    final filledCount = (score / 10).round().clamp(0, 10);
-
     return Container(
-      width: 88,
-      padding: const EdgeInsets.all(8),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
+        color: Colors.white.withOpacity(0.75),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE4D1AC)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            '%${score.round()}',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF332200),
+          SizedBox(
+            width: 46,
+            height: 46,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CircularProgressIndicator(
+                  value: (score / 100).clamp(0, 1),
+                  strokeWidth: 5,
+                  backgroundColor: const Color(0xFFEADAC1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB8863B)),
+                ),
+                Center(
+                  child: Text('%${score.round()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF3F2C0A))),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: segments
-                .map(
-                  (index) => Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      gradient: index < filledCount
-                          ? const LinearGradient(
-                              colors: [Color(0xFFE1AA35), Color(0xFFC57D00)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: index < filledCount ? null : const Color(0xFFE7D8B8),
-                    ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Güven Skoru', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D2D0E))),
+          ),
+          IconButton(
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                builder: (_) => const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Güven nasıl hesaplanır?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      SizedBox(height: 10),
+                      Text('• Doğrulanan fiyat katkıları puanı yükseltir.'),
+                      Text('• Hatalı fiyat geri bildirimleri puanı düşürür.'),
+                      Text('• Son katkı performansı daha yüksek etkidedir.'),
+                    ],
                   ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Güven',
-            style: TextStyle(
-              fontSize: 11,
-              color: Color(0xFF5B4A2B),
-              fontWeight: FontWeight.w600,
-            ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.info_outline_rounded),
           ),
         ],
       ),

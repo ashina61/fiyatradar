@@ -10,6 +10,7 @@ class UserModel {
   final String? invitedBy;
   final String? cityCode;
   final String? cityName;
+  final String? city;
   final int points;
   final int priceEntries;
   final int validations;
@@ -34,6 +35,7 @@ class UserModel {
     this.invitedBy,
     this.cityCode,
     this.cityName,
+    this.city,
     this.points = 0,
     this.priceEntries = 0,
     this.validations = 0,
@@ -62,6 +64,7 @@ class UserModel {
       invitedBy: data['invitedBy'],
       cityCode: data['cityCode'],
       cityName: data['cityName'],
+      city: data['city'] ?? data['cityName'],
       points: data['points'] ?? 0,
       priceEntries: data['priceEntries'] ?? 0,
       validations: data['validations'] ?? 0,
@@ -88,6 +91,7 @@ class UserModel {
       'invitedBy': invitedBy,
       'cityCode': cityCode,
       'cityName': cityName,
+      'city': city,
       'points': points,
       'priceEntries': priceEntries,
       'validations': validations,
@@ -114,6 +118,7 @@ class UserModel {
     String? invitedBy,
     String? cityCode,
     String? cityName,
+    String? city,
     int? points,
     int? priceEntries,
     int? validations,
@@ -138,6 +143,7 @@ class UserModel {
       invitedBy: invitedBy ?? this.invitedBy,
       cityCode: cityCode ?? this.cityCode,
       cityName: cityName ?? this.cityName,
+      city: city ?? this.city,
       points: points ?? this.points,
       priceEntries: priceEntries ?? this.priceEntries,
       validations: validations ?? this.validations,

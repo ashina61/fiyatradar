@@ -70,6 +70,7 @@ class AuthService {
           name: name,
           cityCode: cityCode,
           cityName: cityName,
+          city: cityName,
           inviteCode: newInviteCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
@@ -148,6 +149,7 @@ class AuthService {
             name: user.displayName ?? 'Kullanici',
             photoUrl: user.photoURL,
             inviteCode: _generateInviteCode(user.uid),
+            city: '',
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
           );
