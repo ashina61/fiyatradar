@@ -74,6 +74,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
+                      isAdmin: userModel?.isAdmin == true,
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                         if (mounted) setState(() => _reloadKey++);
@@ -130,6 +131,7 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.avatarUrl,
     required this.trustScore,
     required this.levelName,
+    required this.isAdmin,
     required this.onEdit,
   });
 
@@ -137,16 +139,17 @@ class _PremiumHeaderCard extends StatelessWidget {
   final String avatarUrl;
   final double trustScore;
   final String levelName;
+  final bool isAdmin;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFFF6E7C8), Color(0xFFE6BF6D)],
+          colors: [Color(0xFFFFF6E0), Color(0xFFECC77A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -155,15 +158,26 @@ class _PremiumHeaderCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 38,
-                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl.isEmpty
-                    ? Text(displayName.isEmpty ? 'K' : displayName[0].toUpperCase(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700))
-                    : null,
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                  child: avatarUrl.isEmpty
+                      ? Text(
+                          displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF3D2A00)),
+                        )
+                      : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -174,36 +188,94 @@ class _PremiumHeaderCard extends StatelessWidget {
                         displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF332200),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded, size: 18, color: Colors.blue),
+                    if (isAdmin) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0059D6)),
+                    ],
                   ],
                 ),
               ),
               IconButton.filled(
                 onPressed: onEdit,
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A3000),
+                  foregroundColor: Colors.white,
+                ),
                 icon: const Icon(Icons.edit_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Chip(
-              label: Text(levelName),
-              backgroundColor: Colors.white70,
-              side: BorderSide.none,
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.75),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF7A5506).withOpacity(0.18)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7A5506).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.workspace_premium_rounded, size: 20, color: Color(0xFF5B3D00)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        levelName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF332200),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Topluluk doğrulama katkılarınla seviye avantajlarını aç.',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF5B4A2B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TrustRing(score: trustScore),
+              _TrustSegmentedBar(score: trustScore),
               const SizedBox(width: 12),
               const Expanded(
-                child: Text('Güven skoru topluluk doğrulamalarına göre hesaplanır.'),
+                child: Text(
+                  'Güven skoru, son doğrulamalarının doğruluk oranına ve topluluk geri bildirimlerine göre yenilenir.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: Color(0xFF4B3812),
+                  ),
+                ),
               ),
             ],
           ),
@@ -213,30 +285,66 @@ class _PremiumHeaderCard extends StatelessWidget {
   }
 }
 
-class _TrustRing extends StatelessWidget {
-  const _TrustRing({required this.score});
+class _TrustSegmentedBar extends StatelessWidget {
+  const _TrustSegmentedBar({required this.score});
 
   final double score;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 70,
-      height: 70,
-      child: Stack(
-        alignment: Alignment.center,
+    final segments = List<int>.generate(10, (index) => index);
+    final filledCount = (score / 10).round().clamp(0, 10);
+
+    return Container(
+      width: 88,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircularProgressIndicator(
-            value: score / 100,
-            strokeWidth: 6,
-            backgroundColor: Colors.white60,
+          Text(
+            '%${score.round()}',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF332200),
+            ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('%${score.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              const Text('Güven', style: TextStyle(fontSize: 10)),
-            ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: segments
+                .map(
+                  (index) => Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      gradient: index < filledCount
+                          ? const LinearGradient(
+                              colors: [Color(0xFFE1AA35), Color(0xFFC57D00)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: index < filledCount ? null : const Color(0xFFE7D8B8),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Güven',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF5B4A2B),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
