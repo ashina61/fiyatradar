@@ -74,6 +74,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
+                      totalPoints: data.totalPoints,
+                      weeklyPoints: data.weeklyPoints,
+                      streakDays: data.streakDays,
+                      badgeDescription: data.badgeDescription,
                       isAdmin: userModel?.isAdmin == true,
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
@@ -107,9 +111,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'verified': false,
         'trustScore': 0,
         'levelName': 'Elmas seviyesi',
-        'streakDays': 0,
         'monthlySavings': '₺0',
         'topMarket': 'Henüz yok',
+        'totalPoints': 0,
+        'weeklyPoints': 0,
+        'streakDays': 0,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -119,8 +125,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
-      levelName: (data['levelName'] ?? 'Elmas seviyesi').toString(),
-      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100)
+      levelName: (data['levelName'] ?? data['level'] ?? 'Standart').toString(),
+      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100),
+      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? 0,
+      weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
+      streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
+      badgeDescription: (data['tierDescription'] ?? 'Topluluk doğrulama katkılarınla seviye avantajlarını aç.').toString(),
     );
   }
 }
@@ -131,6 +141,10 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.avatarUrl,
     required this.trustScore,
     required this.levelName,
+    required this.totalPoints,
+    required this.weeklyPoints,
+    required this.streakDays,
+    required this.badgeDescription,
     required this.isAdmin,
     required this.onEdit,
   });
@@ -139,6 +153,10 @@ class _PremiumHeaderCard extends StatelessWidget {
   final String avatarUrl;
   final double trustScore;
   final String levelName;
+  final int totalPoints;
+  final int weeklyPoints;
+  final int streakDays;
+  final String badgeDescription;
   final bool isAdmin;
   final VoidCallback onEdit;
 
@@ -147,14 +165,16 @@ class _PremiumHeaderCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFF6E0), Color(0xFFECC77A)],
+          colors: [Color(0xFFFFFAEC), Color(0xFFF3D78A), Color(0xFFE2B252)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: [0, 0.55, 1],
         ),
+        border: Border.all(color: const Color(0xFFFFF4D8).withOpacity(0.85), width: 1.2),
         boxShadow: [
-          BoxShadow(color: Colors.amber.withOpacity(0.2), blurRadius: 22, offset: const Offset(0, 12)),
+          BoxShadow(color: const Color(0xFF9A6C1A).withOpacity(0.18), blurRadius: 28, offset: const Offset(0, 14)),
         ],
       ),
       child: Column(
@@ -246,11 +266,11 @@ class _PremiumHeaderCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Topluluk doğrulama katkılarınla seviye avantajlarını aç.',
+                      Text(
+                        badgeDescription,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF5B4A2B),
                         ),
@@ -260,6 +280,16 @@ class _PremiumHeaderCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _MetricChip(label: 'Toplam Puan', value: '$totalPoints')),
+              const SizedBox(width: 8),
+              Expanded(child: _MetricChip(label: 'Haftalık', value: '+$weeklyPoints')),
+              const SizedBox(width: 8),
+              Expanded(child: _MetricChip(label: 'Seri', value: '$streakDays gün')),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
@@ -279,6 +309,32 @@ class _PremiumHeaderCard extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE7CF9B)),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF503300))),
+          const SizedBox(height: 2),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF6D5733))),
         ],
       ),
     );
@@ -836,10 +892,18 @@ class _ProfileData {
     required this.photoUrl,
     required this.levelName,
     required this.trustScore,
+    required this.totalPoints,
+    required this.weeklyPoints,
+    required this.streakDays,
+    required this.badgeDescription,
   });
 
   final String displayName;
   final String photoUrl;
   final String levelName;
   final double trustScore;
+  final int totalPoints;
+  final int weeklyPoints;
+  final int streakDays;
+  final String badgeDescription;
 }

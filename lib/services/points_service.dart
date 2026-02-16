@@ -156,6 +156,24 @@ class PointsActivityItem {
   final Map<String, dynamic> meta;
 }
 
+class WeeklyLeaderboardEntry {
+  const WeeklyLeaderboardEntry({
+    required this.uid,
+    required this.displayName,
+    required this.photoUrl,
+    required this.level,
+    required this.weeklyPoints,
+    required this.totalPoints,
+  });
+
+  final String uid;
+  final String displayName;
+  final String photoUrl;
+  final String level;
+  final int weeklyPoints;
+  final int totalPoints;
+}
+
 class PointsService {
   PointsService({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
 
@@ -424,6 +442,41 @@ class PointsService {
             .toList());
   }
 
+
+  Stream<List<WeeklyLeaderboardEntry>> streamWeeklyLeaderboard({int limit = 10}) {
+    return _users
+        .orderBy('weeklyPoints', descending: true)
+        .orderBy('totalPoints', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) {
+      final activeWeekKey = _weekKey(DateTime.now());
+      final ranked = snap.docs
+          .map((doc) {
+            final data = doc.data();
+            final weekKey = (data['weeklyPointsWeekKey'] ?? '').toString();
+            final weeklyPoints = weekKey == activeWeekKey ? (data['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
+            return WeeklyLeaderboardEntry(
+              uid: doc.id,
+              displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+              photoUrl: (data['photoUrl'] ?? '').toString(),
+              level: (data['level'] ?? data['levelName'] ?? 'Standart').toString(),
+              weeklyPoints: weeklyPoints,
+              totalPoints: (data['totalPoints'] as num?)?.toInt() ?? 0,
+            );
+          })
+          .where((entry) => entry.weeklyPoints > 0)
+          .toList();
+
+      ranked.sort((a, b) {
+        final byWeekly = b.weeklyPoints.compareTo(a.weeklyPoints);
+        if (byWeekly != 0) return byWeekly;
+        return b.totalPoints.compareTo(a.totalPoints);
+      });
+      return ranked;
+    });
+  }
+
   Future<bool> awardEvent({
     required String uid,
     required String eventType,
@@ -441,6 +494,7 @@ class PointsService {
       }
 
       final dayKey = DateFormat('yyyyMMdd').format(DateTime.now().toLocal());
+      final activeWeekKey = _weekKey(DateTime.now());
       final userRef = _users.doc(uid);
       final dailyRef = userRef.collection('points_daily').doc(dayKey);
       final activityRef = _firestore.collection('points_activity').doc(uid).collection('items').doc();
@@ -482,6 +536,9 @@ class PointsService {
         final userData = userSnap.data() ?? <String, dynamic>{};
         final currentPoints = (userData['totalPoints'] as num?)?.toInt() ?? 0;
         final newTotal = currentPoints + awardedDelta;
+        final previousWeekKey = (userData['weeklyPointsWeekKey'] ?? '').toString();
+        final currentWeeklyPoints = previousWeekKey == activeWeekKey ? (userData['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
+        final newWeeklyPoints = currentWeeklyPoints + awardedDelta;
         final currentLevel = levels.firstWhere(
           (level) => level.includes(newTotal),
           orElse: () => levels.first,
@@ -526,6 +583,8 @@ class PointsService {
             'totalPoints': FieldValue.increment(awardedDelta),
             'pointsTotal': FieldValue.increment(awardedDelta),
             'level': currentLevel.title,
+            'weeklyPoints': newWeeklyPoints,
+            'weeklyPointsWeekKey': activeWeekKey,
           }, SetOptions(merge: true));
         }
 
@@ -654,6 +713,17 @@ class PointsService {
 
     final level = await _levelForPoints(totalPoints);
     final standardizedTier = _standardizeTierName(level?.title ?? 'Standart');
+    final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
+    final activityDocs = activitySnap.docs;
+    final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    final weeklyPoints = activityDocs.fold<int>(0, (sum, doc) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt == null || createdAt.isBefore(oneWeekAgo)) return sum;
+      final delta = ((data['pointsDelta'] ?? data['points']) as num?)?.toInt() ?? 0;
+      return sum + delta;
+    });
+
     await userRef.set({
       'totalPoints': totalPoints,
       'pointsTotal': totalPoints,
@@ -661,11 +731,10 @@ class PointsService {
       'level': standardizedTier,
       'levelName': standardizedTier,
       'tierName': standardizedTier,
+      'weeklyPoints': weeklyPoints,
+      'weeklyPointsWeekKey': _weekKey(DateTime.now()),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-
-    final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
-    final activityDocs = activitySnap.docs;
     final activityPriceCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'price_entry').length;
     final priceCount = math.max((userData['priceEntries'] as num?)?.toInt() ?? 0, activityPriceCount);
     final trustScore = (userData['trustScore'] as num?)?.toInt() ?? 0;
@@ -725,5 +794,12 @@ class PointsService {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  String _weekKey(DateTime date) {
+    final monday = DateTime(date.year, date.month, date.day).subtract(Duration(days: date.weekday - 1));
+    final month = monday.month.toString().padLeft(2, '0');
+    final day = monday.day.toString().padLeft(2, '0');
+    return '${monday.year}-$month-$day';
   }
 }
