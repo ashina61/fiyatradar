@@ -7,6 +7,8 @@ class ActualItemModel {
   final double? oldPrice;
   final String imageUrl;
   final String note;
+  final String type;
+  final String category;
   final bool isActive;
   final DateTime createdAt;
 
@@ -17,6 +19,8 @@ class ActualItemModel {
     required this.oldPrice,
     required this.imageUrl,
     required this.note,
+    required this.type,
+    required this.category,
     required this.isActive,
     required this.createdAt,
   });
@@ -30,6 +34,8 @@ class ActualItemModel {
       oldPrice: (data['oldPrice'] as num?)?.toDouble(),
       imageUrl: (data['imageUrl'] as String?)?.trim() ?? '',
       note: (data['note'] as String?)?.trim() ?? '',
+      type: (data['type'] as String?)?.trim() ?? '',
+      category: (data['category'] as String?)?.trim() ?? '',
       isActive: data['isActive'] as bool? ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -42,6 +48,8 @@ class ActualItemModel {
       'oldPrice': oldPrice,
       'imageUrl': imageUrl,
       'note': note,
+      'type': type,
+      'category': category,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
     };
