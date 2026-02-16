@@ -19,6 +19,7 @@ import '../../services/location_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
+import '../../utils/trust_tier.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/app_section_header.dart';
@@ -881,62 +882,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
 
-  Color _trustChipColor(String tierName) {
-    switch (_normalizeTrustTierName(tierName)) {
-      case 'elmas':
-        return const Color(0xFF5B6CF6);
-      case 'altın':
-        return const Color(0xFFC9A227);
-      case 'gümüş':
-        return const Color(0xFF8D99AE);
-      case 'bronz':
-        return const Color(0xFF8D5A3A);
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  String _normalizeTrustTierName(String tierName) {
-    final normalized = tierName.trim().toLowerCase();
-    switch (normalized) {
-      case 'elmas seviyesi':
-      case 'diamond':
-        return 'elmas';
-      case 'gold':
-        return 'altın';
-      case 'silver':
-        return 'gümüş';
-      case 'altin':
-        return 'altın';
-      case 'gumus':
-        return 'gümüş';
-      default:
-        return normalized;
-    }
-  }
-
-  ({String? emoji, IconData? icon}) _trustTierIcon(String tierName) {
-    switch (_normalizeTrustTierName(tierName)) {
-      case 'elmas':
-        return (emoji: '💎', icon: Icons.diamond_rounded);
-      case 'altın':
-        return (emoji: '🥇', icon: Icons.workspace_premium_rounded);
-      case 'gümüş':
-        return (emoji: '🥈', icon: Icons.verified_rounded);
-      case 'bronz':
-        return (emoji: '🥉', icon: Icons.military_tech_rounded);
-      default:
-        return (emoji: null, icon: Icons.workspace_premium_rounded);
-    }
+  Color _trustChipColor(String tierName, int trustPercent) {
+    final byScore = trustTierFromScore(trustPercent).color;
+    if (tierName.trim().isEmpty || tierName.toLowerCase() == 'standart') return byScore;
+    return byScore;
   }
 
   Widget _buildTrustBadge({
     required String displayName,
     required String tierName,
     required int trustPercent,
+    int? upTotal,
+    int? downTotal,
   }) {
-    final chipColor = _trustChipColor(tierName);
-    final tierVisual = _trustTierIcon(tierName);
+    final trustTier = trustTierFromScore(trustPercent);
+    final chipColor = _trustChipColor(tierName, trustPercent);
+    final total = (upTotal ?? 0) + (downTotal ?? 0);
+    final verificationRate = total == 0 ? null : ((upTotal ?? 0) / total * 100).round();
+
     return InkWell(
       onTap: () => showModalBottomSheet<void>(
         context: context,
@@ -949,9 +912,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             children: [
               Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              Text('Güvenirlik Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text('Doğrulamalar ve katkı geçmişine göre güncellenir.'),
+              Text('Seviye: ${trustTier.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
             ],
           ),
         ),
@@ -966,10 +931,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (tierVisual.emoji != null)
-              Text(tierVisual.emoji!, style: const TextStyle(fontSize: 14))
-            else if (tierVisual.icon != null)
-              Icon(tierVisual.icon, size: 14, color: chipColor),
+            Text(trustTier.emoji, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 4),
             Text(
               '%$trustPercent',
@@ -1003,7 +965,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text('Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}', style: Theme.of(context).textTheme.bodySmall),
-            _buildTrustBadge(displayName: displayName.isEmpty ? 'Kullanıcı' : displayName, tierName: tierName, trustPercent: trustPercent),
+            _buildTrustBadge(
+              displayName: displayName.isEmpty ? 'Kullanıcı' : displayName,
+              tierName: tierName,
+              trustPercent: trustPercent,
+              upTotal: (data['upTotal'] as num?)?.toInt(),
+              downTotal: (data['downTotal'] as num?)?.toInt(),
+            ),
           ],
         );
       },
@@ -1275,6 +1243,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               displayName: displayName.isEmpty ? 'Kullanıcı' : displayName,
               tierName: tierName,
               trustPercent: trustPercent,
+              upTotal: (data['upTotal'] as num?)?.toInt(),
+              downTotal: (data['downTotal'] as num?)?.toInt(),
             ),
           ],
         );
@@ -1286,9 +1256,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required String displayName,
     required String tierName,
     required int trustPercent,
+    int? upTotal,
+    int? downTotal,
   }) {
-    final chipColor = _trustChipColor(tierName);
-    final tierVisual = _trustTierIcon(tierName);
+    final trustTier = trustTierFromScore(trustPercent);
+    final chipColor = _trustChipColor(tierName, trustPercent);
+    final total = (upTotal ?? 0) + (downTotal ?? 0);
+    final verificationRate = total == 0 ? null : ((upTotal ?? 0) / total * 100).round();
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.full),
@@ -1305,7 +1279,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const SizedBox(height: 12),
               Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text('Doğrulamalar ve katkı geçmişine göre güncellenir.'),
+              Text('Seviye: ${trustTier.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
             ],
           ),
         ),
@@ -1320,10 +1296,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (tierVisual.emoji != null)
-              Text(tierVisual.emoji!, style: const TextStyle(fontSize: 14))
-            else if (tierVisual.icon != null)
-              Icon(tierVisual.icon, size: 14, color: chipColor),
+            Text(trustTier.emoji, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 4),
             Text(
               '%$trustPercent',

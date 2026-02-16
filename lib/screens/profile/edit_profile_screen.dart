@@ -6,6 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../utils/cities_tr.dart';
+
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -17,7 +19,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _displayNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
-  final _cityController = TextEditingController();
+  CityTR? _selectedCity;
 
   bool _fiyatAlarm = true;
   bool _rozetBildirim = true;
@@ -65,7 +67,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _displayNameController.text = (data['displayName'] ?? data['name'] ?? '').toString();
       _usernameController.text = (data['username'] ?? '').toString();
       _bioController.text = (data['bio'] ?? '').toString();
-      _cityController.text = (data['city'] ?? '').toString();
+      final cityCode = (data['cityCode'] ?? '').toString();
+      final cityName = (data['cityName'] ?? data['city'] ?? '').toString();
+      for (final city in kCitiesTR) {
+        if (city.code == cityCode || city.name == cityName) {
+          _selectedCity = city;
+          break;
+        }
+      }
       _avatarUrl = (data['photoUrl'] ?? '').toString();
       _fiyatAlarm = prefs['priceAlerts'] != false;
       _rozetBildirim = prefs['badgeAlerts'] != false;
@@ -108,7 +117,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'displayName': _displayNameController.text.trim(),
         'username': _usernameController.text.trim(),
         'bio': _bioController.text.trim(),
-        'city': _cityController.text.trim(),
+        'cityCode': _selectedCity?.code ?? '',
+        'cityName': _selectedCity?.name ?? '',
+        'city': _selectedCity?.name ?? '',
         'photoUrl': photoUrl,
         'notificationPrefs': {
           'priceAlerts': _fiyatAlarm,
@@ -213,7 +224,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _displayNameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
-    _cityController.dispose();
     super.dispose();
   }
 
@@ -250,7 +260,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 10),
                 TextField(controller: _bioController, maxLines: 3, decoration: const InputDecoration(labelText: 'Biyografi (opsiyonel)')),
                 const SizedBox(height: 10),
-                TextField(controller: _cityController, decoration: const InputDecoration(labelText: 'Şehir (opsiyonel)')),
+                DropdownButtonFormField<CityTR>(
+                  value: _selectedCity,
+                  items: kCitiesTR
+                      .map((city) => DropdownMenuItem<CityTR>(
+                            value: city,
+                            child: Text(city.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedCity = value),
+                  decoration: const InputDecoration(labelText: 'Şehir'),
+                ),
                 const SizedBox(height: 14),
                 ExpansionTile(
                   title: const Text('Bildirim Tercihleri'),

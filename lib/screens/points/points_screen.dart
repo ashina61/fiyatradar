@@ -560,29 +560,149 @@ class _GoalsCard extends StatelessWidget {
     final today = activities.where((a) => a.createdAt.year == now.year && a.createdAt.month == now.month && a.createdAt.day == now.day);
     final price = today.where((a) => a.type == 'price_add' || a.type == 'price_entry').length;
     final verify = today.where((a) => a.type == 'verification' || a.type == 'price_verify').length;
-    final weekStreak = _weekStreak(activities);
+    final photo = today.where((a) => a.type == 'photo_upload').length;
+
+    final goals = [
+      _GoalItem(icon: Icons.sell_rounded, title: 'Bugün Fiyat', current: price, target: 1, reward: '+5 puan', onTap: onPriceGoalTap),
+      _GoalItem(icon: Icons.verified_rounded, title: 'Bugün Doğrulama', current: verify, target: 1, reward: '+2 puan'),
+      _GoalItem(icon: Icons.photo_camera_outlined, title: 'Bugün Foto', current: photo, target: 1, reward: '+2 puan'),
+    ];
 
     return _SectionCard(
-      title: 'Hedefler',
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Hedefler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF3E250A))),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6E7CD),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFE4C289)),
+                ),
+                child: const Text('Bugün', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF8C6121))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            itemCount: goals.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.45,
+            ),
+            itemBuilder: (context, index) => _GoalMiniCard(item: goals[index]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalItem {
+  const _GoalItem({required this.icon, required this.title, required this.current, required this.target, required this.reward, this.onTap});
+
+  final IconData icon;
+  final String title;
+  final int current;
+  final int target;
+  final String reward;
+  final VoidCallback? onTap;
+}
+
+class _GoalMiniCard extends StatefulWidget {
+  const _GoalMiniCard({required this.item});
+
+  final _GoalItem item;
+
+  @override
+  State<_GoalMiniCard> createState() => _GoalMiniCardState();
+}
+
+class _GoalMiniCardState extends State<_GoalMiniCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final progressValue = (widget.item.current / widget.item.target).clamp(0, 1).toDouble();
+    final completed = progressValue >= 1;
+    final remaining = (widget.item.target - widget.item.current).clamp(0, widget.item.target);
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: widget.item.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: completed ? const Color(0xFFEFF8EE) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: completed ? const Color(0xFFA3D8A5) : const Color(0xFFE6D7BF)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(_pressed ? 0.02 : 0.06),
+              blurRadius: _pressed ? 6 : 10,
+              offset: Offset(0, _pressed ? 2 : 5),
+            ),
+          ],
+        ),
+        transform: Matrix4.identity()..scale(_pressed ? 0.98 : 1.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _GoalChip(title: 'Bugün Fiyat', progress: '$price/1', reward: '+5', onTap: onPriceGoalTap),
-            const SizedBox(width: AppSpacing.sm),
-            _GoalChip(title: 'Bugün Doğrulama', progress: '$verify/1', reward: '+2'),
-            const SizedBox(width: AppSpacing.sm),
-            _GoalChip(title: 'Hafta Seri', progress: '$weekStreak/7', reward: '+2'),
+            Row(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: completed ? const Color(0xFFD4EFD5) : const Color(0xFFF7EFE2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(completed ? Icons.check_rounded : widget.item.icon, size: 15, color: completed ? const Color(0xFF2F8D3A) : const Color(0xFF8E6427)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(widget.item.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                ),
+              ],
+            ),
+            const Spacer(),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 6,
+                value: progressValue,
+                backgroundColor: const Color(0xFFEFE4D3),
+                valueColor: AlwaysStoppedAnimation<Color>(completed ? const Color(0xFF3EA549) : const Color(0xFFB8863B)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    completed ? 'Tamamlandı' : 'Kalan: $remaining',
+                    style: TextStyle(fontSize: 11, color: completed ? const Color(0xFF2F8D3A) : const Color(0xFF7A6652), fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(widget.item.reward, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF8E6427))),
+              ],
+            ),
           ],
         ),
       ),
     );
-  }
-
-  int _weekStreak(List<PointsActivityItem> items) {
-    final meaningful = items.where((e) => e.type == 'price_add' || e.type == 'price_entry' || e.type == 'verification' || e.type == 'price_verify').toList();
-    final days = meaningful.map((e) => DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day)).toSet().length;
-    return days.clamp(0, 7);
   }
 }
 
@@ -779,35 +899,6 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(covariant _RingPainter oldDelegate) => oldDelegate.progress != progress;
 }
 
-
-class _GoalChip extends StatelessWidget {
-  const _GoalChip({required this.title, required this.progress, required this.reward, this.onTap});
-
-  final String title;
-  final String progress;
-  final String reward;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: Ink(
-        width: 150,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.lg)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(progress, style: const TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Text(reward, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-      ),
-    );
-  }
-}
 
 class _BadgeTile extends StatelessWidget {
   const _BadgeTile({required this.badge});
