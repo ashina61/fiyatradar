@@ -717,13 +717,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             children: [
                               _buildPriceChart(prices),
                               if (prices.isNotEmpty)
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton.icon(
-                                    onPressed: () => _showReportPriceDialog(prices.first),
-                                    icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
-                                    label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                                  ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: () => _showReportPriceDialog(prices.first),
+                                      icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
+                                      label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => _tryDeletePrice(prices.first),
+                                      icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                                      label: const Text('Fiyatı Sil', style: TextStyle(fontSize: 12, color: AppColors.error)),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ),
@@ -865,6 +872,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
 
   Widget _buildTrustBadge({
+    required String displayName,
     required String tierName,
     required int trustPercent,
   }) {
@@ -878,7 +886,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Güven Profili', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Text('$tierName • %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
@@ -919,7 +927,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text('Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}', style: Theme.of(context).textTheme.bodySmall),
-            _buildTrustBadge(tierName: tierName, trustPercent: trustPercent),
+            _buildTrustBadge(displayName: displayName.isEmpty ? 'Kullanıcı' : displayName, tierName: tierName, trustPercent: trustPercent),
           ],
         );
       },
@@ -1336,19 +1344,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildVerificationSection(List<PriceModel> prices) {
-    int totalVerified = 0;
-    int totalUnverified = 0;
-
-    for (final price in prices) {
-      totalVerified += price.verifiedCount;
-      totalUnverified += price.unverifiedCount;
-    }
-
+    final latestPrice = prices.isNotEmpty ? prices.first : null;
+    final totalVerified = latestPrice?.upVotes ?? 0;
+    final totalUnverified = latestPrice?.downVotes ?? 0;
     final total = totalVerified + totalUnverified;
     final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
-
-    // Get the latest price for voting
-    final latestPrice = prices.isNotEmpty ? prices.first : null;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1365,7 +1365,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 Expanded(
                   child: _buildVerifyButton(
                     icon: Icons.thumb_up_outlined,
-                    label: 'Dogrula',
+                    label: 'Doğrula',
                     count: totalVerified,
                     color: AppColors.success,
                     onTap: () => _verifyLatestPrice(latestPrice.id, true),
@@ -1384,25 +1384,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ],
             ),
           if (latestPrice != null) const SizedBox(height: AppSpacing.md),
-          // Verification progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.full),
             child: Stack(
               children: [
-                Container(
-                  height: 8,
-                  width: double.infinity,
-                  color: AppColors.error.withOpacity(0.2),
-                ),
+                Container(height: 8, width: double.infinity, color: AppColors.error.withOpacity(0.2)),
                 FractionallySizedBox(
                   widthFactor: verificationRate,
                   child: Container(
                     height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.full),
-                    ),
+                    decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(AppRadius.full)),
                   ),
                 ),
               ],
@@ -1410,14 +1401,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            total > 0
-                ? '%${(verificationRate * 100).toStringAsFixed(0)} oraninda dogrulandi'
-                : 'Henuz dogrulama yapilmadi',
-            style: TextStyle(
-              fontSize: 12,
-              color: total > 0 ? AppColors.success : AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
+            total > 0 ? '%${(verificationRate * 100).toStringAsFixed(0)} doğrulandı' : 'Henüz doğrulama yapılmadı',
+            style: TextStyle(fontSize: 12, color: total > 0 ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -1436,25 +1421,34 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     final service = ref.read(firestoreServiceProvider);
-    final already = await service.hasUserVerifiedPrice(priceId, user.uid);
-    if (already) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu fiyati zaten degerlendirdiniz'), behavior: SnackBarBehavior.floating),
-        );
-      }
-      return;
-    }
 
     await service.verifyPrice(priceId, user.uid, isVerified);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isVerified ? 'Fiyat dogrulandi (+5 puan)' : 'Fiyat reddedildi (+5 puan)'),
+          content: Text(isVerified ? 'Fiyat doğrulandı (+2 puan)' : 'Fiyat reddedildi (+2 puan)'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: isVerified ? AppColors.success : AppColors.error,
         ),
       );
+    }
+  }
+
+
+  Future<void> _tryDeletePrice(PriceModel price) async {
+    final user = ref.read(userModelStreamProvider).valueOrNull;
+    if (user == null) return;
+    final ownerUid = (price.createdByUid ?? price.userId).trim();
+    final canDelete = user.isAdmin || user.role == 'admin' || ownerUid == user.uid;
+    if (!canDelete) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu fiyatı silme yetkiniz yok.')));
+      }
+      return;
+    }
+    await ref.read(firestoreServiceProvider).softDeletePrice(priceId: price.id, deletedByUid: user.uid);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiyat silindi.')));
     }
   }
 
@@ -1794,10 +1788,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   String _displayPriceSourceName(PriceModel price) {
     final raw = (price.storeName ?? '').trim();
-    if (price.priceSourceType == 'neighborhood_market') {
-      final clean = raw.replaceFirst(RegExp(r'^🧺\s*'), '').trim();
-      return '🧺 ${clean.isEmpty ? 'Mahalle Pazarı' : clean}';
-    }
     return raw.isNotEmpty ? raw : 'Mağaza';
   }
 

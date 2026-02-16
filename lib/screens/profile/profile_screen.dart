@@ -419,7 +419,7 @@ class MyPricesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Fiyatlarım')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('prices').where('userId', isEqualTo: userId).orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance.collection('priceReports').where('createdByUid', isEqualTo: userId).where('status', isEqualTo: 'active').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -440,7 +440,7 @@ class MyPricesScreen extends StatelessWidget {
               final date = ts is Timestamp ? ts.toDate() : null;
               return ListTile(
                 title: Text((data['productName'] ?? 'Ürün').toString()),
-                subtitle: Text('${(data['storeName'] ?? 'Market').toString()} • ${date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}'}'),
+                subtitle: Text('${(data['storeName'] ?? 'Market').toString()} • ${(data['branchStoreId'] ?? data['branchId'] ?? '').toString()} • ${date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}'}'),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,

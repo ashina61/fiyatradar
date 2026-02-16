@@ -10,15 +10,15 @@ class PriceModel {
   final String branchStoreId;
   final String? chainId;
   final String priceSourceType;
-  final String? neighborhoodMarketId;
+  final String status;
   final String currency;
   final DateTime reportedAt;
   final String? photoUrl;
   final int upVotes;
   final int downVotes;
   final double score;
+  final Map<String, String> userVotes;
 
-  // Backward compatible UI fields
   final String? productName;
   final String? userName;
   final String? storeName;
@@ -52,13 +52,14 @@ class PriceModel {
     required this.branchStoreId,
     this.chainId,
     this.priceSourceType = 'branch',
-    this.neighborhoodMarketId,
+    this.status = 'active',
     this.currency = 'TRY',
     required this.reportedAt,
     this.photoUrl,
     this.upVotes = 0,
     this.downVotes = 0,
     this.score = 0,
+    this.userVotes = const {},
     this.productName,
     this.userName,
     this.storeName,
@@ -85,11 +86,12 @@ class PriceModel {
 
   DateTime get createdAt => reportedAt;
   String? get productBarcode => barcode;
+  bool get isActive => status == 'active';
 
   double get verificationRate {
-    final total = verifiedCount + unverifiedCount;
+    final total = upVotes + downVotes;
     if (total == 0) return 0;
-    return (verifiedCount / total) * 100;
+    return (upVotes / total) * 100;
   }
 
   bool get hasPhotos => photoUrl != null || images.isNotEmpty;
@@ -105,10 +107,7 @@ class PriceModel {
     var normalized = rawValue.trim();
     if (normalized.isEmpty) return 0;
 
-    normalized = normalized
-        .replaceAll('₺', '')
-        .replaceAll('TL', '')
-        .replaceAll(RegExp(r'\s+'), '');
+    normalized = normalized.replaceAll('₺', '').replaceAll('TL', '').replaceAll(RegExp(r'\s+'), '');
 
     if (normalized.contains(',') && normalized.contains('.')) {
       final lastComma = normalized.lastIndexOf(',');
@@ -130,37 +129,39 @@ class PriceModel {
     final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     final photo = data['photoUrl'] as String?;
     final imageList = List<String>.from(data['images'] ?? []);
+    final verification = Map<String, dynamic>.from(data['verification'] as Map? ?? const {});
+
+    final up = (verification['upCount'] as num?)?.toInt() ?? (data['upVotes'] as num?)?.toInt() ?? (data['verifiedCount'] as num?)?.toInt() ?? 0;
+    final down = (verification['downCount'] as num?)?.toInt() ?? (data['downVotes'] as num?)?.toInt() ?? (data['unverifiedCount'] as num?)?.toInt() ?? 0;
 
     return PriceModel(
       id: doc.id,
-      productId: data['productId'] ?? '',
-      barcode: data['barcode'] ?? data['productBarcode'],
-      userId: data['userId'] ?? data['createdByUid'] ?? '',
+      productId: (data['productId'] ?? '').toString(),
+      barcode: (data['barcode'] ?? data['productBarcode']) as String?,
+      userId: (data['userId'] ?? data['createdByUid'] ?? '').toString(),
       createdByUid: (data['createdByUid'] ?? data['userId']) as String?,
       price: _parsePriceValue(data['price']),
       branchStoreId: (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString(),
-      chainId: data['chainId'],
+      chainId: data['chainId'] as String?,
       priceSourceType: (data['priceSourceType'] ?? 'branch').toString(),
-      neighborhoodMarketId: data['neighborhoodMarketId'] as String?,
-      currency: data['currency'] ?? 'TRY',
-      reportedAt:
-          (data['reportedAt'] as Timestamp?)?.toDate() ??
-          (data['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
+      status: (data['status'] ?? 'active').toString(),
+      currency: (data['currency'] ?? 'TRY').toString(),
+      reportedAt: (data['reportedAt'] as Timestamp?)?.toDate() ?? (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       photoUrl: photo ?? (imageList.isNotEmpty ? imageList.first : null),
-      upVotes: data['upVotes'] ?? 0,
-      downVotes: data['downVotes'] ?? 0,
-      score: (data['score'] as num?)?.toDouble() ?? 0,
-      productName: data['productName'] ?? data['name'],
-      userName: data['userName'],
-      storeName: data['storeName'],
-      storeLocation: data['storeLocation'],
+      upVotes: up,
+      downVotes: down,
+      score: (verification['score'] as num?)?.toDouble() ?? (data['score'] as num?)?.toDouble() ?? (up - down).toDouble(),
+      userVotes: Map<String, String>.from(verification['userVotes'] as Map? ?? const {}),
+      productName: data['productName'] as String?,
+      userName: data['userName'] as String?,
+      storeName: data['storeName'] as String?,
+      storeLocation: data['storeLocation'] as String?,
       geoPoint: data['geoPoint'] as GeoPoint?,
       images: imageList,
-      verifiedCount: data['verifiedCount'] ?? 0,
-      unverifiedCount: data['unverifiedCount'] ?? 0,
-      isApproved: data['isApproved'] ?? false,
-      isPending: data['isPending'] ?? true,
+      verifiedCount: (data['verifiedCount'] as num?)?.toInt() ?? up,
+      unverifiedCount: (data['unverifiedCount'] as num?)?.toInt() ?? down,
+      isApproved: data['isApproved'] == true,
+      isPending: data['isPending'] != false,
       verificationStatus: (data['verificationStatus'] ?? 'pending').toString(),
       userAvatarUrl: data['userAvatarUrl'] as String?,
       trustLabel: (data['trustLabel'] ?? 'Yeni').toString(),
@@ -177,10 +178,7 @@ class PriceModel {
   }
 
   Map<String, dynamic> toFirestore() {
-    final mergedImages = [
-      if (photoUrl != null && photoUrl!.isNotEmpty) photoUrl!,
-      ...images,
-    ].toSet().toList();
+    final mergedImages = [if (photoUrl != null && photoUrl!.isNotEmpty) photoUrl!, ...images].toSet().toList();
 
     return {
       'productId': productId,
@@ -188,20 +186,25 @@ class PriceModel {
       'userId': userId,
       'createdByUid': createdByUid ?? userId,
       'price': price,
-      'branchStoreId': priceSourceType == 'branch' ? branchStoreId : null,
-      'branchId': priceSourceType == 'branch' ? branchStoreId : null,
-      'neighborhoodMarketId': priceSourceType == 'neighborhood_market' ? neighborhoodMarketId : null,
-      'priceSourceType': priceSourceType,
+      'branchStoreId': branchStoreId,
+      'branchId': branchStoreId,
+      'priceSourceType': 'branch',
+      'status': status,
       'chainId': chainId,
-      // Legacy field kept for backward-compatibility with existing queries.
-      'storeId': priceSourceType == 'branch' ? branchStoreId : null,
+      'storeId': branchStoreId,
       'currency': currency,
       'reportedAt': Timestamp.fromDate(reportedAt),
       'photoUrl': photoUrl,
       'upVotes': upVotes,
       'downVotes': downVotes,
       'score': score,
-      // backward-compatible extras
+      'verification': {
+        'upCount': upVotes,
+        'downCount': downVotes,
+        'score': upVotes - downVotes,
+        'userVotes': userVotes,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
       'productName': productName,
       'userName': userName,
       'storeName': storeName,
@@ -238,13 +241,14 @@ class PriceModel {
     String? branchStoreId,
     String? chainId,
     String? priceSourceType,
-    String? neighborhoodMarketId,
+    String? status,
     String? currency,
     DateTime? reportedAt,
     String? photoUrl,
     int? upVotes,
     int? downVotes,
     double? score,
+    Map<String, String>? userVotes,
     String? productName,
     String? userName,
     String? storeName,
@@ -278,13 +282,14 @@ class PriceModel {
       branchStoreId: branchStoreId ?? this.branchStoreId,
       chainId: chainId ?? this.chainId,
       priceSourceType: priceSourceType ?? this.priceSourceType,
-      neighborhoodMarketId: neighborhoodMarketId ?? this.neighborhoodMarketId,
+      status: status ?? this.status,
       currency: currency ?? this.currency,
       reportedAt: reportedAt ?? this.reportedAt,
       photoUrl: photoUrl ?? this.photoUrl,
       upVotes: upVotes ?? this.upVotes,
       downVotes: downVotes ?? this.downVotes,
       score: score ?? this.score,
+      userVotes: userVotes ?? this.userVotes,
       productName: productName ?? this.productName,
       userName: userName ?? this.userName,
       storeName: storeName ?? this.storeName,
@@ -310,6 +315,5 @@ class PriceModel {
     );
   }
 
-  /// Backward-compatible alias for older usages.
   String get storeId => branchStoreId;
 }
