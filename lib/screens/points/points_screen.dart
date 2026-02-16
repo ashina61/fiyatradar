@@ -561,27 +561,61 @@ class _BadgeTile extends StatelessWidget {
     if (raw.isEmpty) return 'Bu rozeti kazanmak için görevini tamamla.';
 
     final normalized = raw.toLowerCase();
-    if (normalized.contains('isadmin') && normalized.contains('true')) {
-      return 'Bu rozeti kazanmak için yönetici hesabına sahip olmalısın.';
-    }
-    if (normalized.contains('price') && normalized.contains('25')) {
-      return 'Bu rozeti kazanmak için en az 25 fiyat katkısı yapmalısın.';
-    }
-    if (normalized.contains('price') && normalized.contains('100')) {
-      return 'Bu rozeti kazanmak için en az 100 fiyat katkısı yapmalısın.';
-    }
-    if (normalized.contains('trust') && normalized.contains('40')) {
-      return 'Bu rozeti kazanmak için güven skorunu %40 ve üstüne çıkarmalısın.';
-    }
-    if (normalized.contains('trust') && normalized.contains('70')) {
-      return 'Bu rozeti kazanmak için güven skorunu %70 ve üstüne çıkarmalısın.';
+    final conditionPatterns = <String, RegExp>{
+      'price_entry': RegExp(r'(price_entry|priceaddcount)\s*(==|>=|<=|>|<)\s*(\d+)', caseSensitive: false),
+      'price_verify': RegExp(r'(price_verify|verifycount)\s*(==|>=|<=|>|<)\s*(\d+)', caseSensitive: false),
+      'trust_score': RegExp(r'(trustscore|trust_score)\s*(==|>=|<=|>|<)\s*(\d+)', caseSensitive: false),
+      'is_admin': RegExp(r'(isadmin|is_admin)\s*(==|=)\s*(true|false)', caseSensitive: false),
+    };
+
+    String sentenceForNumericCondition({required String key, required String operatorToken, required int value}) {
+      final templates = <String, String>{
+        'price_entry_>=': 'En az {value} fiyat katkısı yapmalısın.',
+        'price_entry_>': '{value} adetten fazla fiyat katkısı yapmalısın.',
+        'price_entry_<=': 'En fazla {value} fiyat katkısı yapmış olmalısın.',
+        'price_entry_<': '{value} adetten az fiyat katkısı yapmış olmalısın.',
+        'price_entry_==': 'Tam olarak {value} fiyat katkısı yapmalısın.',
+        'price_verify_>=': 'En az {value} fiyat doğrulaması yapmalısın.',
+        'price_verify_>': '{value} adetten fazla fiyat doğrulaması yapmalısın.',
+        'price_verify_<=': 'En fazla {value} fiyat doğrulaması yapmış olmalısın.',
+        'price_verify_<': '{value} adetten az fiyat doğrulaması yapmış olmalısın.',
+        'price_verify_==': 'Tam olarak {value} fiyat doğrulaması yapmalısın.',
+        'trust_score_>=': 'Güven skorun en az %{value} olmalı.',
+        'trust_score_>': 'Güven skorun %{value} değerinin üstünde olmalı.',
+        'trust_score_<=': 'Güven skorun en fazla %{value} olmalı.',
+        'trust_score_<': 'Güven skorun %{value} değerinin altında olmalı.',
+        'trust_score_==': 'Güven skorun tam olarak %{value} olmalı.',
+      };
+
+      final template = templates['${key}_$operatorToken'];
+      if (template == null) return 'Bu rozeti kazanmak için rozet koşulunu tamamlamalısın.';
+      return template.replaceAll('{value}', '$value');
     }
 
-    final cleaned = raw
-        .replaceAll('== true', 'olmalı')
-        .replaceAll('>=', 'en az')
-        .replaceAll('<=', 'en fazla');
-    return 'Bu rozeti kazanmak için: $cleaned.';
+    String sentenceForBooleanCondition({required String key, required bool value}) {
+      final templates = <String, String>{
+        'is_admin_true': 'Bu rozeti kazanmak için yönetici hesabına sahip olmalısın.',
+        'is_admin_false': 'Bu rozet yalnızca yönetici olmayan kullanıcılar içindir.',
+      };
+      return templates['${key}_${value.toString()}'] ?? 'Bu rozeti kazanmak için rozet koşulunu tamamlamalısın.';
+    }
+
+    for (final entry in conditionPatterns.entries) {
+      final match = entry.value.firstMatch(normalized);
+      if (match == null) continue;
+
+      if (entry.key == 'is_admin') {
+        final boolValue = (match.group(3) ?? '').toLowerCase() == 'true';
+        return sentenceForBooleanCondition(key: entry.key, value: boolValue);
+      }
+
+      final operatorToken = match.group(2);
+      final value = int.tryParse(match.group(3) ?? '');
+      if (operatorToken == null || value == null) break;
+      return sentenceForNumericCondition(key: entry.key, operatorToken: operatorToken, value: value);
+    }
+
+    return 'Bu rozeti kazanmak için gerekli katkı hedeflerini tamamlamalısın.';
   }
 
   @override
