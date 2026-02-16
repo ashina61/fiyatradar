@@ -49,6 +49,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
         data: (userModel) {
+          final currentUserIsAdmin = userModel?.isAdmin == true || userModel?.role == 'admin';
+
           return FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
             future: _loadProfile(uid),
@@ -74,7 +76,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
-                      showVerifiedBadge: (userModel?.isAdmin == true || userModel?.role == 'admin') || data.verifiedBadge,
+                      showVerifiedBadge: currentUserIsAdmin || data.verifiedBadge,
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                         if (mounted) setState(() => _reloadKey++);
@@ -84,7 +86,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _QuickBar(uid: uid),
                     const SizedBox(height: 14),
                     _SettingsList(
-                      isAdmin: userModel?.isAdmin == true || userModel?.role == 'admin',
+                      isAdmin: currentUserIsAdmin,
                       onReload: () => setState(() => _reloadKey++),
                     ),
                   ],
