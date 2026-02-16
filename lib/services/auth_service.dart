@@ -26,6 +26,8 @@ class AuthService {
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
+    String? cityCode,
+    String? cityName,
   }) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(
@@ -35,6 +37,13 @@ class AuthService {
 
       if (credential.user != null) {
         await _updateLastLogin(credential.user!.uid);
+        if ((cityName ?? '').trim().isNotEmpty) {
+          await _firestore.collection('users').doc(credential.user!.uid).set({
+            'cityCode': cityCode,
+            'cityName': cityName,
+            'city': cityName,
+          }, SetOptions(merge: true));
+        }
         return await getUserModel(credential.user!.uid);
       }
       return null;
@@ -149,7 +158,7 @@ class AuthService {
             name: user.displayName ?? 'Kullanici',
             photoUrl: user.photoURL,
             inviteCode: _generateInviteCode(user.uid),
-            city: '',
+            city: 'İstanbul',
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
           );

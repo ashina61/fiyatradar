@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +11,10 @@ import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/formatters.dart';
+import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
-import '../../utils/trust_tier.dart';
+import '../../widgets/level_badge.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -126,13 +129,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
-      levelName: (data['levelName'] ?? data['level'] ?? 'Standart').toString(),
-      trustScore: ((data['trustScore'] ?? 0) as num).toDouble().clamp(0, 100),
-      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? 0,
+      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0,
+      levelName: levelBuilder((data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0).label,
+      trustScore: _trustScoreFromCounts((data['verifiedCorrect'] as num?)?.toInt() ?? 0, (data['verifiedWrong'] as num?)?.toInt() ?? 0),
       weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
       streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
       badgeDescription: (data['tierDescription'] ?? 'Topluluk doğrulama katkılarınla seviye avantajlarını aç.').toString(),
     );
+  }
+
+  double _trustScoreFromCounts(int correct, int wrong) {
+    final total = correct + wrong;
+    if (total <= 0) return 0;
+    return ((correct / total) * 100).clamp(0, 100);
   }
 }
 
@@ -163,41 +172,27 @@ class _PremiumHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trust = trustScore.round().clamp(0, 100);
-    final tier = trustTierFromScore(trust);
+    final level = levelBuilder(totalPoints);
+    final progress = ((totalPoints % 5000) / 5000).clamp(0, 1).toDouble();
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFF9EE), Color(0xFFF5E8D0)],
-        ),
-        border: Border.all(color: const Color(0xFFE5C88F)),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFFB8863B).withOpacity(0.12), blurRadius: 18, offset: const Offset(0, 8)),
-        ],
+        gradient: LinearGradient(colors: level.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        border: Border.all(color: level.borderColor.withOpacity(0.5)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: const Color(0xFFFFE8B7),
-                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl.isEmpty
-                    ? Text(displayName.isEmpty ? 'K' : displayName[0].toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF3D2A00)))
-                    : null,
-              ),
+              _Avatar(avatarUrl: avatarUrl, displayName: displayName),
               const SizedBox(width: 12),
               Expanded(
                 child: Row(
                   children: [
                     Flexible(
-                      child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF332200))),
+                      child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: level.textColor)),
                     ),
                     if (isAdmin) ...[
                       const SizedBox(width: 4),
@@ -206,49 +201,82 @@ class _PremiumHeaderCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_rounded, size: 20),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.72),
-                  foregroundColor: const Color(0xFF5A3D0C),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: tier.color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: tier.color.withOpacity(0.35)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(tier.emoji),
-                  const SizedBox(width: 6),
-                  Text(levelName.isEmpty ? tier.label : levelName, style: TextStyle(fontWeight: FontWeight.w700, color: tier.color)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(child: _MetricChip(label: 'Toplam Puan', value: '$totalPoints')),
-              const SizedBox(width: 8),
-              Expanded(child: _MetricChip(label: 'Haftalık', value: '+$weeklyPoints')),
-              const SizedBox(width: 8),
-              Expanded(child: _MetricChip(label: 'Seri', value: '$streakDays gün')),
+              IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_rounded, size: 20)),
             ],
           ),
           const SizedBox(height: 12),
-          _TrustMiniCard(score: trust.toDouble()),
+          SizedBox(
+            width: 170,
+            height: 170,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 12,
+                  backgroundColor: Colors.white.withOpacity(0.45),
+                  valueColor: AlwaysStoppedAnimation<Color>(level.borderColor),
+                ),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('$totalPoints', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: level.textColor)),
+                      Text('Toplam Puan', style: TextStyle(fontSize: 12, color: level.textColor.withOpacity(0.8))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          LevelBadge(level: level),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _MetricChip(label: 'Haftalık', value: '+$weeklyPoints')),
+              const SizedBox(width: 8),
+              Expanded(child: _MetricChip(label: 'Seri', value: '$streakDays gün')),
+              const SizedBox(width: 8),
+              Expanded(child: _MetricChip(label: 'Güven', value: '%${trustScore.round()}')),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.avatarUrl, required this.displayName});
+
+  final String avatarUrl;
+  final String displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: avatarUrl.isEmpty
+            ? Container(
+                color: const Color(0xFFFFE8B7),
+                alignment: Alignment.center,
+                child: Text(displayName.isEmpty ? 'K' : displayName[0].toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF3D2A00))),
+              )
+            : CachedNetworkImage(
+                imageUrl: avatarUrl,
+                fit: BoxFit.cover,
+                memCacheWidth: 220,
+                memCacheHeight: 220,
+                filterQuality: FilterQuality.high,
+                errorWidget: (_, __, ___) => Container(
+                  color: const Color(0xFFFFE8B7),
+                  alignment: Alignment.center,
+                  child: Text(displayName.isEmpty ? 'K' : displayName[0].toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF3D2A00))),
+                ),
+              ),
       ),
     );
   }
@@ -558,7 +586,7 @@ class MyPricesScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('₺${((data['price'] ?? 0) as num).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(formatTRY((data['price'] ?? 0) as num), style: const TextStyle(fontWeight: FontWeight.w700)),
                     if (data['verified'] == true)
                       const Text('Doğrulandı', style: TextStyle(fontSize: 11, color: Colors.green)),
                   ],
@@ -748,7 +776,7 @@ class ReceiptsScreen extends StatelessWidget {
                 leading: const Icon(Icons.receipt_long_rounded),
                 title: Text((data['market'] ?? 'Market').toString()),
                 subtitle: Text((data['note'] ?? 'Fiş').toString()),
-                trailing: Text('₺${((data['total'] ?? 0) as num).toStringAsFixed(2)}'),
+                trailing: Text(formatTRY((data['total'] ?? 0) as num)),
               );
             },
           );

@@ -67,6 +67,8 @@ class UserPointsProfile {
     required this.level,
     required this.streakDays,
     required this.trustScore,
+    required this.weeklyPoints,
+    required this.monthlyPoints,
     required this.levels,
   });
 
@@ -75,6 +77,8 @@ class UserPointsProfile {
   final String level;
   final int streakDays;
   final int trustScore;
+  final int weeklyPoints;
+  final int monthlyPoints;
   final List<PointsLevel> levels;
 
   PointsLevel? get currentLevel => levels.firstWhere((e) => e.includes(totalPoints), orElse: () => levels.first);
@@ -340,12 +344,18 @@ class PointsService {
     return _users.doc(uid).snapshots().asyncMap((doc) async {
       final levels = await streamLevels().first;
       final data = doc.data() ?? <String, dynamic>{};
+      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final weeklyPoints = (data['weeklyPoints'] as num?)?.toInt() ?? 0;
+      final monthlyPoints = (data['monthlyPoints'] as num?)?.toInt() ?? 0;
+      final level = _standardizeTierName((await _levelForPoints(totalPoints))?.title ?? 'Standart');
       return UserPointsProfile(
         uid: uid,
-        totalPoints: (data['totalPoints'] as num?)?.toInt() ?? 0,
-        level: (data['level'] ?? 'Standart').toString(),
+        totalPoints: totalPoints,
+        level: level,
         streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
         trustScore: (data['trustScore'] as num?)?.toInt() ?? 0,
+        weeklyPoints: weeklyPoints,
+        monthlyPoints: monthlyPoints,
         levels: levels,
       );
     });

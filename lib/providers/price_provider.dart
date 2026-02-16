@@ -93,11 +93,11 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         reportedAt: DateTime.now(),
         isPending: true,
         addedByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        addedByLevelSnapshot: (userModel?.reliabilityScore ?? 0) >= 95 ? 'Elmas' : 'Standart',
-        addedByVerifiedBadge: (userModel?.reliabilityScore ?? 0) >= 95,
+        addedByLevelSnapshot: ((userModel?.points ?? 0) >= 5000) ? 'Elmas' : (((userModel?.points ?? 0) >= 2000) ? 'Gümüş' : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
+        addedByVerifiedBadge: (userModel?.points ?? 0) >= 5000,
         createdByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        createdByBadgeSnapshot: (userModel?.reliabilityScore ?? 0) >= 95 ? 'Elmas' : 'Standart',
-        createdByVerifiedSnapshot: (userModel?.reliabilityScore ?? 0) >= 95,
+        createdByBadgeSnapshot: ((userModel?.points ?? 0) >= 5000) ? 'Elmas' : (((userModel?.points ?? 0) >= 2000) ? 'Gümüş' : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
+        createdByVerifiedSnapshot: (userModel?.points ?? 0) >= 5000,
       );
 
       await _firestoreService.addPriceReport(priceModel);

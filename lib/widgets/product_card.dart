@@ -1,13 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/price_model.dart';
 import '../models/product_model.dart';
 import '../providers/product_provider.dart';
+import '../utils/formatters.dart';
+import '../utils/level_system.dart';
 import '../utils/theme.dart';
 import 'app_badge.dart';
 import 'app_card.dart';
 import 'app_network_image.dart';
+import 'level_badge.dart';
 
 class ProductCard extends ConsumerWidget {
   final ProductModel product;
@@ -62,6 +66,19 @@ class ProductCard extends ConsumerWidget {
                       icon: Icons.local_fire_department,
                       backgroundColor: Color(0x22CD853F),
                       foregroundColor: AppColors.accentDark,
+                    ),
+                  ),
+                if ((product.userId ?? '').trim().isNotEmpty)
+                  Positioned(
+                    top: AppSpacing.sm,
+                    right: AppSpacing.sm,
+                    child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance.collection('users').doc(product.userId).snapshots(),
+                      builder: (context, snapshot) {
+                        final data = snapshot.data?.data();
+                        final totalPoints = (data?['totalPoints'] as num?)?.toInt() ?? (data?['points'] as num?)?.toInt() ?? 0;
+                        return LevelBadge(level: levelBuilder(totalPoints), compact: true);
+                      },
                     ),
                   ),
               ],
@@ -143,32 +160,12 @@ class _PriceText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fixed = price.toStringAsFixed(2);
-    final parts = fixed.split('.');
-
-    return RichText(
-      text: TextSpan(
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-        children: [
-          TextSpan(text: '₺${parts[0]}'),
-          WidgetSpan(
-            alignment: PlaceholderAlignment.top,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                ',${parts[1]}',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
+    return Text(
+      formatTRY(price),
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
     );
   }
 }
