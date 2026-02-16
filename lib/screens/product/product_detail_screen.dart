@@ -877,11 +877,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
 
+  Color _trustChipColor(String tierName) {
+    switch (tierName.toLowerCase()) {
+      case 'elmas':
+        return const Color(0xFF5B6CF6);
+      case 'altın':
+      case 'altin':
+        return const Color(0xFFC9A227);
+      case 'gümüş':
+      case 'gumus':
+        return const Color(0xFF8D99AE);
+      case 'bronz':
+        return const Color(0xFF8D5A3A);
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+
   Widget _buildTrustBadge({
     required String displayName,
     required String tierName,
     required int trustPercent,
   }) {
+    final chipColor = _trustChipColor(tierName);
     return InkWell(
       onTap: () => showModalBottomSheet<void>(
         context: context,
@@ -904,24 +923,29 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.08),
+          color: chipColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+          border: Border.all(color: chipColor.withOpacity(0.35)),
         ),
-        child: Text('$tierName • %$trustPercent', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        child: Text(
+          '$tierName • %$trustPercent',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: chipColor),
+        ),
       ),
     );
   }
 
   Widget _buildPriceContributor(PriceModel price) {
     final uid = (price.createdByUid ?? price.userId).trim();
-    return FutureBuilder<Map<String, dynamic>>(
-      future: ref.read(firestoreServiceProvider).getUserTrustProfile(uid),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
       builder: (context, snapshot) {
-        final data = snapshot.data ?? const {
-          'displayName': 'Kullanıcı',
-          'trustScorePercent': 0,
-          'tierName': 'Standart',
+        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
+        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+        final data = snapshot.data ?? {
+          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
+          'trustScorePercent': fallbackScore,
+          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
         };
         final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
@@ -1355,6 +1379,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final totalUnverified = latestPrice?.downVotes ?? 0;
     final total = totalVerified + totalUnverified;
     final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1366,34 +1391,45 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       child: Column(
         children: [
           if (latestPrice != null)
-            Row(
-              children: [
-                Expanded(
-                  child: VerifyActionButton(
-                    icon: Icons.thumb_up_outlined,
-                    successIcon: Icons.thumb_up,
-                    label: 'Doğrula',
-                    count: totalVerified,
-                    color: AppColors.success,
-                    isPositive: true,
-                    successSignal: _verifySuccessSignal,
-                    onTap: () => _verifyLatestPrice(latestPrice.id, true),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: VerifyActionButton(
-                    icon: Icons.thumb_down_outlined,
-                    successIcon: Icons.thumb_down,
-                    label: 'Reddet',
-                    count: totalUnverified,
-                    color: AppColors.error,
-                    isPositive: false,
-                    successSignal: _rejectSuccessSignal,
-                    onTap: () => _verifyLatestPrice(latestPrice.id, false),
-                  ),
-                ),
-              ],
+            StreamBuilder<String?>(
+              stream: uid == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(latestPrice.id, uid),
+              builder: (context, snapshot) {
+                final voteValue = snapshot.data;
+                final isLoggedIn = uid != null;
+                return Row(
+                  children: [
+                    Expanded(
+                      child: VerifyActionButton(
+                        icon: Icons.thumb_up_outlined,
+                        successIcon: Icons.thumb_up,
+                        label: 'Doğrula',
+                        count: totalVerified,
+                        color: AppColors.success,
+                        isPositive: true,
+                        isSelected: voteValue == 'yes',
+                        isEnabled: isLoggedIn,
+                        successSignal: _verifySuccessSignal,
+                        onTap: () => _verifyLatestPrice(latestPrice.id, true),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: VerifyActionButton(
+                        icon: Icons.thumb_down_outlined,
+                        successIcon: Icons.thumb_down,
+                        label: 'Reddet',
+                        count: totalUnverified,
+                        color: AppColors.error,
+                        isPositive: false,
+                        isSelected: voteValue == 'no',
+                        isEnabled: isLoggedIn,
+                        successSignal: _rejectSuccessSignal,
+                        onTap: () => _verifyLatestPrice(latestPrice.id, false),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           if (latestPrice != null) const SizedBox(height: AppSpacing.md),
           ClipRRect(
@@ -1435,7 +1471,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final service = ref.read(firestoreServiceProvider);
 
     try {
-      await service.verifyPrice(priceId, user.uid, isVerified);
+      final result = await service.verifyPrice(priceId, user.uid, isVerified);
+      if (result.status == PriceVoteStatus.alreadyVoted) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu oyu zaten verdin'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (result.status == PriceVoteStatus.ignored) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Doğrulama şu anda işlenemedi.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
       if (isVerified) {
         _verifySuccessSignal.value++;
       } else {
@@ -1444,17 +1501,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isVerified ? 'Doğruladın +2 puan' : 'Reddettin'),
+          content: Text(result.status == PriceVoteStatus.changedVote ? 'Oyun güncellendi' : (isVerified ? 'Doğruladın +2 puan' : 'Reddettin +2 puan')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: isVerified ? AppColors.success : AppColors.error,
-        ),
-      );
-    } on AlreadyVotedException {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Zaten oy verdin'),
-          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {

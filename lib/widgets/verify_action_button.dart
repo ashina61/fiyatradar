@@ -15,6 +15,8 @@ class VerifyActionButton extends StatefulWidget {
     required this.onTap,
     required this.successSignal,
     required this.isPositive,
+    this.isSelected = false,
+    this.isEnabled = true,
   });
 
   final String label;
@@ -25,6 +27,8 @@ class VerifyActionButton extends StatefulWidget {
   final VoidCallback onTap;
   final ValueListenable<int> successSignal;
   final bool isPositive;
+  final bool isSelected;
+  final bool isEnabled;
 
   @override
   State<VerifyActionButton> createState() => _VerifyActionButtonState();
@@ -107,7 +111,7 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapCancel: () => setState(() => _isPressed = false),
         onTapUp: (_) => setState(() => _isPressed = false),
-        onTap: widget.onTap,
+        onTap: widget.isEnabled ? widget.onTap : null,
         child: AnimatedScale(
           scale: _isPressed ? 0.96 : 1,
           duration: const Duration(milliseconds: 90),
@@ -118,9 +122,14 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
             transform: Matrix4.identity()..scale(_scaleX, 1.0),
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
             decoration: BoxDecoration(
-              color: widget.color.withOpacity(0.08),
+              color: widget.isSelected
+                  ? widget.color.withOpacity(0.16)
+                  : widget.color.withOpacity(widget.isEnabled ? 0.08 : 0.04),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: widget.color.withOpacity(0.35)),
+              border: Border.all(
+                color: widget.color.withOpacity(widget.isSelected ? 0.72 : 0.35),
+                width: widget.isSelected ? 1.6 : 1,
+              ),
               boxShadow: [
                 BoxShadow(color: widget.color.withOpacity(_glowOpacity), blurRadius: 20, spreadRadius: 2),
               ],
@@ -141,9 +150,18 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(_showSuccessIcon ? widget.successIcon : widget.icon, color: widget.color),
+                    Icon(
+                      _showSuccessIcon ? widget.successIcon : widget.icon,
+                      color: widget.isEnabled ? widget.color : widget.color.withOpacity(0.5),
+                    ),
                     const SizedBox(width: 8),
-                    Text(widget.label, style: TextStyle(color: widget.color, fontWeight: FontWeight.w700)),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: widget.isEnabled ? widget.color : widget.color.withOpacity(0.5),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 120),
@@ -154,7 +172,10 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
                       child: Text(
                         '${widget.count}',
                         key: ValueKey<int>(widget.count),
-                        style: TextStyle(color: widget.color, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          color: widget.isEnabled ? widget.color : widget.color.withOpacity(0.5),
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
