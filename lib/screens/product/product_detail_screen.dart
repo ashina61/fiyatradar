@@ -1125,7 +1125,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   Text(
                     product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
                     style: const TextStyle(
-                      fontSize: 44,
+                      fontSize: 58,
                       fontWeight: FontWeight.w800,
                       height: 1,
                       color: Color(0xFFB15C13),
@@ -1145,10 +1145,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final chipMaxWidth = (constraints.maxWidth - 4).clamp(130.0, 260.0);
+                    final chipMaxWidth = (constraints.maxWidth - 4).clamp(140.0, 280.0);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         const Text(
                           'Mağaza',
@@ -1159,7 +1159,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             letterSpacing: 0.2,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 24),
                         ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: chipMaxWidth),
                           child: Material(
@@ -1168,8 +1168,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               borderRadius: BorderRadius.circular(22),
                               onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
                               child: Container(
-                                constraints: const BoxConstraints(minHeight: 52),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                constraints: const BoxConstraints(minHeight: 62),
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                                 decoration: BoxDecoration(
                                   color: AppColors.surface,
                                   borderRadius: BorderRadius.circular(22),
@@ -1196,23 +1196,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.storefront_outlined, size: 19, color: AppColors.textSecondary),
-                                      const SizedBox(width: 8),
+                                      const Icon(Icons.storefront_outlined, size: 22, color: AppColors.textSecondary),
+                                      const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
                                           branchStore!.displayName!,
-                                          maxLines: 2,
+                                          maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.textPrimary,
                                           ),
                                         ),
                                       ),
                                       if (storeClickable) ...[
-                                        const SizedBox(width: 8),
-                                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+                                        const SizedBox(width: 10),
+                                        const Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textSecondary),
                                       ],
                                     ],
                                   ),
