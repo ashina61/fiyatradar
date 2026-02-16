@@ -366,6 +366,8 @@ class ActualItemsAdminScreen extends ConsumerWidget {
                           oldPrice: payload['oldPrice'] as double?,
                           imageUrl: payload['imageUrl']! as String,
                           note: payload['note']! as String,
+                          type: '',
+                          category: '',
                           isActive: payload['isActive']! as bool,
                           createdAt: DateTime.now(),
                         ),

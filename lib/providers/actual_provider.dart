@@ -13,14 +13,14 @@ final adminActualsProvider = StreamProvider<List<ActualModel>>((ref) {
   return ref.watch(firestoreServiceProvider).getActualsForAdmin(isActive: filter);
 });
 
-final activeActualsProvider = StreamProvider<List<ActualModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActiveActualsForUser();
+final latestActiveActualProvider = StreamProvider<ActualModel?>((ref) {
+  if (!firebaseInitialized) return Stream.value(null);
+  return ref.watch(firestoreServiceProvider).getLatestActiveActualForUser();
 });
 
 final actualItemsProvider = StreamProvider.family<List<ActualItemModel>, String>((ref, actualId) {
   if (!firebaseInitialized || actualId.isEmpty) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActualItems(actualId, onlyActive: true);
+  return ref.watch(firestoreServiceProvider).getActualItems(actualId);
 });
 
 final adminActualItemsProvider = StreamProvider.family<List<ActualItemModel>, String>((ref, actualId) {

@@ -76,7 +76,7 @@ class FirestoreService {
       _firestore.collection('productSuggestions');
   CollectionReference<Map<String, dynamic>> get _priceDedupeRef => _firestore.collection('price_dedupes');
   CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
-  CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('campaigns');
+  CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('actuals');
   CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
   CollectionReference<Map<String, dynamic>> get _stockValidationRef => _firestore.collection('stock_validation');
   DocumentReference<Map<String, dynamic>> get _maintenanceRef =>
@@ -1900,25 +1900,29 @@ class FirestoreService {
     return query.snapshots().map((snapshot) => snapshot.docs.map(ActualModel.fromFirestore).toList());
   }
 
-  Stream<List<ActualModel>> getActiveActualsForUser() {
-    return _actualsRef
-        .where('isActive', isEqualTo: true)
-        .orderBy('startDate', descending: true)
-        .snapshots()
-        .map((snapshot) {
+  Stream<ActualModel?> getLatestActiveActualForUser() {
+    return _actualsRef.where('isActive', isEqualTo: true).snapshots().map((snapshot) {
       final now = DateTime.now();
-      return snapshot.docs.map(ActualModel.fromFirestore).where((actual) {
-        return !actual.startDate.isAfter(now) && !actual.endDate.isBefore(now);
-      }).toList();
+      final active = snapshot.docs
+          .map(ActualModel.fromFirestore)
+          .where((actual) => !actual.startDate.isAfter(now) && !actual.endDate.isBefore(now))
+          .toList();
+      if (active.isEmpty) return null;
+      active.sort((a, b) {
+        final createdAtCompare = b.createdAt.compareTo(a.createdAt);
+        if (createdAtCompare != 0) return createdAtCompare;
+        return b.startDate.compareTo(a.startDate);
+      });
+      return active.first;
     });
   }
 
-  Stream<List<ActualItemModel>> getActualItems(String actualId, {bool onlyActive = false}) {
-    Query<Map<String, dynamic>> query = _actualsRef.doc(actualId).collection('items').orderBy('createdAt', descending: false);
-    if (onlyActive) {
-      query = query.where('isActive', isEqualTo: true);
-    }
-    return query.snapshots().map((snapshot) => snapshot.docs.map(ActualItemModel.fromFirestore).toList());
+  Stream<List<ActualItemModel>> getActualItems(String actualId) {
+    return _actualsRef
+        .doc(actualId)
+        .collection('items')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(ActualItemModel.fromFirestore).toList());
   }
 
   Future<String> addActual(ActualModel actual) async {
