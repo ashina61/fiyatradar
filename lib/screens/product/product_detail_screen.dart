@@ -1071,20 +1071,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.surface,
+            Color(0xFFF8EFE2),
+            Color(0xFFF3E2CF),
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: const Color(0xFFE1D0BD)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: Color(0xFFB78A5A).withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -1093,9 +1094,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         padding: const EdgeInsets.all(AppSpacing.lg),
         constraints: BoxConstraints(minHeight: hasStore ? 176 : 150),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFDF8F2),
+              Color(0xFFF6EADC),
+            ],
+          ),
           borderRadius: BorderRadius.circular(AppRadius.lg - 1),
-          border: Border.all(color: AppColors.outlineVariant.withOpacity(0.65)),
+          border: Border.all(color: const Color(0xFFE9D7C4)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1120,7 +1128,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       fontSize: 44,
                       fontWeight: FontWeight.w800,
                       height: 1,
-                      color: AppColors.primary,
+                      color: Color(0xFFB15C13),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -1157,15 +1165,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(22),
                               onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
                               child: Container(
                                 constraints: const BoxConstraints(minHeight: 52),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: AppColors.outline.withOpacity(0.9)),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(color: const Color(0xFFE8DED3)),
                                   boxShadow: showNearbyGlow
                                       ? [
                                           BoxShadow(
@@ -1175,7 +1183,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                             offset: const Offset(0, 4),
                                           ),
                                         ]
-                                      : null,
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.04),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
                                 ),
                                 child: Opacity(
                                   opacity: storeClickable ? 1 : 0.75,
