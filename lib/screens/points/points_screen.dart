@@ -23,10 +23,31 @@ class PointsScreen extends ConsumerStatefulWidget {
   ConsumerState<PointsScreen> createState() => _PointsScreenState();
 }
 
-class _PointsScreenState extends ConsumerState<PointsScreen> {
+class _PointsScreenState extends ConsumerState<PointsScreen> with SingleTickerProviderStateMixin {
   String? _activeBadgeDialogId;
   bool _recomputedForUser = false;
   PointsTab _activeTab = PointsTab.overview;
+  late final TabController _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (_tab.indexIsChanging) return;
+        final nextTab = _tab.index == 0 ? PointsTab.overview : PointsTab.leaderboard;
+        if (_activeTab == nextTab) return;
+        setState(() {
+          _activeTab = nextTab;
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,84 +75,58 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
         return FutureBuilder<void>(
           future: pointsService.ensurePointsDefaultsSeeded(),
           builder: (context, seedSnap) {
-            return DefaultTabController(
-              length: 2,
-              child: Builder(
-                builder: (context) {
-                  final tabController = DefaultTabController.of(context);
-                  return Scaffold(
-                    body: SafeArea(
-                      child: StreamBuilder<UserPointsProfile>(
-                  stream: pointsService.streamUserProfile(user.uid),
-                  builder: (context, profileSnap) {
-                    final profile = profileSnap.data;
-                    return StreamBuilder<List<PointsRule>>(
-                      stream: pointsService.streamPointsRules(),
-                      builder: (context, rulesSnap) {
-                        return StreamBuilder<List<PointsBadge>>(
-                          stream: pointsService.streamBadges(user.uid),
-                          builder: (context, badgeSnap) {
-                            final badges = badgeSnap.data ?? const <PointsBadge>[];
-                            return StreamBuilder<PendingBadgeUnlock?>(
-                              stream: pointsService.streamLatestUnseenUnlockedBadge(user.uid),
-                              builder: (context, pendingBadgeSnap) {
-                                _notifyBadgeUnlock(user.uid, pendingBadgeSnap.data);
-                                return StreamBuilder<List<PointsActivityItem>>(
-                                  stream: pointsService.streamActivity(user.uid),
-                                  builder: (context, activitySnap) {
-                                    final activities = activitySnap.data ?? const <PointsActivityItem>[];
-                                    final rules = rulesSnap.data ?? const <PointsRule>[];
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('Puanlar'),
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(58),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _buildPointsHeaderTabs(),
+                  ),
+                ),
+              ),
+              body: StreamBuilder<UserPointsProfile>(
+                stream: pointsService.streamUserProfile(user.uid),
+                builder: (context, profileSnap) {
+                  final profile = profileSnap.data;
+                  return StreamBuilder<List<PointsRule>>(
+                    stream: pointsService.streamPointsRules(),
+                    builder: (context, rulesSnap) {
+                      return StreamBuilder<List<PointsBadge>>(
+                        stream: pointsService.streamBadges(user.uid),
+                        builder: (context, badgeSnap) {
+                          final badges = badgeSnap.data ?? const <PointsBadge>[];
+                          return StreamBuilder<PendingBadgeUnlock?>(
+                            stream: pointsService.streamLatestUnseenUnlockedBadge(user.uid),
+                            builder: (context, pendingBadgeSnap) {
+                              _notifyBadgeUnlock(user.uid, pendingBadgeSnap.data);
+                              return StreamBuilder<List<PointsActivityItem>>(
+                                stream: pointsService.streamActivity(user.uid),
+                                builder: (context, activitySnap) {
+                                  final activities = activitySnap.data ?? const <PointsActivityItem>[];
+                                  final rules = rulesSnap.data ?? const <PointsRule>[];
 
-                                    return NestedScrollView(
-                                      headerSliverBuilder: (context, innerBoxIsScrolled) {
-                                        return [
-                                          SliverAppBar(
-                                            pinned: true,
-                                            floating: false,
-                                            expandedHeight: 380,
-                                            title: const Text('Puanlar'),
-                                            flexibleSpace: FlexibleSpaceBar(
-                                              background: Padding(
-                                                padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 18, 16, 12),
-                                                child: profile == null
-                                                    ? const _SkeletonCard(height: 260)
-                                                    : _HeroCard(profile: profile, activities: activities),
-                                              ),
-                                            ),
-                                            bottom: PreferredSize(
-                                              preferredSize: const Size.fromHeight(58),
-                                              child: Padding(
-                                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                                                child: _buildPointsHeaderTabs(tabController),
-                                              ),
-                                            ),
-                                          ),
-                                        ];
-                                      },
-                                      body: TabBarView(
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        children: [
-                                          _buildOverviewContent(
-                                            profile: profile,
-                                            activities: activities,
-                                            rules: rules,
-                                            badges: badges,
-                                          ),
-                                          _buildLeaderboardContent(),
-                                        ],
+                                  return TabBarView(
+                                    controller: _tab,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    children: [
+                                      _buildOverviewContent(
+                                        profile: profile,
+                                        activities: activities,
+                                        rules: rules,
+                                        badges: badges,
                                       ),
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                        ),
-                      ),
+                                      _buildLeaderboardContent(),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
                   );
                 },
               ),
@@ -171,7 +166,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
     });
   }
 
-  Widget _buildPointsHeaderTabs(TabController tabController) {
+  Widget _buildPointsHeaderTabs() {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFFFF9ED),
@@ -179,7 +174,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
         border: Border.all(color: const Color(0xFFE3CEAA)),
       ),
       child: TabBar(
-        controller: tabController,
+        controller: _tab,
         onTap: (index) => setState(() {
           _activeTab = index == 0 ? PointsTab.overview : PointsTab.leaderboard;
         }),
@@ -218,6 +213,11 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
         key: ValueKey(_activeTab),
         padding: const EdgeInsets.fromLTRB(16, AppSpacing.lg, 16, 120),
         children: [
+          if (profile == null)
+            const _SkeletonCard(height: 260)
+          else
+            _HeroCard(profile: profile, activities: activities),
+          const SizedBox(height: AppSpacing.lg),
           _GoalsCard(profile: profile, activities: activities, onPriceGoalTap: _goToAddPrice),
           const SizedBox(height: AppSpacing.lg),
           _RulesCard(rules: rules),
