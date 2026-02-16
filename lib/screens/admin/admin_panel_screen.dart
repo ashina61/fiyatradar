@@ -920,14 +920,18 @@ class _ProductManagementTab extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
           FilledButton(
             onPressed: () async {
+              final selectedRole = roleController.text.trim();
+              final isAdminRole = selectedRole == 'admin';
+              final shouldShowVerifiedBadge = isAdminRole || verifiedBadge;
+
               await ref.read(firestoreServiceProvider).updateUserByAdmin(user.uid, {
                 'name': nameController.text.trim(),
                 'displayName': nameController.text.trim(),
-                'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
-                'isAdmin': roleController.text.trim() == 'admin',
+                'role': selectedRole.isEmpty ? 'user' : selectedRole,
+                'isAdmin': isAdminRole,
                 'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
                 'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
-                'verifiedBadge': verifiedBadge,
+                'verifiedBadge': shouldShowVerifiedBadge,
                 if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
                 if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
                 'updatedAt': FieldValue.serverTimestamp(),
@@ -3229,14 +3233,18 @@ Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dyna
         TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
         FilledButton(
           onPressed: () async {
+            final selectedRole = roleController.text.trim();
+            final isAdminRole = selectedRole == 'admin';
+            final shouldShowVerifiedBadge = isAdminRole || verifiedBadge;
+
             await ref.read(firestoreServiceProvider).updateUserByAdmin(user.uid, {
               'name': nameController.text.trim(),
               'displayName': nameController.text.trim(),
-              'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
-              'isAdmin': roleController.text.trim() == 'admin',
+              'role': selectedRole.isEmpty ? 'user' : selectedRole,
+              'isAdmin': isAdminRole,
               'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
               'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
-              'verifiedBadge': verifiedBadge,
+              'verifiedBadge': shouldShowVerifiedBadge,
               if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
               if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
               'updatedAt': FieldValue.serverTimestamp(),

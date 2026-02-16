@@ -74,6 +74,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
+                      isAdmin: userModel?.isAdmin == true || userModel?.role == 'admin',
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                         if (mounted) setState(() => _reloadKey++);
@@ -83,7 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _QuickBar(uid: uid),
                     const SizedBox(height: 14),
                     _SettingsList(
-                      isAdmin: userModel?.isAdmin == true,
+                      isAdmin: userModel?.isAdmin == true || userModel?.role == 'admin',
                       onReload: () => setState(() => _reloadKey++),
                     ),
                   ],
@@ -130,6 +131,7 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.avatarUrl,
     required this.trustScore,
     required this.levelName,
+    required this.isAdmin,
     required this.onEdit,
   });
 
@@ -137,6 +139,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   final String avatarUrl;
   final double trustScore;
   final String levelName;
+  final bool isAdmin;
   final VoidCallback onEdit;
 
   @override
@@ -177,8 +180,10 @@ class _PremiumHeaderCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded, size: 18, color: Colors.blue),
+                    if (isAdmin) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified_rounded, size: 18, color: Colors.blue),
+                    ],
                   ],
                 ),
               ),
