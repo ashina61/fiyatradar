@@ -19,7 +19,7 @@ import '../../services/location_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
-import '../../utils/trust_tier.dart';
+import '../../utils/level_system.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/app_section_header.dart';
@@ -883,9 +883,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
 
   Color _trustChipColor(String tierName, int trustPercent) {
-    final byScore = trustTierFromScore(trustPercent).color;
-    if (tierName.trim().isEmpty || tierName.toLowerCase() == 'standart') return byScore;
-    return byScore;
+    final level = levelFromLabel(tierName);
+    return level.badgeForeground;
   }
 
   Widget _buildTrustBadge({
@@ -895,7 +894,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     int? upTotal,
     int? downTotal,
   }) {
-    final trustTier = trustTierFromScore(trustPercent);
+    final level = levelFromLabel(tierName);
     final chipColor = _trustChipColor(tierName, trustPercent);
     final total = (upTotal ?? 0) + (downTotal ?? 0);
     final verificationRate = total == 0 ? null : ((upTotal ?? 0) / total * 100).round();
@@ -914,7 +913,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const SizedBox(height: 12),
               Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text('Seviye: ${trustTier.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text('Seviye: ${level.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
             ],
@@ -924,18 +923,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: chipColor.withOpacity(0.1),
+          color: level.badgeBackground,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: chipColor.withOpacity(0.35)),
+          border: Border.all(color: level.badgeBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(trustTier.emoji, style: const TextStyle(fontSize: 14)),
+            Text(level.emoji, style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 4),
             Text(
-              '%$trustPercent',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: chipColor),
+              '${level.label} %$trustPercent',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: chipColor),
             ),
           ],
         ),
@@ -1098,7 +1097,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 52,
+                          fontSize: 42,
                           fontWeight: FontWeight.w800,
                           height: 1,
                           color: Color(0xFFB15C13),
@@ -1259,7 +1258,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     int? upTotal,
     int? downTotal,
   }) {
-    final trustTier = trustTierFromScore(trustPercent);
+    final level = levelFromLabel(tierName);
     final chipColor = _trustChipColor(tierName, trustPercent);
     final total = (upTotal ?? 0) + (downTotal ?? 0);
     final verificationRate = total == 0 ? null : ((upTotal ?? 0) / total * 100).round();
@@ -1279,7 +1278,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const SizedBox(height: 12),
               Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text('Seviye: ${trustTier.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text('Seviye: ${level.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
             ],
@@ -1288,19 +1287,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: chipColor.withOpacity(0.1),
+          color: level.badgeBackground,
           borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(color: chipColor.withOpacity(0.35)),
+          border: Border.all(color: level.badgeBorder),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(trustTier.emoji, style: const TextStyle(fontSize: 14)),
+            Text(level.emoji, style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 4),
             Text(
-              '%$trustPercent',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: chipColor),
+              '${level.label} %$trustPercent',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: chipColor),
             ),
           ],
         ),

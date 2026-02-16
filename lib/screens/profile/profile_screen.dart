@@ -174,6 +174,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final level = levelBuilder(totalPoints);
     final progress = ((totalPoints % 5000) / 5000).clamp(0, 1).toDouble();
+    final initial = displayName.trim().isEmpty ? 'K' : displayName.trim()[0].toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -185,19 +186,50 @@ class _PremiumHeaderCard extends StatelessWidget {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(avatarUrl: avatarUrl, displayName: displayName),
+              _Avatar(avatarUrl: avatarUrl, displayName: displayName, size: 68),
               const SizedBox(width: 12),
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: level.textColor)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: level.textColor)),
+                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0059D6)),
+                        ],
+                      ],
                     ),
-                    if (isAdmin) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0059D6)),
-                    ],
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: level.badgeBackground,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: level.badgeBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(level.emoji, style: TextStyle(fontSize: 16, color: level.badgeForeground)),
+                          const SizedBox(width: 6),
+                          Text(
+                            level.label,
+                            style: TextStyle(fontWeight: FontWeight.w800, color: level.badgeForeground),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Mevcut Seviye',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: level.badgeForeground.withOpacity(0.9)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -205,32 +237,47 @@ class _PremiumHeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: 170,
-            height: 170,
-            child: Stack(
-              fit: StackFit.expand,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.74),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: level.borderColor.withOpacity(0.25)),
+            ),
+            child: Row(
               children: [
-                CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 12,
-                  backgroundColor: Colors.white.withOpacity(0.45),
-                  valueColor: AlwaysStoppedAnimation<Color>(level.borderColor),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Text('$totalPoints', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: level.textColor)),
-                      Text('Toplam Puan', style: TextStyle(fontSize: 12, color: level.textColor.withOpacity(0.8))),
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 5,
+                        backgroundColor: Colors.white.withOpacity(0.65),
+                        valueColor: AlwaysStoppedAnimation<Color>(level.borderColor),
+                      ),
+                      Center(child: Text(initial, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: level.textColor))),
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Toplam Puan', style: TextStyle(fontSize: 12, color: level.textColor.withOpacity(0.8))),
+                      const SizedBox(height: 2),
+                      Text('$totalPoints', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: level.textColor)),
+                    ],
+                  ),
+                ),
+                LevelBadge(level: level, compact: true),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          LevelBadge(level: level),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -248,17 +295,18 @@ class _PremiumHeaderCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.avatarUrl, required this.displayName});
+  const _Avatar({required this.avatarUrl, required this.displayName, this.size = 52});
 
   final String avatarUrl;
   final String displayName;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return ClipOval(
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: size,
+        height: size,
         child: avatarUrl.isEmpty
             ? Container(
                 color: const Color(0xFFFFE8B7),
@@ -501,6 +549,11 @@ class _SettingsList extends ConsumerWidget {
           icon: Icons.info_outline_rounded,
           title: 'Hakkında',
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+        ),
+        _MenuTile(
+          icon: Icons.history_rounded,
+          title: 'Güncellemeler',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdatesScreen())),
         ),
         _MenuTile(
           icon: Icons.logout_rounded,
@@ -808,7 +861,79 @@ class AboutScreen extends StatelessWidget {
             trailing: const Icon(Icons.open_in_new_rounded),
             onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
           ),
+          ListTile(
+            title: const Text('Güncellemeler'),
+            subtitle: const Text('Sürüm geçmişini görüntüle'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UpdatesScreen())),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+
+class UpdatesScreen extends StatelessWidget {
+  const UpdatesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const updates = <Map<String, String>>[
+      {
+        'version': 'v1.0.0',
+        'date': '2024 Q1',
+        'notes': 'FiyatRadar yayınlandı. Ürün arama, fiyat ekleme ve temel profil altyapısı aktif edildi.',
+      },
+      {
+        'version': 'v1.1.0',
+        'date': '2024 Q2',
+        'notes': 'Puan sistemi, seviyeler ve katkı geçmişi ekranları eklendi.',
+      },
+      {
+        'version': 'v1.2.0',
+        'date': '2024 Q3',
+        'notes': 'Ürün detayları iyileştirildi. En ucuz mağaza listesi ve katkı yapan kullanıcı bilgileri güçlendirildi.',
+      },
+      {
+        'version': 'v1.3.0',
+        'date': '2024 Q4',
+        'notes': 'Bildirimler, favoriler ve profil düzenleme deneyimi yenilendi.',
+      },
+      {
+        'version': 'v1.4.0',
+        'date': '2025 Q1',
+        'notes': 'Seviye rozetleri görsel olarak standartlaştırıldı, profil kartı modernize edildi ve fiyat kartı tipografisi düzenlendi.',
+      },
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Güncellemeler')),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: updates.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final item = updates[index];
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.6)),
+              color: Theme.of(context).colorScheme.surface,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item['version']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(item['date']!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 8),
+                Text(item['notes']!, style: const TextStyle(height: 1.35)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
