@@ -5,7 +5,20 @@ import '../providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
 
 class LeaderboardSection extends ConsumerWidget {
-  const LeaderboardSection({super.key});
+  const LeaderboardSection({
+    super.key,
+    this.outerPadding = const EdgeInsets.all(20),
+    this.headerToContentSpacing = 22,
+    this.topThreeMinHeight = 220,
+    this.myRankBarHeight = 54,
+    this.myRankBarPadding = const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  });
+
+  final EdgeInsets outerPadding;
+  final double headerToContentSpacing;
+  final double topThreeMinHeight;
+  final double myRankBarHeight;
+  final EdgeInsets myRankBarPadding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,7 +27,7 @@ class LeaderboardSection extends ConsumerWidget {
     final currentUser = ref.watch(authStateProvider).valueOrNull;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: outerPadding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
@@ -48,7 +61,7 @@ class LeaderboardSection extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: headerToContentSpacing),
           leaderboardAsync.when(
             data: (items) {
               if (items.isEmpty) {
@@ -63,7 +76,7 @@ class LeaderboardSection extends ConsumerWidget {
 
               return Column(
                 children: [
-                  if (topThree.isNotEmpty) _TopThreeRow(items: topThree),
+                  if (topThree.isNotEmpty) _TopThreeRow(items: topThree, minHeight: topThreeMinHeight),
                   if (rows.isNotEmpty) const SizedBox(height: 14),
                   ...rows.asMap().entries.map((entry) {
                     final index = entry.key + 4;
@@ -74,7 +87,13 @@ class LeaderboardSection extends ConsumerWidget {
                     );
                   }),
                   const SizedBox(height: 14),
-                  _MyRankCard(filter: filter, rank: myIndex >= 0 ? myIndex + 1 : null, item: myItem),
+                  _MyRankCard(
+                    filter: filter,
+                    rank: myIndex >= 0 ? myIndex + 1 : null,
+                    item: myItem,
+                    height: myRankBarHeight,
+                    padding: myRankBarPadding,
+                  ),
                   const SizedBox(height: 16),
                 ],
               );
@@ -124,9 +143,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _TopThreeRow extends StatelessWidget {
-  const _TopThreeRow({required this.items});
+  const _TopThreeRow({required this.items, required this.minHeight});
 
   final List<UserLeaderboardItem> items;
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +159,7 @@ class _TopThreeRow extends StatelessWidget {
           child: Container(
             margin: EdgeInsets.only(right: index == items.length - 1 ? 0 : 8),
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-            constraints: const BoxConstraints(minHeight: 220),
+            constraints: BoxConstraints(minHeight: minHeight),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -253,19 +273,27 @@ class _ReliabilityBadge extends StatelessWidget {
 }
 
 class _MyRankCard extends StatelessWidget {
-  const _MyRankCard({required this.filter, required this.rank, required this.item});
+  const _MyRankCard({
+    required this.filter,
+    required this.rank,
+    required this.item,
+    required this.height,
+    required this.padding,
+  });
 
   final LeaderboardFilter filter;
   final int? rank;
   final UserLeaderboardItem? item;
+  final double height;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     final isTop50 = rank != null && item != null;
     return Container(
       width: double.infinity,
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      height: height,
+      padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: const Color(0xFF1D2A38),
