@@ -133,8 +133,16 @@ class PriceModel {
     final imageList = List<String>.from(data['images'] ?? []);
     final verification = Map<String, dynamic>.from(data['verification'] as Map? ?? const {});
 
-    final up = (verification['upCount'] as num?)?.toInt() ?? (data['upVotes'] as num?)?.toInt() ?? (data['verifiedCount'] as num?)?.toInt() ?? 0;
-    final down = (verification['downCount'] as num?)?.toInt() ?? (data['downVotes'] as num?)?.toInt() ?? (data['unverifiedCount'] as num?)?.toInt() ?? 0;
+    final up = (data['verifyUpCount'] as num?)?.toInt() ??
+        (verification['upCount'] as num?)?.toInt() ??
+        (data['upVotes'] as num?)?.toInt() ??
+        (data['verifiedCount'] as num?)?.toInt() ??
+        0;
+    final down = (data['verifyDownCount'] as num?)?.toInt() ??
+        (verification['downCount'] as num?)?.toInt() ??
+        (data['downVotes'] as num?)?.toInt() ??
+        (data['unverifiedCount'] as num?)?.toInt() ??
+        0;
 
     return PriceModel(
       id: doc.id,
@@ -152,7 +160,7 @@ class PriceModel {
       photoUrl: photo ?? (imageList.isNotEmpty ? imageList.first : null),
       upVotes: up,
       downVotes: down,
-      score: (verification['score'] as num?)?.toDouble() ?? (data['score'] as num?)?.toDouble() ?? (up - down).toDouble(),
+      score: (data['verifyScore'] as num?)?.toDouble() ?? (verification['score'] as num?)?.toDouble() ?? (data['score'] as num?)?.toDouble() ?? (up - down).toDouble(),
       userVotes: Map<String, String>.from(verification['userVotes'] as Map? ?? const {}),
       productName: data['productName'] as String?,
       userName: data['userName'] as String?,
