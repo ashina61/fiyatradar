@@ -30,6 +30,15 @@ class DuplicatePriceException implements Exception {
   String toString() => message;
 }
 
+
+class AlreadyVotedException implements Exception {
+  const AlreadyVotedException([this.message = 'Zaten oy verdin']);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class PriceStatusMigrationResult {
   const PriceStatusMigrationResult({
     required this.updatedCount,
@@ -670,12 +679,14 @@ class FirestoreService {
     try {
       var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
       query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
-      query = SafeQueryBuilder.safeWhere(query, 'branchStoreId', branchStoreId, expectedType: String);
-      query = SafeQueryBuilder.safeOrderBy(query, 'reportedAt', descending: true);
-      final snapshot = await query.limit(1).get();
+      final snapshot = await query.get();
 
-      if (snapshot.docs.isEmpty) return null;
-      return PriceModel.fromFirestore(snapshot.docs.first);
+      final prices = snapshot.docs
+          .map((doc) => PriceModel.fromFirestore(doc))
+          .where((price) => price.branchStoreId == branchStoreId)
+          .toList()
+        ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+      return prices.isEmpty ? null : prices.first;
     } on FirebaseException catch (e, st) {
       _logFirestoreQueryError('getLatestPriceForStore', e, st);
       return null;
@@ -812,17 +823,21 @@ class FirestoreService {
 
     print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
 
-    await _pointsService.awardEvent(
-      uid: price.userId,
-      eventType: 'price_add',
-      meta: {
-        'productId': price.productId,
-        'storeId': price.chainId,
-        'branchId': price.branchStoreId,
-        'priceEntryId': priceRef.id,
-      },
-    );
-    await _pointsService.markReferralFirstContribution(price.userId);
+    try {
+      await _pointsService.awardEvent(
+        uid: price.userId,
+        eventType: 'price_add',
+        meta: {
+          'productId': price.productId,
+          'storeId': price.chainId,
+          'branchId': price.branchStoreId,
+          'priceEntryId': priceRef.id,
+        },
+      );
+      await _pointsService.markReferralFirstContribution(price.userId);
+    } catch (e, st) {
+      _logFirestoreQueryError('addPriceReport/pointsAward', e, st);
+    }
 
     return priceRef.id;
   }
@@ -1043,147 +1058,82 @@ class FirestoreService {
   double _toRadians(double degree) => degree * 0.017453292519943295;
 
   Future<void> verifyPrice(String priceId, String voterId, bool isVerified) async {
-    final now = DateTime.now();
-    final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    try {
+      final voteType = isVerified ? 'up' : 'down';
+      final result = await _firestore.runTransaction<String>((txn) async {
+        final priceRef = _pricesRef.doc(priceId);
+        final voteRef = priceRef.collection('votes').doc(voterId);
+        final voterRef = _usersRef.doc(voterId);
 
-    await _firestore.runTransaction((txn) async {
-      final priceRef = _pricesRef.doc(priceId);
-      final priceEntryRef = _firestore.collection('price_entries').doc(priceId);
-      final voterRef = _usersRef.doc(voterId);
+        final priceSnap = await txn.get(priceRef);
+        if (!priceSnap.exists) return 'missing_price';
 
-      final priceSnap = await txn.get(priceRef);
-      if (!priceSnap.exists) return;
+        final data = Map<String, dynamic>.from(priceSnap.data() ?? const <String, dynamic>{});
+        if ((data['status'] ?? 'active').toString() != 'active') return 'inactive_price';
 
-      final raw = priceSnap.data() ?? <String, dynamic>{};
-      final data = Map<String, dynamic>.from(raw);
-      if ((data['status'] ?? 'active').toString() != 'active') return;
+        final ownerUid = (data['createdByUid'] ?? data['userId'] ?? '').toString();
+        if (ownerUid.isEmpty || ownerUid == voterId) return 'invalid_owner';
 
-      final ownerUid = (data['createdByUid'] ?? data['userId'] ?? '').toString();
-      if (ownerUid.isEmpty || ownerUid == voterId) return;
+        final existingVoteSnap = await txn.get(voteRef);
+        if (existingVoteSnap.exists) return 'already_voted';
 
-      final verificationRaw = data['verification'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      final userVotes = Map<String, String>.from(verificationRaw['userVotes'] as Map? ?? <String, String>{});
-      final previousVote = userVotes[voterId];
-      final nextVote = isVerified ? 'up' : 'down';
-      if (previousVote == nextVote) return;
+        txn.set(voteRef, {
+          'uid': voterId,
+          'vote': voteType,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
 
-      var upCount = (verificationRaw['upCount'] as num?)?.toInt() ?? (data['upVotes'] as num?)?.toInt() ?? 0;
-      var downCount = (verificationRaw['downCount'] as num?)?.toInt() ?? (data['downVotes'] as num?)?.toInt() ?? 0;
-
-      if (previousVote == 'up') upCount = (upCount - 1).clamp(0, 1 << 30);
-      if (previousVote == 'down') downCount = (downCount - 1).clamp(0, 1 << 30);
-      if (nextVote == 'up') upCount += 1;
-      if (nextVote == 'down') downCount += 1;
-      userVotes[voterId] = nextVote;
-      final score = upCount - downCount;
-
-      txn.update(priceRef, {
-        'verification': {
-          'upCount': upCount,
-          'downCount': downCount,
-          'score': score,
-          'userVotes': userVotes,
+        final scoreIncrement = voteType == 'up' ? 1 : -1;
+        txn.set(priceRef, {
+          if (voteType == 'up') 'verifiedCount': FieldValue.increment(1),
+          if (voteType == 'down') 'rejectedCount': FieldValue.increment(1),
+          if (voteType == 'up') 'upVotes': FieldValue.increment(1),
+          if (voteType == 'down') 'downVotes': FieldValue.increment(1),
+          if (voteType == 'down') 'unverifiedCount': FieldValue.increment(1),
+          'score': FieldValue.increment(scoreIncrement),
+          'verification.upCount': FieldValue.increment(voteType == 'up' ? 1 : 0),
+          'verification.downCount': FieldValue.increment(voteType == 'down' ? 1 : 0),
+          'verification.score': FieldValue.increment(scoreIncrement),
+          'verification.updatedAt': FieldValue.serverTimestamp(),
+          'lastVerifiedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-        },
-        'upVotes': upCount,
-        'downVotes': downCount,
-        'score': score,
-        'verifiedCount': upCount,
-        'unverifiedCount': downCount,
-        'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        txn.set(voterRef, {'validations': FieldValue.increment(1)}, SetOptions(merge: true));
+
+        final ownerRef = _usersRef.doc(ownerUid);
+        if (voteType == 'up') {
+          txn.set(ownerRef, {'trust.upTotal': FieldValue.increment(1)}, SetOptions(merge: true));
+        } else {
+          txn.set(ownerRef, {'trust.downTotal': FieldValue.increment(1)}, SetOptions(merge: true));
+        }
+
+        return 'ok';
       });
 
-      txn.set(priceEntryRef, {
-        'status': 'active',
-        'verification': {
-          'upCount': upCount,
-          'downCount': downCount,
-          'score': score,
-          'userVotes': userVotes,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      }, SetOptions(merge: true));
-
-      txn.set(voterRef, {'validations': FieldValue.increment(1)}, SetOptions(merge: true));
-
-      if (previousVote != null) {
-        final ownerRef = _usersRef.doc(ownerUid);
-        if (previousVote == 'up') {
-          txn.set(ownerRef, {
-            'trust.upTotal': FieldValue.increment(-1),
-          }, SetOptions(merge: true));
-        } else {
-          txn.set(ownerRef, {
-            'trust.downTotal': FieldValue.increment(-1),
-          }, SetOptions(merge: true));
-        }
+      if (result == 'already_voted') {
+        throw const AlreadyVotedException();
       }
+      if (result != 'ok') return;
 
-      final ownerRef = _usersRef.doc(ownerUid);
-      if (nextVote == 'up') {
-        txn.set(ownerRef, {
-          'trust.upTotal': FieldValue.increment(1),
-        }, SetOptions(merge: true));
-      } else {
-        txn.set(ownerRef, {
-          'trust.downTotal': FieldValue.increment(1),
-        }, SetOptions(merge: true));
+      await _pointsService.awardEvent(
+        uid: voterId,
+        eventType: 'price_verify',
+        meta: {'priceEntryId': priceId, 'vote': voteType},
+        ensureUniqueByMeta: true,
+      );
+
+      final ownerUid = (await _pricesRef.doc(priceId).get()).data()?['createdByUid']?.toString() ?? '';
+      if (ownerUid.isNotEmpty) {
+        await _refreshUserTrust(ownerUid);
       }
-
-      final voteEventRef = _firestore.collection('points_events').doc('${voterId}_${priceId}');
-      final voteEventSnap = await txn.get(voteEventRef);
-      if (!voteEventSnap.exists) {
-        final voteCountRef = _firestore.collection('user_daily_verify_counts').doc('${voterId}_$today');
-        final voteCountSnap = await txn.get(voteCountRef);
-        final todayCount = (voteCountSnap.data()?['count'] as num?)?.toInt() ?? 0;
-        if (todayCount < 30) {
-          txn.set(voteEventRef, {
-            'uid': voterId,
-            'type': 'verify_vote',
-            'pointsDelta': 2,
-            'relatedPriceId': priceId,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-          txn.set(voterRef, {
-            'pointsTotal': FieldValue.increment(2),
-            'totalPoints': FieldValue.increment(2),
-          }, SetOptions(merge: true));
-          txn.set(voteCountRef, {
-            'uid': voterId,
-            'day': today,
-            'count': FieldValue.increment(1),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        }
-      }
-
-      final ratio = (upCount + downCount) == 0 ? 0.0 : (upCount / (upCount + downCount));
-      if (upCount >= 3 && ratio >= 0.7) {
-        final bonusRef = _firestore.collection('points_events').doc('price_verified_bonus_${ownerUid}_$priceId');
-        final bonusSnap = await txn.get(bonusRef);
-        if (!bonusSnap.exists) {
-          txn.set(bonusRef, {
-            'uid': ownerUid,
-            'type': 'price_verified_bonus',
-            'pointsDelta': 3,
-            'relatedPriceId': priceId,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-          txn.set(ownerRef, {
-            'pointsTotal': FieldValue.increment(3),
-            'totalPoints': FieldValue.increment(3),
-          }, SetOptions(merge: true));
-        }
-      }
-    });
-
-    await _refreshUserTrust((await _pricesRef.doc(priceId).get()).data()?['createdByUid']?.toString() ?? '');
-    await _pointsService.awardEvent(
-      uid: voterId,
-      eventType: 'verification',
-      meta: {'priceEntryId': priceId, 'vote': isVerified ? 'up' : 'down'},
-      ensureUniqueByMeta: true,
-    );
+    } on AlreadyVotedException {
+      rethrow;
+    } on FirebaseException catch (e, st) {
+      _logFirestoreQueryError('verifyPrice', e, st);
+    } catch (e, st) {
+      _logFirestoreQueryError('verifyPrice', e, st);
+    }
   }
 
   Future<bool> hasUserVotedPrice(String priceId, String userId) async {
@@ -1191,13 +1141,8 @@ class FirestoreService {
   }
 
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
-    final doc = await _pricesRef.doc(priceId).get();
-    if (!doc.exists) return false;
-    final raw = doc.data();
-    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-    final verification = data['verification'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-    final userVotes = Map<String, dynamic>.from(verification['userVotes'] as Map? ?? const {});
-    return userVotes.containsKey(userId);
+    final voteDoc = await _pricesRef.doc(priceId).collection('votes').doc(userId).get();
+    return voteDoc.exists;
   }
 
   Future<void> reportPrice({
@@ -1893,11 +1838,15 @@ class FirestoreService {
   }
 
   Stream<List<ActualModel>> getActualsForAdmin({bool? isActive}) {
-    Query<Map<String, dynamic>> query = _actualsRef.orderBy('startDate', descending: true);
+    Query<Map<String, dynamic>> query = _actualsRef;
     if (isActive != null) {
       query = query.where('isActive', isEqualTo: isActive);
     }
-    return query.snapshots().map((snapshot) => snapshot.docs.map(ActualModel.fromFirestore).toList());
+    return query.snapshots().map((snapshot) {
+      final list = snapshot.docs.map(ActualModel.fromFirestore).toList();
+      list.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return list;
+    });
   }
 
   Stream<ActualModel?> getLatestActiveActualForUser() {
@@ -2090,8 +2039,9 @@ class FirestoreService {
       });
     });
 
-    final correctCount = await _stockValidationRef.where('reportId', isEqualTo: reportId).where('result', isEqualTo: 'correct').get();
-    if (correctCount.size >= 3) {
+    final reportValidations = await _stockValidationRef.where('reportId', isEqualTo: reportId).get();
+    final correctCount = reportValidations.docs.where((doc) => (doc.data()['result'] ?? '').toString() == 'correct').length;
+    if (correctCount >= 3) {
       await _firestore.runTransaction((txn) async {
         final reportDoc = await txn.get(reportRef);
         final reportData = reportDoc.data() ?? <String, dynamic>{};

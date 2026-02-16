@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/points_service.dart';
 import '../../utils/theme.dart';
+import '../../widgets/badge_unlocked_overlay.dart';
 import '../add_price/add_price_screen.dart';
 import '../auth/login_screen.dart';
 
@@ -127,19 +128,13 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          title: const Text('🎉 Rozet Kazandın'),
-          content: Text('🎉 Rozet Kazandın: ${pending.badgeTitle}'),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Tamam'),
-            ),
-          ],
+        barrierDismissible: true,
+        builder: (_) => BadgeUnlockedOverlay(
+          badgeTitle: pending.badgeTitle,
+          badgeDescription: pending.badgeDescription,
+          onAcknowledge: () => ref.read(_pointsServiceProvider).acknowledgeBadgeUnlock(uid: uid, badgeId: pending.badgeId),
         ),
       );
-      await ref.read(_pointsServiceProvider).acknowledgeBadgeUnlock(uid: uid, badgeId: pending.badgeId);
       if (!mounted) return;
       setState(() {
         _activeBadgeDialogId = null;
@@ -221,8 +216,8 @@ class _GoalsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = activities.where((a) => a.createdAt.year == now.year && a.createdAt.month == now.month && a.createdAt.day == now.day);
-    final price = today.where((a) => a.type == 'price_add').length;
-    final verify = today.where((a) => a.type == 'verification').length;
+    final price = today.where((a) => a.type == 'price_add' || a.type == 'price_entry').length;
+    final verify = today.where((a) => a.type == 'verification' || a.type == 'price_verify').length;
     final weekStreak = _weekStreak(activities);
 
     return _SectionCard(
@@ -243,7 +238,7 @@ class _GoalsCard extends StatelessWidget {
   }
 
   int _weekStreak(List<PointsActivityItem> items) {
-    final meaningful = items.where((e) => e.type == 'price_add' || e.type == 'verification').toList();
+    final meaningful = items.where((e) => e.type == 'price_add' || e.type == 'price_entry' || e.type == 'verification' || e.type == 'price_verify').toList();
     final days = meaningful.map((e) => DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day)).toSet().length;
     return days.clamp(0, 7);
   }
@@ -302,12 +297,14 @@ class _BadgesCard extends StatelessWidget {
     return _SectionCard(
       title: 'Başarılarım',
       child: SizedBox(
-        height: 115,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemBuilder: (context, index) => _BadgeTile(badge: display[index]),
-          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+        height: 190,
+        child: PageView.builder(
+          controller: PageController(viewportFraction: 0.78),
           itemCount: display.length,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: _BadgeTile(badge: display[index]),
+          ),
         ),
       ),
     );
@@ -355,8 +352,10 @@ class _ActivityCard extends StatelessWidget {
   String _activityLabel(String type) {
     switch (type) {
       case 'price_add':
+      case 'price_entry':
         return 'Fiyat ekledin';
       case 'verification':
+      case 'price_verify':
         return 'Doğrulama yaptın';
       case 'comment':
         return 'Yorum yaptın';
@@ -437,20 +436,57 @@ class _BadgeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final unlocked = badge.isUnlocked;
     return Container(
-      width: 98,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(AppRadius.lg)),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        color: AppColors.surfaceVariant.withOpacity(0.75),
+        border: Border.all(color: unlocked ? const Color(0xFFE9C46A).withOpacity(0.55) : AppColors.outline.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: unlocked ? const Color(0xFFE9C46A).withOpacity(0.18) : Colors.transparent,
+            blurRadius: 16,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: BackdropFilter(
-          filter: unlocked ? ImageFilter.blur(sigmaX: 0, sigmaY: 0) : ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+          filter: unlocked ? ImageFilter.blur(sigmaX: 0, sigmaY: 0) : ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(unlocked ? Icons.workspace_premium_rounded : Icons.lock_outline, color: AppColors.primary),
+              Row(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: CircularProgressIndicator(
+                          value: (badge.progress.clamp(0, 100)) / 100,
+                          strokeWidth: 3,
+                          backgroundColor: AppColors.outline.withOpacity(0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(unlocked ? const Color(0xFFE9C46A) : AppColors.primary),
+                        ),
+                      ),
+                      Icon(unlocked ? Icons.workspace_premium_rounded : Icons.lock_outline, color: unlocked ? const Color(0xFFE9C46A) : AppColors.primary),
+                    ],
+                  ),
+                  const Spacer(),
+                  if (unlocked)
+                    const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFE9C46A)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(unlocked ? badge.title : 'Kilitli Rozet', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text(unlocked ? badge.title : 'Kilitli', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              Text(unlocked ? 'Açıldı' : 'Yakında', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Text(unlocked ? badge.description : 'Kilidi açmak için katkı yap.', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const Spacer(),
+              Text('Koşul: ${badge.unlockCondition.isEmpty ? 'Görev tamamla' : badge.unlockCondition}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+              if (badge.unlockedAt != null)
+                Text('Açılma: ${badge.unlockedAt!.day}.${badge.unlockedAt!.month}.${badge.unlockedAt!.year}', style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
             ],
           ),
         ),

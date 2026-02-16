@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 class PointsRule {
   const PointsRule({
@@ -128,11 +130,13 @@ class PendingBadgeUnlock {
   const PendingBadgeUnlock({
     required this.badgeId,
     required this.badgeTitle,
+    required this.badgeDescription,
     required this.unlockedAt,
   });
 
   final String badgeId;
   final String badgeTitle;
+  final String badgeDescription;
   final DateTime unlockedAt;
 }
 
@@ -160,36 +164,65 @@ class PointsService {
   CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
 
   static const Map<String, Map<String, String>> _badgeDefinitions = {
-    'badge_admin': {
+    'first_price': {
+      'title': 'İlk Fiyat',
+      'description': 'İlk fiyat katkını yaptın.',
+      'iconKey': 'spark',
+      'unlockCondition': 'price_entry >= 1',
+    },
+    'price_hunter': {
+      'title': 'Fiyat Avcısı',
+      'description': '25 fiyat katkısı yaptın.',
+      'iconKey': 'search',
+      'unlockCondition': 'price_entry >= 25',
+    },
+    'price_master': {
+      'title': 'Fiyat Ustası',
+      'description': '100 fiyat katkısına ulaştın.',
+      'iconKey': 'star',
+      'unlockCondition': 'price_entry >= 100',
+    },
+    'trusted_contributor': {
+      'title': 'Güvenilir Üye',
+      'description': 'Güven puanın 40 ve üstüne çıktı.',
+      'iconKey': 'shield_check',
+      'unlockCondition': 'trustScore >= 40',
+    },
+    'elite_contributor': {
+      'title': 'Elit Katkıcı',
+      'description': 'Güven puanın 70 ve üstüne çıktı.',
+      'iconKey': 'diamond',
+      'unlockCondition': 'trustScore >= 70',
+    },
+    'admin_badge': {
       'title': 'Admin',
       'description': 'Yönetici hesabı rozeti.',
       'iconKey': 'crown',
-      'unlockCondition': 'user.role == "admin"',
+      'unlockCondition': 'isAdmin == true',
     },
-    'badge_first_price': {
-      'title': 'İlk Katkı',
-      'description': 'İlk fiyatını ekledin.',
-      'iconKey': 'spark',
-      'unlockCondition': 'user price_add count >= 1',
-    },
-    'badge_verifier_10': {
-      'title': 'Doğrulayıcı',
-      'description': '10 fiyat doğruladın.',
-      'iconKey': 'shield_check',
-      'unlockCondition': 'verification count >= 10',
-    },
-    'badge_streak_7': {
-      'title': 'Seri Ustası',
-      'description': '7 gün üst üste katkı yaptın.',
-      'iconKey': 'flame',
-      'unlockCondition': 'streakDays >= 7',
-    },
-    'badge_points_500': {
-      'title': '500 Puan',
-      'description': '500 puana ulaştın.',
-      'iconKey': 'star',
-      'unlockCondition': 'totalPoints >= 500',
-    },
+  };
+
+  static const Map<String, int> _dailyCaps = {
+    'price_entry': 20,
+    'price_verify': 30,
+    'photo_bonus': 10,
+  };
+
+  static const Map<String, int> _pointValues = {
+    'price_entry': 5,
+    'price_verify': 2,
+    'photo_bonus': 3,
+    'admin_bonus': 10,
+    'comment': 1,
+    'report_confirmed': 3,
+    'invite_reward': 50,
+    'streak_bonus': 2,
+  };
+
+  static const Map<String, String> _eventAliases = {
+    'price_add': 'price_entry',
+    'verification': 'price_verify',
+    'verify_vote': 'price_verify',
   };
 
   Future<void> ensurePointsDefaultsSeeded() async {
@@ -198,58 +231,40 @@ class PointsService {
       'updatedAt': FieldValue.serverTimestamp(),
       'rules': [
         {
-          'id': 'price_add',
-          'title': 'Fiyat Ekleme',
-          'description': 'Onaylanan her fiyat gönderimi için +5 puan. Günlük en fazla 10 gönderim puanlanır.',
+          'id': 'price_entry',
+          'title': 'Fiyat Girişi',
+          'description': 'Fiyat ekleme başına +5 puan. Günlük en fazla 20 kez puanlanır.',
           'points': 5,
-          'dailyCap': 10,
+          'dailyCap': 20,
           'active': true,
-          'eventType': 'price_add',
+          'eventType': 'price_entry',
         },
         {
-          'id': 'verification',
+          'id': 'price_verify',
           'title': 'Fiyat Doğrulama',
-          'description': 'Başkalarının fiyatlarını doğruladığında +2 puan. Günlük en fazla 30 doğrulama puanlanır.',
+          'description': 'Doğrulama başına +2 puan. Günlük en fazla 30 kez puanlanır.',
           'points': 2,
           'dailyCap': 30,
           'active': true,
-          'eventType': 'verification',
+          'eventType': 'price_verify',
         },
         {
-          'id': 'comment',
-          'title': 'Yorum',
-          'description': '12+ karakter yorum başına +1 puan. Günlük en fazla 20 yorum puanlanır.',
-          'points': 1,
-          'dailyCap': 20,
-          'active': true,
-          'eventType': 'comment',
-        },
-        {
-          'id': 'report_confirmed',
-          'title': 'Yanlış Fiyat Bildirme',
-          'description': 'Bildirimin onaylandığında +3 puan kazanırsın.',
+          'id': 'photo_bonus',
+          'title': 'Foto Bonusu',
+          'description': 'Fotoğraflı katkıda +3 bonus puan. Günlük en fazla 10 kez puanlanır.',
           'points': 3,
-          'dailyCap': null,
+          'dailyCap': 10,
           'active': true,
-          'eventType': 'report_confirmed',
+          'eventType': 'photo_bonus',
         },
         {
-          'id': 'invite_reward',
-          'title': 'Arkadaş Daveti',
-          'description': 'Davet ettiğin kullanıcı ilk katkısını yaptığında +50 puan.',
-          'points': 50,
+          'id': 'admin_bonus',
+          'title': 'Admin Bonusu',
+          'description': 'Admin işlemleri için +10 puan.',
+          'points': 10,
           'dailyCap': null,
           'active': true,
-          'eventType': 'invite_reward',
-        },
-        {
-          'id': 'streak_bonus',
-          'title': 'Seri Bonusu',
-          'description': 'Günün ilk anlamlı katkısında +2 seri bonusu.',
-          'points': 2,
-          'dailyCap': 1,
-          'active': true,
-          'eventType': 'streak_bonus',
+          'eventType': 'admin_bonus',
         },
       ],
     }, SetOptions(merge: true));
@@ -289,8 +304,8 @@ class PointsService {
           .toList();
       if (parsed.isNotEmpty) return parsed;
       return const [
-        PointsRule(id: 'price_add', title: 'Fiyat Ekleme', description: 'Onaylanan her fiyat gönderimi için +5 puan.', points: 5, dailyCap: 10, active: true, eventType: 'price_add'),
-        PointsRule(id: 'verification', title: 'Fiyat Doğrulama', description: 'Fiyat doğrulama başına +2 puan. Günlük en fazla 30 doğrulama puanlanır.', points: 2, dailyCap: 30, active: true, eventType: 'verification'),
+        PointsRule(id: 'price_entry', title: 'Fiyat Girişi', description: 'Fiyat ekleme başına +5 puan.', points: 5, dailyCap: 20, active: true, eventType: 'price_entry'),
+        PointsRule(id: 'price_verify', title: 'Fiyat Doğrulama', description: 'Doğrulama başına +2 puan. Günlük en fazla 30 doğrulama puanlanır.', points: 2, dailyCap: 30, active: true, eventType: 'price_verify'),
       ];
     });
   }
@@ -360,8 +375,9 @@ class PointsService {
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final isUnlocked = (data['isUnlocked'] as bool?) ?? false;
+        final isShown = (data['isShown'] as bool?) ?? false;
         final seenAt = data['seenAt'] as Timestamp?;
-        if (!isUnlocked || seenAt != null) continue;
+        if (!isUnlocked || isShown || seenAt != null) continue;
 
         final def = defsMap[doc.id];
         if (def == null) continue;
@@ -369,6 +385,7 @@ class PointsService {
         candidates.add(PendingBadgeUnlock(
           badgeId: doc.id,
           badgeTitle: (def['title'] ?? doc.id).toString(),
+          badgeDescription: (def['description'] ?? '').toString(),
           unlockedAt: unlockedAt,
         ));
       }
@@ -382,6 +399,7 @@ class PointsService {
   Future<void> acknowledgeBadgeUnlock({required String uid, required String badgeId}) async {
     await _firestore.collection('user_badges').doc(uid).collection('items').doc(badgeId).set({
       'seenAt': FieldValue.serverTimestamp(),
+      'isShown': true,
     }, SetOptions(merge: true));
   }
 
@@ -398,7 +416,7 @@ class PointsService {
               (doc) => PointsActivityItem(
                 id: doc.id,
                 type: (doc.data()['type'] ?? '').toString(),
-                points: (doc.data()['points'] as num?)?.toInt() ?? 0,
+                points: ((doc.data()['pointsDelta'] ?? doc.data()['points']) as num?)?.toInt() ?? 0,
                 createdAt: (doc.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 meta: Map<String, dynamic>.from(doc.data()['meta'] as Map? ?? const {}),
               ),
@@ -413,60 +431,118 @@ class PointsService {
     bool checkDailyCap = true,
     bool ensureUniqueByMeta = false,
   }) async {
-    await ensurePointsDefaultsSeeded();
-    final rule = await _ruleFor(eventType);
-    if (rule == null || !rule.active || rule.points <= 0) return false;
+    try {
+      await ensurePointsDefaultsSeeded();
+      final normalizedType = _normalizeEventType(eventType);
+      final pointsDelta = _pointForEvent(normalizedType);
+      if (pointsDelta <= 0) {
+        debugPrint('PointsService.awardEvent skipped unknown type: $eventType');
+        return false;
+      }
 
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
-    if (checkDailyCap && rule.dailyCap != null) {
-      final todayCount = await _firestore
-          .collection('points_activity')
-          .doc(uid)
-          .collection('items')
-          .where('type', isEqualTo: eventType)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-          .count()
-          .get();
-      if ((todayCount.count ?? 0) >= rule.dailyCap!) return false;
-    }
-
-    if (ensureUniqueByMeta && meta['priceEntryId'] != null) {
-      final existing = await _firestore
-          .collection('points_activity')
-          .doc(uid)
-          .collection('items')
-          .where('type', isEqualTo: eventType)
-          .where('meta.priceEntryId', isEqualTo: meta['priceEntryId'])
-          .limit(1)
-          .get();
-      if (existing.docs.isNotEmpty) return false;
-    }
-
-    await _firestore.runTransaction((txn) async {
+      final dayKey = DateFormat('yyyyMMdd').format(DateTime.now().toLocal());
       final userRef = _users.doc(uid);
-      final userSnap = await txn.get(userRef);
-      final userData = userSnap.data() ?? <String, dynamic>{};
-      final currentPoints = (userData['totalPoints'] as num?)?.toInt() ?? 0;
-      final newTotal = currentPoints + rule.points;
+      final dailyRef = userRef.collection('points_daily').doc(dayKey);
       final activityRef = _firestore.collection('points_activity').doc(uid).collection('items').doc();
-      txn.set(activityRef, {
-        'type': eventType,
-        'points': rule.points,
-        'createdAt': FieldValue.serverTimestamp(),
-        'meta': meta,
+      final uniqueKey = ensureUniqueByMeta && meta['priceEntryId'] != null
+          ? '${normalizedType}_${meta['priceEntryId']}'
+          : null;
+      final uniqueRef = uniqueKey == null ? null : userRef.collection('points_event_uniques').doc(uniqueKey);
+      final levels = await _levels();
+
+      final awarded = await _firestore.runTransaction<bool>((txn) async {
+        final dailySnap = await txn.get(dailyRef);
+        final dailyData = dailySnap.data() ?? <String, dynamic>{};
+        final counts = Map<String, dynamic>.from(dailyData['counts'] as Map? ?? const {});
+        final currentCount = (counts[normalizedType] as num?)?.toInt() ?? 0;
+        final cap = checkDailyCap ? _dailyCaps[normalizedType] : null;
+
+        var shouldAwardPoints = true;
+        if (cap != null && currentCount >= cap) {
+          shouldAwardPoints = false;
+        }
+
+        if (uniqueRef != null) {
+          final uniqueSnap = await txn.get(uniqueRef);
+          if (uniqueSnap.exists) {
+            shouldAwardPoints = false;
+          } else {
+            txn.set(uniqueRef, {
+              'eventType': normalizedType,
+              'meta': {'priceEntryId': meta['priceEntryId']},
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+
+        final awardedDelta = shouldAwardPoints ? pointsDelta : 0;
+        final userSnap = await txn.get(userRef);
+        final userData = userSnap.data() ?? <String, dynamic>{};
+        final currentPoints = (userData['totalPoints'] as num?)?.toInt() ?? 0;
+        final newTotal = currentPoints + awardedDelta;
+        final currentLevel = levels.firstWhere(
+          (level) => level.includes(newTotal),
+          orElse: () => levels.first,
+        );
+
+        if (shouldAwardPoints) {
+          txn.set(
+            dailyRef,
+            {
+              'counts.$normalizedType': FieldValue.increment(1),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+        } else {
+          txn.set(
+            dailyRef,
+            {
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+        }
+
+        txn.set(activityRef, {
+          'type': normalizedType,
+          'createdAt': FieldValue.serverTimestamp(),
+          'pointsDelta': awardedDelta,
+          'points': awardedDelta,
+          'meta': {
+            ...meta,
+            if (!shouldAwardPoints) 'dailyCapReached': cap != null && currentCount >= cap,
+            if (!shouldAwardPoints && uniqueRef != null) 'duplicateEvent': true,
+          },
+        });
+
+        if (awardedDelta > 0) {
+          txn.set(userRef, {
+            'totalPoints': FieldValue.increment(awardedDelta),
+            'pointsTotal': FieldValue.increment(awardedDelta),
+            'level': currentLevel.title,
+          }, SetOptions(merge: true));
+        }
+
+        return shouldAwardPoints;
       });
 
-      final currentLevel = await _levelForPoints(newTotal);
-      txn.set(userRef, {
-        'totalPoints': FieldValue.increment(rule.points),
-        'level': currentLevel?.title ?? 'Standart',
-      }, SetOptions(merge: true));
-    });
+      if (!awarded) return false;
+      await _updateStreak(uid, eventType: normalizedType);
+      await _evaluateBadges(uid);
+      return true;
+    } catch (e) {
+      debugPrint('PointsService.awardEvent failed for $eventType/$uid: $e');
+      return false;
+    }
+  }
 
-    await _updateStreak(uid, eventType: eventType);
-    await _evaluateBadges(uid);
-    return true;
+  String _normalizeEventType(String eventType) => _eventAliases[eventType] ?? eventType;
+
+  int _pointForEvent(String eventType) {
+    final mapped = _pointValues[eventType];
+    if (mapped != null) return mapped;
+    return 0;
   }
 
   Future<void> markReferralFirstContribution(String uid) async {
@@ -524,7 +600,7 @@ class PointsService {
   }
 
   Future<void> _updateStreak(String uid, {required String eventType}) async {
-    if (eventType != 'price_add' && eventType != 'verification') return;
+    if (eventType != 'price_entry' && eventType != 'price_verify') return;
     final now = DateTime.now();
     final today = _dateKey(now);
     final yesterday = _dateKey(now.subtract(const Duration(days: 1)));
@@ -568,7 +644,6 @@ class PointsService {
         (userData['pointsTotal'] as num?)?.toInt() ??
         (userData['points'] as num?)?.toInt() ??
         0;
-    final streakDays = (userData['streakDays'] as num?)?.toInt() ?? 0;
     final role = (userData['role'] ?? '').toString();
     final isAdmin = (userData['isAdmin'] as bool?) ?? role == 'admin';
 
@@ -585,17 +660,17 @@ class PointsService {
 
     final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
     final activityDocs = activitySnap.docs;
-    final activityPriceCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'price_add').length;
-    final activityVerificationCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'verification').length;
+    final activityPriceCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'price_entry').length;
     final priceCount = math.max((userData['priceEntries'] as num?)?.toInt() ?? 0, activityPriceCount);
-    final verificationCount = math.max((userData['validations'] as num?)?.toInt() ?? 0, activityVerificationCount);
+    final trustScore = (userData['trustScore'] as num?)?.toInt() ?? 0;
 
     final unlockMap = <String, bool>{
-      'badge_admin': isAdmin || role == 'admin',
-      'badge_first_price': priceCount >= 1,
-      'badge_verifier_10': verificationCount >= 10,
-      'badge_streak_7': streakDays >= 7,
-      'badge_points_500': totalPoints >= 500,
+      'admin_badge': isAdmin || role == 'admin',
+      'first_price': priceCount >= 1,
+      'price_hunter': priceCount >= 25,
+      'price_master': priceCount >= 100,
+      'trusted_contributor': trustScore >= 40,
+      'elite_contributor': trustScore >= 70,
     };
 
     final userBadgesRef = _firestore.collection('user_badges').doc(uid).collection('items');
@@ -610,6 +685,7 @@ class PointsService {
       if (entry.value && !wasUnlocked) {
         payload['unlockedAt'] = FieldValue.serverTimestamp();
         payload['seenAt'] = null;
+        payload['isShown'] = false;
       }
       await ref.set(payload, SetOptions(merge: true));
     }
