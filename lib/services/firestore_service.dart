@@ -1,7 +1,5 @@
 import 'dart:math';
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/product_model.dart';
@@ -75,8 +73,7 @@ class FirestoreService {
       _firestore.collection('storeSuggestions');
   CollectionReference<Map<String, dynamic>> get _productSuggestionsRef =>
       _firestore.collection('productSuggestions');
-  CollectionReference<Map<String, dynamic>> get _priceUniqueKeysRef => _firestore.collection('priceUniqueKeys');
-  CollectionReference<Map<String, dynamic>> get _priceDedupeKeysRef => _firestore.collection('priceDedupeKeys');
+  CollectionReference<Map<String, dynamic>> get _priceDedupeRef => _firestore.collection('price_dedupes');
   CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
   CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('campaigns');
   CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
@@ -717,88 +714,47 @@ class FirestoreService {
   }
 
   String _priceDayKey(DateTime date) {
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '${date.year}$m$d';
-  }
-
-  String _buildPriceUniqueKey({
-    required String productId,
-    required String marketId,
-    required String sourceId,
-    required String priceSourceType,
-    required double price,
-    required DateTime reportedAt,
-  }) {
-    final raw = '$productId|$marketId|$priceSourceType|$sourceId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
-    return sha1.convert(utf8.encode(raw)).toString();
-  }
-
-
-  String _normalizeAddress(String? raw) {
-    return (raw ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final localDate = date.toLocal();
+    final m = localDate.month.toString().padLeft(2, '0');
+    final d = localDate.day.toString().padLeft(2, '0');
+    return '${localDate.year}$m$d';
   }
 
   String _buildPriceDedupeKey({
     required String productId,
-    required String placeId,
-    required String normalizedAddress,
+    required String branchStoreId,
     required double price,
+    required DateTime reportedAt,
   }) {
-    final raw = '$productId|$placeId|$normalizedAddress|${price.toStringAsFixed(2)}';
-    return sha1.convert(utf8.encode(raw)).toString();
+    return '$productId|$branchStoreId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
   }
 
   Future<String> addPriceReport(PriceModel price) async {
-    final duplicateSince = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 24)));
-    final duplicateQuery = await _pricesRef
-        .where('productId', isEqualTo: price.productId)
-        .where('branchStoreId', isEqualTo: price.branchStoreId)
-        .where('price', isEqualTo: price.price)
-        .where('createdAt', isGreaterThanOrEqualTo: duplicateSince)
-        .limit(1)
-        .get();
-    if (duplicateQuery.docs.isNotEmpty) {
-      throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');
-    }
-
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
     final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
-    final uniqueKey = _buildPriceUniqueKey(
+    final dedupeKey = _buildPriceDedupeKey(
       productId: price.productId,
-      marketId: price.chainId ?? '',
-      sourceId: price.branchStoreId,
-      priceSourceType: price.priceSourceType,
+      branchStoreId: price.branchStoreId,
       price: price.price,
       reportedAt: price.reportedAt,
     );
-    final normalizedAddress = _normalizeAddress(price.storeLocation);
-    final dedupePlaceId = price.branchStoreId;
-    final dedupeKey = _buildPriceDedupeKey(
-      productId: price.productId,
-      placeId: dedupePlaceId,
-      normalizedAddress: normalizedAddress,
-      price: price.price,
-    );
+    final dayKey = _priceDayKey(price.reportedAt);
 
     final priceRef = _pricesRef.doc();
     final priceEntryRef = _firestore.collection('price_entries').doc(priceRef.id);
-    final uniqueRef = _priceUniqueKeysRef.doc(uniqueKey);
-    final dedupeRef = _priceDedupeKeysRef.doc(dedupeKey);
+    final dedupeRef = _priceDedupeRef.doc(dedupeKey);
 
     await _firestore.runTransaction((txn) async {
-      final uniqueDoc = await txn.get(uniqueRef);
       final dedupeDoc = await txn.get(dedupeRef);
-      if (uniqueDoc.exists || dedupeDoc.exists) {
-        throw const DuplicatePriceException('Aynı fiyat zaten eklenmiş.');
+      if (dedupeDoc.exists) {
+        throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');
       }
-      final payload = price.copyWith(id: priceRef.id, uniqueKey: uniqueKey).toFirestore();
+      final payload = price.copyWith(id: priceRef.id, dedupeKey: dedupeKey).toFirestore();
       payload['createdByUid'] = price.userId;
       payload['dedupeKey'] = dedupeKey;
       payload['id'] = priceRef.id;
-      payload['uniqueKey'] = uniqueKey;
       payload['verificationStatus'] = payload['verificationStatus'] ?? 'pending';
       txn.set(priceRef, payload);
       txn.set(priceEntryRef, {
@@ -819,25 +775,14 @@ class FirestoreService {
           'updatedAt': FieldValue.serverTimestamp(),
         },
       });
-      txn.set(uniqueRef, {
-        'uniqueKey': uniqueKey,
-        'priceReportId': priceRef.id,
-        'productId': price.productId,
-        'marketId': price.chainId,
-        'branchId': price.branchStoreId,
-        'priceSourceType': 'branch',
-        'price': price.price,
-        'dayKey': _priceDayKey(price.reportedAt),
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
       txn.set(dedupeRef, {
-        'dedupeKey': dedupeKey,
-        'priceReportId': priceRef.id,
         'productId': price.productId,
-        'placeId': dedupePlaceId,
-        'normalizedAddress': normalizedAddress,
+        'branchStoreId': price.branchStoreId,
         'price': price.price,
+        'day': dayKey,
+        'createdByUid': price.userId,
+        'priceReportId': priceRef.id,
+        'dedupeKey': dedupeKey,
         'createdAt': FieldValue.serverTimestamp(),
       });
       txn.update(_productsRef.doc(price.productId), {

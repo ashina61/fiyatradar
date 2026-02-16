@@ -34,6 +34,7 @@ class PriceModel {
   final String trustLabel;
   final int trustPercent;
   final String? uniqueKey;
+  final String? dedupeKey;
   final String? addedByDisplayName;
   final double addedByTrustScoreSnapshot;
   final String? addedByLevelSnapshot;
@@ -75,6 +76,7 @@ class PriceModel {
     this.trustLabel = 'Yeni',
     this.trustPercent = 30,
     this.uniqueKey,
+    this.dedupeKey,
     this.addedByDisplayName,
     this.addedByTrustScoreSnapshot = 0,
     this.addedByLevelSnapshot,
@@ -167,6 +169,7 @@ class PriceModel {
       trustLabel: (data['trustLabel'] ?? 'Yeni').toString(),
       trustPercent: (data['trustPercent'] as num?)?.toInt() ?? 30,
       uniqueKey: data['uniqueKey'] as String?,
+      dedupeKey: (data['dedupeKey'] as String?) ?? _buildDedupeKeyFallback(data),
       addedByDisplayName: (data['addedByDisplayName'] ?? data['userName']) as String?,
       addedByTrustScoreSnapshot: (data['addedByTrustScoreSnapshot'] as num?)?.toDouble() ?? (data['createdByTrustScoreSnapshot'] as num?)?.toDouble() ?? 0,
       addedByLevelSnapshot: (data['addedByLevelSnapshot'] ?? data['createdByBadgeSnapshot']) as String?,
@@ -221,6 +224,7 @@ class PriceModel {
       'trustLabel': trustLabel,
       'trustPercent': trustPercent,
       'uniqueKey': uniqueKey,
+      'dedupeKey': dedupeKey,
       'addedByDisplayName': addedByDisplayName,
       'addedByTrustScoreSnapshot': addedByTrustScoreSnapshot,
       'addedByLevelSnapshot': addedByLevelSnapshot,
@@ -264,6 +268,7 @@ class PriceModel {
     String? trustLabel,
     int? trustPercent,
     String? uniqueKey,
+    String? dedupeKey,
     String? addedByDisplayName,
     double? addedByTrustScoreSnapshot,
     String? addedByLevelSnapshot,
@@ -305,6 +310,7 @@ class PriceModel {
       trustLabel: trustLabel ?? this.trustLabel,
       trustPercent: trustPercent ?? this.trustPercent,
       uniqueKey: uniqueKey ?? this.uniqueKey,
+      dedupeKey: dedupeKey ?? this.dedupeKey,
       addedByDisplayName: addedByDisplayName ?? this.addedByDisplayName,
       addedByTrustScoreSnapshot: addedByTrustScoreSnapshot ?? this.addedByTrustScoreSnapshot,
       addedByLevelSnapshot: addedByLevelSnapshot ?? this.addedByLevelSnapshot,
@@ -313,6 +319,27 @@ class PriceModel {
       createdByBadgeSnapshot: createdByBadgeSnapshot ?? this.createdByBadgeSnapshot,
       createdByVerifiedSnapshot: createdByVerifiedSnapshot ?? this.createdByVerifiedSnapshot,
     );
+  }
+
+  static String _localDayKey(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '${local.year}$month$day';
+  }
+
+  static String? _buildDedupeKeyFallback(Map<String, dynamic> data) {
+    final productId = (data['productId'] ?? '').toString().trim();
+    final branchStoreId =
+        (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString().trim();
+    final createdAt =
+        (data['reportedAt'] as Timestamp?)?.toDate() ?? (data['createdAt'] as Timestamp?)?.toDate();
+
+    if (productId.isEmpty || branchStoreId.isEmpty || createdAt == null) {
+      return null;
+    }
+
+    return '$productId|$branchStoreId|${_parsePriceValue(data['price']).toStringAsFixed(2)}|${_localDayKey(createdAt)}';
   }
 
   String get storeId => branchStoreId;
