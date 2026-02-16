@@ -1075,129 +1075,112 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Son Fiyat',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w800,
-                          height: 1,
-                          color: Color(0xFFB15C13),
-                        ),
-                      ),
-                    ],
-                  ),
+            const Text(
+              'Son Fiyat',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
+                style: const TextStyle(
+                  fontSize: 38,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: Color(0xFFB15C13),
                 ),
-                const SizedBox(width: 24),
-                SizedBox(
-                  width: 188,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Mağaza',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
+                child: Ink(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE8DED3)),
+                    boxShadow: showNearbyGlow
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.16),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.035),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                  ),
+                  child: Row(
                     children: [
-                      const Text(
-                        'Mağaza',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
-                          child: Ink(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: const Color(0xFFE8DED3)),
-                              boxShadow: showNearbyGlow
-                                  ? [
-                                      BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.16),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ]
-                                  : [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.035),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    hasStore ? storeName : 'Mağaza bilinmiyor',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                if (storeClickable) ...[
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
-                                ],
-                              ],
-                            ),
+                      const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          hasStore ? storeName : 'Mağaza bilinmiyor',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
-                      if (showNearbyGlow) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.24)),
-                          ),
-                          child: const Text(
-                            'Buradasın',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
+                      if (storeClickable) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
                       ],
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
+            if (showNearbyGlow) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.24)),
+                ),
+                child: const Text(
+                  'Buradasın',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
             if (latestPrice != null) ...[
               const SizedBox(height: 16),
               _buildLastPriceContributorRow(latestPrice),
@@ -1224,22 +1207,42 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
         final tierName = (data['tierName'] ?? 'Standart').toString();
 
-        return Row(
+        final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
+        final level = levelFromLabel(tierName);
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: Text(
-                'Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBF3E5),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(color: const Color(0xFFE8D1B1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    level.emoji,
+                    style: TextStyle(fontSize: 15, color: level.badgeForeground),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    contributor,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
             _buildLastPriceTrustChip(
-              displayName: displayName.isEmpty ? 'Kullanıcı' : displayName,
+              displayName: contributor,
               tierName: tierName,
               trustPercent: trustPercent,
               upTotal: (data['upTotal'] as num?)?.toInt(),

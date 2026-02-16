@@ -9,7 +9,6 @@ import '../../services/points_service.dart';
 import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
 import '../../widgets/badge_unlocked_overlay.dart';
-import '../../widgets/level_badge.dart';
 import '../../widgets/leaderboard_section.dart';
 import '../add_price/add_price_screen.dart';
 import '../auth/login_screen.dart';
@@ -371,7 +370,7 @@ class _HeroCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                LevelBadge(level: level),
+                _LevelBenefitChip(level: level),
                 const SizedBox(height: 10),
                 if (profile.nextLevel != null)
                   Text(
@@ -405,6 +404,59 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LevelBenefitChip extends StatelessWidget {
+  const _LevelBenefitChip({required this.level});
+
+  final UserLevel level;
+
+  String get _benefit {
+    switch (level.label) {
+      case 'Elmas':
+        return '%5';
+      case 'Gümüş':
+        return '%3';
+      case 'Bronz':
+        return '%2';
+      default:
+        return '%1';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDiamond = level.label == 'Elmas';
+    final startColor = isDiamond ? const Color(0xFFEAF7FF) : level.badgeBackground;
+    final endColor = isDiamond ? const Color(0xFFD7EDFF) : level.badgeBackground.withOpacity(0.86);
+    final borderColor = isDiamond ? const Color(0xFF8CC8ED) : level.badgeBorder;
+    final textColor = isDiamond ? const Color(0xFF1D74B4) : level.badgeForeground;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        gradient: LinearGradient(colors: [startColor, endColor]),
+        border: Border.all(color: borderColor, width: 1.6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(level.emoji, style: TextStyle(fontSize: 16, color: textColor)),
+          const SizedBox(width: 6),
+          Text(
+            '${level.label} $_benefit',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.1,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
