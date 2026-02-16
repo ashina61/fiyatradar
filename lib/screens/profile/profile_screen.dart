@@ -419,7 +419,7 @@ class MyPricesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Fiyatlarım')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('priceReports').where('createdByUid', isEqualTo: userId).where('status', isEqualTo: 'active').orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance.collection('priceReports').where('createdByUid', isEqualTo: userId).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -427,7 +427,16 @@ class MyPricesScreen extends StatelessWidget {
           if (snapshot.hasError) {
             return _ListError(onRetry: () => (context as Element).markNeedsBuild());
           }
-          final docs = snapshot.data?.docs ?? const [];
+          final docs = (snapshot.data?.docs ?? const [])
+              .where((doc) => (doc.data()['status'] ?? '').toString() == 'active')
+              .toList()
+            ..sort((a, b) {
+              final aTs = a.data()['createdAt'] as Timestamp?;
+              final bTs = b.data()['createdAt'] as Timestamp?;
+              final aDt = aTs?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bDt = bTs?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return bDt.compareTo(aDt);
+            });
           if (docs.isEmpty) {
             return const Center(child: Text('Henüz fiyat eklemedin.'));
           }
