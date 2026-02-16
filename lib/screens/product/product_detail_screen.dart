@@ -882,14 +882,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
 
   Color _trustChipColor(String tierName) {
-    switch (tierName.toLowerCase()) {
+    switch (_normalizeTrustTierName(tierName)) {
       case 'elmas':
         return const Color(0xFF5B6CF6);
       case 'altın':
-      case 'altin':
         return const Color(0xFFC9A227);
       case 'gümüş':
-      case 'gumus':
         return const Color(0xFF8D99AE);
       case 'bronz':
         return const Color(0xFF8D5A3A);
@@ -898,20 +896,37 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  String _trustTierIcon(String tierName) {
-    switch (tierName.toLowerCase()) {
-      case 'elmas':
-        return '💎';
-      case 'altın':
+  String _normalizeTrustTierName(String tierName) {
+    final normalized = tierName.trim().toLowerCase();
+    switch (normalized) {
+      case 'elmas seviyesi':
+      case 'diamond':
+        return 'elmas';
+      case 'gold':
+        return 'altın';
+      case 'silver':
+        return 'gümüş';
       case 'altin':
-        return '🥇';
-      case 'gümüş':
+        return 'altın';
       case 'gumus':
-        return '🥈';
-      case 'bronz':
-        return '🥉';
+        return 'gümüş';
       default:
-        return '○';
+        return normalized;
+    }
+  }
+
+  ({String? emoji, IconData? icon}) _trustTierIcon(String tierName) {
+    switch (_normalizeTrustTierName(tierName)) {
+      case 'elmas':
+        return (emoji: '💎', icon: Icons.diamond_rounded);
+      case 'altın':
+        return (emoji: '🥇', icon: Icons.workspace_premium_rounded);
+      case 'gümüş':
+        return (emoji: '🥈', icon: Icons.verified_rounded);
+      case 'bronz':
+        return (emoji: '🥉', icon: Icons.military_tech_rounded);
+      default:
+        return (emoji: null, icon: Icons.workspace_premium_rounded);
     }
   }
 
@@ -921,7 +936,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required int trustPercent,
   }) {
     final chipColor = _trustChipColor(tierName);
-    final icon = _trustTierIcon(tierName);
+    final tierVisual = _trustTierIcon(tierName);
     return InkWell(
       onTap: () => showModalBottomSheet<void>(
         context: context,
@@ -951,7 +966,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(icon, style: const TextStyle(fontSize: 14)),
+            if (tierVisual.emoji != null)
+              Text(tierVisual.emoji!, style: const TextStyle(fontSize: 14))
+            else if (tierVisual.icon != null)
+              Icon(tierVisual.icon, size: 14, color: chipColor),
             const SizedBox(width: 4),
             Text(
               '%$trustPercent',
