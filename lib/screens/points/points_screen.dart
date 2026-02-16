@@ -20,8 +20,8 @@ class PointsScreen extends ConsumerStatefulWidget {
 }
 
 class _PointsScreenState extends ConsumerState<PointsScreen> {
-  final Set<String> _seenUnlocked = <String>{};
-  bool _seeded = false;
+  String? _activeBadgeDialogId;
+  bool _recomputedForUser = false;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +40,12 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
           );
         }
         final pointsService = ref.read(_pointsServiceProvider);
+        if (!_recomputedForUser) {
+          _recomputedForUser = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            pointsService.recomputeUserGamification(user.uid);
+          });
+        }
         return FutureBuilder<void>(
           future: pointsService.ensurePointsDefaultsSeeded(),
           builder: (context, seedSnap) {
@@ -57,29 +63,38 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                           stream: pointsService.streamBadges(user.uid),
                           builder: (context, badgeSnap) {
                             final badges = badgeSnap.data ?? const <PointsBadge>[];
-                            _notifyBadgeUnlock(badges);
-                            return StreamBuilder<List<PointsActivityItem>>(
-                              stream: pointsService.streamActivity(user.uid),
-                              builder: (context, activitySnap) {
-                                final activities = activitySnap.data ?? const <PointsActivityItem>[];
-                                final listPadding = const EdgeInsets.symmetric(horizontal: 16).copyWith(top: AppSpacing.lg, bottom: 120);
-                                return ListView(
-                                  padding: listPadding,
-                                  children: [
-                                    if (profile == null) const _SkeletonCard(height: 260) else _HeroCard(profile: profile, activities: activities),
-                                    const SizedBox(height: AppSpacing.lg),
-                                    _GoalsCard(
-                                      profile: profile,
-                                      activities: activities,
-                                      onPriceGoalTap: _goToAddPrice,
-                                    ),
-                                    const SizedBox(height: AppSpacing.lg),
-                                    _RulesCard(rules: rulesSnap.data ?? const []),
-                                    const SizedBox(height: AppSpacing.lg),
-                                    _BadgesCard(badges: badges),
-                                    const SizedBox(height: AppSpacing.lg),
-                                    _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
-                                  ],
+                            return StreamBuilder<PendingBadgeUnlock?>(
+                              stream: pointsService.streamLatestUnseenUnlockedBadge(user.uid),
+                              builder: (context, pendingBadgeSnap) {
+                                _notifyBadgeUnlock(user.uid, pendingBadgeSnap.data);
+                                return StreamBuilder<List<PointsActivityItem>>(
+                                  stream: pointsService.streamActivity(user.uid),
+                                  builder: (context, activitySnap) {
+                                    final activities = activitySnap.data ?? const <PointsActivityItem>[];
+                                    final listPadding = const EdgeInsets.symmetric(horizontal: 16)
+                                        .copyWith(top: AppSpacing.lg, bottom: 120);
+                                    return ListView(
+                                      padding: listPadding,
+                                      children: [
+                                        if (profile == null)
+                                          const _SkeletonCard(height: 260)
+                                        else
+                                          _HeroCard(profile: profile, activities: activities),
+                                        const SizedBox(height: AppSpacing.lg),
+                                        _GoalsCard(
+                                          profile: profile,
+                                          activities: activities,
+                                          onPriceGoalTap: _goToAddPrice,
+                                        ),
+                                        const SizedBox(height: AppSpacing.lg),
+                                        _RulesCard(rules: rulesSnap.data ?? const []),
+                                        const SizedBox(height: AppSpacing.lg),
+                                        _BadgesCard(badges: badges),
+                                        const SizedBox(height: AppSpacing.lg),
+                                        _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
+                                      ],
+                                    );
+                                  },
                                 );
                               },
                             );
@@ -103,28 +118,33 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const AddPriceScreen()));
   }
 
-  void _notifyBadgeUnlock(List<PointsBadge> badges) {
-    if (!mounted) return;
-    final unlocked = badges.where((e) => e.isUnlocked).toList();
-    if (!_seeded) {
-      _seenUnlocked.addAll(unlocked.map((e) => e.id));
-      _seeded = true;
-      return;
-    }
-    for (final badge in unlocked) {
-      if (_seenUnlocked.add(badge.id)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          showDialog<void>(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Yeni rozet kazandın!'),
-              content: Text(badge.title),
+  void _notifyBadgeUnlock(String uid, PendingBadgeUnlock? pending) {
+    if (!mounted || pending == null) return;
+    if (_activeBadgeDialogId == pending.badgeId) return;
+
+    _activeBadgeDialogId = pending.badgeId;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('🎉 Rozet Kazandın'),
+          content: Text('🎉 Rozet Kazandın: ${pending.badgeTitle}'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tamam'),
             ),
-          );
-        });
-      }
-    }
+          ],
+        ),
+      );
+      await ref.read(_pointsServiceProvider).acknowledgeBadgeUnlock(uid: uid, badgeId: pending.badgeId);
+      if (!mounted) return;
+      setState(() {
+        _activeBadgeDialogId = null;
+      });
+    });
   }
 }
 

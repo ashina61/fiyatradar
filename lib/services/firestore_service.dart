@@ -31,6 +31,16 @@ class DuplicatePriceException implements Exception {
   String toString() => message;
 }
 
+class PriceStatusMigrationResult {
+  const PriceStatusMigrationResult({
+    required this.updatedCount,
+    required this.scannedCount,
+  });
+
+  final int updatedCount;
+  final int scannedCount;
+}
+
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final PointsService _pointsService = PointsService();
@@ -148,13 +158,21 @@ class FirestoreService {
 
 
   Stream<List<StoreModel>> getNearbyActiveStoresStream() {
-    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
-    return query
+    return _storesRef
         .snapshots()
+        .handleError((error, stackTrace) {
+      debugPrint('[AddPrice] nearby branch query error: $error');
+      if (error is FirebaseException) {
+        debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
+      }
+      if (stackTrace is StackTrace) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    })
         .map((snapshot) {
       final list = snapshot.docs
           .map((doc) => StoreModel.fromFirestore(doc))
-          .where((store) => !store.isOnline)
+          .where((store) => store.status == StoreStatus.active && !store.isOnline)
           .toList();
       list.sort((a, b) => a.displayName.compareTo(b.displayName));
       return list;
@@ -162,13 +180,21 @@ class FirestoreService {
   }
 
   Stream<List<StoreModel>> getOnlineActiveStoresStream() {
-    final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
-    return query
+    return _storesRef
         .snapshots()
+        .handleError((error, stackTrace) {
+      debugPrint('[AddPrice] online branch query error: $error');
+      if (error is FirebaseException) {
+        debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
+      }
+      if (stackTrace is StackTrace) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    })
         .map((snapshot) {
       final list = snapshot.docs
           .map((doc) => StoreModel.fromFirestore(doc))
-          .where((store) => store.isOnline)
+          .where((store) => store.status == StoreStatus.active && store.isOnline)
           .toList();
       list.sort((a, b) => a.displayName.compareTo(b.displayName));
       return list;
@@ -1588,8 +1614,63 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Future<PriceStatusMigrationResult> migrateMissingPriceStatus({
+    int batchSize = 300,
+    void Function(int updated, int scanned)? onProgress,
+  }) async {
+    final safeBatchSize = batchSize.clamp(200, 500).toInt();
+    QueryDocumentSnapshot<Map<String, dynamic>>? lastDocument;
+    var updatedCount = 0;
+    var scannedCount = 0;
+
+    while (true) {
+      Query<Map<String, dynamic>> query = _pricesRef.limit(safeBatchSize);
+      if (lastDocument != null) {
+        query = query.startAfterDocument(lastDocument);
+      }
+
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+
+      final batch = _firestore.batch();
+      var updatedInBatch = 0;
+
+      for (final doc in snapshot.docs) {
+        scannedCount++;
+        final data = doc.data();
+        if (!data.containsKey('status')) {
+          batch.update(doc.reference, {'status': 'active'});
+          updatedInBatch++;
+        }
+      }
+
+      if (updatedInBatch > 0) {
+        await batch.commit();
+      }
+
+      updatedCount += updatedInBatch;
+      onProgress?.call(updatedCount, scannedCount);
+
+      lastDocument = snapshot.docs.last;
+      if (snapshot.docs.length < safeBatchSize) break;
+    }
+
+    return PriceStatusMigrationResult(
+      updatedCount: updatedCount,
+      scannedCount: scannedCount,
+    );
+  }
+
   Future<void> updateUserByAdmin(String userId, Map<String, dynamic> data) async {
     await _usersRef.doc(userId).set(data, SetOptions(merge: true));
+
+    final hasPointsUpdate = data.containsKey('totalPoints') ||
+        data.containsKey('pointsTotal') ||
+        data.containsKey('points');
+    final hasRoleUpdate = data.containsKey('role') || data.containsKey('isAdmin');
+    if (hasPointsUpdate || hasRoleUpdate) {
+      await _pointsService.recomputeUserGamification(userId);
+    }
   }
 
   // =========================================================================
@@ -1831,7 +1912,8 @@ class FirestoreService {
     }
     for (final chunk in chunks) {
       try {
-        final query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        var query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {
@@ -1853,7 +1935,8 @@ class FirestoreService {
     }
     for (final chunk in chunks) {
       try {
-        final query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        var query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+        query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {

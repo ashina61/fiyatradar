@@ -3356,11 +3356,65 @@ class _UserManagementTab extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Tab 7: Istatistikler
 // ---------------------------------------------------------------------------
-class _StatisticsTab extends ConsumerWidget {
+class _StatisticsTab extends ConsumerStatefulWidget {
   const _StatisticsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_StatisticsTab> createState() => _StatisticsTabState();
+}
+
+class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
+  bool _isPriceStatusMigrating = false;
+  int _migrationUpdated = 0;
+  int _migrationScanned = 0;
+
+  Future<void> _runPriceStatusMigration() async {
+    if (_isPriceStatusMigrating) return;
+    setState(() {
+      _isPriceStatusMigrating = true;
+      _migrationUpdated = 0;
+      _migrationScanned = 0;
+    });
+
+    try {
+      final result = await ref.read(firestoreServiceProvider).migrateMissingPriceStatus(
+            batchSize: 300,
+            onProgress: (updated, scanned) {
+              if (!mounted) return;
+              setState(() {
+                _migrationUpdated = updated;
+                _migrationScanned = scanned;
+              });
+            },
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Migration tamamlandı: ${result.updatedCount} fiyat güncellendi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Migration hatası: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPriceStatusMigrating = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final productsAsync = ref.watch(allProductsProvider);
     final storesAsync = ref.watch(allStoresStreamProvider);
@@ -3417,44 +3471,73 @@ class _StatisticsTab extends ConsumerWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
+              child: Column(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: const Icon(Icons.build_circle_outlined, color: AppColors.error),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Bakim Modu',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text(
-                          maintenanceEnabled
-                              ? 'Uygulama bakim modunda'
-                              : 'Uygulama normal calisiyor',
-                          style: TextStyle(fontSize: 12, color: theme.hintColor),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
-                      ],
-                    ),
+                        child: const Icon(Icons.build_circle_outlined, color: AppColors.error),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Bakim Modu', style: TextStyle(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              maintenanceEnabled
+                                  ? 'Uygulama bakim modunda'
+                                  : 'Uygulama normal calisiyor',
+                              style: TextStyle(fontSize: 12, color: theme.hintColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: maintenanceEnabled,
+                        onChanged: maintenanceBusy
+                            ? null
+                            : (value) async {
+                                await ref
+                                    .read(firestoreServiceProvider)
+                                    .setMaintenanceMode(value);
+                              },
+                        activeColor: AppColors.error,
+                      ),
+                    ],
                   ),
-                  Switch(
-                    value: maintenanceEnabled,
-                    onChanged: maintenanceBusy
-                        ? null
-                        : (value) async {
-                            await ref
-                                .read(firestoreServiceProvider)
-                                .setMaintenanceMode(value);
-                          },
-                    activeColor: AppColors.error,
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _isPriceStatusMigrating ? null : _runPriceStatusMigration,
+                          icon: _isPriceStatusMigrating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.auto_fix_high),
+                          label: const Text('Fiyat Status Düzelt (Migration)'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '$_migrationUpdated / $_migrationScanned güncellendi',
+                      style: TextStyle(fontSize: 12, color: theme.hintColor),
+                    ),
                   ),
                 ],
               ),
