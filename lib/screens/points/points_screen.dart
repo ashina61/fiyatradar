@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/points_service.dart';
+import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
 import '../../widgets/badge_unlocked_overlay.dart';
+import '../../widgets/level_badge.dart';
 import '../../widgets/leaderboard_section.dart';
 import '../add_price/add_price_screen.dart';
 import '../auth/login_screen.dart';
@@ -264,8 +266,8 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weekly = activities.where((e) => e.createdAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold<int>(0, (s, e) => s + e.points);
-    final levelStyle = _levelBadgeStyle(profile.level);
+    final weekly = profile.weeklyPoints;
+    final level = levelBuilder(profile.totalPoints);
 
     return Center(
       child: ConstrainedBox(
@@ -369,7 +371,7 @@ class _HeroCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                _LevelBadge(level: profile.level, style: levelStyle),
+                LevelBadge(level: level),
                 const SizedBox(height: 10),
                 if (profile.nextLevel != null)
                   Text(
@@ -407,145 +409,6 @@ class _HeroCard extends StatelessWidget {
     );
   }
 }
-
-_LevelBadgeStyle _levelBadgeStyle(String level) {
-  final normalized = level.toLowerCase().trim();
-
-  if (normalized == 'gümüş' || normalized == 'gumus') {
-    return const _LevelBadgeStyle(
-      icon: Icons.workspace_premium_rounded,
-      backgroundColor: Color(0xFFF1F4F8),
-      borderColor: Color(0xFFC8D2E0),
-      iconColor: Color(0xFF62758F),
-      titleColor: Color(0xFF2B3445),
-      subtitleColor: Color(0xFF6D7D94),
-    );
-  }
-
-  if (normalized == 'altın' || normalized == 'altin') {
-    return const _LevelBadgeStyle(
-      icon: Icons.workspace_premium_rounded,
-      backgroundColor: Color(0xFFFFF7E3),
-      borderColor: Color(0xFFE5C376),
-      iconColor: Color(0xFFB8791A),
-      titleColor: Color(0xFF5A3A08),
-      subtitleColor: Color(0xFF9E7028),
-    );
-  }
-
-  if (normalized == 'elmas') {
-    return const _LevelBadgeStyle(
-      icon: Icons.diamond_rounded,
-      backgroundColor: Color(0xFFEAF6FF),
-      borderColor: Color(0xFF99C9F0),
-      iconColor: Color(0xFF2B7DB8),
-      titleColor: Color(0xFF0E436A),
-      subtitleColor: Color(0xFF3A76A1),
-    );
-  }
-
-  return const _LevelBadgeStyle(
-    icon: Icons.shield_moon_rounded,
-    backgroundColor: Color(0xFFF8F4EB),
-    borderColor: Color(0xFFE0D4C1),
-    iconColor: Color(0xFF7E6A52),
-    titleColor: Color(0xFF3E250A),
-    subtitleColor: Color(0xFF83674A),
-  );
-}
-
-class _LevelBadge extends StatelessWidget {
-  const _LevelBadge({required this.level, required this.style});
-
-  final String level;
-  final _LevelBadgeStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: style.backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: style.borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: style.borderColor.withOpacity(0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.55),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(style.icon, size: 18, color: style.iconColor),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  level,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: style.titleColor,
-                    height: 1,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Mevcut Seviye',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: style.subtitleColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LevelBadgeStyle {
-  const _LevelBadgeStyle({
-    required this.icon,
-    required this.backgroundColor,
-    required this.borderColor,
-    required this.iconColor,
-    required this.titleColor,
-    required this.subtitleColor,
-  });
-
-  final IconData icon;
-  final Color backgroundColor;
-  final Color borderColor;
-  final Color iconColor;
-  final Color titleColor;
-  final Color subtitleColor;
-}
-
-
 
 class _GoalsCard extends StatelessWidget {
   const _GoalsCard({required this.profile, required this.activities, required this.onPriceGoalTap});

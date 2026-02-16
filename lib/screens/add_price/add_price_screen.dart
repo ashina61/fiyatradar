@@ -1120,7 +1120,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         reportedAt: DateTime.now(),
         addedByDisplayName: userModel.name,
         addedByTrustScoreSnapshot: userModel.reliabilityScore,
-        addedByLevelSnapshot: userModel.points >= 500 ? 'Gümüş Üye' : 'Bronz Üye',
+        addedByLevelSnapshot: userModel.points >= 5000 ? 'Elmas' : (userModel.points >= 2000 ? 'Gümüş' : (userModel.points >= 500 ? 'Bronz' : 'Standart')),
         addedByVerifiedBadge: userModel.isAdmin,
       );
 

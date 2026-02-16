@@ -1144,7 +1144,6 @@ class FirestoreService {
           (voterData['level'] ?? voterData['tierName'] ?? 'Standart').toString(),
         );
         final voterTrust = ((voterData['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100);
-        final isAdminVoter = (voterData['isAdmin'] as bool?) == true || (voterData['role'] ?? '').toString() == 'admin';
 
         txn.set(voteRef, {
           'uid': voterUid,
@@ -1191,20 +1190,18 @@ class FirestoreService {
 
         final ownerSnap = await txn.get(ownerRef);
         final ownerData = ownerSnap.data() ?? <String, dynamic>{};
-        final currentReliability = ((ownerData['reliabilityScore'] as num?)?.toDouble() ?? 0).round();
-        final baseDelta = vote == 1 ? 1 : -1;
-        final appliedDelta = isAdminVoter ? baseDelta * 2 : baseDelta;
-        final reliabilityScore = (currentReliability + appliedDelta).clamp(0, 100);
+        final verifiedCorrect = (ownerData['verifiedCorrect'] as num?)?.toInt() ?? 0;
+        final verifiedWrong = (ownerData['verifiedWrong'] as num?)?.toInt() ?? 0;
+        final nextCorrect = vote == 1 ? verifiedCorrect + 1 : verifiedCorrect;
+        final nextWrong = vote == -1 ? verifiedWrong + 1 : verifiedWrong;
+        final total = nextCorrect + nextWrong;
+        final trustScore = total == 0 ? 0.0 : (nextCorrect / total);
 
-        final trustTier = _standardizeTrustTierName(_trustTierFromScore(reliabilityScore));
         txn.set(ownerRef, {
-          'reliabilityScore': reliabilityScore,
-          'trust.score': reliabilityScore,
-          'trust.trustPercent': reliabilityScore,
-          'trustScorePercent': reliabilityScore,
-          'tierName': trustTier,
-          'levelName': trustTier,
-          'level': trustTier,
+          'verifiedCorrect': nextCorrect,
+          'verifiedWrong': nextWrong,
+          'trustScore': trustScore,
+          'trustScorePercent': (trustScore * 100).round(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 

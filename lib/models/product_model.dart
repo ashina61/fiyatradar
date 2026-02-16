@@ -17,6 +17,7 @@ class ProductModel {
   final bool imageApproved;
   final String? description;
   final String? barcode;
+  final String? userId;
   final int viewCount;
   final int priceEntryCount;
   final double? lastPrice;
@@ -41,6 +42,7 @@ class ProductModel {
     this.imageApproved = false,
     this.description,
     this.barcode,
+    this.userId,
     this.viewCount = 0,
     this.priceEntryCount = 0,
     this.lastPrice,
@@ -75,6 +77,7 @@ class ProductModel {
       imageApproved: data['imageApproved'] == true,
       description: data['description'],
       barcode: data['barcode'],
+      userId: (data['userId'] ?? data['createdByUid']) as String?,
       viewCount: data['viewCount'] ?? 0,
       priceEntryCount: data['priceEntryCount'] ?? 0,
       lastPrice: (data['lastPrice'] as num?)?.toDouble(),
@@ -102,6 +105,7 @@ class ProductModel {
       'imageApproved': imageApproved,
       'description': description,
       'barcode': barcode,
+      'userId': userId,
       'viewCount': viewCount,
       'priceEntryCount': priceEntryCount,
       'lastPrice': lastPrice,
@@ -128,6 +132,7 @@ class ProductModel {
     bool? imageApproved,
     String? description,
     String? barcode,
+    String? userId,
     int? viewCount,
     int? priceEntryCount,
     double? lastPrice,
@@ -152,6 +157,7 @@ class ProductModel {
       imageApproved: imageApproved ?? this.imageApproved,
       description: description ?? this.description,
       barcode: barcode ?? this.barcode,
+      userId: userId ?? this.userId,
       viewCount: viewCount ?? this.viewCount,
       priceEntryCount: priceEntryCount ?? this.priceEntryCount,
       lastPrice: lastPrice ?? this.lastPrice,

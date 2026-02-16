@@ -1,7 +1,7 @@
 import 'package:intl/intl.dart';
 
-final NumberFormat _trCurrencyFormatter = NumberFormat('#,##0.00', 'tr_TR');
-final NumberFormat _trIntegerFormatter = NumberFormat('#,##0', 'tr_TR');
+final NumberFormat _trCurrencyFormatter = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
+final NumberFormat _trIntegerFormatter = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 0);
 
 String formatTRY(
   num value, {
@@ -11,12 +11,15 @@ String formatTRY(
 }) {
   if (!withDecimals) {
     final formatted = _trIntegerFormatter.format(value);
-    return trailingSymbol ? '$formatted ₺' : '$formatted₺';
+    return trailingSymbol ? '${formatted.substring(1)} ₺' : formatted;
   }
 
   var formatted = _trCurrencyFormatter.format(value);
   if (!keepTrailingZeros && formatted.endsWith(',00')) {
     formatted = formatted.substring(0, formatted.length - 3);
   }
-  return trailingSymbol ? '$formatted ₺' : '$formatted₺';
+  if (trailingSymbol) {
+    return '${formatted.substring(1)} ₺';
+  }
+  return formatted;
 }

@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
 import '../utils/cities_tr.dart';
-import '../utils/trust_tier.dart';
+import '../utils/level_system.dart';
+import 'level_badge.dart';
 
 class LeaderboardSection extends ConsumerWidget {
   const LeaderboardSection({
@@ -222,42 +223,65 @@ class _TopThreeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const medals = ['🥇', '🥈', '🥉'];
-    return Row(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        final trustTier = trustTierFromScore(item.reliabilityScore);
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: index == items.length - 1 ? 0 : 8),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-            constraints: BoxConstraints(minHeight: minHeight),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE4D7C0)),
-            ),
-            child: Column(
-              children: [
-                Text(medals[index], style: const TextStyle(fontSize: 22)),
-                const SizedBox(height: 10),
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: item.photoUrl.isNotEmpty ? NetworkImage(item.photoUrl) : null,
-                  child: item.photoUrl.isEmpty ? Text(item.name.isEmpty ? '?' : item.name.substring(0, 1).toUpperCase()) : null,
-                ),
-                const SizedBox(height: 10),
-                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Text('+${scoreOf(item)}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF8A5C19))),
-                const SizedBox(height: 8),
-                _TierChip(tierLabel: trustTier.label, color: trustTier.color),
-              ],
-            ),
+    final first = items.length > 0 ? items[0] : null;
+    final second = items.length > 1 ? items[1] : null;
+    final third = items.length > 2 ? items[2] : null;
+
+    return SizedBox(
+      height: minHeight + 48,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(child: second == null ? const SizedBox.shrink() : _PodiumCard(rank: 2, item: second, score: scoreOf(second), compact: true)),
+          const SizedBox(width: 8),
+          Expanded(child: first == null ? const SizedBox.shrink() : _PodiumCard(rank: 1, item: first, score: scoreOf(first), compact: false)),
+          const SizedBox(width: 8),
+          Expanded(child: third == null ? const SizedBox.shrink() : _PodiumCard(rank: 3, item: third, score: scoreOf(third), compact: true)),
+        ],
+      ),
+    );
+  }
+}
+
+class _PodiumCard extends StatelessWidget {
+  const _PodiumCard({required this.rank, required this.item, required this.score, required this.compact});
+
+  final int rank;
+  final UserLeaderboardItem item;
+  final int score;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = levelBuilder(item.totalPoints);
+    return Container(
+      margin: EdgeInsets.only(bottom: compact ? 0 : 22),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 12 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4D7C0)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('#$rank', style: TextStyle(fontSize: compact ? 16 : 20, fontWeight: FontWeight.w900, color: const Color(0xFF8A5C19))),
+          const SizedBox(height: 8),
+          CircleAvatar(
+            radius: compact ? 20 : 26,
+            backgroundImage: item.photoUrl.isNotEmpty ? NetworkImage(item.photoUrl) : null,
+            child: item.photoUrl.isEmpty ? Text(item.name.isEmpty ? '?' : item.name.substring(0, 1).toUpperCase()) : null,
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 8),
+          Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('+$score puan', style: TextStyle(fontSize: compact ? 14 : 18, fontWeight: FontWeight.w900, color: const Color(0xFF8A5C19))),
+          const SizedBox(height: 2),
+          Text('${item.totalPoints} toplam', style: const TextStyle(fontSize: 12, color: Color(0xFF6F5A3C), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          LevelBadge(level: level, compact: true),
+        ],
+      ),
     );
   }
 }
@@ -272,7 +296,7 @@ class _LeaderboardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trustTier = trustTierFromScore(item.reliabilityScore);
+    final level = levelBuilder(item.totalPoints);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -290,35 +314,9 @@ class _LeaderboardRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(child: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
-          _TierChip(tierLabel: trustTier.label, color: trustTier.color),
+          LevelBadge(level: level, compact: true),
           const SizedBox(width: 8),
           Text('+$score', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF8A5C19))),
-        ],
-      ),
-    );
-  }
-}
-
-class _TierChip extends StatelessWidget {
-  const _TierChip({required this.tierLabel, required this.color});
-  final String tierLabel;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withOpacity(0.12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.diamond_rounded, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(tierLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );

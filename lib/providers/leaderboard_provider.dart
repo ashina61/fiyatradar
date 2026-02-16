@@ -13,7 +13,7 @@ class UserLeaderboardItem {
     required this.photoUrl,
     required this.weeklyPoints,
     required this.monthlyPoints,
-    required this.reliabilityScore,
+    required this.totalPoints,
     required this.cityCode,
     required this.cityName,
   });
@@ -23,7 +23,7 @@ class UserLeaderboardItem {
   final String photoUrl;
   final int weeklyPoints;
   final int monthlyPoints;
-  final int reliabilityScore;
+  final int totalPoints;
   final String cityCode;
   final String cityName;
 
@@ -37,7 +37,7 @@ class UserLeaderboardItem {
       photoUrl: (data['photoUrl'] ?? '').toString(),
       weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
       monthlyPoints: (data['monthlyPoints'] as num?)?.toInt() ?? 0,
-      reliabilityScore: (data['reliabilityScore'] as num?)?.toInt() ?? (data['trustScore'] as num?)?.toInt() ?? 0,
+      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? 0,
       cityCode: cityCode,
       cityName: cityName,
     );
