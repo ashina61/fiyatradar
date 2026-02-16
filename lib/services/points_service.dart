@@ -653,13 +653,14 @@ class PointsService {
     final isAdmin = (userData['isAdmin'] as bool?) ?? role == 'admin';
 
     final level = await _levelForPoints(totalPoints);
+    final standardizedTier = _standardizeTierName(level?.title ?? 'Standart');
     await userRef.set({
       'totalPoints': totalPoints,
       'pointsTotal': totalPoints,
       'points': totalPoints,
-      'level': level?.title ?? 'Standart',
-      'levelName': level?.title ?? 'Standart',
-      'tierName': level?.title ?? 'Standart',
+      'level': standardizedTier,
+      'levelName': standardizedTier,
+      'tierName': standardizedTier,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -693,6 +694,30 @@ class PointsService {
         payload['isShown'] = false;
       }
       await ref.set(payload, SetOptions(merge: true));
+    }
+  }
+
+
+  String _standardizeTierName(String rawTier) {
+    final normalized = rawTier.trim().toLowerCase();
+    switch (normalized) {
+      case 'diamond':
+      case 'elmas seviyesi':
+      case 'elmas':
+        return 'Elmas';
+      case 'gold':
+      case 'altın':
+      case 'altin':
+        return 'Altın';
+      case 'silver':
+      case 'gümüş':
+      case 'gumus':
+        return 'Gümüş';
+      case 'bronze':
+      case 'bronz':
+        return 'Bronz';
+      default:
+        return 'Standart';
     }
   }
 

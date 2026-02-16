@@ -1140,7 +1140,9 @@ class FirestoreService {
         final voterSnap = await txn.get(voterRef);
         final voterData = voterSnap.data() ?? const <String, dynamic>{};
         final voterName = (voterData['name'] ?? voterData['displayName'] ?? '').toString();
-        final voterLevel = (voterData['level'] ?? voterData['tierName'] ?? 'Standart').toString();
+        final voterLevel = _standardizeTrustTierName(
+          (voterData['level'] ?? voterData['tierName'] ?? 'Standart').toString(),
+        );
         final voterTrust = ((voterData['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100);
         final isAdminVoter = (voterData['isAdmin'] as bool?) == true || (voterData['role'] ?? '').toString() == 'admin';
 
@@ -1194,14 +1196,15 @@ class FirestoreService {
         final appliedDelta = isAdminVoter ? baseDelta * 2 : baseDelta;
         final reliabilityScore = (currentReliability + appliedDelta).clamp(0, 100);
 
+        final trustTier = _standardizeTrustTierName(_trustTierFromScore(reliabilityScore));
         txn.set(ownerRef, {
           'reliabilityScore': reliabilityScore,
           'trust.score': reliabilityScore,
           'trust.trustPercent': reliabilityScore,
           'trustScorePercent': reliabilityScore,
-          'tierName': _trustTierFromScore(reliabilityScore),
-          'levelName': _trustTierFromScore(reliabilityScore),
-          'level': _trustTierFromScore(reliabilityScore),
+          'tierName': trustTier,
+          'levelName': trustTier,
+          'level': trustTier,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
@@ -1647,6 +1650,32 @@ class FirestoreService {
     return 'Standart';
   }
 
+  String _standardizeTrustTierName(String rawTier) {
+    final normalized = rawTier.trim().toLowerCase();
+    switch (normalized) {
+      case 'diamond':
+      case 'elmas seviyesi':
+      case 'elmas':
+        return 'Elmas';
+      case 'gold':
+      case 'altın':
+      case 'altin':
+        return 'Altın';
+      case 'silver':
+      case 'gümüş':
+      case 'gumus':
+        return 'Gümüş';
+      case 'bronze':
+      case 'bronz':
+        return 'Bronz';
+      case 'standard':
+      case 'standart':
+        return 'Standart';
+      default:
+        return 'Standart';
+    }
+  }
+
   Stream<Map<String, dynamic>> streamUserTrustProfile(String uid) {
     if (uid.trim().isEmpty) {
       return Stream.value(const {
@@ -1659,11 +1688,14 @@ class FirestoreService {
     return _usersRef.doc(uid).snapshots().map((doc) {
       final data = doc.data() ?? <String, dynamic>{};
       final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
-      final level = (data['level'] ?? data['tierName'] ?? '').toString().trim();
+      final levelRaw = (data['level'] ?? data['tierName'] ?? '').toString();
+      final level = levelRaw.trim().isEmpty
+          ? _trustTierFromScore(score)
+          : _standardizeTrustTierName(levelRaw);
       return {
         'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
         'trustScorePercent': score,
-        'tierName': level.isNotEmpty ? level : _trustTierFromScore(score),
+        'tierName': level,
       };
     });
   }
@@ -1680,12 +1712,15 @@ class FirestoreService {
     final doc = await _usersRef.doc(uid).get();
     final data = doc.data() ?? <String, dynamic>{};
     final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
-    final level = (data['level'] ?? data['tierName'] ?? '').toString().trim();
+    final levelRaw = (data['level'] ?? data['tierName'] ?? '').toString();
+    final level = levelRaw.trim().isEmpty
+        ? _trustTierFromScore(score)
+        : _standardizeTrustTierName(levelRaw);
 
     return {
       'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
       'trustScorePercent': score,
-      'tierName': level.isNotEmpty ? level : _trustTierFromScore(score),
+      'tierName': level,
     };
   }
 
@@ -1701,7 +1736,7 @@ class FirestoreService {
     final percent = total <= 0 ? 0 : ((up / total) * 100).round().clamp(0, 100);
     final score = up - down;
 
-    final level = _trustTierFromScore(percent);
+    final level = _standardizeTrustTierName(_trustTierFromScore(percent));
 
     await userRef.set({
       'trust': {
