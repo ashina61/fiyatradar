@@ -62,7 +62,8 @@ class AppLocalizations {
       'cancel': 'Vazgeç',
       'save': 'Kaydet',
       'profileUpdated': 'Profil güncellendi.',
-      'profileUpdateError': 'Profil güncellenemedi. Tekrar dene.'
+      'profileUpdateError': 'Profil güncellenemedi. Tekrar dene.',
+      'selfVoteVerificationBlocked': 'Kendi eklediğin fiyatı doğrulayamazsın.'
     }
   };
 
@@ -115,6 +116,7 @@ class AppLocalizations {
   String get save => _t('save');
   String get profileUpdated => _t('profileUpdated');
   String get profileUpdateError => _t('profileUpdateError');
+  String get selfVoteVerificationBlocked => _t('selfVoteVerificationBlocked');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

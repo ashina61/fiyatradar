@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -1550,6 +1551,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _verifyLatestPrice(PriceModel price, bool isVerified) async {
+    final l10n = AppLocalizations.of(context);
     final user = ref.read(userModelStreamProvider).valueOrNull;
     if (user == null) {
       if (mounted) {
@@ -1581,6 +1583,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Zaten oy verdin'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (result.status == PriceVoteStatus.selfVoteBlocked) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.selfVoteVerificationBlocked),
             behavior: SnackBarBehavior.floating,
           ),
         );

@@ -39,7 +39,7 @@ class AlreadyVotedException implements Exception {
   String toString() => message;
 }
 
-enum PriceVoteStatus { newVote, alreadyVoted, ignored }
+enum PriceVoteStatus { newVote, alreadyVoted, selfVoteBlocked, ignored }
 
 class PriceVoteResult {
   const PriceVoteResult(
@@ -1101,8 +1101,11 @@ class FirestoreService {
         final ownerUidFromDoc = (priceData['createdByUid'] ?? priceData['userId'] ?? '').toString();
         final ownerUid = ownerUidFromDoc.isNotEmpty ? ownerUidFromDoc : priceOwnerUid;
         final ownerRef = _usersRef.doc(ownerUid);
-        if (ownerUid.trim().isEmpty || ownerUid == voterUid) {
+        if (ownerUid.trim().isEmpty) {
           return const PriceVoteResult(PriceVoteStatus.ignored);
+        }
+        if (ownerUid == voterUid) {
+          return const PriceVoteResult(PriceVoteStatus.selfVoteBlocked);
         }
 
         final upCurrent = (priceData['verifyUpCount'] as num?)?.toInt() ??
