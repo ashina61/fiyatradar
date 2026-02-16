@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../utils/theme.dart';
+import '../../utils/cities_tr.dart';
 import '../../services/auth_service.dart';
 import '../../main.dart';
 import '../main_screen.dart';
@@ -26,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String? _errorMessage;
+  CityTR? _selectedCity;
 
   @override
   void dispose() {
@@ -59,6 +61,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         name: _nameController.text.trim(),
         inviteCode: _inviteController.text.trim(),
+        cityCode: _selectedCity!.code,
+        cityName: _selectedCity!.name,
       );
 
       if (!mounted) return;
@@ -238,6 +242,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon:
                         Icon(Icons.person_add_alt, color: Theme.of(context).hintColor),
                   ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+
+                DropdownButtonFormField<CityTR>(
+                  value: _selectedCity,
+                  items: kCitiesTR
+                      .map(
+                        (city) => DropdownMenuItem<CityTR>(
+                          value: city,
+                          child: Text(city.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCity = value;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Şehir',
+                    hintText: 'Şehir seçin',
+                    prefixIcon: Icon(Icons.location_city_outlined, color: Theme.of(context).hintColor),
+                  ),
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Lütfen şehir seçin.';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: AppSpacing.md),
 

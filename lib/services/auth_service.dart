@@ -49,6 +49,8 @@ class AuthService {
     required String password,
     required String name,
     String? inviteCode,
+    String? cityCode,
+    String? cityName,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -66,6 +68,8 @@ class AuthService {
           uid: credential.user!.uid,
           email: email,
           name: name,
+          cityCode: cityCode,
+          cityName: cityName,
           inviteCode: newInviteCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
