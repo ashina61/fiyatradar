@@ -270,11 +270,16 @@ class PointsService {
   Stream<List<PointsRule>> streamPointsRules() {
     return _firestore.collection('points_rules').doc('default').snapshots().map((doc) {
       final rules = (doc.data()?['rules'] as List?) ?? const [];
-      return rules
+      final parsed = rules
           .whereType<Map>()
           .map((e) => PointsRule.fromMap(Map<String, dynamic>.from(e)))
           .where((e) => e.active)
           .toList();
+      if (parsed.isNotEmpty) return parsed;
+      return const [
+        PointsRule(id: 'price_add', title: 'Fiyat Ekleme', description: 'Onaylanan her fiyat gönderimi için +5 puan.', points: 5, dailyCap: 10, active: true, eventType: 'price_add'),
+        PointsRule(id: 'verification', title: 'Fiyat Doğrulama', description: 'Fiyat doğrulama başına +2 puan. Günlük en fazla 30 doğrulama puanlanır.', points: 2, dailyCap: 30, active: true, eventType: 'verification'),
+      ];
     });
   }
 
@@ -306,8 +311,11 @@ class PointsService {
     final userStream = _firestore.collection('user_badges').doc(uid).collection('items').snapshots();
     return defsStream.asyncMap((defs) async {
       final user = await userStream.first;
+      final userDoc = await _users.doc(uid).get();
+      final userData = userDoc.data() ?? <String, dynamic>{};
+      final isAdmin = userData['isAdmin'] == true || (userData['role'] ?? '').toString() == 'admin';
       final unlocked = {for (final doc in user.docs) doc.id: doc.data()};
-      return defs.docs.map((doc) {
+      final badges = defs.docs.map((doc) {
         final data = doc.data();
         final userBadge = unlocked[doc.id];
         return PointsBadge(
@@ -321,6 +329,23 @@ class PointsService {
           progress: (userBadge?['progress'] as num?)?.toInt() ?? 0,
         );
       }).where((e) => e.isActive).toList();
+
+      if (isAdmin) {
+        badges.insert(
+          0,
+          const PointsBadge(
+            id: 'badge_admin',
+            title: 'Admin Rozeti',
+            description: 'Yönetici rozeti her zaman aktif.',
+            iconKey: 'verified',
+            unlockCondition: 'role == admin',
+            isActive: true,
+            isUnlocked: true,
+            progress: 100,
+          ),
+        );
+      }
+      return badges;
     });
   }
 

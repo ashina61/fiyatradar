@@ -32,7 +32,6 @@ import '../../services/storage_service.dart';
 
 import '../../widgets/barcode_scanner_sheet.dart';
 import 'actual_management_tab.dart';
-import 'neighborhood_markets_management_tab.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
@@ -48,7 +47,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 11, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
   }
 
   @override
@@ -104,7 +103,6 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
             Tab(text: 'Aktüel Yönetimi', icon: Icon(Icons.local_offer_outlined)),
-            Tab(text: 'Mahalle Pazarları', icon: Icon(Icons.shopping_basket_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
             Tab(text: 'Kullanicilar', icon: Icon(Icons.people_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
@@ -121,7 +119,6 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           _BannerManagementTab(),
           _CampaignManagementTab(),
           ActualManagementTab(),
-          NeighborhoodMarketsManagementTab(),
           _ReportsManagementTab(),
           _UserManagementTab(),
           _StatisticsTab(),
@@ -885,6 +882,67 @@ class _ProductManagementTab extends ConsumerWidget {
     );
   }
 
+
+
+  Future<void> _showEditUserDialog(BuildContext context, WidgetRef ref, dynamic user) async {
+    final nameController = TextEditingController(text: user.name);
+    final roleController = TextEditingController(text: user.isAdmin ? 'admin' : (user.role ?? 'user'));
+    final pointsController = TextEditingController(text: user.points.toString());
+    final levelController = TextEditingController();
+    bool verifiedBadge = user.isAdmin;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Üye düzenleme'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'displayName')),
+              const SizedBox(height: 8),
+              TextField(controller: roleController, decoration: const InputDecoration(labelText: 'role (user/admin)')),
+              const SizedBox(height: 8),
+              TextField(controller: pointsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'pointsTotal')),
+              const SizedBox(height: 8),
+              TextField(controller: levelController, decoration: const InputDecoration(labelText: 'level override (opsiyonel)')),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: verifiedBadge,
+                title: const Text('Verified badge'),
+                onChanged: (v) => verifiedBadge = v,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
+          FilledButton(
+            onPressed: () async {
+              await ref.read(firestoreServiceProvider).updateUserByAdmin(user.uid, {
+                'name': nameController.text.trim(),
+                'displayName': nameController.text.trim(),
+                'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
+                'isAdmin': roleController.text.trim() == 'admin',
+                'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
+                'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
+                'verifiedBadge': verifiedBadge,
+                if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
+                if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Üye güncellendi')));
+              }
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(allProductsProvider);
@@ -3132,6 +3190,69 @@ class _ReportsManagementTabState extends ConsumerState<_ReportsManagementTab> {
   }
 }
 
+
+Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dynamic user) async {
+  final nameController = TextEditingController(text: user.name);
+  final roleController = TextEditingController(text: user.isAdmin ? 'admin' : (user.role ?? 'user'));
+  final pointsController = TextEditingController(text: user.points.toString());
+  final levelController = TextEditingController();
+  bool verifiedBadge = user.isAdmin;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Üye düzenleme'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'displayName')),
+            const SizedBox(height: 8),
+            TextField(controller: roleController, decoration: const InputDecoration(labelText: 'role (user/admin)')),
+            const SizedBox(height: 8),
+            TextField(controller: pointsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'pointsTotal')),
+            const SizedBox(height: 8),
+            TextField(controller: levelController, decoration: const InputDecoration(labelText: 'level override (opsiyonel)')),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setState) => SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: verifiedBadge,
+                title: const Text('Verified badge'),
+                onChanged: (v) => setState(() => verifiedBadge = v),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
+        FilledButton(
+          onPressed: () async {
+            await ref.read(firestoreServiceProvider).updateUserByAdmin(user.uid, {
+              'name': nameController.text.trim(),
+              'displayName': nameController.text.trim(),
+              'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
+              'isAdmin': roleController.text.trim() == 'admin',
+              'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
+              'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
+              'verifiedBadge': verifiedBadge,
+              if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
+              if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Üye güncellendi')));
+            }
+            if (dialogContext.mounted) Navigator.pop(dialogContext);
+          },
+          child: const Text('Kaydet'),
+        ),
+      ],
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tab 6: Kullanici Yonetimi
 // ---------------------------------------------------------------------------
@@ -3198,18 +3319,27 @@ class _UserManagementTab extends ConsumerWidget {
                       _InfoChip(icon: Icons.verified_outlined, label: '${user.validations} d.'),
                     ]),
                   ])),
-                  Switch(
-                    value: user.isAdmin,
-                    activeColor: AppColors.primary,
-                    onChanged: (val) {
-                      ref.read(userNotifierProvider.notifier).toggleUserAdmin(user.uid, val);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(val ? '${user.name} admin yapildi' : '${user.name} admin kaldirildi'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
+                  Column(
+                    children: [
+                      IconButton(
+                        tooltip: 'Üye düzenle',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _showEditUserDialogGlobal(context, ref, user),
+                      ),
+                      Switch(
+                        value: user.isAdmin,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) {
+                          ref.read(userNotifierProvider.notifier).toggleUserAdmin(user.uid, val);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(val ? '${user.name} admin yapildi' : '${user.name} admin kaldirildi'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ]),
               ),

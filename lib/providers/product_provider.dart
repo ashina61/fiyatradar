@@ -205,14 +205,5 @@ final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) 
   return ref.watch(firestoreServiceProvider).recentlyViewedStream(user.uid);
 });
 
-final neighborhoodMarketsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).neighborhoodMarketsStream();
-});
 
-
-final activeNeighborhoodMarketsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).neighborhoodMarketsStream(onlyActive: true);
-});
 
