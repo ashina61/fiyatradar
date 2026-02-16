@@ -39,6 +39,16 @@ class AlreadyVotedException implements Exception {
   String toString() => message;
 }
 
+enum PriceVoteStatus { newVote, changedVote, alreadyVoted, ignored }
+
+class PriceVoteResult {
+  const PriceVoteResult(this.status);
+
+  final PriceVoteStatus status;
+
+  bool get shouldAward => status == PriceVoteStatus.newVote || status == PriceVoteStatus.changedVote;
+}
+
 class PriceStatusMigrationResult {
   const PriceStatusMigrationResult({
     required this.updatedCount,
@@ -1057,9 +1067,9 @@ class FirestoreService {
 
   double _toRadians(double degree) => degree * 0.017453292519943295;
 
-  Future<void> verifyPrice(String priceId, String voterId, bool isVerified) async {
+  Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
     try {
-      final voteType = isVerified ? 'up' : 'down';
+      final voteValue = isVerified ? 'yes' : 'no';
       final result = await _firestore.runTransaction<String>((txn) async {
         final priceRef = _pricesRef.doc(priceId);
         final voteRef = priceRef.collection('votes').doc(voterId);
@@ -1075,64 +1085,113 @@ class FirestoreService {
         if (ownerUid.isEmpty || ownerUid == voterId) return 'invalid_owner';
 
         final existingVoteSnap = await txn.get(voteRef);
-        if (existingVoteSnap.exists) return 'already_voted';
+        final ownerRef = _usersRef.doc(ownerUid);
+
+        if (!existingVoteSnap.exists) {
+          txn.set(voteRef, {
+            'uid': voterId,
+            'value': voteValue,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          final yesInc = voteValue == 'yes' ? 1 : 0;
+          final noInc = voteValue == 'no' ? 1 : 0;
+          txn.set(priceRef, {
+            'verifyYesCount': FieldValue.increment(yesInc),
+            'verifyNoCount': FieldValue.increment(noInc),
+            'upVotes': FieldValue.increment(yesInc),
+            'downVotes': FieldValue.increment(noInc),
+            'verifiedCount': FieldValue.increment(yesInc),
+            'unverifiedCount': FieldValue.increment(noInc),
+            'verification.upCount': FieldValue.increment(yesInc),
+            'verification.downCount': FieldValue.increment(noInc),
+            'verification.score': FieldValue.increment(yesInc - noInc),
+            'score': FieldValue.increment(yesInc - noInc),
+            'verificationScore': FieldValue.increment(yesInc - noInc),
+            'verification.updatedAt': FieldValue.serverTimestamp(),
+            'lastVerifiedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          txn.set(voterRef, {'validations': FieldValue.increment(1)}, SetOptions(merge: true));
+          txn.set(ownerRef, {
+            if (voteValue == 'yes') 'trust.upTotal': FieldValue.increment(1),
+            if (voteValue == 'no') 'trust.downTotal': FieldValue.increment(1),
+          }, SetOptions(merge: true));
+          return 'new_vote';
+        }
+
+        final voteData = existingVoteSnap.data() ?? const <String, dynamic>{};
+        final previousValue = (voteData['value'] ?? voteData['vote'] ?? '').toString() == 'up' ? 'yes' : (voteData['value'] ?? voteData['vote'] ?? '').toString() == 'down' ? 'no' : (voteData['value'] ?? voteData['vote'] ?? '').toString();
+        if (previousValue == voteValue) {
+          return 'already_voted';
+        }
 
         txn.set(voteRef, {
           'uid': voterId,
-          'vote': voteType,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+          'value': voteValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
-        final scoreIncrement = voteType == 'up' ? 1 : -1;
+        final yesDelta = voteValue == 'yes' ? 1 : -1;
+        final noDelta = voteValue == 'no' ? 1 : -1;
         txn.set(priceRef, {
-          if (voteType == 'up') 'verifiedCount': FieldValue.increment(1),
-          if (voteType == 'down') 'rejectedCount': FieldValue.increment(1),
-          if (voteType == 'up') 'upVotes': FieldValue.increment(1),
-          if (voteType == 'down') 'downVotes': FieldValue.increment(1),
-          if (voteType == 'down') 'unverifiedCount': FieldValue.increment(1),
-          'score': FieldValue.increment(scoreIncrement),
-          'verification.upCount': FieldValue.increment(voteType == 'up' ? 1 : 0),
-          'verification.downCount': FieldValue.increment(voteType == 'down' ? 1 : 0),
-          'verification.score': FieldValue.increment(scoreIncrement),
+          'verifyYesCount': FieldValue.increment(yesDelta),
+          'verifyNoCount': FieldValue.increment(noDelta),
+          'upVotes': FieldValue.increment(yesDelta),
+          'downVotes': FieldValue.increment(noDelta),
+          'verifiedCount': FieldValue.increment(yesDelta),
+          'unverifiedCount': FieldValue.increment(noDelta),
+          'verification.upCount': FieldValue.increment(yesDelta),
+          'verification.downCount': FieldValue.increment(noDelta),
+          'verification.score': FieldValue.increment(yesDelta - noDelta),
+          'score': FieldValue.increment(yesDelta - noDelta),
+          'verificationScore': FieldValue.increment(yesDelta - noDelta),
           'verification.updatedAt': FieldValue.serverTimestamp(),
           'lastVerifiedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-
-        txn.set(voterRef, {'validations': FieldValue.increment(1)}, SetOptions(merge: true));
-
-        final ownerRef = _usersRef.doc(ownerUid);
-        if (voteType == 'up') {
-          txn.set(ownerRef, {'trust.upTotal': FieldValue.increment(1)}, SetOptions(merge: true));
-        } else {
-          txn.set(ownerRef, {'trust.downTotal': FieldValue.increment(1)}, SetOptions(merge: true));
-        }
-
-        return 'ok';
+        txn.set(ownerRef, {
+          if (voteValue == 'yes') ...{
+            'trust.upTotal': FieldValue.increment(1),
+            'trust.downTotal': FieldValue.increment(-1),
+          } else ...{
+            'trust.downTotal': FieldValue.increment(1),
+            'trust.upTotal': FieldValue.increment(-1),
+          },
+        }, SetOptions(merge: true));
+        return 'changed_vote';
       });
 
-      if (result == 'already_voted') {
-        throw const AlreadyVotedException();
-      }
-      if (result != 'ok') return;
+      if (result == 'already_voted') return const PriceVoteResult(PriceVoteStatus.alreadyVoted);
+      if (result != 'new_vote' && result != 'changed_vote') return const PriceVoteResult(PriceVoteStatus.ignored);
 
       await _pointsService.awardEvent(
         uid: voterId,
-        eventType: 'price_verify',
-        meta: {'priceEntryId': priceId, 'vote': voteType},
-        ensureUniqueByMeta: true,
+        eventType: 'verify_vote',
+        meta: {'priceEntryId': priceId, 'vote': voteValue},
+        ensureUniqueByMeta: false,
       );
 
-      final ownerUid = (await _pricesRef.doc(priceId).get()).data()?['createdByUid']?.toString() ?? '';
+      await _incrementVoterTrustForVote(voterId);
+
+      final latestPriceSnap = await _pricesRef.doc(priceId).get();
+      final ownerUid = ((latestPriceSnap.data()?['createdByUid'] ?? latestPriceSnap.data()?['userId']) ?? '').toString();
       if (ownerUid.isNotEmpty) {
+        await _applyPriceAuthorTrustThreshold(priceId: priceId, ownerUid: ownerUid);
         await _refreshUserTrust(ownerUid);
       }
+      await _refreshUserTrust(voterId);
+      return PriceVoteResult(result == 'new_vote' ? PriceVoteStatus.newVote : PriceVoteStatus.changedVote);
     } on AlreadyVotedException {
       rethrow;
     } on FirebaseException catch (e, st) {
       _logFirestoreQueryError('verifyPrice', e, st);
+      return const PriceVoteResult(PriceVoteStatus.ignored);
     } catch (e, st) {
       _logFirestoreQueryError('verifyPrice', e, st);
+      return const PriceVoteResult(PriceVoteStatus.ignored);
     }
   }
 
@@ -1143,6 +1202,18 @@ class FirestoreService {
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
     final voteDoc = await _pricesRef.doc(priceId).collection('votes').doc(userId).get();
     return voteDoc.exists;
+  }
+
+  Stream<String?> streamUserVoteValue(String priceId, String uid) {
+    if (priceId.trim().isEmpty || uid.trim().isEmpty) return const Stream<String?>.empty();
+    return _pricesRef.doc(priceId).collection('votes').doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      final data = snap.data() ?? const <String, dynamic>{};
+      final raw = (data['value'] ?? data['vote'] ?? '').toString();
+      if (raw == 'up') return 'yes';
+      if (raw == 'down') return 'no';
+      return raw.isEmpty ? null : raw;
+    });
   }
 
   Future<void> reportPrice({
@@ -1438,6 +1509,102 @@ class FirestoreService {
 
 
 
+
+  Future<void> _incrementVoterTrustForVote(String uid) async {
+    if (uid.trim().isEmpty) return;
+    final dayKey = DateTime.now().toUtc().toIso8601String().split('T').first.replaceAll('-', '');
+    final dailyRef = _usersRef.doc(uid).collection('trust_daily').doc(dayKey);
+    final userRef = _usersRef.doc(uid);
+
+    await _firestore.runTransaction((txn) async {
+      final dailySnap = await txn.get(dailyRef);
+      final current = (dailySnap.data()?['voteContribution'] as num?)?.toInt() ?? 0;
+      if (current >= 10) {
+        txn.set(dailyRef, {'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+        return;
+      }
+
+      txn.set(dailyRef, {
+        'voteContribution': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      txn.set(userRef, {
+        'reliabilityScore': FieldValue.increment(0.1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  Future<void> _applyPriceAuthorTrustThreshold({
+    required String priceId,
+    required String ownerUid,
+  }) async {
+    if (priceId.trim().isEmpty || ownerUid.trim().isEmpty) return;
+
+    final priceRef = _pricesRef.doc(priceId);
+    final trustEventRef = _usersRef.doc(ownerUid).collection('trust_events').doc(priceId);
+    final ownerRef = _usersRef.doc(ownerUid);
+
+    await _firestore.runTransaction((txn) async {
+      final priceSnap = await txn.get(priceRef);
+      if (!priceSnap.exists) return;
+      final priceData = priceSnap.data() ?? const <String, dynamic>{};
+      final yes = (priceData['verifyYesCount'] as num?)?.toInt() ?? (priceData['upVotes'] as num?)?.toInt() ?? 0;
+      final no = (priceData['verifyNoCount'] as num?)?.toInt() ?? (priceData['downVotes'] as num?)?.toInt() ?? 0;
+      final net = yes - no;
+
+      final targetTier = net >= 3
+          ? 3
+          : net <= -3
+              ? -3
+              : 0;
+      if (targetTier == 0) return;
+
+      final trustEventSnap = await txn.get(trustEventRef);
+      final appliedTier = (trustEventSnap.data()?['appliedTier'] as num?)?.toInt() ?? 0;
+      if (appliedTier == targetTier) return;
+
+      final scoreDelta = targetTier > appliedTier ? 1 : -1;
+      txn.set(ownerRef, {
+        'reliabilityScore': FieldValue.increment(scoreDelta),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      txn.set(trustEventRef, {
+        'appliedTier': targetTier,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  String _trustTierFromScore(int score) {
+    if (score >= 80) return 'Elmas';
+    if (score >= 60) return 'Altın';
+    if (score >= 40) return 'Gümüş';
+    if (score >= 20) return 'Bronz';
+    return 'Standart';
+  }
+
+  Stream<Map<String, dynamic>> streamUserTrustProfile(String uid) {
+    if (uid.trim().isEmpty) {
+      return Stream.value(const {
+        'displayName': 'Kullanıcı',
+        'trustScorePercent': 0,
+        'tierName': 'Standart',
+      });
+    }
+
+    return _usersRef.doc(uid).snapshots().map((doc) {
+      final data = doc.data() ?? <String, dynamic>{};
+      final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
+      final level = (data['level'] ?? data['tierName'] ?? '').toString().trim();
+      return {
+        'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
+        'trustScorePercent': score,
+        'tierName': level.isNotEmpty ? level : _trustTierFromScore(score),
+      };
+    });
+  }
+
   Future<Map<String, dynamic>> getUserTrustProfile(String uid) async {
     if (uid.trim().isEmpty) {
       return {
@@ -1449,16 +1616,13 @@ class FirestoreService {
 
     final doc = await _usersRef.doc(uid).get();
     final data = doc.data() ?? <String, dynamic>{};
-    final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-    final up = (trust['upTotal'] as num?)?.toInt() ?? 0;
-    final down = (trust['downTotal'] as num?)?.toInt() ?? 0;
-    final total = up + down;
-    final trustPercent = (trust['trustPercent'] as num?)?.toInt() ?? (total == 0 ? 0 : ((up / total) * 100).round().clamp(0, 100));
+    final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
+    final level = (data['level'] ?? data['tierName'] ?? '').toString().trim();
 
     return {
       'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
-      'trustScorePercent': trustPercent,
-      'tierName': (data['tierName'] ?? data['levelName'] ?? (total == 0 ? 'Yeni' : 'Standart')).toString(),
+      'trustScorePercent': score,
+      'tierName': level.isNotEmpty ? level : _trustTierFromScore(score),
     };
   }
 
@@ -1474,14 +1638,7 @@ class FirestoreService {
     final percent = total <= 0 ? 0 : ((up / total) * 100).round().clamp(0, 100);
     final score = up - down;
 
-    String level = 'Standart';
-    if (percent >= 90 && total >= 40) {
-      level = 'Elmas';
-    } else if (percent >= 80 && total >= 20) {
-      level = 'Altın';
-    } else if (percent >= 65 && total >= 10) {
-      level = 'Gümüş';
-    }
+    final level = _trustTierFromScore(percent);
 
     await userRef.set({
       'trust': {
@@ -1494,6 +1651,7 @@ class FirestoreService {
       'reliabilityScore': percent,
       'tierName': level,
       'levelName': level,
+      'level': level,
     }, SetOptions(merge: true));
   }
 
