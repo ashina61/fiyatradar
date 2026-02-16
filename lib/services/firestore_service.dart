@@ -39,12 +39,20 @@ class AlreadyVotedException implements Exception {
   String toString() => message;
 }
 
-enum PriceVoteStatus { newVote, changedVote, alreadyVoted, ignored }
+enum PriceVoteStatus { newVote, alreadyVoted, ignored }
 
 class PriceVoteResult {
-  const PriceVoteResult(this.status);
+  const PriceVoteResult(
+    this.status, {
+    this.upCount,
+    this.downCount,
+    this.score,
+  });
 
   final PriceVoteStatus status;
+  final int? upCount;
+  final int? downCount;
+  final int? score;
 
   bool get shouldAward => status == PriceVoteStatus.newVote;
 }
@@ -1078,93 +1086,69 @@ class FirestoreService {
     }
 
     try {
-      final result = await _firestore.runTransaction<PriceVoteStatus>((txn) async {
+      final result = await _firestore.runTransaction<PriceVoteResult>((txn) async {
         final priceRef = _pricesRef.doc(priceId);
-        final voteRef = priceRef.collection('votes').doc(voterUid);
-        final ownerRef = _usersRef.doc(priceOwnerUid);
+        final voteRef = priceRef.collection('verifications').doc(voterUid);
+        final voterRef = _usersRef.doc(voterUid);
 
         final priceSnap = await txn.get(priceRef);
-        if (!priceSnap.exists) return PriceVoteStatus.ignored;
+        if (!priceSnap.exists) return const PriceVoteResult(PriceVoteStatus.ignored);
 
         final priceData = Map<String, dynamic>.from(priceSnap.data() ?? const <String, dynamic>{});
         final status = (priceData['status'] ?? 'active').toString();
-        if (status != 'active') return PriceVoteStatus.ignored;
+        if (status != 'active') return const PriceVoteResult(PriceVoteStatus.ignored);
 
         final ownerUidFromDoc = (priceData['createdByUid'] ?? priceData['userId'] ?? '').toString();
         final ownerUid = ownerUidFromDoc.isNotEmpty ? ownerUidFromDoc : priceOwnerUid;
+        final ownerRef = _usersRef.doc(ownerUid);
         if (ownerUid.trim().isEmpty || ownerUid == voterUid) {
-          return PriceVoteStatus.ignored;
+          return const PriceVoteResult(PriceVoteStatus.ignored);
         }
 
-        final upCurrent = (priceData['upVotes'] as num?)?.toInt() ??
+        final upCurrent = (priceData['verifyUpCount'] as num?)?.toInt() ??
+            (priceData['upVotes'] as num?)?.toInt() ??
             (priceData['verifyYesCount'] as num?)?.toInt() ??
             (priceData['verification'] is Map ? ((priceData['verification'] as Map)['upCount'] as num?)?.toInt() : null) ??
             0;
-        final downCurrent = (priceData['downVotes'] as num?)?.toInt() ??
+        final downCurrent = (priceData['verifyDownCount'] as num?)?.toInt() ??
+            (priceData['downVotes'] as num?)?.toInt() ??
             (priceData['verifyNoCount'] as num?)?.toInt() ??
             (priceData['verification'] is Map ? ((priceData['verification'] as Map)['downCount'] as num?)?.toInt() : null) ??
             0;
 
         final voteSnap = await txn.get(voteRef);
-        final previousVoteRaw = (voteSnap.data()?['vote'] as num?)?.toInt();
-        final previousValue = (voteSnap.data()?['value'] ?? '').toString();
-        final previousVote = previousVoteRaw ??
-            (previousValue == 'yes' || previousValue == 'up'
-                ? 1
-                : previousValue == 'no' || previousValue == 'down'
-                    ? -1
-                    : 0);
-
-        if (previousVote == vote) {
-          return PriceVoteStatus.alreadyVoted;
+        if (voteSnap.exists) {
+          return PriceVoteResult(
+            PriceVoteStatus.alreadyVoted,
+            upCount: upCurrent,
+            downCount: downCurrent,
+            score: upCurrent - downCurrent,
+          );
         }
 
         var up = upCurrent;
         var down = downCurrent;
-        var ownerUpDelta = 0;
-        var ownerDownDelta = 0;
-        late final PriceVoteStatus voteStatus;
-
-        if (!voteSnap.exists || previousVote == 0) {
-          if (vote == 1) {
-            up += 1;
-            ownerUpDelta += 1;
-          } else {
-            down += 1;
-            ownerDownDelta += 1;
-          }
-          voteStatus = PriceVoteStatus.newVote;
-          txn.set(voteRef, {
-            'uid': voterUid,
-            'vote': vote,
-            'value': vote == 1 ? 'yes' : 'no',
-            'createdAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+        if (vote == 1) {
+          up += 1;
         } else {
-          if (previousVote == 1) {
-            up -= 1;
-            ownerUpDelta -= 1;
-          } else if (previousVote == -1) {
-            down -= 1;
-            ownerDownDelta -= 1;
-          }
-
-          if (vote == 1) {
-            up += 1;
-            ownerUpDelta += 1;
-          } else {
-            down += 1;
-            ownerDownDelta += 1;
-          }
-
-          voteStatus = PriceVoteStatus.changedVote;
-          txn.set(voteRef, {
-            'uid': voterUid,
-            'vote': vote,
-            'value': vote == 1 ? 'yes' : 'no',
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          down += 1;
         }
+
+        final voterSnap = await txn.get(voterRef);
+        final voterData = voterSnap.data() ?? const <String, dynamic>{};
+        final voterName = (voterData['name'] ?? voterData['displayName'] ?? '').toString();
+        final voterLevel = (voterData['level'] ?? voterData['tierName'] ?? 'Standart').toString();
+        final voterTrust = ((voterData['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100);
+        final isAdminVoter = (voterData['isAdmin'] as bool?) == true || (voterData['role'] ?? '').toString() == 'admin';
+
+        txn.set(voteRef, {
+          'uid': voterUid,
+          'vote': vote == 1 ? 'up' : 'down',
+          'createdAt': FieldValue.serverTimestamp(),
+          'userName': voterName,
+          'userLevelSnapshot': voterLevel,
+          'userTrustSnapshot': voterTrust,
+        }, SetOptions(merge: true));
 
         if (up < 0) up = 0;
         if (down < 0) down = 0;
@@ -1180,6 +1164,9 @@ class FirestoreService {
                     : 'unverified';
 
         txn.set(priceRef, {
+          'verifyUpCount': up,
+          'verifyDownCount': down,
+          'verifyScore': score,
           'upVotes': up,
           'downVotes': down,
           'verifyYesCount': up,
@@ -1199,27 +1186,14 @@ class FirestoreService {
 
         final ownerSnap = await txn.get(ownerRef);
         final ownerData = ownerSnap.data() ?? <String, dynamic>{};
-        var reliabilityUp = (ownerData['reliabilityVotesUp'] as num?)?.toInt() ?? 0;
-        var reliabilityDown = (ownerData['reliabilityVotesDown'] as num?)?.toInt() ?? 0;
-
-        reliabilityUp += ownerUpDelta;
-        reliabilityDown += ownerDownDelta;
-        if (reliabilityUp < 0) reliabilityUp = 0;
-        if (reliabilityDown < 0) reliabilityDown = 0;
-
-        final reliabilityTotal = reliabilityUp + reliabilityDown;
-        final reliabilityScore = reliabilityTotal == 0
-            ? 0
-            : ((reliabilityUp / reliabilityTotal) * 100).round().clamp(0, 100);
+        final currentReliability = ((ownerData['reliabilityScore'] as num?)?.toDouble() ?? 0).round();
+        final baseDelta = vote == 1 ? 1 : -1;
+        final appliedDelta = isAdminVoter ? baseDelta * 2 : baseDelta;
+        final reliabilityScore = (currentReliability + appliedDelta).clamp(0, 100);
 
         txn.set(ownerRef, {
-          'reliabilityVotesTotal': reliabilityTotal,
-          'reliabilityVotesUp': reliabilityUp,
-          'reliabilityVotesDown': reliabilityDown,
           'reliabilityScore': reliabilityScore,
-          'trust.upTotal': reliabilityUp,
-          'trust.downTotal': reliabilityDown,
-          'trust.score': reliabilityUp - reliabilityDown,
+          'trust.score': reliabilityScore,
           'trust.trustPercent': reliabilityScore,
           'trustScorePercent': reliabilityScore,
           'tierName': _trustTierFromScore(reliabilityScore),
@@ -1228,19 +1202,34 @@ class FirestoreService {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
-        return voteStatus;
+        return PriceVoteResult(
+          PriceVoteStatus.newVote,
+          upCount: up,
+          downCount: down,
+          score: score,
+        );
       });
 
-      if (result == PriceVoteStatus.newVote) {
-        await _pointsService.awardEvent(
-          uid: voterUid,
-          eventType: 'verify_vote',
-          meta: {'priceId': priceId},
-          ensureUniqueByMeta: true,
-        );
+      if (result.status == PriceVoteStatus.newVote) {
+        try {
+          final priceSnap = await _pricesRef.doc(priceId).get();
+          final priceData = priceSnap.data() ?? const <String, dynamic>{};
+          await _pointsService.awardEvent(
+            uid: voterUid,
+            eventType: 'verify_vote',
+            meta: {
+              'priceId': priceId,
+              'productId': (priceData['productId'] ?? '').toString(),
+              'storeId': (priceData['storeId'] ?? priceData['branchStoreId'] ?? '').toString(),
+            },
+            ensureUniqueByMeta: true,
+          );
+        } catch (e) {
+          debugPrint('voteOnPrice points award failed: $e');
+        }
       }
 
-      return PriceVoteResult(result);
+      return result;
     } on FirebaseException catch (e, st) {
       _logFirestoreQueryError('voteOnPrice', e, st);
       return const PriceVoteResult(PriceVoteStatus.ignored);
@@ -1271,19 +1260,16 @@ class FirestoreService {
   }
 
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
-    final voteDoc = await _pricesRef.doc(priceId).collection('votes').doc(userId).get();
+    final voteDoc = await _pricesRef.doc(priceId).collection('verifications').doc(userId).get();
     return voteDoc.exists;
   }
 
   Stream<String?> streamUserVoteValue(String priceId, String uid) {
     if (priceId.trim().isEmpty || uid.trim().isEmpty) return const Stream<String?>.empty();
-    return _pricesRef.doc(priceId).collection('votes').doc(uid).snapshots().map((snap) {
+    return _pricesRef.doc(priceId).collection('verifications').doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
       final data = snap.data() ?? const <String, dynamic>{};
-      final vote = (data['vote'] as num?)?.toInt();
-      if (vote == 1) return 'yes';
-      if (vote == -1) return 'no';
-      final raw = (data['value'] ?? '').toString();
+      final raw = (data['vote'] ?? data['value'] ?? '').toString();
       if (raw == 'up' || raw == 'yes') return 'yes';
       if (raw == 'down' || raw == 'no') return 'no';
       return null;

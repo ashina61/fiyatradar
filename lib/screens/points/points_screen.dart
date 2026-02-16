@@ -152,58 +152,142 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final weekly = activities.where((e) => e.createdAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold<int>(0, (s, e) => s + e.points);
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: _SectionCard(
-          child: Column(
-            children: [
-              SizedBox(
-                height: 210,
-                child: Stack(
-                  alignment: Alignment.center,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFFFFFCF5),
+                  const Color(0xFFF6EFE1).withOpacity(0.9),
+                ],
+              ),
+              border: Border.all(color: const Color(0xFFE0C38C).withOpacity(0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFB8863B).withOpacity(0.12),
+                  blurRadius: 24,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 220,
-                      height: 220,
-                      child: CustomPaint(painter: _RingPainter(progress: profile.progress)),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('${profile.totalPoints}', style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: -1)),
-                        const Text('Puan', style: TextStyle(color: AppColors.textSecondary)),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: const Color(0xFFB8863B).withOpacity(0.12),
+                        border: Border.all(color: const Color(0xFFB8863B).withOpacity(0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome, size: 13, color: Color(0xFF9C6D2A)),
+                          SizedBox(width: 4),
+                          Text('Prestij Skoru', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9C6D2A))),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(profile.level),
-                  if (profile.nextLevel != null) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Text('Sonraki: ${profile.nextLevel!.title}'),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              if (profile.nextLevel != null)
-                Text('Kalan: ${profile.remainingForNextLevel} puan', style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text(
-                weekly == 0 ? 'Bu hafta henüz puan yok' : 'Bu hafta +$weekly puan',
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-            ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 248,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 246,
+                        height: 246,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              const Color(0xFFFFF7E8),
+                              const Color(0xFFFFE5B6).withOpacity(0.15),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 226,
+                        height: 226,
+                        child: CustomPaint(painter: _RingPainter(progress: profile.progress)),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${profile.totalPoints}',
+                            style: const TextStyle(
+                              fontSize: 54,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1.4,
+                              color: Color(0xFF3E250A),
+                              height: 0.95,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Toplam Puan',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF7A6652),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  profile.level,
+                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: Color(0xFF3E250A), letterSpacing: -0.2),
+                ),
+                const SizedBox(height: 8),
+                if (profile.nextLevel != null)
+                  Text(
+                    '${profile.nextLevel!.title} seviyesine ${profile.remainingForNextLevel} puan kaldı',
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF5D4B3A)),
+                    textAlign: TextAlign.center,
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB8863B).withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFB8863B).withOpacity(0.22)),
+                  ),
+                  child: Text(
+                    weekly == 0 ? 'Bu hafta henüz puan yok' : 'Bu hafta +$weekly puan kazandın',
+                    style: const TextStyle(color: Color(0xFF6E5436), fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
 
 class _GoalsCard extends StatelessWidget {
   const _GoalsCard({required this.profile, required this.activities, required this.onPriceGoalTap});
@@ -297,12 +381,12 @@ class _BadgesCard extends StatelessWidget {
     return _SectionCard(
       title: 'Başarılarım',
       child: SizedBox(
-        height: 190,
+        height: 208,
         child: PageView.builder(
-          controller: PageController(viewportFraction: 0.78),
+          controller: PageController(viewportFraction: 0.82),
           itemCount: display.length,
           itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            padding: const EdgeInsets.only(right: AppSpacing.sm, top: 4, bottom: 4),
             child: _BadgeTile(badge: display[index]),
           ),
         ),
@@ -399,18 +483,36 @@ class _RingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width / 2) - 14;
+    final radius = (size.width / 2) - 12;
     final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10)
+      ..color = const Color(0xFFFFDFA3).withOpacity(0.22);
+
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 16
-      ..color = const Color(0xFFEFE5DB);
+      ..color = const Color(0xFFEADBC1);
+
     final fill = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 16
-      ..shader = const LinearGradient(colors: [Color(0xFFD4AF6D), Color(0xFFB8863B)]).createShader(rect);
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Color(0xFFFFE3A9),
+          Color(0xFFD9AE61),
+          Color(0xFFB9862F),
+        ],
+      ).createShader(rect);
+
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, glow);
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, track);
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress.clamp(0, 1), false, fill);
   }
@@ -418,6 +520,7 @@ class _RingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) => oldDelegate.progress != progress;
 }
+
 
 class _GoalChip extends StatelessWidget {
   const _GoalChip({required this.title, required this.progress, required this.reward, this.onTap});
@@ -453,13 +556,41 @@ class _BadgeTile extends StatelessWidget {
 
   final PointsBadge badge;
 
+  String _friendlyUnlockCondition(PointsBadge badge) {
+    final raw = badge.unlockCondition.trim();
+    if (raw.isEmpty) return 'Bu rozeti kazanmak için görevini tamamla.';
+
+    final normalized = raw.toLowerCase();
+    if (normalized.contains('isadmin') && normalized.contains('true')) {
+      return 'Bu rozeti kazanmak için yönetici hesabına sahip olmalısın.';
+    }
+    if (normalized.contains('price') && normalized.contains('25')) {
+      return 'Bu rozeti kazanmak için en az 25 fiyat katkısı yapmalısın.';
+    }
+    if (normalized.contains('price') && normalized.contains('100')) {
+      return 'Bu rozeti kazanmak için en az 100 fiyat katkısı yapmalısın.';
+    }
+    if (normalized.contains('trust') && normalized.contains('40')) {
+      return 'Bu rozeti kazanmak için güven skorunu %40 ve üstüne çıkarmalısın.';
+    }
+    if (normalized.contains('trust') && normalized.contains('70')) {
+      return 'Bu rozeti kazanmak için güven skorunu %70 ve üstüne çıkarmalısın.';
+    }
+
+    final cleaned = raw
+        .replaceAll('== true', 'olmalı')
+        .replaceAll('>=', 'en az')
+        .replaceAll('<=', 'en fazla');
+    return 'Bu rozeti kazanmak için: $cleaned.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final unlocked = badge.isUnlocked;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderRadius: BorderRadius.circular(26),
         color: AppColors.surfaceVariant.withOpacity(0.75),
         border: Border.all(color: unlocked ? const Color(0xFFE9C46A).withOpacity(0.55) : AppColors.outline.withOpacity(0.5)),
         boxShadow: [
@@ -505,7 +636,12 @@ class _BadgeTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(unlocked ? badge.description : 'Kilidi açmak için katkı yap.', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               const Spacer(),
-              Text('Koşul: ${badge.unlockCondition.isEmpty ? 'Görev tamamla' : badge.unlockCondition}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+              Text(
+                _friendlyUnlockCondition(badge),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+              ),
               if (badge.unlockedAt != null)
                 Text('Açılma: ${badge.unlockedAt!.day}.${badge.unlockedAt!.month}.${badge.unlockedAt!.year}', style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
             ],

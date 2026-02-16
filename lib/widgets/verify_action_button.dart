@@ -17,6 +17,7 @@ class VerifyActionButton extends StatefulWidget {
     required this.isPositive,
     this.isSelected = false,
     this.isEnabled = true,
+    this.isLoading = false,
   });
 
   final String label;
@@ -29,6 +30,7 @@ class VerifyActionButton extends StatefulWidget {
   final bool isPositive;
   final bool isSelected;
   final bool isEnabled;
+  final bool isLoading;
 
   @override
   State<VerifyActionButton> createState() => _VerifyActionButtonState();
@@ -108,9 +110,9 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
         return Transform.translate(offset: Offset(shake, 0), child: child);
       },
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapDown: widget.isEnabled ? (_) => setState(() => _isPressed = true) : null,
+        onTapCancel: widget.isEnabled ? () => setState(() => _isPressed = false) : null,
+        onTapUp: widget.isEnabled ? (_) => setState(() => _isPressed = false) : null,
         onTap: widget.isEnabled ? widget.onTap : null,
         child: AnimatedScale(
           scale: _isPressed ? 0.96 : 1,
@@ -150,10 +152,20 @@ class _VerifyActionButtonState extends State<VerifyActionButton> with SingleTick
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      _showSuccessIcon ? widget.successIcon : widget.icon,
-                      color: widget.isEnabled ? widget.color : widget.color.withOpacity(0.5),
-                    ),
+                    if (widget.isLoading)
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(widget.color),
+                        ),
+                      )
+                    else
+                      Icon(
+                        _showSuccessIcon ? widget.successIcon : widget.icon,
+                        color: widget.isEnabled ? widget.color : widget.color.withOpacity(0.5),
+                      ),
                     const SizedBox(width: 8),
                     Text(
                       widget.label,

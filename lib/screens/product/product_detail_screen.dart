@@ -48,6 +48,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   double? _userLng;
   final ValueNotifier<int> _verifySuccessSignal = ValueNotifier<int>(0);
   final ValueNotifier<int> _rejectSuccessSignal = ValueNotifier<int>(0);
+  bool _isSubmittingVerification = false;
+  String? _activeVerificationPriceId;
+  int? _localVerifyUpCount;
+  int? _localVerifyDownCount;
 
   @override
   void initState() {
@@ -930,9 +934,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             children: [
               Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              Text('Güvenirlik: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text('Güvenirlik Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text('Seviye: $tierName'),
+              Text('Doğrulamalar ve katkı geçmişine göre güncellenir.'),
             ],
           ),
         ),
@@ -950,7 +954,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             Text(icon, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 4),
             Text(
-              tierName,
+              '%$trustPercent',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: chipColor),
             ),
           ],
@@ -1044,140 +1048,167 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     required _BranchStoreData? branchStore,
     required bool showNearbyGlow,
   }) {
+    final hasStore = branchStore?.displayName != null && branchStore!.displayName!.isNotEmpty;
+    final storeClickable = hasStore && (branchStore.hasMapsQuery || branchStore.hasCoordinates);
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.primaryLight.withOpacity(0.04),
+            AppColors.surface,
+            AppColors.primary.withOpacity(0.04),
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Son Fiyat',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product.lastPrice != null
-                      ? _formatPrice(product.lastPrice!)
-                      : 'Fiyat yok',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (latestPrice != null) _buildPriceContributor(latestPrice),
-              ],
-            ),
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 22,
+            offset: const Offset(0, 6),
           ),
-          if (branchStore?.displayName != null && branchStore!.displayName!.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  'Magaza',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Son Fiyat',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        onTap: (branchStore.hasMapsQuery || branchStore.hasCoordinates)
-                            ? () => _onStoreChipTap(branchStore)
-                            : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(color: AppColors.outline),
-                            boxShadow: showNearbyGlow
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.35),
-                                      blurRadius: 18,
-                                      spreadRadius: 1,
-                                      offset: const Offset(0, 2),
+                  const SizedBox(height: 8),
+                  Text(
+                    product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
+                    style: const TextStyle(
+                      fontSize: 44,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (latestPrice != null) _buildPriceContributor(latestPrice),
+                ],
+              ),
+            ),
+            if (hasStore) ...[
+              Container(
+                width: 1,
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                color: AppColors.outlineVariant.withOpacity(0.45),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Mağaza',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 52),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: AppColors.outline.withOpacity(0.9)),
+                              boxShadow: showNearbyGlow
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.24),
+                                        blurRadius: 16,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Opacity(
+                              opacity: storeClickable ? 1 : 0.75,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.storefront_outlined, size: 19, color: AppColors.textSecondary),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      branchStore!.displayName!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
-                                  ]
-                                : null,
-                          ),
-                          child: Opacity(
-                            opacity: (branchStore.hasMapsQuery || branchStore.hasCoordinates) ? 1 : 0.7,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.storefront, size: 16, color: AppColors.textSecondary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  branchStore!.displayName!,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
                                   ),
-                                ),
-                                if (branchStore.hasMapsQuery || branchStore.hasCoordinates) ...[
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.map_outlined, size: 14, color: AppColors.primary),
+                                  if (storeClickable) ...[
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    if (showNearbyGlow) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
-                        ),
-                        child: const Text(
-                          'Buradasın',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                      if (showNearbyGlow) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.24)),
+                          ),
+                          child: const Text(
+                            'Buradasın',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ],
-            ),
-        ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildHeroAction({required IconData icon, VoidCallback? onTap, bool active = false}) {
     return Material(
@@ -1399,8 +1430,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildVerificationSection(List<PriceModel> prices) {
     final latestPrice = prices.isNotEmpty ? prices.first : null;
-    final totalVerified = latestPrice?.upVotes ?? 0;
-    final totalUnverified = latestPrice?.downVotes ?? 0;
+    if (latestPrice == null) {
+      _activeVerificationPriceId = null;
+      _localVerifyUpCount = null;
+      _localVerifyDownCount = null;
+    } else if (_activeVerificationPriceId != latestPrice.id) {
+      _activeVerificationPriceId = latestPrice.id;
+      _localVerifyUpCount = null;
+      _localVerifyDownCount = null;
+    }
+
+    final totalVerified = _localVerifyUpCount ?? latestPrice?.upVotes ?? 0;
+    final totalUnverified = _localVerifyDownCount ?? latestPrice?.downVotes ?? 0;
     final total = totalVerified + totalUnverified;
     final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -1420,6 +1461,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               builder: (context, snapshot) {
                 final voteValue = snapshot.data;
                 final isLoggedIn = uid != null;
+                final hasVoted = voteValue == 'yes' || voteValue == 'no';
+                final isButtonsEnabled = isLoggedIn && !_isSubmittingVerification && !hasVoted;
                 return Row(
                   children: [
                     Expanded(
@@ -1431,7 +1474,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         color: AppColors.success,
                         isPositive: true,
                         isSelected: voteValue == 'yes',
-                        isEnabled: isLoggedIn,
+                        isEnabled: isButtonsEnabled,
+                        isLoading: _isSubmittingVerification,
                         successSignal: _verifySuccessSignal,
                         onTap: () => _verifyLatestPrice(latestPrice, true),
                       ),
@@ -1441,18 +1485,42 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       child: VerifyActionButton(
                         icon: Icons.thumb_down_outlined,
                         successIcon: Icons.thumb_down,
-                        label: 'Reddet',
+                        label: 'Yanlış',
                         count: totalUnverified,
                         color: AppColors.error,
                         isPositive: false,
                         isSelected: voteValue == 'no',
-                        isEnabled: isLoggedIn,
+                        isEnabled: isButtonsEnabled,
+                        isLoading: _isSubmittingVerification,
                         successSignal: _rejectSuccessSignal,
                         onTap: () => _verifyLatestPrice(latestPrice, false),
                       ),
                     ),
                   ],
                 );
+              },
+            ),
+          if (latestPrice != null)
+            StreamBuilder<String?>(
+              stream: uid == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(latestPrice.id, uid),
+              builder: (context, snapshot) {
+                final hasVoted = snapshot.data == 'yes' || snapshot.data == 'no';
+                if (uid == null) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
+                    child: Text('Doğrulamak için giriş yap', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  );
+                }
+                if (hasVoted) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
+                    child: Chip(
+                      label: Text('Oy verdin'),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
               },
             ),
           if (latestPrice != null) const SizedBox(height: AppSpacing.md),
@@ -1493,6 +1561,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     final service = ref.read(firestoreServiceProvider);
+    if (_isSubmittingVerification) return;
+
+    setState(() {
+      _isSubmittingVerification = true;
+    });
 
     try {
       final ownerUid = (price.createdByUid ?? price.userId).trim();
@@ -1503,6 +1576,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         voterUid: user.uid,
       );
       if (result.status == PriceVoteStatus.alreadyVoted) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1513,15 +1587,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return;
       }
       if (result.status == PriceVoteStatus.ignored) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Doğrulama şu anda işlenemedi.'),
+            content: Text('İşlem başarısız, tekrar dene.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
         return;
       }
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      setState(() {
+        _localVerifyUpCount = result.upCount;
+        _localVerifyDownCount = result.downCount;
+      });
 
       if (isVerified) {
         _verifySuccessSignal.value++;
@@ -1531,20 +1613,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.status == PriceVoteStatus.changedVote ? 'Oyun güncellendi' : (isVerified ? 'Doğruladın +2 puan' : 'Reddettin +2 puan')),
+          content: Text(isVerified ? 'Doğruladın +2 puan' : 'Yanlış dedin +2 puan'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: isVerified ? AppColors.success : AppColors.error,
         ),
       );
     } catch (e) {
       debugPrint('verifyLatestPrice failed: $e');
+      await Future<void>.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Doğrulama şu anda işlenemedi.'),
+          content: Text('İşlem başarısız, tekrar dene.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingVerification = false;
+        });
+      }
     }
   }
 
