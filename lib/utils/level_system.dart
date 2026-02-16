@@ -8,6 +8,10 @@ class UserLevel {
     required this.borderColor,
     required this.textColor,
     required this.minPoints,
+    required this.emoji,
+    required this.badgeBackground,
+    required this.badgeForeground,
+    required this.badgeBorder,
     this.maxPoints,
   });
 
@@ -17,6 +21,10 @@ class UserLevel {
   final Color borderColor;
   final Color textColor;
   final int minPoints;
+  final String emoji;
+  final Color badgeBackground;
+  final Color badgeForeground;
+  final Color badgeBorder;
   final int? maxPoints;
 
   bool includes(int totalPoints) {
@@ -41,6 +49,10 @@ const List<UserLevel> kUserLevels = [
     borderColor: Color(0xFFD1D5DB),
     textColor: Color(0xFF374151),
     minPoints: 0,
+    emoji: '🛡️',
+    badgeBackground: Color(0xFFF4F5F6),
+    badgeForeground: Color(0xFF4B5563),
+    badgeBorder: Color(0xFFD5D9DE),
     maxPoints: 500,
   ),
   UserLevel(
@@ -50,6 +62,10 @@ const List<UserLevel> kUserLevels = [
     borderColor: Color(0xFF8D5A3A),
     textColor: Color(0xFFFFFFFF),
     minPoints: 500,
+    emoji: '🥉',
+    badgeBackground: Color(0xFFF7EBE2),
+    badgeForeground: Color(0xFF8D5A3A),
+    badgeBorder: Color(0xFFD5B39B),
     maxPoints: 2000,
   ),
   UserLevel(
@@ -59,6 +75,10 @@ const List<UserLevel> kUserLevels = [
     borderColor: Color(0xFF9CA3AF),
     textColor: Color(0xFF111827),
     minPoints: 2000,
+    emoji: '🥈',
+    badgeBackground: Color(0xFFF1F5F9),
+    badgeForeground: Color(0xFF60748B),
+    badgeBorder: Color(0xFFC8D1DE),
     maxPoints: 5000,
   ),
   UserLevel(
@@ -68,6 +88,10 @@ const List<UserLevel> kUserLevels = [
     borderColor: Color(0xFFB8860B),
     textColor: Color(0xFF2F2204),
     minPoints: 5000,
+    emoji: '💎',
+    badgeBackground: Color(0xFFE9F4FF),
+    badgeForeground: Color(0xFF1C6FB2),
+    badgeBorder: Color(0xFF8EC4EB),
   ),
 ];
 
@@ -78,4 +102,12 @@ UserLevel levelBuilder(int totalPoints) {
     }
   }
   return kUserLevels.first;
+}
+
+UserLevel levelFromLabel(String name) {
+  final normalized = name.trim().toLowerCase();
+  return kUserLevels.firstWhere(
+    (level) => level.label.toLowerCase() == normalized,
+    orElse: () => kUserLevels.first,
+  );
 }

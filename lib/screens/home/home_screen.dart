@@ -226,7 +226,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
     final unreadCount = unreadCountAsync.valueOrNull ?? 0;
-    final String? photoUrl = user?.photoUrl;
+    final rawPhotoUrl = (user?.photoUrl ?? '').toString().trim();
+    final photoUrl = rawPhotoUrl.isEmpty ? null : rawPhotoUrl;
 
     return Row(
       children: [
@@ -246,9 +247,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 end: Alignment.bottomRight,
               ) : null,
               image: photoUrl != null ? DecorationImage(
-                image: NetworkImage(photoUrl),
+                image: CachedNetworkImageProvider(photoUrl),
                 fit: BoxFit.cover,
-                onError: (_, __) {},
+                filterQuality: FilterQuality.high,
               ) : null,
               boxShadow: [
                 BoxShadow(
