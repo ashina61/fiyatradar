@@ -8,6 +8,8 @@ class UserModel {
   final String? fcmToken;
   final String? inviteCode;
   final String? invitedBy;
+  final String? cityCode;
+  final String? cityName;
   final int points;
   final int priceEntries;
   final int validations;
@@ -30,6 +32,8 @@ class UserModel {
     this.fcmToken,
     this.inviteCode,
     this.invitedBy,
+    this.cityCode,
+    this.cityName,
     this.points = 0,
     this.priceEntries = 0,
     this.validations = 0,
@@ -56,6 +60,8 @@ class UserModel {
       fcmToken: data['fcmToken'],
       inviteCode: data['inviteCode'],
       invitedBy: data['invitedBy'],
+      cityCode: data['cityCode'],
+      cityName: data['cityName'],
       points: data['points'] ?? 0,
       priceEntries: data['priceEntries'] ?? 0,
       validations: data['validations'] ?? 0,
@@ -80,6 +86,8 @@ class UserModel {
       'fcmToken': fcmToken,
       'inviteCode': inviteCode,
       'invitedBy': invitedBy,
+      'cityCode': cityCode,
+      'cityName': cityName,
       'points': points,
       'priceEntries': priceEntries,
       'validations': validations,
@@ -104,6 +112,8 @@ class UserModel {
     String? fcmToken,
     String? inviteCode,
     String? invitedBy,
+    String? cityCode,
+    String? cityName,
     int? points,
     int? priceEntries,
     int? validations,
@@ -126,6 +136,8 @@ class UserModel {
       fcmToken: fcmToken ?? this.fcmToken,
       inviteCode: inviteCode ?? this.inviteCode,
       invitedBy: invitedBy ?? this.invitedBy,
+      cityCode: cityCode ?? this.cityCode,
+      cityName: cityName ?? this.cityName,
       points: points ?? this.points,
       priceEntries: priceEntries ?? this.priceEntries,
       validations: validations ?? this.validations,

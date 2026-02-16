@@ -14,7 +14,7 @@ class LeaderboardSection extends ConsumerWidget {
     final currentUser = ref.watch(authStateProvider).valueOrNull;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
@@ -48,7 +48,7 @@ class LeaderboardSection extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
           leaderboardAsync.when(
             data: (items) {
               if (items.isEmpty) {
@@ -64,17 +64,18 @@ class LeaderboardSection extends ConsumerWidget {
               return Column(
                 children: [
                   if (topThree.isNotEmpty) _TopThreeRow(items: topThree),
-                  if (rows.isNotEmpty) const SizedBox(height: 10),
+                  if (rows.isNotEmpty) const SizedBox(height: 14),
                   ...rows.asMap().entries.map((entry) {
                     final index = entry.key + 4;
                     final item = entry.value;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _LeaderboardRow(rank: index, item: item, isMe: item.uid == currentUid),
                     );
                   }),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
                   _MyRankCard(filter: filter, rank: myIndex >= 0 ? myIndex + 1 : null, item: myItem),
+                  const SizedBox(height: 16),
                 ],
               );
             },
@@ -137,7 +138,8 @@ class _TopThreeRow extends StatelessWidget {
         return Expanded(
           child: Container(
             margin: EdgeInsets.only(right: index == items.length - 1 ? 0 : 8),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+            constraints: const BoxConstraints(minHeight: 220),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -146,17 +148,17 @@ class _TopThreeRow extends StatelessWidget {
             child: Column(
               children: [
                 Text(medals[index], style: const TextStyle(fontSize: 22)),
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 CircleAvatar(
                   radius: 20,
                   backgroundImage: item.photoUrl.isNotEmpty ? NetworkImage(item.photoUrl) : null,
                   child: item.photoUrl.isEmpty ? Text(item.name.isEmpty ? '?' : item.name.substring(0, 1).toUpperCase()) : null,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text('+${item.weeklyPoints}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF8A5C19))),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 _ReliabilityBadge(item: item),
               ],
             ),
@@ -262,18 +264,19 @@ class _MyRankCard extends StatelessWidget {
     final isTop50 = rank != null && item != null;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: const Color(0xFF1D2A38),
       ),
       child: Text(
         isTop50
-            ? 'Sen: #$rank • ${item!.weeklyPoints} puan • Şehir: ${item!.cityName.isEmpty ? '-' : item!.cityName}'
+            ? 'Sen: #$rank • ${item!.weeklyPoints} puan • Şehir: ${item!.cityName.isEmpty ? 'Belirtilmemiş' : item!.cityName}'
             : filter == LeaderboardFilter.city
                 ? 'Sen: İlk 50\'de değilsin (Şehrim)'
                 : 'Sen: İlk 50\'de değilsin',
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, height: 1.25),
       ),
     );
   }
