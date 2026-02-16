@@ -132,7 +132,6 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                   },
                         ),
                       ),
-                    ),
                   );
                 },
               ),
