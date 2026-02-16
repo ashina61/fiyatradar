@@ -14,6 +14,8 @@ import '../auth/login_screen.dart';
 
 final _pointsServiceProvider = Provider<PointsService>((ref) => PointsService());
 
+enum PointsTab { overview, leaderboard }
+
 class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
 
@@ -24,6 +26,7 @@ class PointsScreen extends ConsumerStatefulWidget {
 class _PointsScreenState extends ConsumerState<PointsScreen> {
   String? _activeBadgeDialogId;
   bool _recomputedForUser = false;
+  PointsTab _activeTab = PointsTab.overview;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +54,14 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
         return FutureBuilder<void>(
           future: pointsService.ensurePointsDefaultsSeeded(),
           builder: (context, seedSnap) {
-            return Scaffold(
-              appBar: AppBar(title: const Text('Puanlar')),
-              body: SafeArea(
-                child: StreamBuilder<UserPointsProfile>(
+            return DefaultTabController(
+              length: 2,
+              child: Builder(
+                builder: (context) {
+                  final tabController = DefaultTabController.of(context);
+                  return Scaffold(
+                    body: SafeArea(
+                      child: StreamBuilder<UserPointsProfile>(
                   stream: pointsService.streamUserProfile(user.uid),
                   builder: (context, profileSnap) {
                     final profile = profileSnap.data;
@@ -73,30 +80,46 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                                   stream: pointsService.streamActivity(user.uid),
                                   builder: (context, activitySnap) {
                                     final activities = activitySnap.data ?? const <PointsActivityItem>[];
-                                    final listPadding = const EdgeInsets.symmetric(horizontal: 16)
-                                        .copyWith(top: AppSpacing.lg, bottom: 120);
-                                    return ListView(
-                                      padding: listPadding,
-                                      children: [
-                                        if (profile == null)
-                                          const _SkeletonCard(height: 260)
-                                        else
-                                          _HeroCard(profile: profile, activities: activities),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _GoalsCard(
-                                          profile: profile,
-                                          activities: activities,
-                                          onPriceGoalTap: _goToAddPrice,
-                                        ),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        const LeaderboardSection(),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _RulesCard(rules: rulesSnap.data ?? const []),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _BadgesCard(badges: badges),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
-                                      ],
+                                    final rules = rulesSnap.data ?? const <PointsRule>[];
+
+                                    return NestedScrollView(
+                                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                                        return [
+                                          SliverAppBar(
+                                            pinned: true,
+                                            floating: false,
+                                            expandedHeight: 380,
+                                            title: const Text('Puanlar'),
+                                            flexibleSpace: FlexibleSpaceBar(
+                                              background: Padding(
+                                                padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 18, 16, 12),
+                                                child: profile == null
+                                                    ? const _SkeletonCard(height: 260)
+                                                    : _HeroCard(profile: profile, activities: activities),
+                                              ),
+                                            ),
+                                            bottom: PreferredSize(
+                                              preferredSize: const Size.fromHeight(58),
+                                              child: Padding(
+                                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                                child: _buildPointsHeaderTabs(tabController),
+                                              ),
+                                            ),
+                                          ),
+                                        ];
+                                      },
+                                      body: TabBarView(
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        children: [
+                                          _buildOverviewContent(
+                                            profile: profile,
+                                            activities: activities,
+                                            rules: rules,
+                                            badges: badges,
+                                          ),
+                                          _buildLeaderboardContent(),
+                                        ],
+                                      ),
                                     );
                                   },
                                 );
@@ -107,7 +130,11 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                       },
                     );
                   },
-                ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -143,6 +170,90 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
         _activeBadgeDialogId = null;
       });
     });
+  }
+
+  Widget _buildPointsHeaderTabs(TabController tabController) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9ED),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE3CEAA)),
+      ),
+      child: TabBar(
+        controller: tabController,
+        onTap: (index) => setState(() {
+          _activeTab = index == 0 ? PointsTab.overview : PointsTab.leaderboard;
+        }),
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          color: const Color(0xFFB8863B),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: const Color(0xFF6F5A3C),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        tabs: const [
+          Tab(text: 'Genel Bakış'),
+          Tab(text: 'Zirvedekiler'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewContent({
+    required UserPointsProfile? profile,
+    required List<PointsActivityItem> activities,
+    required List<PointsRule> rules,
+    required List<PointsBadge> badges,
+  }) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) {
+        final offset = Tween<Offset>(begin: const Offset(-0.03, 0), end: Offset.zero).animate(animation);
+        return FadeTransition(opacity: animation, child: SlideTransition(position: offset, child: child));
+      },
+      child: ListView(
+        key: ValueKey(_activeTab),
+        padding: const EdgeInsets.fromLTRB(16, AppSpacing.lg, 16, 120),
+        children: [
+          _GoalsCard(profile: profile, activities: activities, onPriceGoalTap: _goToAddPrice),
+          const SizedBox(height: AppSpacing.lg),
+          _RulesCard(rules: rules),
+          const SizedBox(height: AppSpacing.lg),
+          _BadgesCard(badges: badges),
+          const SizedBox(height: AppSpacing.lg),
+          _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderboardContent() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) {
+        final offset = Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero).animate(animation);
+        return FadeTransition(opacity: animation, child: SlideTransition(position: offset, child: child));
+      },
+      child: ListView(
+        key: ValueKey(_activeTab),
+        padding: const EdgeInsets.fromLTRB(0, AppSpacing.lg, 0, 120),
+        children: const [
+          LeaderboardSection(
+            outerPadding: EdgeInsets.all(20),
+            headerToContentSpacing: 10,
+            topThreeMinHeight: 220,
+            myRankBarHeight: 54,
+            myRankBarPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ],
+      ),
+    );
   }
 }
 
