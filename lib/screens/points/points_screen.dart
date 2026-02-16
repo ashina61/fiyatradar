@@ -71,29 +71,37 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                                 return StreamBuilder<List<PointsActivityItem>>(
                                   stream: pointsService.streamActivity(user.uid),
                                   builder: (context, activitySnap) {
-                                    final activities = activitySnap.data ?? const <PointsActivityItem>[];
-                                    final listPadding = const EdgeInsets.symmetric(horizontal: 16)
-                                        .copyWith(top: AppSpacing.lg, bottom: 120);
-                                    return ListView(
-                                      padding: listPadding,
-                                      children: [
-                                        if (profile == null)
-                                          const _SkeletonCard(height: 260)
-                                        else
-                                          _HeroCard(profile: profile, activities: activities),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _GoalsCard(
-                                          profile: profile,
-                                          activities: activities,
-                                          onPriceGoalTap: _goToAddPrice,
-                                        ),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _RulesCard(rules: rulesSnap.data ?? const []),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _BadgesCard(badges: badges),
-                                        const SizedBox(height: AppSpacing.lg),
-                                        _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
-                                      ],
+                                    return StreamBuilder<List<WeeklyLeaderboardEntry>>(
+                                      stream: pointsService.streamWeeklyLeaderboard(),
+                                      builder: (context, leaderboardSnap) {
+                                        final activities = activitySnap.data ?? const <PointsActivityItem>[];
+                                        final leaderboard = leaderboardSnap.data ?? const <WeeklyLeaderboardEntry>[];
+                                        final listPadding = const EdgeInsets.symmetric(horizontal: 16)
+                                            .copyWith(top: AppSpacing.lg, bottom: 120);
+                                        return ListView(
+                                          padding: listPadding,
+                                          children: [
+                                            if (profile == null)
+                                              const _SkeletonCard(height: 260)
+                                            else
+                                              _HeroCard(profile: profile, activities: activities),
+                                            const SizedBox(height: AppSpacing.lg),
+                                            _GoalsCard(
+                                              profile: profile,
+                                              activities: activities,
+                                              onPriceGoalTap: _goToAddPrice,
+                                            ),
+                                            const SizedBox(height: AppSpacing.lg),
+                                            _WeeklyLeaderboardCard(currentUid: user.uid, entries: leaderboard),
+                                            const SizedBox(height: AppSpacing.lg),
+                                            _RulesCard(rules: rulesSnap.data ?? const []),
+                                            const SizedBox(height: AppSpacing.lg),
+                                            _BadgesCard(badges: badges),
+                                            const SizedBox(height: AppSpacing.lg),
+                                            _ActivityCard(activities: activities, onCtaTap: _goToAddPrice),
+                                          ],
+                                        );
+                                      },
                                     );
                                   },
                                 );
@@ -432,6 +440,90 @@ class _LevelBadgeStyle {
   final Color subtitleColor;
 }
 
+
+
+class _WeeklyLeaderboardCard extends StatelessWidget {
+  const _WeeklyLeaderboardCard({required this.currentUid, required this.entries});
+
+  final String currentUid;
+  final List<WeeklyLeaderboardEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleEntries = entries.take(10).toList();
+    return _SectionCard(
+      title: 'Zirvedekiler',
+      child: visibleEntries.isEmpty
+          ? const _PremiumEmpty(
+              icon: Icons.emoji_events_outlined,
+              title: 'Haftalık sıralama henüz boş',
+              subtitle: 'Bu hafta puan toplayıp zirveye yerleşebilirsin.',
+            )
+          : Column(
+              children: visibleEntries.asMap().entries.map((item) {
+                final index = item.key;
+                final entry = item.value;
+                final isMe = entry.uid == currentUid;
+                final rank = index + 1;
+                return Container(
+                  margin: EdgeInsets.only(bottom: index == visibleEntries.length - 1 ? 0 : AppSpacing.sm),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: isMe ? const Color(0xFFFFF2D8) : Colors.white,
+                    border: Border.all(
+                      color: isMe ? const Color(0xFFE5BC72) : const Color(0xFFE7E0D0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '#$rank',
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF7A5A2A)),
+                        ),
+                      ),
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundImage: entry.photoUrl.isNotEmpty ? NetworkImage(entry.photoUrl) : null,
+                        child: entry.photoUrl.isEmpty
+                            ? Text(
+                                entry.displayName.isEmpty ? '?' : entry.displayName[0].toUpperCase(),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              entry.level,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF7B6A56)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '+${entry.weeklyPoints}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF8D621F)),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+    );
+  }
+}
 
 class _GoalsCard extends StatelessWidget {
   const _GoalsCard({required this.profile, required this.activities, required this.onPriceGoalTap});
