@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
-import '../../services/firestore_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
