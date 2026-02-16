@@ -1194,8 +1194,8 @@ class FirestoreService {
         final verifiedWrong = (ownerData['verifiedWrong'] as num?)?.toInt() ?? 0;
         final nextCorrect = vote == 1 ? verifiedCorrect + 1 : verifiedCorrect;
         final nextWrong = vote == -1 ? verifiedWrong + 1 : verifiedWrong;
-        final total = nextCorrect + nextWrong;
-        final trustScore = total == 0 ? 0.0 : (nextCorrect / total);
+        final ownerVoteTotal = nextCorrect + nextWrong;
+        final trustScore = ownerVoteTotal == 0 ? 0.0 : (nextCorrect / ownerVoteTotal);
 
         txn.set(ownerRef, {
           'verifiedCorrect': nextCorrect,
