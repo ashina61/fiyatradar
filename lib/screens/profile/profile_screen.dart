@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,7 +12,6 @@ import '../../services/firestore_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
-import '../../widgets/level_badge.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -79,9 +76,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       trustScore: data.trustScore,
                       levelName: data.levelName,
                       totalPoints: data.totalPoints,
-                      weeklyPoints: data.weeklyPoints,
-                      streakDays: data.streakDays,
-                      badgeDescription: data.badgeDescription,
                       isAdmin: userModel?.isAdmin == true,
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
@@ -125,23 +119,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
+    final trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+    final tierFromBackend = (trustProfile['tierName'] ?? '').toString().trim();
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
-      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0,
-      levelName: levelBuilder((data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0).label,
-      trustScore: _trustScoreFromCounts((data['verifiedCorrect'] as num?)?.toInt() ?? 0, (data['verifiedWrong'] as num?)?.toInt() ?? 0),
-      weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
-      streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
-      badgeDescription: (data['tierDescription'] ?? 'Topluluk doğrulama katkılarınla seviye avantajlarını aç.').toString(),
+      totalPoints: totalPoints,
+      levelName: tierFromBackend.isEmpty ? levelBuilder(totalPoints).label : tierFromBackend,
+      trustScore: (trustProfile['trustScorePercent'] as num?)?.toDouble() ?? 0,
     );
-  }
-
-  double _trustScoreFromCounts(int correct, int wrong) {
-    final total = correct + wrong;
-    if (total <= 0) return 0;
-    return ((correct / total) * 100).clamp(0, 100);
   }
 }
 
@@ -152,9 +140,6 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.trustScore,
     required this.levelName,
     required this.totalPoints,
-    required this.weeklyPoints,
-    required this.streakDays,
-    required this.badgeDescription,
     required this.isAdmin,
     required this.onEdit,
   });
@@ -164,48 +149,62 @@ class _PremiumHeaderCard extends StatelessWidget {
   final double trustScore;
   final String levelName;
   final int totalPoints;
-  final int weeklyPoints;
-  final int streakDays;
-  final String badgeDescription;
   final bool isAdmin;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     final level = levelBuilder(totalPoints);
-    final progress = ((totalPoints % 5000) / 5000).clamp(0, 1).toDouble();
-    final initial = displayName.trim().isEmpty ? 'K' : displayName.trim()[0].toUpperCase();
+    final shownLevel = levelName.trim().isEmpty ? level.label : levelName;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(colors: level.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
-        border: Border.all(color: level.borderColor.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF7EA), Color(0xFFF3E4CC)],
+        ),
+        border: Border.all(color: const Color(0xFFE3CCA2)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFB47C2C).withOpacity(0.15),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(avatarUrl: avatarUrl, displayName: displayName, size: 68),
-              const SizedBox(width: 12),
+              _Avatar(avatarUrl: avatarUrl, displayName: displayName, size: 110),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Flexible(
-                          child: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: level.textColor)),
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF3C280A),
+                            ),
+                          ),
                         ),
-                        if (isAdmin) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0059D6)),
-                        ],
+                        if (isAdmin)
+                          const Icon(Icons.verified_rounded, size: 20, color: Color(0xFF0059D6)),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -216,76 +215,25 @@ class _PremiumHeaderCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(level.emoji, style: TextStyle(fontSize: 16, color: level.badgeForeground)),
+                          Text(level.emoji, style: const TextStyle(fontSize: 16)),
                           const SizedBox(width: 6),
                           Text(
-                            level.label,
-                            style: TextStyle(fontWeight: FontWeight.w800, color: level.badgeForeground),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Mevcut Seviye',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: level.badgeForeground.withOpacity(0.9)),
+                            shownLevel,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: level.badgeForeground,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    _TrustMiniCard(score: trustScore),
                   ],
                 ),
               ),
               IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_rounded, size: 20)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.74),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: level.borderColor.withOpacity(0.25)),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 5,
-                        backgroundColor: Colors.white.withOpacity(0.65),
-                        valueColor: AlwaysStoppedAnimation<Color>(level.borderColor),
-                      ),
-                      Center(child: Text(initial, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: level.textColor))),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Toplam Puan', style: TextStyle(fontSize: 12, color: level.textColor.withOpacity(0.8))),
-                      const SizedBox(height: 2),
-                      Text('$totalPoints', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: level.textColor)),
-                    ],
-                  ),
-                ),
-                LevelBadge(level: level, compact: true),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _MetricChip(label: 'Haftalık', value: '+$weeklyPoints')),
-              const SizedBox(width: 8),
-              Expanded(child: _MetricChip(label: 'Seri', value: '$streakDays gün')),
-              const SizedBox(width: 8),
-              Expanded(child: _MetricChip(label: 'Güven', value: '%${trustScore.round()}')),
             ],
           ),
         ],
@@ -549,11 +497,6 @@ class _SettingsList extends ConsumerWidget {
           icon: Icons.info_outline_rounded,
           title: 'Hakkında',
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
-        ),
-        _MenuTile(
-          icon: Icons.history_rounded,
-          title: 'Güncellemeler',
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdatesScreen())),
         ),
         _MenuTile(
           icon: Icons.logout_rounded,
@@ -844,13 +787,71 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const updates = <Map<String, String>>[
+      {
+        'version': 'v1.5.0',
+        'date': '2025 Q2',
+        'title': 'Premium Profil Deneyimi',
+        'notes': 'Profil header tasarımı yenilendi, güven skoru backend verisine bağlandı ve seviye görünümü sadeleştirildi.',
+      },
+      {
+        'version': 'v1.4.0',
+        'date': '2025 Q1',
+        'title': 'Rozet ve Kart İyileştirmeleri',
+        'notes': 'Seviye rozetleri görsel olarak standartlaştırıldı ve fiyat kartı tipografisi düzenlendi.',
+      },
+      {
+        'version': 'v1.3.0',
+        'date': '2024 Q4',
+        'title': 'Hesap Yönetimi Güncellemesi',
+        'notes': 'Bildirimler, favoriler ve profil düzenleme deneyimi yenilendi.',
+      },
+      {
+        'version': 'v1.2.0',
+        'date': '2024 Q3',
+        'title': 'Ürün Detay Güçlendirme',
+        'notes': 'Ürün detayları iyileştirildi. En ucuz mağaza listesi ve katkı yapan kullanıcı bilgileri güçlendirildi.',
+      },
+      {
+        'version': 'v1.1.0',
+        'date': '2024 Q2',
+        'title': 'Puan Sistemi Lansmanı',
+        'notes': 'Puan sistemi, seviyeler ve katkı geçmişi ekranları eklendi.',
+      },
+      {
+        'version': 'v1.0.0',
+        'date': '2024 Q1',
+        'title': 'İlk Yayın',
+        'notes': 'FiyatRadar yayınlandı. Ürün arama, fiyat ekleme ve temel profil altyapısı aktif edildi.',
+      },
+    ];
+
     return Scaffold(
       appBar: AppBar(title: const Text('Hakkında')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const ListTile(title: Text('Uygulama sürümü'), subtitle: Text('1.0.0')),
-          const ListTile(title: Text('Geliştirici'), subtitle: Text('FiyatRadar Ekibi')),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFF8EC), Color(0xFFF2E4CD)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: const Color(0xFFE2CB9D)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FiyatRadar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF432D0A))),
+                SizedBox(height: 4),
+                Text('Sürüm 1.5.0 • FiyatRadar Ekibi', style: TextStyle(color: Color(0xFF6A5230), fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           ListTile(
             title: const Text('Gizlilik Politikası'),
             trailing: const Icon(Icons.open_in_new_rounded),
@@ -861,79 +862,38 @@ class AboutScreen extends StatelessWidget {
             trailing: const Icon(Icons.open_in_new_rounded),
             onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
           ),
-          ListTile(
-            title: const Text('Güncellemeler'),
-            subtitle: const Text('Sürüm geçmişini görüntüle'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UpdatesScreen())),
+          const SizedBox(height: 12),
+          const Text('Güncelleme Geçmişi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          ...updates.map(
+            (item) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Theme.of(context).colorScheme.surface,
+                border: Border.all(color: const Color(0xFFE7D7BF)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF9A6B2D).withOpacity(0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 7),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item['title']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text('${item['version']} • ${item['date']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const SizedBox(height: 8),
+                  Text(item['notes']!, style: const TextStyle(height: 1.35)),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-
-class UpdatesScreen extends StatelessWidget {
-  const UpdatesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    const updates = <Map<String, String>>[
-      {
-        'version': 'v1.0.0',
-        'date': '2024 Q1',
-        'notes': 'FiyatRadar yayınlandı. Ürün arama, fiyat ekleme ve temel profil altyapısı aktif edildi.',
-      },
-      {
-        'version': 'v1.1.0',
-        'date': '2024 Q2',
-        'notes': 'Puan sistemi, seviyeler ve katkı geçmişi ekranları eklendi.',
-      },
-      {
-        'version': 'v1.2.0',
-        'date': '2024 Q3',
-        'notes': 'Ürün detayları iyileştirildi. En ucuz mağaza listesi ve katkı yapan kullanıcı bilgileri güçlendirildi.',
-      },
-      {
-        'version': 'v1.3.0',
-        'date': '2024 Q4',
-        'notes': 'Bildirimler, favoriler ve profil düzenleme deneyimi yenilendi.',
-      },
-      {
-        'version': 'v1.4.0',
-        'date': '2025 Q1',
-        'notes': 'Seviye rozetleri görsel olarak standartlaştırıldı, profil kartı modernize edildi ve fiyat kartı tipografisi düzenlendi.',
-      },
-    ];
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Güncellemeler')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: updates.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final item = updates[index];
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.6)),
-              color: Theme.of(context).colorScheme.surface,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['version']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(item['date']!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: 8),
-                Text(item['notes']!, style: const TextStyle(height: 1.35)),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
@@ -986,9 +946,6 @@ class _ProfileData {
     required this.levelName,
     required this.trustScore,
     required this.totalPoints,
-    required this.weeklyPoints,
-    required this.streakDays,
-    required this.badgeDescription,
   });
 
   final String displayName;
@@ -996,7 +953,4 @@ class _ProfileData {
   final String levelName;
   final double trustScore;
   final int totalPoints;
-  final int weeklyPoints;
-  final int streakDays;
-  final String badgeDescription;
 }
