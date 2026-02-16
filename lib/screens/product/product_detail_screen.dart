@@ -1052,27 +1052,33 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final storeClickable = hasStore && (branchStore.hasMapsQuery || branchStore.hasCoordinates);
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
+            AppColors.primary.withOpacity(0.08),
             AppColors.surface,
-            AppColors.primary.withOpacity(0.04),
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 22,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: IntrinsicHeight(
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        constraints: BoxConstraints(minHeight: hasStore ? 176 : 150),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg - 1),
+          border: Border.all(color: AppColors.outlineVariant.withOpacity(0.65)),
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1111,95 +1117,100 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 color: AppColors.outlineVariant.withOpacity(0.45),
               ),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'Mağaza',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chipMaxWidth = (constraints.maxWidth - 4).clamp(130.0, 260.0);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Mağaza',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 52),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
+                        const SizedBox(height: 10),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: chipMaxWidth),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: AppColors.outline.withOpacity(0.9)),
-                              boxShadow: showNearbyGlow
-                                  ? [
-                                      BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.24),
-                                        blurRadius: 16,
-                                        spreadRadius: 1,
-                                        offset: const Offset(0, 3),
+                              onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
+                              child: Container(
+                                constraints: const BoxConstraints(minHeight: 52),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(color: AppColors.outline.withOpacity(0.9)),
+                                  boxShadow: showNearbyGlow
+                                      ? [
+                                          BoxShadow(
+                                            color: AppColors.primary.withOpacity(0.2),
+                                            blurRadius: 14,
+                                            spreadRadius: 0.5,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Opacity(
+                                  opacity: storeClickable ? 1 : 0.75,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.storefront_outlined, size: 19, color: AppColors.textSecondary),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          branchStore!.displayName!,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
                                       ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Opacity(
-                              opacity: storeClickable ? 1 : 0.75,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.storefront_outlined, size: 19, color: AppColors.textSecondary),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      branchStore!.displayName!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
+                                      if (storeClickable) ...[
+                                        const SizedBox(width: 8),
+                                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+                                      ],
+                                    ],
                                   ),
-                                  if (storeClickable) ...[
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
-                                  ],
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      if (showNearbyGlow) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.24)),
-                          ),
-                          child: const Text(
-                            'Buradasın',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                        if (showNearbyGlow) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(AppRadius.full),
+                              border: Border.all(color: AppColors.primary.withOpacity(0.24)),
+                            ),
+                            child: const Text(
+                              'Buradasın',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
