@@ -454,7 +454,7 @@ class PointsService {
       final ranked = snap.docs
           .map((doc) {
             final data = doc.data();
-            final weekKey = (data['weeklyPointsWeekKey'] ?? '').toString();
+            final weekKey = (data['weeklyResetKey'] ?? data['weeklyPointsWeekKey'] ?? '').toString();
             final weeklyPoints = weekKey == activeWeekKey ? (data['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
             return WeeklyLeaderboardEntry(
               uid: doc.id,
@@ -536,7 +536,7 @@ class PointsService {
         final userData = userSnap.data() ?? <String, dynamic>{};
         final currentPoints = (userData['totalPoints'] as num?)?.toInt() ?? 0;
         final newTotal = currentPoints + awardedDelta;
-        final previousWeekKey = (userData['weeklyPointsWeekKey'] ?? '').toString();
+        final previousWeekKey = (userData['weeklyResetKey'] ?? userData['weeklyPointsWeekKey'] ?? '').toString();
         final currentWeeklyPoints = previousWeekKey == activeWeekKey ? (userData['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
         final newWeeklyPoints = currentWeeklyPoints + awardedDelta;
         final currentLevel = levels.firstWhere(
@@ -578,15 +578,15 @@ class PointsService {
         txn.set(activityRef, activityPayload);
         txn.set(userActivityRef, activityPayload);
 
-        if (awardedDelta > 0) {
-          txn.set(userRef, {
-            'totalPoints': FieldValue.increment(awardedDelta),
-            'pointsTotal': FieldValue.increment(awardedDelta),
-            'level': currentLevel.title,
-            'weeklyPoints': newWeeklyPoints,
-            'weeklyPointsWeekKey': activeWeekKey,
-          }, SetOptions(merge: true));
-        }
+        txn.set(userRef, {
+          'totalPoints': FieldValue.increment(awardedDelta),
+          'pointsTotal': FieldValue.increment(awardedDelta),
+          'level': currentLevel.title,
+          'weeklyPoints': newWeeklyPoints,
+          'weeklyResetKey': activeWeekKey,
+          'weeklyPointsWeekKey': activeWeekKey,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
         return shouldAwardPoints;
       });
@@ -732,6 +732,7 @@ class PointsService {
       'levelName': standardizedTier,
       'tierName': standardizedTier,
       'weeklyPoints': weeklyPoints,
+      'weeklyResetKey': _weekKey(DateTime.now()),
       'weeklyPointsWeekKey': _weekKey(DateTime.now()),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
