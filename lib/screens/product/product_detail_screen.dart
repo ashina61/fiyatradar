@@ -1062,11 +1062,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final hasStore = storeName != null && storeName.isNotEmpty;
     final storeClickable = hasStore && (branchStore!.hasMapsQuery || branchStore.hasCoordinates);
 
-    return OverflowBox(
-      maxWidth: MediaQuery.of(context).size.width,
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1085,10 +1083,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           ],
         ),
-        child: Container(
-          margin: const EdgeInsets.all(1),
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -1100,9 +1098,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             borderRadius: BorderRadius.circular(AppRadius.xs),
             border: Border.all(color: const Color(0xFFE9D7C4)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             const Text(
               'Son Fiyat',
               textAlign: TextAlign.center,
