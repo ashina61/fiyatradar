@@ -938,7 +938,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               Text('Seviye: ${level.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
-            ],
           ),
         ),
       ),
