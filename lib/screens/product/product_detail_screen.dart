@@ -1099,7 +1099,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             border: Border.all(color: const Color(0xFFE9D7C4)),
           ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text(
               'Son Fiyat',
@@ -1127,78 +1128,71 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
-                  'Mağaza',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
-                        child: Ink(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFFE8DED3)),
-                            boxShadow: showNearbyGlow
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.16),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.035),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  hasStore ? storeName : 'Mağaza bilinmiyor',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
+            const Text(
+              'Mağaza',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
+                  child: Ink(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE8DED3)),
+                      boxShadow: showNearbyGlow
+                          ? [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.16),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
                               ),
-                              if (storeClickable) ...[
-                                const SizedBox(width: 6),
-                                const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
-                              ],
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.035),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
                             ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            hasStore ? storeName : 'Mağaza bilinmiyor',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
-                      ),
+                        if (storeClickable) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
             if (showNearbyGlow) ...[
               const SizedBox(height: 8),
@@ -1221,8 +1215,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ],
             if (latestPrice != null) ...[
               const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
+              Center(
                 child: _buildLastPriceContributorRow(latestPrice),
               ),
             ],
