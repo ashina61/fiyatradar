@@ -1226,7 +1226,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 child: _buildLastPriceContributorRow(latestPrice),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
