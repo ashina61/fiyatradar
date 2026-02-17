@@ -978,15 +978,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
         final tierName = (data['tierName'] ?? 'Standart').toString();
+        final level = levelFromLabel(tierName);
+        final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
+        final contributorWithBadge = '${level.emoji} $contributor';
 
         return Wrap(
           spacing: 6,
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text('Ekleyen: ${displayName.isEmpty ? 'Kullanıcı' : displayName}', style: Theme.of(context).textTheme.bodySmall),
+            Text('Ekleyen: $contributorWithBadge', style: Theme.of(context).textTheme.bodySmall),
             _buildTrustBadge(
-              displayName: displayName.isEmpty ? 'Kullanıcı' : displayName,
+              displayName: contributor,
               tierName: tierName,
               trustPercent: trustPercent,
               upTotal: (data['upTotal'] as num?)?.toInt(),
@@ -1058,44 +1061,47 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final hasStore = storeName != null && storeName.isNotEmpty;
     final storeClickable = hasStore && (branchStore!.hasMapsQuery || branchStore.hasCoordinates);
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF8EFE2),
-            Color(0xFFF3E2CF),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: const Color(0xFFE1D0BD)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFB78A5A).withOpacity(0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+    return OverflowBox(
+      maxWidth: MediaQuery.of(context).size.width,
       child: Container(
-        margin: const EdgeInsets.all(1),
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        width: MediaQuery.of(context).size.width,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFFDF8F2),
-              Color(0xFFF6EADC),
+              Color(0xFFF8EFE2),
+              Color(0xFFF3E2CF),
             ],
           ),
-          borderRadius: BorderRadius.circular(AppRadius.xs),
-          border: Border.all(color: const Color(0xFFE9D7C4)),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: const Color(0xFFE1D0BD)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFB78A5A).withOpacity(0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+        child: Container(
+          margin: const EdgeInsets.all(1),
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFDF8F2),
+                Color(0xFFF6EADC),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
+            border: Border.all(color: const Color(0xFFE9D7C4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
             const Text(
               'Son Fiyat',
               textAlign: TextAlign.center,
@@ -1210,7 +1216,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const SizedBox(height: 16),
               _buildLastPriceContributorRow(latestPrice),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1233,6 +1240,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
         final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
         final level = levelFromLabel(tierName);
+        final contributorWithBadge = '${level.emoji} $contributor';
+        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
         final upTotal = (data['upTotal'] as num?)?.toInt() ?? 0;
         final downTotal = (data['downTotal'] as num?)?.toInt() ?? 0;
         final total = upTotal + downTotal;
@@ -1261,7 +1270,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         border: Border.all(color: const Color(0xFFE8D1B1)),
                       ),
                       child: Text(
-                        contributor,
+                        contributorWithBadge,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -1289,8 +1298,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                     child: Text(
                       verificationRate == null
-                          ? 'Seviye: ${level.label}\nDoğrulama: Veri yok'
-                          : 'Seviye: ${level.label}\nDoğrulama: %$verificationRate',
+                          ? 'Seviye: ${level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: Veri yok'
+                          : 'Seviye: ${level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: %$verificationRate',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 11,
@@ -1527,6 +1536,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
+
   Widget _buildVerificationSection(List<PriceModel> prices) {
     final latestPrice = prices.isNotEmpty ? prices.first : null;
     if (latestPrice == null) {
@@ -1746,7 +1756,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       }
     }
   }
-
 
   Future<void> _tryDeletePrice(PriceModel price) async {
     final user = ref.read(userModelStreamProvider).valueOrNull;
