@@ -53,6 +53,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final ValueNotifier<int> _rejectSuccessSignal = ValueNotifier<int>(0);
   bool _isSubmittingVerification = false;
   String? _activeVerificationPriceId;
+  final Set<String> _expandedCheapestContributorIds = <String>{};
   int? _localVerifyUpCount;
   int? _localVerifyDownCount;
   Timer? _contributorPopupTimer;
@@ -1040,20 +1041,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ? 'Kullanıcı'
             : (data['displayName'] ?? 'Kullanıcı').toString().trim();
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
+        final verifyPercent = price.trustPercent;
         final tierName = (data['tierName'] ?? 'Standart').toString();
         final level = levelFromLabel(tierName);
-        final upTotal = (data['upTotal'] as num?)?.toInt() ?? 0;
-        final downTotal = (data['downTotal'] as num?)?.toInt() ?? 0;
-        final verificationTotal = upTotal + downTotal;
-        final userVerificationRate = verificationTotal == 0 ? null : (upTotal / verificationTotal * 100).round();
+        final isExpanded = _expandedCheapestContributorIds.contains(price.id);
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8DBCA)),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFCF7), Color(0xFFF8F1E4)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE7CFAB), width: 1),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF8A5B2D).withOpacity(0.08),
@@ -1072,12 +1075,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       _displayPriceSourceName(price),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _buildPriceVerificationIndicator(price),
-                  const SizedBox(width: 6),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 120),
                     child: FittedBox(
@@ -1085,7 +1086,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       alignment: Alignment.centerRight,
                       child: Text(
                         _formatPrice(price.price),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF7A4A21)),
                       ),
                     ),
                   ),
@@ -1093,6 +1094,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
               const SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Ekleyen:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                   const SizedBox(width: 6),
@@ -1100,16 +1102,58 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     child: _ContributorUserChip(
                       username: username,
                       level: level,
-                      onTap: () => _showContributorBottomSheet(
-                        username: username,
-                        level: level,
-                        trustPercent: trustPercent,
-                        verificationRatePercent: userVerificationRate,
-                      ),
+                      onTap: () {
+                        setState(() {
+                          if (isExpanded) {
+                            _expandedCheapestContributorIds.remove(price.id);
+                          } else {
+                            _expandedCheapestContributorIds.add(price.id);
+                          }
+                        });
+                      },
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8EA),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFFE7CFAB)),
+                    ),
+                    child: Text(
+                      'Onay %$verifyPercent',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
+                    ),
+                  ),
                 ],
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: isExpanded
+                    ? Padding(
+                        key: ValueKey<String>('expanded_${price.id}'),
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF9EC),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE7D7BD)),
+                          ),
+                          child: Text(
+                            'Seviye: ${level.label}\nKullanıcı Güven Skoru: %$trustPercent',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.45,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
