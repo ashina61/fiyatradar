@@ -39,7 +39,7 @@ class AlreadyVotedException implements Exception {
   String toString() => message;
 }
 
-enum PriceVoteStatus { newVote, alreadyVoted, selfVoteBlocked, ignored }
+enum PriceVoteStatus { newVote, voteChanged, alreadyVoted, selfVoteBlocked, ignored }
 
 class PriceVoteResult {
   const PriceVoteResult(
@@ -1120,7 +1120,13 @@ class FirestoreService {
             0;
 
         final voteSnap = await txn.get(voteRef);
-        if (voteSnap.exists) {
+        final existingVoteData = voteSnap.data() ?? const <String, dynamic>{};
+        final existingVoteRaw = (existingVoteData['vote'] ?? existingVoteData['value'] ?? '').toString();
+        final existingVote = existingVoteRaw == 'up' || existingVoteRaw == 'yes'
+            ? 1
+            : (existingVoteRaw == 'down' || existingVoteRaw == 'no' ? -1 : 0);
+
+        if (voteSnap.exists && existingVote == vote) {
           return PriceVoteResult(
             PriceVoteStatus.alreadyVoted,
             upCount: upCurrent,
@@ -1131,6 +1137,10 @@ class FirestoreService {
 
         var up = upCurrent;
         var down = downCurrent;
+        if (voteSnap.exists) {
+          if (existingVote == 1) up -= 1;
+          if (existingVote == -1) down -= 1;
+        }
         if (vote == 1) {
           up += 1;
         } else {
@@ -1206,7 +1216,7 @@ class FirestoreService {
         }, SetOptions(merge: true));
 
         return PriceVoteResult(
-          PriceVoteStatus.newVote,
+          voteSnap.exists ? PriceVoteStatus.voteChanged : PriceVoteStatus.newVote,
           upCount: up,
           downCount: down,
           score: score,

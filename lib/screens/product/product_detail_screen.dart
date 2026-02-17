@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -1041,11 +1042,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ? 'Kullanıcı'
             : (data['displayName'] ?? 'Kullanıcı').toString().trim();
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
-        final verifyPercent = price.trustPercent;
-        assert(() {
-          debugPrint('cheapest_store_verify_percent ${price.id} (${_displayPriceSourceName(price)}): $verifyPercent');
-          return true;
-        }());
+        final upvotes = price.upVotes;
+        final downvotes = price.downVotes;
+        final voteTotal = upvotes + downvotes;
+        final onayPercent = voteTotal == 0 ? null : ((upvotes / voteTotal) * 100).round();
+        if (kDebugMode) {
+          debugPrint(
+            'cheapest_store_verify storeName=${_displayPriceSourceName(price)}, upvotes=$upvotes, downvotes=$downvotes, onayPercent=${onayPercent ?? '-'}',
+          );
+        }
         final tierName = (data['tierName'] ?? 'Standart').toString();
         final level = levelFromLabel(tierName);
         final isExpanded = _expandedCheapestContributorIds.contains(price.id);
@@ -1118,7 +1123,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (verifyPercent != null && verifyPercent > 0)
+                  if (onayPercent != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -1127,7 +1132,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         border: Border.all(color: const Color(0xFFE7CFAB)),
                       ),
                       child: Text(
-                        'Onay %$verifyPercent',
+                        'Onay %$onayPercent',
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
                       ),
                     ),
