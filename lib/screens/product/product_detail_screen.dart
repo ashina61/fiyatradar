@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -53,6 +55,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   String? _activeVerificationPriceId;
   int? _localVerifyUpCount;
   int? _localVerifyDownCount;
+  Timer? _contributorPopupTimer;
+  String? _activeContributorPopupPriceId;
 
   @override
   void initState() {
@@ -68,10 +72,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   void dispose() {
+    _contributorPopupTimer?.cancel();
     _commentController.dispose();
     _verifySuccessSignal.dispose();
     _rejectSuccessSignal.dispose();
     super.dispose();
+  }
+
+  void _showContributorInfoPopup(String priceId) {
+    _contributorPopupTimer?.cancel();
+    setState(() {
+      _activeContributorPopupPriceId = priceId;
+    });
+
+    _contributorPopupTimer = Timer(const Duration(seconds: 7), () {
+      if (!mounted || _activeContributorPopupPriceId != priceId) {
+        return;
+      }
+      setState(() {
+        _activeContributorPopupPriceId = null;
+      });
+    });
   }
 
   Future<void> _submitComment() async {
@@ -1047,7 +1068,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             Color(0xFFF3E2CF),
           ],
         ),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: const Color(0xFFE1D0BD)),
         boxShadow: [
           BoxShadow(
@@ -1069,7 +1090,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               Color(0xFFF6EADC),
             ],
           ),
-          borderRadius: BorderRadius.circular(AppRadius.lg - 1),
+          borderRadius: BorderRadius.circular(AppRadius.xs),
           border: Border.all(color: const Color(0xFFE9D7C4)),
         ),
         child: Column(
@@ -1208,11 +1229,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
         };
         final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
-        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
         final tierName = (data['tierName'] ?? 'Standart').toString();
 
         final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
         final level = levelFromLabel(tierName);
+        final upTotal = (data['upTotal'] as num?)?.toInt() ?? 0;
+        final downTotal = (data['downTotal'] as num?)?.toInt() ?? 0;
+        final total = upTotal + downTotal;
+        final verificationRate = total == 0 ? null : (upTotal / total * 100).round();
+        final showPopup = _activeContributorPopupPriceId == price.id;
 
         return Wrap(
           alignment: WrapAlignment.center,
@@ -1220,101 +1245,69 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFBF3E5),
-                borderRadius: BorderRadius.circular(AppRadius.full),
-                border: Border.all(color: const Color(0xFFE8D1B1)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    level.emoji,
-                    style: TextStyle(fontSize: 15, color: level.badgeForeground),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    onTap: () => _showContributorInfoPopup(price.id),
+                    child: Ink(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBF3E5),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        border: Border.all(color: const Color(0xFFE8D1B1)),
+                      ),
+                      child: Text(
+                        contributor,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: level.badgeForeground,
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    contributor,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                ),
+                if (showPopup) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: level.badgeBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      verificationRate == null
+                          ? 'Seviye: ${level.label}\nDoğrulama: Veri yok'
+                          : 'Seviye: ${level.label}\nDoğrulama: %$verificationRate',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            _buildLastPriceTrustChip(
-              displayName: contributor,
-              tierName: tierName,
-              trustPercent: trustPercent,
-              upTotal: (data['upTotal'] as num?)?.toInt(),
-              downTotal: (data['downTotal'] as num?)?.toInt(),
+              ],
             ),
           ],
         );
       },
     );
   }
-
-  Widget _buildLastPriceTrustChip({
-    required String displayName,
-    required String tierName,
-    required int trustPercent,
-    int? upTotal,
-    int? downTotal,
-  }) {
-    final level = levelFromLabel(tierName);
-    final chipColor = _trustChipColor(tierName, trustPercent);
-    final total = (upTotal ?? 0) + (downTotal ?? 0);
-    final verificationRate = total == 0 ? null : ((upTotal ?? 0) / total * 100).round();
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.full),
-      onTap: () => showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (_) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text('Seviye: ${level.label}', style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(verificationRate == null ? 'Doğrulama oranı: Veri yok' : 'Doğrulama oranı: %$verificationRate'),
-            ],
-          ),
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: level.badgeBackground,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(color: level.badgeBorder),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(level.emoji, style: const TextStyle(fontSize: 13)),
-            const SizedBox(width: 4),
-            Text(
-              '${level.label} %$trustPercent',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: chipColor),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
 
   Widget _buildHeroAction({required IconData icon, VoidCallback? onTap, bool active = false}) {
     return Material(
