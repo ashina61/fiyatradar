@@ -59,6 +59,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int? _localVerifyDownCount;
   Timer? _contributorPopupTimer;
   String? _activeContributorPopupPriceId;
+  final Map<String, _ContributorUserMini> _contributorUserCache = <String, _ContributorUserMini>{};
+  final Map<String, Future<_ContributorUserMini>> _contributorUserFutureCache = <String, Future<_ContributorUserMini>>{};
 
   @override
   void initState() {
@@ -968,37 +970,34 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildPriceContributor(PriceModel price) {
     final uid = (price.createdByUid ?? price.userId).trim();
-    return StreamBuilder<Map<String, dynamic>>(
-      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
-      builder: (context, snapshot) {
-        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
-        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
-        final data = snapshot.data ?? {
-          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
-          'trustScorePercent': fallbackScore,
-          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
-        };
-        final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
-        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? 0;
-        final tierName = (data['tierName'] ?? 'Standart').toString();
-        final level = levelFromLabel(tierName);
-        final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
-        final contributorWithBadge = '${level.emoji} $contributor';
+    return FutureBuilder<_ContributorUserMini>(
+      future: _getContributorUserMini(price),
+      builder: (context, userSnapshot) {
+        final userMini = userSnapshot.data ?? _ContributorUserMini.fallback(name: price.addedByDisplayName ?? 'Kullanıcı');
 
-        return Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text('Ekleyen: $contributorWithBadge', style: Theme.of(context).textTheme.bodySmall),
-            _buildTrustBadge(
-              displayName: contributor,
-              tierName: tierName,
-              trustPercent: trustPercent,
-              upTotal: (data['upTotal'] as num?)?.toInt(),
-              downTotal: (data['downTotal'] as num?)?.toInt(),
-            ),
-          ],
+        return StreamBuilder<Map<String, dynamic>>(
+          stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
+          builder: (context, trustSnapshot) {
+            final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+            final trustData = trustSnapshot.data ?? {'trustScorePercent': fallbackScore};
+            final trustPercent = (trustData['trustScorePercent'] as num?)?.toInt() ?? 0;
+
+            return Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('Ekleyen: ${userMini.level.emoji} ${userMini.displayName}', style: Theme.of(context).textTheme.bodySmall),
+                _buildTrustBadge(
+                  displayName: userMini.displayName,
+                  tierName: userMini.level.label,
+                  trustPercent: trustPercent,
+                  upTotal: (trustData['upTotal'] as num?)?.toInt(),
+                  downTotal: (trustData['downTotal'] as num?)?.toInt(),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -1027,146 +1026,145 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildPremiumCheapestStoreItem(PriceModel price) {
     final uid = (price.createdByUid ?? price.userId).trim();
-    return StreamBuilder<Map<String, dynamic>>(
-      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
-      builder: (context, snapshot) {
-        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
-        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
-        final data = snapshot.data ?? {
-          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
-          'trustScorePercent': fallbackScore,
-          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
-        };
+    return FutureBuilder<_ContributorUserMini>(
+      future: _getContributorUserMini(price),
+      builder: (context, userSnapshot) {
+        final userMini = userSnapshot.data ?? _ContributorUserMini.fallback(name: price.addedByDisplayName ?? 'Kullanıcı');
+        return StreamBuilder<Map<String, dynamic>>(
+          stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
+          builder: (context, trustSnapshot) {
+            final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+            final trustData = trustSnapshot.data ?? {'trustScorePercent': fallbackScore};
 
-        final username = ((data['displayName'] ?? 'Kullanıcı').toString().trim()).isEmpty
-            ? 'Kullanıcı'
-            : (data['displayName'] ?? 'Kullanıcı').toString().trim();
-        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
-        final upvotes = price.upVotes;
-        final downvotes = price.downVotes;
-        final voteTotal = upvotes + downvotes;
-        final onayPercent = voteTotal == 0 ? null : ((upvotes / voteTotal) * 100).round();
-        if (kDebugMode) {
-          debugPrint(
-            'cheapest_store_verify storeName=${_displayPriceSourceName(price)}, upvotes=$upvotes, downvotes=$downvotes, onayPercent=${onayPercent ?? '-'}',
-          );
-        }
-        final tierName = (data['tierName'] ?? 'Standart').toString();
-        final level = levelFromLabel(tierName);
-        final isExpanded = _expandedCheapestContributorIds.contains(price.id);
+            final username = userMini.displayName;
+            final trustPercent = (trustData['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
+            final upvotes = price.upVotes;
+            final downvotes = price.downVotes;
+            final voteTotal = upvotes + downvotes;
+            final onayPercent = voteTotal == 0 ? null : ((upvotes / voteTotal) * 100).round();
+            if (kDebugMode) {
+              debugPrint(
+                'cheapest_store_verify storeName=${_displayPriceSourceName(price)}, upvotes=$upvotes, downvotes=$downvotes, onayPercent=${onayPercent ?? '-'}',
+              );
+            }
+            final level = userMini.level;
+            final isExpanded = _expandedCheapestContributorIds.contains(price.id);
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFFCF7), Color(0xFFF8F1E4)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE7CFAB), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8A5B2D).withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _displayPriceSourceName(price),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 120),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        _formatPrice(price.price),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF7A4A21)),
-                      ),
-                    ),
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFFCF7), Color(0xFFF8F1E4)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE7CFAB), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8A5B2D).withOpacity(0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Ekleyen:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: _ContributorUserChip(
-                      username: username,
-                      level: level,
-                      onTap: () {
-                        setState(() {
-                          if (isExpanded) {
-                            _expandedCheapestContributorIds.remove(price.id);
-                          } else {
-                            _expandedCheapestContributorIds.add(price.id);
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  if (onayPercent != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8EA),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFE7CFAB)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _displayPriceSourceName(price),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        ),
                       ),
-                      child: Text(
-                        'Onay %$onayPercent',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
-                      ),
-                    ),
-                ],
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: isExpanded
-                    ? Padding(
-                        key: ValueKey<String>('expanded_${price.id}'),
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF9EC),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFE7D7BD)),
-                          ),
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
                           child: Text(
-                            'Seviye: ${level.label}\nKullanıcı Güven Skoru: %$trustPercent',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              height: 1.45,
-                              color: AppColors.textPrimary,
-                            ),
+                            _formatPrice(price.price),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF7A4A21)),
                           ),
                         ),
-                      )
-                    : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Ekleyen:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: _ContributorUserChip(
+                          username: username,
+                          level: level,
+                          onTap: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedCheapestContributorIds.remove(price.id);
+                              } else {
+                                _expandedCheapestContributorIds.add(price.id);
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      if (onayPercent != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8EA),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xFFE7CFAB)),
+                          ),
+                          child: Text(
+                            'Onay %$onayPercent',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
+                          ),
+                        ),
+                    ],
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: isExpanded
+                        ? Padding(
+                            key: ValueKey<String>('expanded_${price.id}'),
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF9EC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE7D7BD)),
+                              ),
+                              child: Text(
+                                'Seviye: ${level.label}
+Kullanıcı Güven Skoru: %$trustPercent',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.45,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1437,94 +1435,94 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildLastPriceContributorRow(PriceModel price) {
     final uid = (price.createdByUid ?? price.userId).trim();
-    return StreamBuilder<Map<String, dynamic>>(
-      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
-      builder: (context, snapshot) {
-        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
-        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
-        final data = snapshot.data ?? {
-          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
-          'trustScorePercent': fallbackScore,
-          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
-        };
-        final displayName = (data['displayName'] ?? 'Kullanıcı').toString().trim();
-        final tierName = (data['tierName'] ?? 'Standart').toString();
+    return FutureBuilder<_ContributorUserMini>(
+      future: _getContributorUserMini(price),
+      builder: (context, userSnapshot) {
+        final userMini = userSnapshot.data ?? _ContributorUserMini.fallback(name: price.addedByDisplayName ?? 'Kullanıcı');
 
-        final contributor = displayName.isEmpty ? 'Kullanıcı' : displayName;
-        final level = levelFromLabel(tierName);
-        final contributorWithBadge = '${level.emoji} $contributor';
-        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
-        final upTotal = (data['upTotal'] as num?)?.toInt() ?? 0;
-        final downTotal = (data['downTotal'] as num?)?.toInt() ?? 0;
-        final total = upTotal + downTotal;
-        final verificationRate = total == 0 ? null : (upTotal / total * 100).round();
-        final showPopup = _activeContributorPopupPriceId == price.id;
+        return StreamBuilder<Map<String, dynamic>>(
+          stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
+          builder: (context, trustSnapshot) {
+            final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+            final trustData = trustSnapshot.data ?? {'trustScorePercent': fallbackScore};
+            final trustPercent = (trustData['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
+            final upTotal = (trustData['upTotal'] as num?)?.toInt() ?? 0;
+            final downTotal = (trustData['downTotal'] as num?)?.toInt() ?? 0;
+            final total = upTotal + downTotal;
+            final verificationRate = total == 0 ? null : (upTotal / total * 100).round();
+            final showPopup = _activeContributorPopupPriceId == price.id;
 
-        return Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
+            return Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.full),
-                    onTap: () => _showContributorInfoPopup(price.id),
-                    child: Ink(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFBF3E5),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(color: const Color(0xFFE8D1B1)),
-                      ),
-                      child: Text(
-                        contributorWithBadge,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: level.badgeForeground,
+                        onTap: () => _showContributorInfoPopup(price.id),
+                        child: Ink(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: userMini.level.badgeBackground,
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                            border: Border.all(color: userMini.level.badgeBorder),
+                          ),
+                          child: Text(
+                            '${userMini.level.emoji} ${userMini.displayName}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: userMini.level.badgeForeground,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    if (showPopup) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(color: userMini.level.badgeBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          verificationRate == null
+                              ? 'Seviye: ${userMini.level.label}
+Güven Skoru: %$trustPercent
+Doğrulama: Veri yok'
+                              : 'Seviye: ${userMini.level.label}
+Güven Skoru: %$trustPercent
+Doğrulama: %$verificationRate',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (showPopup) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(color: level.badgeBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      verificationRate == null
-                          ? 'Seviye: ${level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: Veri yok'
-                          : 'Seviye: ${level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: %$verificationRate',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -2292,6 +2290,47 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   String _formatPriceShort(double price) => formatTRY(price);
 
+  Future<_ContributorUserMini> _getContributorUserMini(PriceModel price) {
+    final uid = (price.createdByUid ?? price.userId).trim();
+    final rawFallbackName = (price.addedByDisplayName ?? '').trim();
+    final fallbackName = rawFallbackName.isEmpty ? 'Kullanıcı' : rawFallbackName;
+    final fallback = _ContributorUserMini.fallback(name: fallbackName);
+
+    if (uid.isEmpty) {
+      return Future<_ContributorUserMini>.value(fallback);
+    }
+
+    final cached = _contributorUserCache[uid];
+    if (cached != null) {
+      return Future<_ContributorUserMini>.value(cached);
+    }
+
+    final pending = _contributorUserFutureCache[uid];
+    if (pending != null) {
+      return pending;
+    }
+
+    final future = FirebaseFirestore.instance.collection('users').doc(uid).get().then((doc) {
+      final data = doc.data() ?? const <String, dynamic>{};
+      final displayNameRaw = ((data['name'] ?? data['displayName'] ?? fallbackName).toString()).trim();
+      final displayName = displayNameRaw.isEmpty ? 'Kullanıcı' : displayNameRaw;
+      final levelRaw = (data['levelKey'] ?? data['rank'] ?? data['level'] ?? data['levelName'] ?? '').toString().trim();
+      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final hasKnownLevelLabel = kUserLevels.any((level) => level.label.toLowerCase() == levelRaw.toLowerCase());
+      final level = hasKnownLevelLabel ? levelFromLabel(levelRaw) : levelBuilder(totalPoints);
+
+      final mini = _ContributorUserMini(displayName: displayName, level: level);
+      _contributorUserCache[uid] = mini;
+      return mini;
+    }).catchError((_) => fallback).whenComplete(() {
+      _contributorUserFutureCache.remove(uid);
+    });
+
+    _contributorUserFutureCache[uid] = future;
+    return future;
+  }
+
+
   Color _colorForCategory(String category) {
     switch (category) {
       case 'Elektronik':
@@ -2347,6 +2386,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
 
+}
+
+
+class _ContributorUserMini {
+  const _ContributorUserMini({required this.displayName, required this.level});
+
+  final String displayName;
+  final UserLevel level;
+
+  factory _ContributorUserMini.fallback({required String name}) {
+    final displayName = name.trim().isEmpty ? 'Kullanıcı' : name.trim();
+    return _ContributorUserMini(displayName: displayName, level: levelBuilder(0));
+  }
 }
 
 class _BranchStoreData {
@@ -2417,7 +2469,7 @@ class _ContributorUserChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('💎', style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(level.emoji, style: TextStyle(fontWeight: FontWeight.w700, color: level.badgeForeground)),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
