@@ -32,7 +32,7 @@ class PriceModel {
   final String verificationStatus;
   final String? userAvatarUrl;
   final String trustLabel;
-  final int trustPercent;
+  final int? trustPercent;
   final String? uniqueKey;
   final String? dedupeKey;
   final String? addedByDisplayName;
@@ -74,7 +74,7 @@ class PriceModel {
     this.verificationStatus = 'unverified',
     this.userAvatarUrl,
     this.trustLabel = 'Yeni',
-    this.trustPercent = 30,
+    this.trustPercent,
     this.uniqueKey,
     this.dedupeKey,
     this.addedByDisplayName,
@@ -175,7 +175,10 @@ class PriceModel {
       verificationStatus: (data['verificationStatus'] ?? 'unverified').toString(),
       userAvatarUrl: data['userAvatarUrl'] as String?,
       trustLabel: (data['trustLabel'] ?? 'Yeni').toString(),
-      trustPercent: (data['trustPercent'] as num?)?.toInt() ?? 30,
+      trustPercent: (data['verifyPercent'] as num?)?.toInt() ??
+          (data['approvalRate'] as num?)?.toInt() ??
+          (data['verificationPercent'] as num?)?.toInt() ??
+          (data['trustPercent'] as num?)?.toInt(),
       uniqueKey: data['uniqueKey'] as String?,
       dedupeKey: (data['dedupeKey'] as String?) ?? _buildDedupeKeyFallback(data),
       addedByDisplayName: (data['addedByDisplayName'] ?? data['userName']) as String?,
