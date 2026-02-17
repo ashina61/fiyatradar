@@ -113,9 +113,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final photoUrl = await _uploadAvatar(uid);
+      final displayName = _displayNameController.text.trim();
+      final username = _usernameController.text.trim();
+      final publicName = username.isEmpty ? displayName : username;
+
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'displayName': _displayNameController.text.trim(),
-        'username': _usernameController.text.trim(),
+        'displayName': displayName,
+        'name': publicName,
+        'username': username,
         'bio': _bioController.text.trim(),
         'cityCode': _selectedCity?.code ?? '',
         'cityName': _selectedCity?.name ?? '',
@@ -128,6 +133,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         },
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      await FirebaseAuth.instance.currentUser?.updateDisplayName(publicName.isEmpty ? 'Kullanıcı' : publicName);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil güncellendi.')));
       Navigator.of(context).pop();

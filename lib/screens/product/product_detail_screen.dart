@@ -933,7 +933,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             Text(level.emoji, style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 4),
             Text(
-              '${level.label} %$trustPercent',
+              '%$trustPercent',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: chipColor),
             ),
           ],
@@ -1073,10 +1073,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           border: Border.all(color: const Color(0xFFE9D7C4)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text(
               'Son Fiyat',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
@@ -1087,9 +1088,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             const SizedBox(height: 8),
             FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
+              alignment: Alignment.center,
               child: Text(
                 product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 38,
                   fontWeight: FontWeight.w800,
@@ -1101,6 +1103,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             const SizedBox(height: 14),
             const Text(
               'Mağaza',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
@@ -1115,7 +1118,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 borderRadius: BorderRadius.circular(18),
                 onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
                 child: Ink(
-                  width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
@@ -1138,10 +1140,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ],
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 8),
-                      Expanded(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 220),
                         child: Text(
                           hasStore ? storeName : 'Mağaza bilinmiyor',
                           maxLines: 1,
@@ -1211,6 +1215,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final level = levelFromLabel(tierName);
 
         return Wrap(
+          alignment: WrapAlignment.center,
           spacing: 10,
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,

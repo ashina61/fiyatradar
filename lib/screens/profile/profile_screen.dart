@@ -73,6 +73,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     _PremiumHeaderCard(
                       displayName: data.displayName,
+                      username: data.username,
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
                       levelName: data.levelName,
@@ -126,6 +127,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+      username: (data['username'] ?? '').toString(),
       photoUrl: (data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
       levelName: tierFromBackend.isEmpty ? levelBuilder(totalPoints).label : tierFromBackend,
@@ -138,6 +140,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   const _PremiumHeaderCard({
     required this.displayName,
     required this.avatarUrl,
+    required this.username,
     required this.trustScore,
     required this.levelName,
     required this.totalPoints,
@@ -147,6 +150,7 @@ class _PremiumHeaderCard extends StatelessWidget {
 
   final String displayName;
   final String avatarUrl;
+  final String username;
   final double trustScore;
   final String levelName;
   final int totalPoints;
@@ -157,6 +161,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final level = levelBuilder(totalPoints);
     final shownLevel = levelName.trim().isEmpty ? level.label : levelName;
+    final shownUsername = username.trim().isEmpty ? displayName : username.trim();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
@@ -178,64 +183,59 @@ class _PremiumHeaderCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_rounded, size: 20)),
+          ),
+          _Avatar(avatarUrl: avatarUrl, displayName: displayName, size: 110),
+          const SizedBox(height: 10),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _Avatar(avatarUrl: avatarUrl, displayName: displayName, size: 110),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF3C280A),
-                            ),
-                          ),
-                        ),
-                        if (isAdmin)
-                          const Icon(Icons.verified_rounded, size: 20, color: Color(0xFF0059D6)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: level.badgeBackground,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: level.badgeBorder),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(level.emoji, style: const TextStyle(fontSize: 16)),
-                          const SizedBox(width: 6),
-                          Text(
-                            shownLevel,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: level.badgeForeground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _TrustMiniCard(score: trustScore),
-                  ],
+              Flexible(
+                child: Text(
+                  shownUsername,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF3C280A),
+                  ),
                 ),
               ),
-              IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_rounded, size: 20)),
+              if (isAdmin) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.verified_rounded, size: 20, color: Color(0xFF0059D6)),
+              ],
             ],
+          ),
+          const SizedBox(height: 10),
+          _TrustMiniCard(score: trustScore),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: level.badgeBackground,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: level.badgeBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(level.emoji, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 6),
+                Text(
+                  shownLevel,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: level.badgeForeground,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -944,6 +944,7 @@ class _ProfileData {
   const _ProfileData({
     required this.displayName,
     required this.photoUrl,
+    required this.username,
     required this.levelName,
     required this.trustScore,
     required this.totalPoints,
@@ -951,6 +952,7 @@ class _ProfileData {
 
   final String displayName;
   final String photoUrl;
+  final String username;
   final String levelName;
   final double trustScore;
   final int totalPoints;
