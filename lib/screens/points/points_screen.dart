@@ -414,19 +414,6 @@ class _LevelBenefitChip extends StatelessWidget {
 
   final UserLevel level;
 
-  String get _benefit {
-    switch (level.label) {
-      case 'Elmas':
-        return '%5';
-      case 'Gümüş':
-        return '%3';
-      case 'Bronz':
-        return '%2';
-      default:
-        return '%1';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDiamond = level.label == 'Elmas';
@@ -448,7 +435,7 @@ class _LevelBenefitChip extends StatelessWidget {
           Text(level.emoji, style: TextStyle(fontSize: 16, color: textColor)),
           const SizedBox(width: 6),
           Text(
-            '${level.label} $_benefit',
+            level.label.toUpperCase(),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,

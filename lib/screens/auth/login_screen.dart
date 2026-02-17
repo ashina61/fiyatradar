@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../main.dart';
 import '../../services/auth_service.dart';
-import '../../utils/cities_tr.dart';
 import '../../utils/theme.dart';
 import '../main_screen.dart';
 import 'register_screen.dart';
@@ -25,7 +24,6 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  CityTR? _selectedCity;
 
   late final AnimationController _slideController;
   late final AnimationController _fadeController;
@@ -109,8 +107,6 @@ class _LoginScreenState extends State<LoginScreen>
       await _authService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        cityCode: _selectedCity?.code,
-        cityName: _selectedCity?.name,
       );
 
       if (!mounted) return;
@@ -369,17 +365,6 @@ class _LoginScreenState extends State<LoginScreen>
                                           }
                                           return null;
                                         },
-                                      ),
-                                      const SizedBox(height: 14),
-                                      DropdownButtonFormField<CityTR>(
-                                        value: _selectedCity,
-                                        items: kCitiesTR.map((city) => DropdownMenuItem<CityTR>(value: city, child: Text(city.name))).toList(),
-                                        onChanged: (value) => setState(() => _selectedCity = value),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Şehir',
-                                          prefixIcon: Icon(Icons.location_city_outlined),
-                                        ),
-                                        validator: (value) => value == null ? 'Lütfen şehir seçin' : null,
                                       ),
                                       const SizedBox(height: 14),
                                       TextFormField(
