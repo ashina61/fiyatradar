@@ -1014,43 +1014,199 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               children: cheapest
                   .map(
                     (price) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _displayPriceSourceName(price),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _formatPrice(price.price),
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              _buildPriceContributor(price),
-                            ],
-                          ),
-                        ],
-                      ),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _buildPremiumCheapestStoreItem(price),
                     ),
                   )
                   .toList(),
             ),
     );
   }
+
+  Widget _buildPremiumCheapestStoreItem(PriceModel price) {
+    final uid = (price.createdByUid ?? price.userId).trim();
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
+      builder: (context, snapshot) {
+        final fallbackTier = (price.addedByLevelSnapshot ?? 'Standart').trim();
+        final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+        final data = snapshot.data ?? {
+          'displayName': price.addedByDisplayName ?? 'Kullanıcı',
+          'trustScorePercent': fallbackScore,
+          'tierName': fallbackTier.isEmpty ? 'Standart' : fallbackTier,
+        };
+
+        final username = ((data['displayName'] ?? 'Kullanıcı').toString().trim()).isEmpty
+            ? 'Kullanıcı'
+            : (data['displayName'] ?? 'Kullanıcı').toString().trim();
+        final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
+        final tierName = (data['tierName'] ?? 'Standart').toString();
+        final level = levelFromLabel(tierName);
+        final upTotal = (data['upTotal'] as num?)?.toInt() ?? 0;
+        final downTotal = (data['downTotal'] as num?)?.toInt() ?? 0;
+        final verificationTotal = upTotal + downTotal;
+        final userVerificationRate = verificationTotal == 0 ? null : (upTotal / verificationTotal * 100).round();
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8DBCA)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8A5B2D).withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _displayPriceSourceName(price),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPriceVerificationIndicator(price),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        _formatPrice(price.price),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text('Ekleyen:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: _ContributorUserChip(
+                      username: username,
+                      level: level,
+                      onTap: () => _showContributorBottomSheet(
+                        username: username,
+                        level: level,
+                        trustPercent: trustPercent,
+                        verificationRatePercent: userVerificationRate,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPriceVerificationIndicator(PriceModel price) {
+    final bool verified = price.isApproved || price.verificationStatus == 'verified' || (price.upVotes > price.downVotes && price.upVotes > 0);
+    return Icon(
+      verified ? Icons.verified_rounded : Icons.verified_outlined,
+      size: 18,
+      color: verified ? const Color(0xFF26A65B) : AppColors.textTertiary,
+    );
+  }
+
+  Future<void> _showContributorBottomSheet({
+    required String username,
+    required UserLevel level,
+    required int trustPercent,
+    int? verificationRatePercent,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFFDFBF7),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4C4AF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 21,
+                        backgroundColor: const Color(0xFFEAD8BF),
+                        child: Text(username.substring(0, 1).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: level.badgeBackground,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: level.badgeBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(level.emoji, style: TextStyle(fontSize: 16, color: level.badgeForeground)),
+                        const SizedBox(width: 8),
+                        Text('Seviye: ${level.label}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: level.badgeForeground)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                  if (verificationRatePercent != null) ...[
+                    const SizedBox(height: 6),
+                    Text('Doğrulama Oranı: %$verificationRatePercent', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 
   Widget _buildPriceCard(
     ProductModel product, {
@@ -2176,4 +2332,51 @@ class _BranchStoreData {
   }
 
   bool get hasMapsQuery => mapsQuery.isNotEmpty;
+}
+
+
+class _ContributorUserChip extends StatelessWidget {
+  const _ContributorUserChip({
+    required this.username,
+    required this.level,
+    required this.onTap,
+  });
+
+  final String username;
+  final UserLevel level;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: level.badgeBackground,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: level.badgeBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('💎', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: level.badgeForeground),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
