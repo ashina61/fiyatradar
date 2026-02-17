@@ -1042,6 +1042,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             : (data['displayName'] ?? 'Kullanıcı').toString().trim();
         final trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
         final verifyPercent = price.trustPercent;
+        assert(() {
+          debugPrint('cheapest_store_verify_percent ${price.id} (${_displayPriceSourceName(price)}): $verifyPercent');
+          return true;
+        }());
         final tierName = (data['tierName'] ?? 'Standart').toString();
         final level = levelFromLabel(tierName);
         final isExpanded = _expandedCheapestContributorIds.contains(price.id);
@@ -1114,18 +1118,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8EA),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: const Color(0xFFE7CFAB)),
+                  if (verifyPercent != null && verifyPercent > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8EA),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: const Color(0xFFE7CFAB)),
+                      ),
+                      child: Text(
+                        'Onay %$verifyPercent',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
+                      ),
                     ),
-                    child: Text(
-                      'Onay %$verifyPercent',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
-                    ),
-                  ),
                 ],
               ),
               AnimatedSwitcher(
