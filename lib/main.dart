@@ -20,6 +20,15 @@ import 'l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final exception = details.exceptionAsString();
+    if (exception.contains('Unable to load asset')) {
+      debugPrint('Asset yükleme hatası yakalandı: $exception');
+    }
+    FlutterError.presentError(details);
+  };
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

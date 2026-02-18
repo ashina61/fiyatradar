@@ -13,23 +13,40 @@ class UltraCategoryCard extends StatefulWidget {
   final VoidCallback onTap;
 
   static const Map<String, String> categoryIcons = {
-    'Temizlik': 'assets/categories/temizlik.png',
-    'Kişisel Bakım': 'assets/categories/kisisel_bakim.png',
-    'Kitap': 'assets/categories/kitap.png',
-    'Spor': 'assets/categories/spor.png',
-    'Gıda': 'assets/categories/gida.png',
-    'Elektronik': 'assets/categories/elektronik.png',
-    'Bebek': 'assets/categories/bebek.png',
-    'Evcil Hayvan': 'assets/categories/evcil_hayvan.png',
-    'Moda': 'assets/categories/moda.png',
-    'Ev & Yaşam': 'assets/categories/ev_yasam.png',
-    'Oyuncak': 'assets/categories/oyuncak.png',
-    'Diğer': 'assets/categories/diger.png',
+    'temizlik': 'assets/icons/categories/temizlik.png',
+    'kisisel_bakim': 'assets/icons/categories/kisisel_bakim.png',
+    'kitap': 'assets/icons/categories/kitap.png',
+    'spor': 'assets/icons/categories/spor.png',
+    'gida': 'assets/icons/categories/gida.png',
+    'elektronik': 'assets/icons/categories/elektronik.png',
+    'bebek': 'assets/icons/categories/bebek.png',
+    'evcil_hayvan': 'assets/icons/categories/evcil_hayvan.png',
+    'ev_yasam': 'assets/icons/categories/ev_yasam.png',
+    'icecek': 'assets/icons/categories/icecek.png',
+    'atistirmalik': 'assets/icons/categories/atistirmalik.png',
   };
 
-  static final Map<String, AssetImage> _assetCache = {
-    for (final entry in categoryIcons.entries) entry.key: AssetImage(entry.value),
-  };
+  static String normalize(String value) {
+    const trToAscii = {
+      'ı': 'i',
+      'ş': 's',
+      'ğ': 'g',
+      'ü': 'u',
+      'ö': 'o',
+      'ç': 'c',
+    };
+
+    var normalized = value.toLowerCase().trim();
+    trToAscii.forEach((key, replacement) {
+      normalized = normalized.replaceAll(key, replacement);
+    });
+    normalized = normalized.replaceAll(RegExp(r'\s+'), '_');
+    normalized = normalized.replaceAll('&', '');
+    normalized = normalized.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    normalized = normalized.replaceAll(RegExp(r'_+'), '_');
+
+    return normalized;
+  }
 
   @override
   State<UltraCategoryCard> createState() => _UltraCategoryCardState();
@@ -41,7 +58,11 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final hasIcon = UltraCategoryCard.categoryIcons.containsKey(widget.categoryName);
+    final normalizedCategory = UltraCategoryCard.normalize(widget.categoryName);
+    final iconPath = UltraCategoryCard.categoryIcons[normalizedCategory];
+    debugPrint(
+      'UltraCategoryCard category="${widget.categoryName}" normalized="$normalizedCategory" icon="$iconPath"',
+    );
     final showGlow = widget.isSelected || _hovered;
     final scale = widget.isSelected
         ? 0.96
@@ -99,19 +120,19 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: hasIcon
-                      ? Image(
-                          image: UltraCategoryCard._assetCache[widget.categoryName]!,
-                          width: 28,
-                          height: 28,
-                          fit: BoxFit.contain,
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                const SizedBox(height: 10),
+                if (iconPath != null) ...[
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: Image.asset(
+                      iconPath,
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Text(
                   widget.categoryName,
                   maxLines: 2,
