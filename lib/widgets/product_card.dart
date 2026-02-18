@@ -6,7 +6,7 @@ import '../models/price_model.dart';
 import '../models/product_model.dart';
 import '../providers/product_provider.dart';
 import '../utils/formatters.dart';
-import '../utils/level_system.dart';
+import '../utils/level_style.dart';
 import '../utils/theme.dart';
 import 'app_badge.dart';
 import 'app_card.dart';
@@ -77,7 +77,16 @@ class ProductCard extends ConsumerWidget {
                       builder: (context, snapshot) {
                         final data = snapshot.data?.data();
                         final totalPoints = (data?['totalPoints'] as num?)?.toInt() ?? (data?['points'] as num?)?.toInt() ?? 0;
-                        return LevelBadge(level: levelBuilder(totalPoints), compact: true);
+                        final trustPercent = ((data?['trustScorePercent'] as num?)?.toInt() ?? 0).clamp(0, 100);
+                        final trustTotalVotes = (data?['trustTotalVotes'] as num?)?.toInt() ?? 0;
+                        return LevelBadge(
+                          level: LevelStyle.fromFinalLevel(
+                            totalPoints: totalPoints,
+                            trustPercent: trustPercent,
+                            totalVotes: trustTotalVotes,
+                          ),
+                          compact: true,
+                        );
                       },
                     ),
                   ),

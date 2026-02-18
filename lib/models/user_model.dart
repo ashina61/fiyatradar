@@ -19,6 +19,10 @@ class UserModel {
   final String? role;
   final List<String> savedProducts;
   final double reliabilityScore;
+  final int trustScorePercent;
+  final int trustTotalVotes;
+  final int trustVerifiedTotal;
+  final int trustWrongTotal;
   final int reliabilityVotesTotal;
   final int reliabilityVotesUp;
   final int reliabilityVotesDown;
@@ -44,6 +48,10 @@ class UserModel {
     this.role,
     this.savedProducts = const [],
     this.reliabilityScore = 0.0,
+    this.trustScorePercent = 0,
+    this.trustTotalVotes = 0,
+    this.trustVerifiedTotal = 0,
+    this.trustWrongTotal = 0,
     this.reliabilityVotesTotal = 0,
     this.reliabilityVotesUp = 0,
     this.reliabilityVotesDown = 0,
@@ -73,6 +81,10 @@ class UserModel {
       role: data['role'],
       savedProducts: List<String>.from(data['savedProducts'] ?? []),
       reliabilityScore: (data['reliabilityScore'] ?? 0.0).toDouble(),
+      trustScorePercent: (data['trustScorePercent'] as num?)?.toInt() ?? 0,
+      trustTotalVotes: (data['trustTotalVotes'] as num?)?.toInt() ?? 0,
+      trustVerifiedTotal: (data['trustVerifiedTotal'] as num?)?.toInt() ?? 0,
+      trustWrongTotal: (data['trustWrongTotal'] as num?)?.toInt() ?? 0,
       reliabilityVotesTotal: (data['reliabilityVotesTotal'] as num?)?.toInt() ?? 0,
       reliabilityVotesUp: (data['reliabilityVotesUp'] as num?)?.toInt() ?? 0,
       reliabilityVotesDown: (data['reliabilityVotesDown'] as num?)?.toInt() ?? 0,
@@ -100,6 +112,10 @@ class UserModel {
       'role': role,
       'savedProducts': savedProducts,
       'reliabilityScore': reliabilityScore,
+      'trustScorePercent': trustScorePercent,
+      'trustTotalVotes': trustTotalVotes,
+      'trustVerifiedTotal': trustVerifiedTotal,
+      'trustWrongTotal': trustWrongTotal,
       'reliabilityVotesTotal': reliabilityVotesTotal,
       'reliabilityVotesUp': reliabilityVotesUp,
       'reliabilityVotesDown': reliabilityVotesDown,
@@ -127,6 +143,10 @@ class UserModel {
     String? role,
     List<String>? savedProducts,
     double? reliabilityScore,
+    int? trustScorePercent,
+    int? trustTotalVotes,
+    int? trustVerifiedTotal,
+    int? trustWrongTotal,
     int? reliabilityVotesTotal,
     int? reliabilityVotesUp,
     int? reliabilityVotesDown,
@@ -152,6 +172,10 @@ class UserModel {
       role: role ?? this.role,
       savedProducts: savedProducts ?? this.savedProducts,
       reliabilityScore: reliabilityScore ?? this.reliabilityScore,
+      trustScorePercent: trustScorePercent ?? this.trustScorePercent,
+      trustTotalVotes: trustTotalVotes ?? this.trustTotalVotes,
+      trustVerifiedTotal: trustVerifiedTotal ?? this.trustVerifiedTotal,
+      trustWrongTotal: trustWrongTotal ?? this.trustWrongTotal,
       reliabilityVotesTotal: reliabilityVotesTotal ?? this.reliabilityVotesTotal,
       reliabilityVotesUp: reliabilityVotesUp ?? this.reliabilityVotesUp,
       reliabilityVotesDown: reliabilityVotesDown ?? this.reliabilityVotesDown,

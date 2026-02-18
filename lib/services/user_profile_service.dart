@@ -13,6 +13,7 @@ class UserProfileSummary {
     required this.weeklyPoints,
     required this.monthlyPoints,
     required this.trustScorePercent,
+    required this.trustTotalVotes,
     required this.level,
   });
 
@@ -24,6 +25,7 @@ class UserProfileSummary {
   final int weeklyPoints;
   final int monthlyPoints;
   final int trustScorePercent;
+  final int trustTotalVotes;
   final UserLevel level;
 }
 
@@ -43,6 +45,15 @@ class UserProfileService {
       final trustScorePercent = ((data['trustScorePercent'] as num?)?.toDouble() ?? (data['reliabilityScore'] as num?)?.toDouble() ?? ((data['trustScore'] as num?)?.toDouble() ?? 0) * 100)
           .round()
           .clamp(0, 100);
+      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+      final trustUpTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
+      final trustDownTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
+      final trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (trustUpTotal + trustDownTotal);
+      final finalLevel = LevelStyle.fromFinalLevel(
+        totalPoints: totalPoints,
+        trustPercent: trustScorePercent,
+        totalVotes: trustTotalVotes,
+      );
 
       return UserProfileSummary(
         uid: doc.id,
@@ -55,7 +66,8 @@ class UserProfileService {
         weeklyPoints: weeklyPoints,
         monthlyPoints: monthlyPoints,
         trustScorePercent: trustScorePercent,
-        level: LevelStyle.fromLevelLabel((data['level'] ?? data['levelName'])?.toString(), fallbackTotalPoints: totalPoints),
+        trustTotalVotes: trustTotalVotes,
+        level: finalLevel,
       );
     });
   }

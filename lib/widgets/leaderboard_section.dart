@@ -254,7 +254,7 @@ class _PodiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = LevelStyle.fromTotalPoints(item.totalPoints);
+    final level = LevelStyle.fromFinalLevel(totalPoints: item.totalPoints, trustPercent: item.trustScorePercent, totalVotes: item.trustTotalVotes);
     return Container(
       margin: EdgeInsets.only(bottom: compact ? 0 : 22),
       padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 12 : 16),
@@ -297,7 +297,7 @@ class _LeaderboardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = LevelStyle.fromTotalPoints(item.totalPoints);
+    final level = LevelStyle.fromFinalLevel(totalPoints: item.totalPoints, trustPercent: item.trustScorePercent, totalVotes: item.trustTotalVotes);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(

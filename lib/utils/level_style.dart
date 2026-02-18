@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'elite_level_engine.dart';
 import 'level_system.dart';
 
 class LevelStyle {
@@ -7,10 +8,20 @@ class LevelStyle {
 
   static UserLevel fromTotalPoints(int totalPoints) => levelBuilder(totalPoints);
 
+  static UserLevel fromEliteLevel(EliteLevel level) {
+    return UserLevel.fromEliteStyle(EliteLevelEngine.getLevelStyle(level), minPoints: 0);
+  }
+
+  static UserLevel fromFinalLevel({required int totalPoints, required int trustPercent, required int totalVotes}) {
+    final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
+    return fromEliteLevel(level);
+  }
+
   static UserLevel fromLevelLabel(String? levelLabel, {int? fallbackTotalPoints}) {
     final raw = (levelLabel ?? '').trim();
     if (raw.isNotEmpty) {
-      return levelFromLabel(raw);
+      final elite = EliteLevelEngine.parseLevelLabel(raw, fallback: EliteLevelEngine.getPointsLevel(fallbackTotalPoints ?? 0));
+      return fromEliteLevel(elite);
     }
     return fromTotalPoints(fallbackTotalPoints ?? 0);
   }

@@ -98,6 +98,10 @@ class AuthService {
           'monthlyPoints': 0,
           'streakDays': 0,
           'trustScorePercent': 0,
+          'trustTotalVotes': 0,
+          'trustVerifiedTotal': 0,
+          'trustWrongTotal': 0,
+          'trustScoreStatus': 'veri_az',
           'trustScore': 0.0,
           'level': 'Standart',
         }, SetOptions(merge: true));
