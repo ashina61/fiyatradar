@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/banner_model.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -8,12 +8,12 @@ import 'product_provider.dart';
 import 'price_provider.dart';
 
 final activeBannersProvider = StreamProvider<List<BannerModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getActiveBanners();
 });
 
 final allBannersProvider = StreamProvider<List<BannerModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllBanners();
 });
 

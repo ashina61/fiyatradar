@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/product_model.dart';
 import '../models/comment_model.dart';
 import '../models/price_model.dart';
@@ -16,22 +16,22 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 });
 
 final trendingProductsProvider = StreamProvider<List<ProductModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getTrendingProducts();
 });
 
 final recommendedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getRecommendedProducts();
 });
 
 final allProductsProvider = StreamProvider<List<ProductModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllProducts();
 });
 
 final productProvider = FutureProvider.family<ProductModel?, String>((ref, productId) async {
-  if (!firebaseInitialized) return null;
+  if (!ref.watch(firebaseInitializedProvider)) return null;
   return ref.watch(firestoreServiceProvider).getProduct(productId);
 });
 
@@ -42,7 +42,7 @@ final selectedCategoryFilterProvider = StateProvider<String>((ref) => 'Tumu');
 
 final searchResultsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  if (query.isEmpty || !firebaseInitialized) {
+  if (query.isEmpty || !ref.watch(firebaseInitializedProvider)) {
     return [];
   }
   return ref.watch(firestoreServiceProvider).searchProducts(query);
@@ -77,19 +77,19 @@ final productNotifierProvider =
 
 // Categories
 final categoriesProvider = StreamProvider<List<CategoryModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getCategories();
 });
 
 /// @deprecated Use [allStoresStreamProvider] or [activeStoresProvider] instead.
 final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getStores();
 });
 
 // Product by ID (stream version)
 final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, productId) {
-  if (!firebaseInitialized || productId.isEmpty) return Stream.value(null);
+  if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value(null);
   return ref.watch(firestoreServiceProvider).getAllProducts().map(
     (products) => products.where((p) => p.id == productId).firstOrNull,
   );
@@ -97,31 +97,31 @@ final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, p
 
 // Comments for a product
 final productCommentsProvider = StreamProvider.family<List<CommentModel>, String>((ref, productId) {
-  if (!firebaseInitialized || productId.isEmpty) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getComments(productId);
 });
 
 // Price history for a product
 final productPriceHistoryProvider = StreamProvider.family<List<PriceModel>, String>((ref, productId) {
-  if (!firebaseInitialized || productId.isEmpty) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPricesForProduct(productId);
 });
 
 // Latest prices across all products (for home screen)
 final latestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getLatestPrices(limit: 10);
 });
 
 // Reports (for admin panel)
 final reportsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getReports();
 });
 
 // Maintenance mode
 final maintenanceModeProvider = StreamProvider<bool>((ref) {
-  if (!firebaseInitialized) return Stream.value(false);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value(false);
   return ref.watch(firestoreServiceProvider).getMaintenanceMode();
 });
 
@@ -130,12 +130,12 @@ final maintenanceModeProvider = StreamProvider<bool>((ref) {
 // =========================================================================
 
 final allBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllBrands();
 });
 
 final activeBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getActiveBrands();
 });
 
@@ -144,47 +144,47 @@ final activeBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
 // =========================================================================
 
 final allStoresStreamProvider = StreamProvider<List<StoreModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllStoresStream();
 });
 
 final activeStoresProvider = StreamProvider<List<StoreModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getActiveStores();
 });
 
 
 final nearbyStoresProvider = StreamProvider<List<StoreModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getNearbyActiveStoresStream();
 });
 
 final onlineStoresProvider = StreamProvider<List<StoreModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getOnlineActiveStoresStream();
 });
 
 final pendingStoreSuggestionsProvider =
     StreamProvider<List<StoreSuggestionModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPendingStoreSuggestions();
 });
 
 
 final pendingProductSuggestionsProvider =
     StreamProvider<List<ProductSuggestionModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
 });
 
 
 final weeklyDealsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getWeeklyDeals();
 });
 
 final dealItemsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, dealId) {
-  if (!firebaseInitialized || dealId.isEmpty) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider) || dealId.isEmpty) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getDealItems(dealId);
 });
 
@@ -192,14 +192,14 @@ final dealItemsProvider = StreamProvider.family<List<Map<String, dynamic>>, Stri
 final favoriteOverrideProvider = StateProvider.family<bool?, String>((ref, productId) => null);
 
 final isFavoriteProvider = StreamProvider.family<bool, String>((ref, productId) {
-  if (!firebaseInitialized || productId.trim().isEmpty) return Stream.value(false);
+  if (!ref.watch(firebaseInitializedProvider) || productId.trim().isEmpty) return Stream.value(false);
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return Stream.value(false);
   return ref.watch(firestoreServiceProvider).isFavoriteStream(uid: user.uid, productId: productId);
 });
 
 final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).recentlyViewedStream(user.uid);

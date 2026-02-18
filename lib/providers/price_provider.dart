@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/price_model.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -20,18 +20,18 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 
 final pricesForProductProvider =
     StreamProvider.family<List<PriceModel>, String>((ref, productId) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPricesForProduct(productId);
 });
 
 final latestPriceProvider =
     FutureProvider.family<PriceModel?, String>((ref, productId) async {
-  if (!firebaseInitialized) return null;
+  if (!ref.watch(firebaseInitializedProvider)) return null;
   return ref.watch(firestoreServiceProvider).getLatestPrice(productId);
 });
 
 final pendingPricesProvider = StreamProvider<List<PriceModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getPendingPrices();
 });
 

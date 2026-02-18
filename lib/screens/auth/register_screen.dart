@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../utils/theme.dart';
 import '../../utils/cities_tr.dart';
 import '../../services/auth_service.dart';
-import '../../main.dart';
+import '../../providers/firebase_init_provider.dart';
 import '../main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {

@@ -10,14 +10,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/firebase_init_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
 import 'l10n/app_localizations.dart';
-
-/// Whether Firebase was successfully initialized.
-bool firebaseInitialized = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/notification_model.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 import 'product_provider.dart';
 
 final notificationsProvider = StreamProvider<List<NotificationModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   final authState = ref.watch(authStateProvider);
   return authState.when(
     data: (user) {
@@ -21,7 +21,7 @@ final notificationsProvider = StreamProvider<List<NotificationModel>>((ref) {
 });
 
 final unreadNotificationCountProvider = StreamProvider<int>((ref) {
-  if (!firebaseInitialized) return Stream.value(0);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value(0);
   final authState = ref.watch(authStateProvider);
   return authState.when(
     data: (user) {
