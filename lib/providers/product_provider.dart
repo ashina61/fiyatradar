@@ -7,6 +7,7 @@ import '../models/brand_model.dart';
 import '../models/store_model.dart';
 import '../models/store_suggestion_model.dart';
 import '../models/category_model.dart';
+import '../models/category_theme.dart';
 import '../models/product_suggestion_model.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
@@ -39,6 +40,7 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 // Category filter for search screen (set from home screen category tap)
 final selectedCategoryFilterProvider = StateProvider<String>((ref) => 'Tumu');
+final selectedCategoryIdProvider = StateProvider<String?>((ref) => null);
 
 final searchResultsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final query = ref.watch(searchQueryProvider);
@@ -73,6 +75,27 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
 final productNotifierProvider =
     StateNotifierProvider<ProductNotifier, AsyncValue<void>>((ref) {
   return ProductNotifier(ref.watch(firestoreServiceProvider));
+});
+
+
+final orderedCategoriesProvider = Provider<List<CategoryModel>>((ref) {
+  final categories = ref.watch(categoriesProvider).valueOrNull ?? const <CategoryModel>[];
+
+  final uniqueByCanonical = <String, CategoryModel>{};
+  for (final category in categories) {
+    uniqueByCanonical.putIfAbsent(category.canonicalId, () => category);
+  }
+
+  final ordered = uniqueByCanonical.values.toList()
+    ..sort((a, b) {
+      final aTheme = CategoryThemeCatalog.resolve(id: a.canonicalId, title: a.title);
+      final bTheme = CategoryThemeCatalog.resolve(id: b.canonicalId, title: b.title);
+      final byThemeOrder = aTheme.sortOrder.compareTo(bTheme.sortOrder);
+      if (byThemeOrder != 0) return byThemeOrder;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+
+  return ordered;
 });
 
 // Categories
