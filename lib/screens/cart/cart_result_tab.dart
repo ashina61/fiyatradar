@@ -1,6 +1,6 @@
+import '../../utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../features/basket/cart_comparison_state.dart';
@@ -830,7 +830,4 @@ class _Pill extends StatelessWidget {
   }
 }
 
-String _formatCurrency(num value) {
-  final formatter = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
-  return formatter.format(value).replaceAll('₺', '').trim() + ' ₺';
-}
+String _formatCurrency(num value) => formatTRY(value);
