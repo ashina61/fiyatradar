@@ -944,6 +944,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           builder: (context, summarySnapshot) {
             final summary = summarySnapshot.data;
             final trustPercent = summary?.trustScorePercent ?? price.addedByTrustScoreSnapshot.round().clamp(0, 100);
+            final trustTotalVotes = summary?.trustTotalVotes ?? 0;
             final level = summary?.level ?? userMini.level;
             final username = summary?.displayName ?? userMini.displayName;
             final verification = ref.read(_priceVerificationServiceProvider).summaryForPrice(price);
@@ -986,6 +987,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 username: username,
                                 level: level,
                                 trustPercent: trustPercent,
+                                trustTotalVotes: trustTotalVotes,
                               ),
                             ),
                             Container(
@@ -1039,7 +1041,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Future<void> _showContributorBottomSheet({
     required String username,
     required UserLevel level,
-    required int trustPercent
+    required int trustPercent,
+    required int trustTotalVotes,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -1102,6 +1105,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  Text('Toplam oy: $trustTotalVotes', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   const Text(
                     'Bu güven skoru, kullanıcının eklediği fiyatların doğrulanma/yanlışlanma performansından hesaplanır.',
@@ -2165,9 +2170,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       final data = doc.data() ?? const <String, dynamic>{};
       final displayNameRaw = ((data['name'] ?? data['displayName'] ?? fallbackName).toString()).trim();
       final displayName = displayNameRaw.isEmpty ? 'Kullanıcı' : displayNameRaw;
-      final levelRaw = (data['levelKey'] ?? data['rank'] ?? data['level'] ?? data['levelName'] ?? '').toString().trim();
       final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
-      final level = LevelStyle.fromLevelLabel(levelRaw, fallbackTotalPoints: totalPoints);
+      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? 0).clamp(0, 100);
+      final trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
+      final level = LevelStyle.fromFinalLevel(totalPoints: totalPoints, trustPercent: trustPercent, totalVotes: trustTotalVotes);
 
       final mini = _ContributorUserMini(displayName: displayName, level: level);
       _contributorUserCache[uid] = mini;

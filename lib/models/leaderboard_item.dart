@@ -10,6 +10,8 @@ class UserLeaderboardItem {
     required this.totalPoints,
     required this.cityCode,
     required this.cityName,
+    required this.trustScorePercent,
+    required this.trustTotalVotes,
   });
 
   final String uid;
@@ -20,11 +22,16 @@ class UserLeaderboardItem {
   final int totalPoints;
   final String cityCode;
   final String cityName;
+  final int trustScorePercent;
+  final int trustTotalVotes;
 
   factory UserLeaderboardItem.fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
     final cityName = (data['cityName'] ?? data['city'] ?? '').toString();
     final cityCode = (data['cityCode'] ?? cityName).toString();
+    final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+    final up = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
+    final down = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
     return UserLeaderboardItem(
       uid: doc.id,
       name: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
@@ -34,6 +41,8 @@ class UserLeaderboardItem {
       totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? 0,
       cityCode: cityCode,
       cityName: cityName,
+      trustScorePercent: ((data['trustScorePercent'] as num?)?.toInt() ?? 0).clamp(0, 100),
+      trustTotalVotes: (data['trustTotalVotes'] as num?)?.toInt() ?? (up + down),
     );
   }
 }

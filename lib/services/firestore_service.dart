@@ -20,6 +20,7 @@ import '../models/actual_item_model.dart';
 import '../models/actual_model.dart';
 import '../utils/safe_query_builder.dart';
 import '../services/storage_service.dart';
+import '../utils/elite_level_engine.dart';
 import 'points_service.dart';
 
 class DuplicatePriceException implements Exception {
@@ -1088,7 +1089,7 @@ class FirestoreService {
     try {
       final result = await _firestore.runTransaction<PriceVoteResult>((txn) async {
         final priceRef = _pricesRef.doc(priceId);
-        final voteRef = priceRef.collection('verifications').doc(voterUid);
+        final voteRef = _firestore.collection('price_votes').doc(priceId).collection('votes').doc(voterUid);
         final voterRef = _usersRef.doc(voterUid);
 
         final priceSnap = await txn.get(priceRef);
@@ -1100,7 +1101,6 @@ class FirestoreService {
 
         final ownerUidFromDoc = (priceData['createdByUid'] ?? priceData['userId'] ?? '').toString();
         final ownerUid = ownerUidFromDoc.isNotEmpty ? ownerUidFromDoc : priceOwnerUid;
-        final ownerRef = _usersRef.doc(ownerUid);
         if (ownerUid.trim().isEmpty) {
           return const PriceVoteResult(PriceVoteStatus.ignored);
         }
@@ -1122,9 +1122,9 @@ class FirestoreService {
         final voteSnap = await txn.get(voteRef);
         final existingVoteData = voteSnap.data() ?? const <String, dynamic>{};
         final existingVoteRaw = (existingVoteData['vote'] ?? existingVoteData['value'] ?? '').toString();
-        final existingVote = existingVoteRaw == 'up' || existingVoteRaw == 'yes'
+        final existingVote = existingVoteRaw == 'up' || existingVoteRaw == 'yes' || existingVoteRaw == 'verified'
             ? 1
-            : (existingVoteRaw == 'down' || existingVoteRaw == 'no' ? -1 : 0);
+            : (existingVoteRaw == 'down' || existingVoteRaw == 'no' || existingVoteRaw == 'wrong' ? -1 : 0);
 
         if (voteSnap.exists && existingVote == vote) {
           return PriceVoteResult(
@@ -1150,14 +1150,16 @@ class FirestoreService {
         final voterSnap = await txn.get(voterRef);
         final voterData = voterSnap.data() ?? const <String, dynamic>{};
         final voterName = (voterData['name'] ?? voterData['displayName'] ?? '').toString();
-        final voterLevel = _standardizeTrustTierName(
-          (voterData['level'] ?? voterData['tierName'] ?? 'Standart').toString(),
-        );
-        final voterTrust = ((voterData['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100);
+        final voterTotalPoints = (voterData['totalPoints'] as num?)?.toInt() ?? (voterData['pointsTotal'] as num?)?.toInt() ?? (voterData['points'] as num?)?.toInt() ?? 0;
+        final voterTrustPercent = ((voterData['trustScorePercent'] as num?)?.toInt() ?? (voterData['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
+        final voterTrustVotes = (voterData['trustTotalVotes'] as num?)?.toInt() ?? 0;
+        final voterFinalLevel = EliteLevelEngine.getFinalLevel(voterTotalPoints, voterTrustPercent, voterTrustVotes);
+        final voterLevel = EliteLevelEngine.getLevelStyle(voterFinalLevel).label;
+        final voterTrust = voterTrustPercent.toDouble();
 
         txn.set(voteRef, {
           'uid': voterUid,
-          'vote': vote == 1 ? 'up' : 'down',
+          'vote': vote == 1 ? 'verified' : 'wrong',
           'createdAt': FieldValue.serverTimestamp(),
           'userName': voterName,
           'userLevelSnapshot': voterLevel,
@@ -1198,22 +1200,6 @@ class FirestoreService {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
-        final ownerSnap = await txn.get(ownerRef);
-        final ownerData = ownerSnap.data() ?? <String, dynamic>{};
-        final verifiedCorrect = (ownerData['verifiedCorrect'] as num?)?.toInt() ?? 0;
-        final verifiedWrong = (ownerData['verifiedWrong'] as num?)?.toInt() ?? 0;
-        final nextCorrect = vote == 1 ? verifiedCorrect + 1 : verifiedCorrect;
-        final nextWrong = vote == -1 ? verifiedWrong + 1 : verifiedWrong;
-        final ownerVoteTotal = nextCorrect + nextWrong;
-        final trustScore = ownerVoteTotal == 0 ? 0.0 : (nextCorrect / ownerVoteTotal);
-
-        txn.set(ownerRef, {
-          'verifiedCorrect': nextCorrect,
-          'verifiedWrong': nextWrong,
-          'trustScore': trustScore,
-          'trustScorePercent': (trustScore * 100).round(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
 
         return PriceVoteResult(
           voteSnap.exists ? PriceVoteStatus.voteChanged : PriceVoteStatus.newVote,
@@ -1240,6 +1226,12 @@ class FirestoreService {
         } catch (e) {
           debugPrint('voteOnPrice points award failed: $e');
         }
+      }
+
+      final normalizedOwnerUid = priceOwnerUid.trim();
+      if (normalizedOwnerUid.isNotEmpty &&
+          (result.status == PriceVoteStatus.newVote || result.status == PriceVoteStatus.voteChanged)) {
+        await recomputeAndStoreUserTrust(normalizedOwnerUid);
       }
 
       return result;
@@ -1273,18 +1265,28 @@ class FirestoreService {
   }
 
   Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
-    final voteDoc = await _pricesRef.doc(priceId).collection('verifications').doc(userId).get();
-    return voteDoc.exists;
+    final voteDoc = await _firestore.collection('price_votes').doc(priceId).collection('votes').doc(userId).get();
+    if (voteDoc.exists) return true;
+    final legacyVoteDoc = await _pricesRef.doc(priceId).collection('verifications').doc(userId).get();
+    return legacyVoteDoc.exists;
   }
 
   Stream<String?> streamUserVoteValue(String priceId, String uid) {
     if (priceId.trim().isEmpty || uid.trim().isEmpty) return const Stream<String?>.empty();
-    return _pricesRef.doc(priceId).collection('verifications').doc(uid).snapshots().map((snap) {
-      if (!snap.exists) return null;
+    return _firestore.collection('price_votes').doc(priceId).collection('votes').doc(uid).snapshots().asyncMap((snap) async {
+      if (!snap.exists) {
+        final legacy = await _pricesRef.doc(priceId).collection('verifications').doc(uid).get();
+        if (!legacy.exists) return null;
+        final legacyData = legacy.data() ?? const <String, dynamic>{};
+        final rawLegacy = (legacyData['vote'] ?? legacyData['value'] ?? '').toString();
+        if (rawLegacy == 'up' || rawLegacy == 'yes' || rawLegacy == 'verified') return 'yes';
+        if (rawLegacy == 'down' || rawLegacy == 'no' || rawLegacy == 'wrong') return 'no';
+        return null;
+      }
       final data = snap.data() ?? const <String, dynamic>{};
       final raw = (data['vote'] ?? data['value'] ?? '').toString();
-      if (raw == 'up' || raw == 'yes') return 'yes';
-      if (raw == 'down' || raw == 'no') return 'no';
+      if (raw == 'up' || raw == 'yes' || raw == 'verified') return 'yes';
+      if (raw == 'down' || raw == 'no' || raw == 'wrong') return 'no';
       return null;
     });
   }
@@ -1652,8 +1654,7 @@ class FirestoreService {
   String _trustTierFromScore(int score) {
     if (score >= 80) return 'Elmas';
     if (score >= 60) return 'Altın';
-    if (score >= 40) return 'Gümüş';
-    if (score >= 20) return 'Bronz';
+    if (score >= 40) return 'Bronz';
     return 'Standart';
   }
 
@@ -1677,10 +1678,76 @@ class FirestoreService {
         return 'Bronz';
       case 'standard':
       case 'standart':
+      case 'yeni':
         return 'Standart';
       default:
         return 'Standart';
     }
+  }
+
+  Future<void> recomputeAndStoreUserTrust(String uid) async {
+    if (uid.trim().isEmpty) return;
+
+    final byCreated = await _pricesRef.where('createdByUid', isEqualTo: uid).get();
+    final byUser = await _pricesRef.where('userId', isEqualTo: uid).get();
+    final docs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+    for (final doc in byCreated.docs) {
+      docs[doc.id] = doc;
+    }
+    for (final doc in byUser.docs) {
+      docs[doc.id] = doc;
+    }
+
+    var verifiedTotal = 0;
+    var wrongTotal = 0;
+    for (final doc in docs.values) {
+      final data = doc.data();
+      verifiedTotal += ((data['verifyUpCount'] as num?)?.toInt() ??
+          (data['upVotes'] as num?)?.toInt() ??
+          (data['verifiedCount'] as num?)?.toInt() ??
+          (data['verification'] is Map ? ((data['verification'] as Map)['upCount'] as num?)?.toInt() : null) ??
+          0);
+      wrongTotal += ((data['verifyDownCount'] as num?)?.toInt() ??
+          (data['downVotes'] as num?)?.toInt() ??
+          (data['unverifiedCount'] as num?)?.toInt() ??
+          (data['verification'] is Map ? ((data['verification'] as Map)['downCount'] as num?)?.toInt() : null) ??
+          0);
+    }
+
+    final trust = EliteLevelEngine.calculateTrust(
+      verifiedTotal: verifiedTotal,
+      wrongTotal: wrongTotal,
+    );
+
+    final userDoc = await _usersRef.doc(uid).get();
+    final userData = userDoc.data() ?? const <String, dynamic>{};
+    final totalPoints = (userData['totalPoints'] as num?)?.toInt() ??
+        (userData['pointsTotal'] as num?)?.toInt() ??
+        (userData['points'] as num?)?.toInt() ??
+        0;
+    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trust.trustPercent, trust.totalVotes);
+    final levelLabel = EliteLevelEngine.getLevelStyle(finalLevel).label;
+
+    await _usersRef.doc(uid).set({
+      'trustVerifiedTotal': trust.verifiedTotal,
+      'trustWrongTotal': trust.wrongTotal,
+      'trustTotalVotes': trust.totalVotes,
+      'trustScorePercent': trust.trustPercent,
+      'trustScore': trust.trustPercent / 100,
+      'trustUpdatedAt': FieldValue.serverTimestamp(),
+      'trustScoreStatus': trust.status == TrustScoreStatus.veriAz ? 'veri_az' : 'ok',
+      'trust': {
+        'upTotal': trust.verifiedTotal,
+        'downTotal': trust.wrongTotal,
+        'totalVotes': trust.totalVotes,
+        'trustPercent': trust.trustPercent,
+      },
+      'level': levelLabel,
+      'levelName': levelLabel,
+      'tierName': levelLabel,
+      'reliabilityScore': trust.trustPercent,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Stream<Map<String, dynamic>> streamUserTrustProfile(String uid) {
@@ -1688,24 +1755,27 @@ class FirestoreService {
       return Stream.value(const {
         'displayName': 'Kullanıcı',
         'trustScorePercent': 0,
+        'trustTotalVotes': 0,
         'tierName': 'Standart',
       });
     }
 
     return _usersRef.doc(uid).snapshots().map((doc) {
       final data = doc.data() ?? <String, dynamic>{};
-      final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
-      final levelRaw = (data['level'] ?? data['tierName'] ?? '').toString();
-      final level = levelRaw.trim().isEmpty
-          ? _trustTierFromScore(score)
-          : _standardizeTrustTierName(levelRaw);
-      final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
+      final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
+      final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
+      final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
+      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
       return {
         'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
-        'trustScorePercent': score,
-        'tierName': level,
-        'upTotal': (trust['upTotal'] as num?)?.toInt() ?? 0,
-        'downTotal': (trust['downTotal'] as num?)?.toInt() ?? 0,
+        'trustScorePercent': trustPercent,
+        'trustTotalVotes': totalVotes,
+        'tierName': EliteLevelEngine.getLevelStyle(level).label,
+        'upTotal': upTotal,
+        'downTotal': downTotal,
       };
     });
   }
@@ -1715,55 +1785,29 @@ class FirestoreService {
       return {
         'displayName': 'Kullanıcı',
         'trustScorePercent': 0,
+        'trustTotalVotes': 0,
         'tierName': 'Standart',
       };
     }
 
     final doc = await _usersRef.doc(uid).get();
     final data = doc.data() ?? <String, dynamic>{};
-    final score = ((data['reliabilityScore'] as num?)?.toDouble() ?? 0).clamp(0, 100).round();
-    final levelRaw = (data['level'] ?? data['tierName'] ?? '').toString();
-    final level = levelRaw.trim().isEmpty
-        ? _trustTierFromScore(score)
-        : _standardizeTrustTierName(levelRaw);
+    final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+    final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
+    final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
+    final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
+    final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
+    final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+    final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
 
-    final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
     return {
       'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
-      'trustScorePercent': score,
-      'tierName': level,
-      'upTotal': (trust['upTotal'] as num?)?.toInt() ?? 0,
-      'downTotal': (trust['downTotal'] as num?)?.toInt() ?? 0,
+      'trustScorePercent': trustPercent,
+      'trustTotalVotes': totalVotes,
+      'tierName': EliteLevelEngine.getLevelStyle(level).label,
+      'upTotal': upTotal,
+      'downTotal': downTotal,
     };
-  }
-
-  Future<void> _refreshUserTrust(String uid) async {
-    if (uid.trim().isEmpty) return;
-    final userRef = _usersRef.doc(uid);
-    final snap = await userRef.get();
-    final data = snap.data() ?? <String, dynamic>{};
-    final trust = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-    final up = (trust['upTotal'] as num?)?.toInt() ?? 0;
-    final down = (trust['downTotal'] as num?)?.toInt() ?? 0;
-    final total = up + down;
-    final percent = total <= 0 ? 0 : ((up / total) * 100).round().clamp(0, 100);
-    final score = up - down;
-
-    final level = _standardizeTrustTierName(_trustTierFromScore(percent));
-
-    await userRef.set({
-      'trust': {
-        'upTotal': up,
-        'downTotal': down,
-        'score': score,
-        'trustPercent': percent,
-      },
-      'trustScorePercent': percent,
-      'reliabilityScore': percent,
-      'tierName': level,
-      'levelName': level,
-      'level': level,
-    }, SetOptions(merge: true));
   }
 
   Future<void> softDeletePrice({required String priceId, required String deletedByUid}) async {

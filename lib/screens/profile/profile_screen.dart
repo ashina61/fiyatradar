@@ -10,6 +10,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
+import '../../utils/elite_level_engine.dart';
 import '../../utils/level_style.dart';
 import '../../utils/theme.dart';
 import '../../services/firestore_service.dart';
@@ -77,6 +78,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       username: data.username,
                       avatarUrl: data.photoUrl,
                       trustScore: data.trustScore,
+                      trustTotalVotes: data.trustTotalVotes,
                       levelName: data.levelName,
                       totalPoints: data.totalPoints,
                       isAdmin: userModel?.isAdmin == true,
@@ -125,15 +127,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
     final trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
     final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
-    final tierFromBackend = (trustProfile['tierName'] ?? '').toString().trim();
+    final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
+    final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
+    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
-      levelName: LevelStyle.fromLevelLabel(tierFromBackend, fallbackTotalPoints: totalPoints).label,
-      trustScore: (trustProfile['trustScorePercent'] as num?)?.toDouble() ?? 0,
+      levelName: EliteLevelEngine.getLevelStyle(finalLevel).label,
+      trustScore: trustPercent.toDouble(),
+      trustTotalVotes: trustTotalVotes,
     );
   }
 }
@@ -145,6 +150,7 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.username,
     required this.trustScore,
     required this.levelName,
+    required this.trustTotalVotes,
     required this.totalPoints,
     required this.isAdmin,
     required this.onEdit,
@@ -155,6 +161,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   final String username;
   final double trustScore;
   final String levelName;
+  final int trustTotalVotes;
   final int totalPoints;
   final bool isAdmin;
   final VoidCallback onEdit;
@@ -215,7 +222,7 @@ class _PremiumHeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _TrustMiniCard(score: trustScore),
+          _TrustMiniCard(score: trustScore, totalVotes: trustTotalVotes),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -308,9 +315,10 @@ class _MetricChip extends StatelessWidget {
 }
 
 class _TrustMiniCard extends StatelessWidget {
-  const _TrustMiniCard({required this.score});
+  const _TrustMiniCard({required this.score, required this.totalVotes});
 
   final double score;
+  final int totalVotes;
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +351,15 @@ class _TrustMiniCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
-            child: Text('Güven Skoru', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D2D0E))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Güven Skoru', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D2D0E))),
+                Text('Toplam oy: $totalVotes', style: const TextStyle(fontSize: 11, color: Color(0xFF6D5733), fontWeight: FontWeight.w600)),
+              ],
+            ),
           ),
           IconButton(
             onPressed: () {
@@ -892,6 +907,7 @@ class _ProfileData {
     required this.username,
     required this.levelName,
     required this.trustScore,
+    required this.trustTotalVotes,
     required this.totalPoints,
   });
 
@@ -900,5 +916,6 @@ class _ProfileData {
   final String username;
   final String levelName;
   final double trustScore;
+  final int trustTotalVotes;
   final int totalPoints;
 }
