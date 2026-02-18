@@ -18,6 +18,7 @@ import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
+import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -500,6 +501,11 @@ class _SettingsList extends ConsumerWidget {
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
         ),
         _MenuTile(
+          icon: Icons.history_rounded,
+          title: 'Güncelleme Geçmişi',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateHistoryScreen())),
+        ),
+        _MenuTile(
           icon: Icons.logout_rounded,
           title: 'Çıkış Yap',
           onTap: () async {
@@ -788,45 +794,6 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const updates = <Map<String, String>>[
-      {
-        'version': 'v1.5.0',
-        'date': '2025 Q2',
-        'title': 'Premium Profil Deneyimi',
-        'notes': 'Profil header tasarımı yenilendi, güven skoru backend verisine bağlandı ve seviye görünümü sadeleştirildi.',
-      },
-      {
-        'version': 'v1.4.0',
-        'date': '2025 Q1',
-        'title': 'Rozet ve Kart İyileştirmeleri',
-        'notes': 'Seviye rozetleri görsel olarak standartlaştırıldı ve fiyat kartı tipografisi düzenlendi.',
-      },
-      {
-        'version': 'v1.3.0',
-        'date': '2024 Q4',
-        'title': 'Hesap Yönetimi Güncellemesi',
-        'notes': 'Bildirimler, favoriler ve profil düzenleme deneyimi yenilendi.',
-      },
-      {
-        'version': 'v1.2.0',
-        'date': '2024 Q3',
-        'title': 'Ürün Detay Güçlendirme',
-        'notes': 'Ürün detayları iyileştirildi. En ucuz mağaza listesi ve katkı yapan kullanıcı bilgileri güçlendirildi.',
-      },
-      {
-        'version': 'v1.1.0',
-        'date': '2024 Q2',
-        'title': 'Puan Sistemi Lansmanı',
-        'notes': 'Puan sistemi, seviyeler ve katkı geçmişi ekranları eklendi.',
-      },
-      {
-        'version': 'v1.0.0',
-        'date': '2024 Q1',
-        'title': 'İlk Yayın',
-        'notes': 'FiyatRadar yayınlandı. Ürün arama, fiyat ekleme ve temel profil altyapısı aktif edildi.',
-      },
-    ];
-
     return Scaffold(
       appBar: AppBar(title: const Text('Hakkında')),
       body: ListView(
@@ -837,18 +804,18 @@ class AboutScreen extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [Color(0xFFFFF8EC), Color(0xFFF2E4CD)],
+                colors: [Color(0xFFF2F7FF), Color(0xFFEAF2FF)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(color: const Color(0xFFE2CB9D)),
+              border: Border.all(color: const Color(0xFFD6E4FA)),
             ),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('FiyatRadar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF432D0A))),
+                Text('FiyatRadar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1D3F6E))),
                 SizedBox(height: 4),
-                Text('Sürüm 1.5.0 • FiyatRadar Ekibi', style: TextStyle(color: Color(0xFF6A5230), fontWeight: FontWeight.w600)),
+                Text('Sürüm 1.5.0 • FiyatRadar Ekibi', style: TextStyle(color: Color(0xFF45628A), fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -863,36 +830,10 @@ class AboutScreen extends StatelessWidget {
             trailing: const Icon(Icons.open_in_new_rounded),
             onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
           ),
-          const SizedBox(height: 12),
-          const Text('Güncelleme Geçmişi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          ...updates.map(
-            (item) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Theme.of(context).colorScheme.surface,
-                border: Border.all(color: const Color(0xFFE7D7BF)),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF9A6B2D).withOpacity(0.08),
-                    blurRadius: 14,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item['title']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text('${item['version']} • ${item['date']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: 8),
-                  Text(item['notes']!, style: const TextStyle(height: 1.35)),
-                ],
-              ),
-            ),
+          ListTile(
+            title: const Text('Güncelleme Geçmişi'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateHistoryScreen())),
           ),
         ],
       ),

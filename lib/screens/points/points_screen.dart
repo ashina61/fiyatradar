@@ -416,11 +416,10 @@ class _LevelBenefitChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDiamond = level.label == 'Elmas';
-    final startColor = isDiamond ? const Color(0xFFEAF7FF) : level.badgeBackground;
-    final endColor = isDiamond ? const Color(0xFFD7EDFF) : level.badgeBackground.withOpacity(0.86);
-    final borderColor = isDiamond ? const Color(0xFF8CC8ED) : level.badgeBorder;
-    final textColor = isDiamond ? const Color(0xFF1D74B4) : level.badgeForeground;
+    final startColor = level.badgeBackground;
+    final endColor = level.badgeBackground.withOpacity(0.86);
+    final borderColor = level.badgeBorder;
+    final textColor = level.badgeForeground;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

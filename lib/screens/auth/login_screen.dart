@@ -14,8 +14,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -25,68 +24,10 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
 
-  late final AnimationController _slideController;
-  late final AnimationController _fadeController;
-  late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _iconFadeAnimation;
-  late final Animation<double> _titleFadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 520),
-    );
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 720),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _slideController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fadeController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _iconFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fadeController,
-        curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
-      ),
-    );
-
-    _titleFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fadeController,
-        curve: const Interval(0.12, 0.7, curve: Curves.easeOut),
-      ),
-    );
-
-    _fadeController.forward();
-    _slideController.forward();
-  }
-
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _slideController.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
@@ -97,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!firebaseInitialized) {
       _showErrorSnackBar(
-        'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.',
+        'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.',
       );
       setState(() => _isLoading = false);
       return;
@@ -118,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen>
       _showErrorSnackBar(_authService.getErrorMessage(e));
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar('Giris yapilamadi: $e');
+      _showErrorSnackBar('Giriş yapılamadı: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -127,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _signInWithGoogle() async {
     if (!firebaseInitialized) {
       _showErrorSnackBar(
-        'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.',
+        'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.',
       );
       return;
     }
@@ -150,12 +91,12 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() => _isGoogleLoading = false);
     } catch (e) {
       if (!mounted) return;
-      var errorMessage = 'Google ile giris yapilamadi.';
+      var errorMessage = 'Google ile giriş yapılamadı.';
       if (e.toString().contains('ApiException: 10')) {
         errorMessage =
-            'Google giris yapilandirmasi eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
+            'Google giriş yapılandırması eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
       } else if (e.toString().contains('network')) {
-        errorMessage = 'Baglanti hatasi. Internet baglantinizi kontrol edin.';
+        errorMessage = 'Bağlantı hatası. İnternet bağlantınızı kontrol edin.';
       }
       _showErrorSnackBar(errorMessage);
       setState(() => _isGoogleLoading = false);
@@ -190,14 +131,14 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             Icon(Icons.lock_reset, color: AppColors.primary),
             SizedBox(width: AppSpacing.sm),
-            Text('Sifremi Unuttum'),
+            Text('Şifremi Unuttum'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'E-posta adresinizi girin, size sifre sifirlama baglantisi gonderelim.',
+              'E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.',
               style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -214,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Iptal'),
+            child: const Text('İptal'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -226,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen>
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('Sifre sifirlama e-postasi gonderildi!'),
+                    content: const Text('Şifre sıfırlama e-postası gönderildi!'),
                     backgroundColor: AppColors.success,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
@@ -236,10 +177,10 @@ class _LoginScreenState extends State<LoginScreen>
                 );
               } catch (e) {
                 Navigator.pop(ctx);
-                _showErrorSnackBar('E-posta gonderilemedi: $e');
+                _showErrorSnackBar('E-posta gönderilemedi: $e');
               }
             },
-            child: const Text('Gonder'),
+            child: const Text('Gönder'),
           ),
         ],
       ),
@@ -255,361 +196,216 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                top: AppSpacing.lg,
-                bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - AppSpacing.lg * 2,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-            _buildHero(theme),
-            const SizedBox(height: AppSpacing.xl),
-                            Material(
-                              color: theme.cardColor,
-                              elevation: 0,
-                              shadowColor: Colors.transparent,
-                              borderRadius: BorderRadius.circular(AppRadius.xxl),
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                child: Form(
-                                  key: _formKey,
-                                  autovalidateMode:
-                                      AutovalidateMode.onUserInteraction,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                        'Hos Geldiniz',
-                                        style: theme.textTheme.headlineMedium,
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      Text(
-                                        'Devam etmek icin hesabiniza giris yapin.',
-                                        style:
-                                            theme.textTheme.bodyMedium?.copyWith(
-                                          color:
-                                              theme.textTheme.bodyMedium?.color
-                                                  ?.withOpacity(0.72),
-                                        ),
-                                      ),
-                                      const SizedBox(height: AppSpacing.lg),
-                                      _buildGoogleButton(theme),
-                                      const SizedBox(height: AppSpacing.md),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Divider(
-                                              color: colorScheme.outlineVariant,
-                                            ),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: AppSpacing.sm,
-                                            ),
-                                            child: Text(
-                                              'veya e-posta ile',
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                color: theme.hintColor,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Divider(
-                                              color: colorScheme.outlineVariant,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: AppSpacing.md),
-                                      TextFormField(
-                                        controller: _emailController,
-                                        keyboardType: TextInputType.emailAddress,
-                                        textInputAction: TextInputAction.next,
-                                        autofillHints: const [
-                                          AutofillHints.username,
-                                          AutofillHints.email,
-                                        ],
-                                        decoration: const InputDecoration(
-                                          labelText: 'E-posta',
-                                          helperText: 'ornek@eposta.com',
-                                          prefixIcon: Icon(Icons.email_outlined),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Lutfen e-posta adresinizi girin';
-                                          }
-                                          if (!value.contains('@')) {
-                                            return 'Gecerli bir e-posta girin';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 14),
-                                      TextFormField(
-                                        controller: _passwordController,
-                                        obscureText: _obscurePassword,
-                                        textInputAction: TextInputAction.done,
-                                        autofillHints: const [
-                                          AutofillHints.password,
-                                        ],
-                                        onFieldSubmitted: (_) {
-                                          if (!_isLoading) _login();
-                                        },
-                                        decoration: InputDecoration(
-                                          labelText: 'Sifre',
-                                          helperText:
-                                              'En az 6 karakter girmelisiniz',
-                                          prefixIcon:
-                                              const Icon(Icons.lock_outline),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              _obscurePassword
-                                                  ? Icons.visibility_outlined
-                                                  : Icons.visibility_off_outlined,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                _obscurePassword =
-                                                    !_obscurePassword;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Lutfen sifrenizi girin';
-                                          }
-                                          if (value.length < 6) {
-                                            return 'Sifre en az 6 karakter olmali';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: _showForgotPasswordDialog,
-                                          style: TextButton.styleFrom(
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: AppSpacing.xs,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Sifremi Unuttum',
-                                            style: TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: AppSpacing.sm),
-                                      SizedBox(
-                                        height: 56,
-                                        child: ElevatedButton(
-                                          onPressed: _isLoading ? null : _login,
-                                          style: ElevatedButton.styleFrom(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                AppRadius.xl,
-                                              ),
-                                            ),
-                                          ),
-                                          child: _isLoading
-                                              ? const Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    SizedBox(
-                                                      height: 20,
-                                                      width: 20,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2.2,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                    SizedBox(
-                                                      width: AppSpacing.sm,
-                                                    ),
-                                                    Text('Giris Yapiliyor...'),
-                                                  ],
-                                                )
-                                              : const Text('Giris Yap'),
-                                        ),
-                                      ),
-                                      const SizedBox(height: AppSpacing.md),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Hesabiniz yok mu? ',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                              color: theme.hintColor,
-                                            ),
-                                          ),
-                                          GestureDetector(
-                                            onTap: _navigateToRegister,
-                                            child: Text(
-                                              'Kayit Ol',
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              top: AppSpacing.md,
+              bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Center(
+                child: Column(
+                  children: [
+                    const SizedBox(height: AppSpacing.md),
+                    _buildHeader(theme),
+                    const SizedBox(height: AppSpacing.xl),
+                    _buildAuthCard(theme),
+                  ],
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHero(ThemeData theme) {
-    final colorScheme = theme.colorScheme;
+  Widget _buildHeader(ThemeData theme) {
+    return Column(
+      children: [
+        Container(
+          width: 96,
+          height: 96,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFD3E3FF)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withOpacity(0.12),
+                blurRadius: 26,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'FiyatRadar\'a hoş geldin',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Market fiyatlarını takip et, doğrula ve puan kazan.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
 
-    return FadeTransition(
-      opacity: _titleFadeAnimation,
-      child: Column(
-        children: [
-          FadeTransition(
-            opacity: _iconFadeAnimation,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-                border: Border.all(color: colorScheme.outline.withOpacity(0.7)),
-              ),
-              child: Image.asset(
-                'assets/images/app_logo.png',
-                width: 112,
-                height: 112,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-                gaplessPlayback: true,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'FiyatRadar',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Market fiyatlarini akilli sekilde takip edin',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.68),
-            ),
+  Widget _buildAuthCard(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE5ECF8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
+      ),
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildGoogleButton(theme),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  child: Text(
+                    'veya e-posta ile',
+                    style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'E-posta',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Lütfen e-posta adresinizi girin';
+                }
+                if (!value.contains('@')) {
+                  return 'Geçerli bir e-posta girin';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _isLoading ? null : _login(),
+              decoration: InputDecoration(
+                labelText: 'Şifre',
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Lütfen şifrenizi girin';
+                }
+                if (value.length < 6) {
+                  return 'Şifre en az 6 karakter olmalıdır';
+                }
+                return null;
+              },
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _showForgotPasswordDialog,
+                child: const Text('Şifremi unuttum'),
+              ),
+            ),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _login,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                      )
+                    : const Text('Giriş Yap'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Hesabın yok mu?', style: TextStyle(color: AppColors.textSecondary)),
+                TextButton(onPressed: _navigateToRegister, child: const Text('Kayıt Ol')),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildGoogleButton(ThemeData theme) {
     return SizedBox(
-      height: 54,
+      height: 52,
       child: OutlinedButton(
         onPressed: _isGoogleLoading ? null : _signInWithGoogle,
         style: OutlinedButton.styleFrom(
-          backgroundColor: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         ),
         child: _isGoogleLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.2),
-              )
-            : Row(
+            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.2))
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppRadius.xs),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'G',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        foreground: Paint()
-                          ..shader = const LinearGradient(
-                            colors: [
-                              Color(0xFF4285F4),
-                              Color(0xFF34A853),
-                              Color(0xFFFBBC05),
-                              Color(0xFFEA4335),
-                            ],
-                          ).createShader(const Rect.fromLTWH(0, 0, 24, 24)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Text(
-                      'Google ile giris yap',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24 + AppSpacing.md),
+                  Icon(Icons.login_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text('Google ile giriş yap'),
                 ],
               ),
       ),

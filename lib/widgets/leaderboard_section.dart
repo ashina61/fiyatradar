@@ -42,14 +42,14 @@ class LeaderboardSection extends ConsumerWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFCF7), Color(0xFFF8F0E3)],
+          colors: [Color(0xFFF7FAFF), Color(0xFFEEF4FF)],
         ),
-        border: Border.all(color: const Color(0xFFE7D4B3)),
+        border: Border.all(color: const Color(0xFFD4E2F8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Zirvedekiler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF3E2A0F))),
+          const Text('Zirvedekiler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1E3A5F))),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -181,10 +181,10 @@ class _SegmentButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          color: selected ? const Color(0xFFB8863B) : Colors.white,
-          border: Border.all(color: selected ? const Color(0xFFB8863B) : const Color(0xFFD8C7A8)),
+          color: selected ? const Color(0xFF2563EB) : Colors.white,
+          border: Border.all(color: selected ? const Color(0xFF2563EB) : const Color(0xFFD5E2F7)),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? Colors.white : const Color(0xFF6F5A3C))),
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? Colors.white : const Color(0xFF355070))),
       ),
     );
   }
@@ -205,11 +205,11 @@ class _MiniToggle extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF2DFC0) : Colors.transparent,
+          color: selected ? const Color(0xFFE8F0FF) : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: selected ? const Color(0xFFD8B87D) : const Color(0xFFE7DAC5)),
+          border: Border.all(color: selected ? const Color(0xFFAEC8F4) : const Color(0xFFDCE7F8)),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B4D1E))),
+        child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF2C4F7A))),
       ),
     );
   }
@@ -260,12 +260,12 @@ class _PodiumCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4D7C0)),
+        border: Border.all(color: const Color(0xFFD9E6F8)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('#$rank', style: TextStyle(fontSize: compact ? 16 : 20, fontWeight: FontWeight.w900, color: const Color(0xFF8A5C19))),
+          Text('#$rank', style: TextStyle(fontSize: compact ? 16 : 20, fontWeight: FontWeight.w900, color: const Color(0xFF2D5B8F))),
           const SizedBox(height: 8),
           CircleAvatar(
             radius: compact ? 20 : 26,
@@ -275,7 +275,7 @@ class _PodiumCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text('+$score puan', style: TextStyle(fontSize: compact ? 14 : 18, fontWeight: FontWeight.w900, color: const Color(0xFF8A5C19))),
+          Text('+$score puan', style: TextStyle(fontSize: compact ? 14 : 18, fontWeight: FontWeight.w900, color: const Color(0xFF2D5B8F))),
           const SizedBox(height: 2),
           Text('${item.totalPoints} toplam', style: const TextStyle(fontSize: 12, color: Color(0xFF6F5A3C), fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
@@ -300,9 +300,9 @@ class _LeaderboardRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isMe ? const Color(0xFFFFF3DD) : Colors.white,
+        color: isMe ? const Color(0xFFEFF6FF) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isMe ? const Color(0xFFE4BC75) : const Color(0xFFE6DAC4)),
+        border: Border.all(color: isMe ? const Color(0xFF9FC2F6) : const Color(0xFFDCE7F8)),
       ),
       child: Row(
         children: [
@@ -368,12 +368,12 @@ class _EmptyLeaderboard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.75), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE4D8C4))),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.75), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFDCE7F8))),
       child: const Column(
         children: [
-          Icon(Icons.emoji_events_rounded, size: 30, color: Color(0xFFAF7B2F)),
+          Icon(Icons.emoji_events_rounded, size: 30, color: Color(0xFF2F67A5)),
           SizedBox(height: 8),
-          Text('Bu hafta puan toplayıp zirveye çık', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5A3D12))),
+          Text('Bu hafta puan toplayıp zirveye çık', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF20456E))),
         ],
       ),
     );
@@ -389,11 +389,11 @@ class _CityCtaCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.82), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE6D8BC))),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.82), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFDCE7F8))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Şehrim sıralaması için şehir seçmelisin.', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B431A))),
+          const Text('Şehrim sıralaması için şehir seçmelisin.', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF2A4E78))),
           const SizedBox(height: 10),
           FilledButton.icon(onPressed: onTap, icon: const Icon(Icons.location_city_rounded), label: const Text('Şehir seç')),
         ],
