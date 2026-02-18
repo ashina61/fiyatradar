@@ -23,3 +23,5 @@ String formatTRY(
   }
   return formatted;
 }
+
+String formatTRYWhole(num value) => formatTRY(value, withDecimals: false);
