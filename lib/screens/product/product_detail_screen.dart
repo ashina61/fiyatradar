@@ -1148,8 +1148,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 border: Border.all(color: const Color(0xFFE7D7BD)),
                               ),
                               child: Text(
-                                'Seviye: ${level.label}
-Kullanıcı Güven Skoru: %$trustPercent',
+                                'Seviye: ${level.label}\nKullanıcı Güven Skoru: %$trustPercent',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -1502,12 +1501,8 @@ Kullanıcı Güven Skoru: %$trustPercent',
                         ),
                         child: Text(
                           verificationRate == null
-                              ? 'Seviye: ${userMini.level.label}
-Güven Skoru: %$trustPercent
-Doğrulama: Veri yok'
-                              : 'Seviye: ${userMini.level.label}
-Güven Skoru: %$trustPercent
-Doğrulama: %$verificationRate',
+                              ? 'Seviye: ${userMini.level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: Veri yok'
+                              : 'Seviye: ${userMini.level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: %$verificationRate',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 11,
