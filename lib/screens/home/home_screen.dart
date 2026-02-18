@@ -6,13 +6,12 @@ import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
 import '../../models/category_model.dart';
-import '../../ui/categories/category_chip.dart';
-import '../../ui/categories/category_theme.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/home_product_card.dart';
+import '../../widgets/ultra_category_card.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
@@ -595,17 +594,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
             itemBuilder: (context, index) {
               final cat = categories[index];
-              final meta = metaFromFirestoreId(cat.id);
               final isSelected = selectedCategory == cat.title;
-              return PremiumCategoryChip(
-                meta: CategoryMeta(
-                  id: meta.id,
-                  firestoreId: cat.id,
-                  title: cat.title,
-                  iconAsset: meta.iconAsset,
-                  sort: cat.sort ?? meta.sort,
-                ),
-                selected: isSelected,
+              return UltraCategoryCard(
+                categoryName: cat.title,
+                isSelected: isSelected,
                 onTap: () {
                   ref.read(currentTabProvider.notifier).state = 1;
                   Future.delayed(const Duration(milliseconds: 100), () {
