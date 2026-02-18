@@ -869,7 +869,7 @@ class _AnimatedCurrency extends StatelessWidget {
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
       builder: (context, animatedValue, _) {
-        final formatted = formatTRY(animatedValue, trailingSymbol: false, keepTrailingZeros: true);
+        final formatted = formatTRY(animatedValue, keepTrailingZeros: true);
         return TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.98, end: 1),
           duration: const Duration(milliseconds: 280),
@@ -880,7 +880,6 @@ class _AnimatedCurrency extends StatelessWidget {
               style: textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
               children: [
                 TextSpan(text: formatted, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                TextSpan(text: ' ₺', style: textTheme.bodySmall),
               ],
             ),
           ),

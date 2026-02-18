@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/theme.dart';
+
 class PremiumBottomNav extends StatelessWidget {
   const PremiumBottomNav({
     super.key,
@@ -25,8 +27,7 @@ class PremiumBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final width = MediaQuery.sizeOf(context).width * 0.92;
+        final width = MediaQuery.sizeOf(context).width * 0.92;
     final selectedSlot = _tabs.indexWhere((tab) => tab.index == currentIndex).clamp(0, _tabs.length - 1);
 
     return SafeArea(
@@ -49,12 +50,12 @@ class PremiumBottomNav extends StatelessWidget {
                       height: 74,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: scheme.surface.withOpacity(theme.brightness == Brightness.dark ? 0.78 : 0.84),
+                        color: theme.brightness == Brightness.dark ? AppColors.surfaceDark.withOpacity(0.95) : AppColors.surface.withOpacity(0.96),
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: scheme.outlineVariant.withOpacity(0.35)),
+                        border: Border.all(color: theme.brightness == Brightness.dark ? Colors.white.withOpacity(0.06) : AppColors.outlineVariant.withOpacity(0.7)),
                         boxShadow: [
                           BoxShadow(
-                            color: scheme.shadow.withOpacity(0.12),
+                            color: AppColors.textPrimary.withOpacity(0.12),
                             blurRadius: 24,
                             offset: const Offset(0, 10),
                           ),
@@ -79,10 +80,10 @@ class PremiumBottomNav extends StatelessWidget {
                                   height: 44,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(24),
-                                    color: scheme.primaryContainer.withOpacity(0.68),
+                                    color: AppColors.secondaryLight.withOpacity(0.9),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: scheme.primary.withOpacity(0.15),
+                                        color: AppColors.primary.withOpacity(0.2),
                                         blurRadius: 16,
                                         spreadRadius: 1,
                                         offset: const Offset(0, 4),
@@ -153,8 +154,7 @@ class _CenterActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
+    
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -168,15 +168,15 @@ class _CenterActionButton extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: [
-                  scheme.primary.withOpacity(0.55),
-                  scheme.tertiary.withOpacity(0.45),
+                  AppColors.primaryLight.withOpacity(0.65),
+                  AppColors.secondary.withOpacity(0.55),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: scheme.primary.withOpacity(0.28),
+                  color: AppColors.primary.withOpacity(0.24),
                   blurRadius: 18,
                   offset: const Offset(0, 7),
                 ),
@@ -188,10 +188,10 @@ class _CenterActionButton extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: scheme.surface.withOpacity(theme.brightness == Brightness.dark ? 0.72 : 0.82),
-                    border: Border.all(color: scheme.outlineVariant.withOpacity(0.45)),
+                    color: AppColors.primary,
+                    border: Border.all(color: Colors.white.withOpacity(0.35)),
                   ),
-                  child: Icon(Icons.add_rounded, size: 30, color: scheme.primary),
+                  child: const Icon(Icons.add_rounded, size: 30, color: Colors.white, semanticLabel: 'Fiyat ekle'),
                 ),
               ),
             ),
@@ -200,7 +200,7 @@ class _CenterActionButton extends StatelessWidget {
           Text(
             'Fiyat Ekle',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+              color: theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -225,7 +225,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -241,8 +241,9 @@ class _NavItem extends StatelessWidget {
               scale: selected ? 1.1 : 1,
               child: Icon(
                 icon,
+                semanticLabel: label,
                 size: 24,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                color: selected ? AppColors.primary : (theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary),
               ),
             ),
             const SizedBox(height: 2),
@@ -256,7 +257,7 @@ class _NavItem extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                        color: selected ? AppColors.primary : (theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary),
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       ),
                 ),

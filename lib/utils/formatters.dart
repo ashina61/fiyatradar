@@ -6,12 +6,12 @@ final NumberFormat _trIntegerFormatter = NumberFormat.currency(locale: 'tr_TR', 
 String formatTRY(
   num value, {
   bool withDecimals = true,
-  bool trailingSymbol = false,
+  bool trailingSymbol = true,
   bool keepTrailingZeros = false,
 }) {
   if (!withDecimals) {
     final formatted = _trIntegerFormatter.format(value);
-    return trailingSymbol ? '${formatted.substring(1)} ₺' : formatted;
+    return trailingSymbol ? '${formatted.substring(1)}₺' : formatted;
   }
 
   var formatted = _trCurrencyFormatter.format(value);
@@ -19,7 +19,7 @@ String formatTRY(
     formatted = formatted.substring(0, formatted.length - 3);
   }
   if (trailingSymbol) {
-    return '${formatted.substring(1)} ₺';
+    return '${formatted.substring(1)}₺';
   }
   return formatted;
 }
