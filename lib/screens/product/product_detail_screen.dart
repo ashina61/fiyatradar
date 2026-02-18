@@ -515,18 +515,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     return productAsync.when(
       loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Urun Detayi')),
+        appBar: AppBar(title: const Text('Ürün Detayı')),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Urun Detayi')),
+        appBar: AppBar(title: const Text('Ürün Detayı')),
         body: Center(child: Text('Hata: $error')),
       ),
       data: (product) {
         if (product == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Urun Detayi')),
-            body: const Center(child: Text('Urun bulunamadi')),
+            appBar: AppBar(title: const Text('Ürün Detayı')),
+            body: const Center(child: Text('Ürün bulunamadı')),
           );
         }
 
@@ -744,8 +744,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         const SizedBox(height: AppSpacing.md),
                       ],
                       const AppSectionHeader(
-                        title: 'Topluluk Dogrulamasi',
-                        subtitle: 'Son fiyatin guven durumunu degerlendirin',
+                        title: 'Topluluk Doğrulaması',
+                        subtitle: 'Son fiyatın güven durumunu değerlendirin',
                       ),
                       const SizedBox(height: AppSpacing.md),
 
@@ -2253,10 +2253,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final store = (product.lastStore ?? '').trim().isNotEmpty
         ? product.lastStore!.trim()
         : 'Mağaza bilinmiyor';
-    final message = '$productName\n'
-        'Güncel fiyat: $currentPrice\n'
-        'Mağaza: $store\n'
-        'FiyatRadar';
+    final message = "FiyatRadar'da $productName'ı $store'da $currentPrice'ye buldum!\n"
+        'Uygulamayı indir: https://fiyatradar.app';
 
     Share.share(message);
   }

@@ -19,25 +19,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingPageData> _pages = const [
     _OnboardingPageData(
-      icon: Icons.insights_rounded,
-      title: 'Fiyatları Anlık Takip Et',
+      icon: Icons.location_on_rounded,
+      title: 'Mahalledeki Fiyatları Keşfet',
       description:
-          'Aynı ürünün farklı marketlerdeki fiyatını tek ekranda gör, bütçene en uygun seçimi yap.',
-      accent: Color(0xFF2563EB),
+          'Yakınındaki marketlerdeki güncel fiyatları anında gör, en ucuz seçeneği kolayca bul.',
+      accent: Color(0xFFB5651D),
     ),
     _OnboardingPageData(
       icon: Icons.verified_user_rounded,
-      title: 'Topluluğa Katkı Sağla',
+      title: 'Toplulukla Doğrula, Tasarruf Et',
       description:
-          'Doğrulama yap, puan topla, seviyeni yükselt. Güvenilir kullanıcılar daha görünür olur.',
+          'Fiyatları toplulukla doğrula, güvenilir verilere katkıda bulun ve puan kazan.',
       accent: Color(0xFF0891B2),
     ),
     _OnboardingPageData(
-      icon: Icons.notifications_active_rounded,
-      title: 'Fırsatları Kaçırma',
+      icon: Icons.shopping_basket_rounded,
+      title: 'Sepetini Karşılaştır, En Ucuzu Bul',
       description:
-          'Takip ettiğin ürünlerde düşüş olduğunda anında bildirim al ve hemen aksiyon al.',
-      accent: Color(0xFF6366F1),
+          'Alışveriş listeni ekle, tüm marketleri karşılaştır ve en avantajlı markete git.',
+      accent: Color(0xFF4CAF50),
     ),
   ];
 

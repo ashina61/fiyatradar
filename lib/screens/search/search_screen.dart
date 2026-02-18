@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/actual_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
@@ -58,7 +59,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           child: Column(
             children: [
               _buildSearchBar(theme, state),
-              _buildAktuelCard(theme),
+              _buildConditionalAktuelCard(theme),
               _buildModeTabs(theme, state),
               _buildCategoryChips(theme, state),
               Expanded(child: _buildBody(theme, state)),
@@ -128,6 +129,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
   }
 
 
+  Widget _buildConditionalAktuelCard(ThemeData theme) {
+    final actualAsync = ref.watch(latestActiveActualProvider);
+    return actualAsync.when(
+      data: (actual) {
+        if (actual == null) return const SizedBox.shrink();
+        return _buildAktuelCard(theme);
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
   Widget _buildAktuelCard(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
@@ -138,7 +151,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            gradient: const LinearGradient(colors: [Color(0xFF8E44AD), Color(0xFF5E35B1)]),
+            gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
           ),
           child: const Row(
             children: [

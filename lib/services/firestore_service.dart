@@ -908,7 +908,7 @@ class FirestoreService {
           'title': '$productName icin yeni fiyat',
           'body': storeName == null || storeName.isEmpty
               ? 'Yeni fiyat girildi: ${newPrice.toStringAsFixed(2)}₺'
-              : '$storeName magazasinda yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',
+              : '$storeName mağazasında yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',
           'createdAt': FieldValue.serverTimestamp(),
           'isRead': false,
           'meta': {

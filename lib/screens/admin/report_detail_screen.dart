@@ -286,7 +286,7 @@ class _CommentTargetCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Text('Urun', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
-            Text(product?.name ?? 'Urun bulunamadi'),
+            Text(product?.name ?? 'Ürün bulunamadı'),
             const SizedBox(height: AppSpacing.md),
             Text('Yorumcu', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
@@ -321,9 +321,9 @@ class _ProductTargetCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Urun Detayi', style: Theme.of(context).textTheme.titleSmall),
+            Text('Ürün Detayı', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text(product?.name ?? 'Urun bulunamadi'),
+            Text(product?.name ?? 'Ürün bulunamadı'),
             const SizedBox(height: AppSpacing.xs),
             Text(product?.brand ?? ''),
             const SizedBox(height: AppSpacing.xs),

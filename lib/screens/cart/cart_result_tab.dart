@@ -464,6 +464,30 @@ class _MiniInsights extends StatelessWidget {
   }
 }
 
+/// Returns a brand-specific background/foreground color pair and abbreviation
+/// for a store name, so each chain is visually distinct.
+({Color bg, Color fg, String abbr}) _storeBrand(String name) {
+  final n = name.trim().toUpperCase();
+  if (n.contains('BİM') || n == 'BIM') {
+    return (bg: const Color(0xFFE53935), fg: Colors.white, abbr: 'BİM');
+  } else if (n.contains('A-101') || n.contains('A101')) {
+    return (bg: const Color(0xFFE65100), fg: Colors.white, abbr: 'A101');
+  } else if (n.contains('ŞOK') || n.contains('SOK')) {
+    return (bg: const Color(0xFF1565C0), fg: Colors.white, abbr: 'ŞOK');
+  } else if (n.contains('CARREFOUR') || n.contains('CARREFOURSA')) {
+    return (bg: const Color(0xFF0D47A1), fg: Colors.white, abbr: 'CAR');
+  } else if (n.contains('MİGROS') || n.contains('MIGROS')) {
+    return (bg: const Color(0xFFF57C00), fg: Colors.white, abbr: 'MİG');
+  } else if (n.contains('İMECE') || n.contains('IMECE')) {
+    return (bg: const Color(0xFF388E3C), fg: Colors.white, abbr: 'İME');
+  } else if (n.contains('FILE') || n.contains('FİLE')) {
+    return (bg: const Color(0xFF6A1B9A), fg: Colors.white, abbr: 'FİL');
+  }
+  // Generic fallback — first 3 chars of the name
+  final abbr = name.length >= 3 ? name.substring(0, 3).toUpperCase() : name.toUpperCase();
+  return (bg: const Color(0xFF546E7A), fg: Colors.white, abbr: abbr);
+}
+
 class _PremiumMarketRowCard extends StatefulWidget {
   const _PremiumMarketRowCard({
     required this.market,
@@ -513,11 +537,21 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: cs.primaryContainer,
-                    child: Icon(Icons.storefront_rounded, color: cs.primary),
-                  ),
+                  Builder(builder: (_) {
+                    final brand = _storeBrand(market.storeName);
+                    return CircleAvatar(
+                      radius: 18,
+                      backgroundColor: brand.bg,
+                      child: Text(
+                        brand.abbr.length > 3 ? brand.abbr.substring(0, 3) : brand.abbr,
+                        style: TextStyle(
+                          color: brand.fg,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    );
+                  }),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -543,11 +577,7 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                       ],
                     ),
                   ),
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 280),
-                    curve: Curves.easeOutBack,
-                    child: Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(_formatCurrency(market.totalPrice), style: Theme.of(context).textTheme.titleLarge),
@@ -558,8 +588,14 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                             .bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutBack,
+                        child: const Icon(Icons.expand_more_rounded, size: 20),
+                      ),
                     ],
-                  )),
+                  ),
                 ],
               ),
             ),

@@ -62,7 +62,7 @@ class CampaignDetailScreen extends ConsumerWidget {
                   if (products.isEmpty) {
                     return const SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Center(child: Text('Bu kampanyada urun yok')),
+                      child: Center(child: Text('Bu kampanyada ürün yok')),
                     );
                   }
                   return SliverPadding(

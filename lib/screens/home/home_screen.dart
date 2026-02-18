@@ -114,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: AppColors.textTertiary, size: 22),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
-                          'Urun, magaza veya kategori ara...',
+                          'Ürün, mağaza veya kategori ara...',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: AppColors.textTertiary,
                           ),
@@ -134,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: bannersAsync.when(
                   data: (banners) => _buildBannerCarousel(banners),
                   loading: () => _buildBannerLoading(),
-                  error: (_, __) => _buildBannerEmpty(),
+                  error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
             ),
@@ -170,12 +170,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: trendingAsync.when(
                   data: (products) => _buildProductsSection(
                     theme,
-                    'Trend Urunler',
+                    'Trend Ürünler',
                     products,
                     icon: Icons.local_fire_department,
                     iconColor: AppColors.error,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Trend Urunler', icon: Icons.local_fire_department, iconColor: AppColors.error),
+                  loading: () => _buildProductsLoading(theme, 'Trend Ürünler', icon: Icons.local_fire_department, iconColor: AppColors.error),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -188,12 +188,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: recommendedAsync.when(
                   data: (products) => _buildProductsSection(
                     theme,
-                    'Onerilen Urunler',
+                    'Önerilen Ürünler',
                     products,
                     icon: Icons.thumb_up,
                     iconColor: AppColors.primary,
                   ),
-                  loading: () => _buildProductsLoading(theme, 'Onerilen Urunler', icon: Icons.thumb_up, iconColor: AppColors.primary),
+                  loading: () => _buildProductsLoading(theme, 'Önerilen Ürünler', icon: Icons.thumb_up, iconColor: AppColors.primary),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
@@ -222,7 +222,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user, AsyncValue<int> unreadCountAsync) {
-    final displayName = user?.name ?? 'Kullanici';
+    final displayName = user?.name ?? 'Kullanıcı';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
     final unreadCount = unreadCountAsync.valueOrNull ?? 0;
@@ -276,18 +276,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Merhaba',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
+              RichText(
+                text: const TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Fiyat',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'Radar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
               Text(
-                displayName,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                'Merhaba, $displayName',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
                 ),
               ),
             ],
@@ -385,7 +402,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBannerCarousel(List<BannerModel> banners) {
-    if (banners.isEmpty) return _buildBannerEmpty();
+    if (banners.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
@@ -532,7 +549,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Haftanin Kampanya Sepeti',
+            'Haftanın Kampanya Sepeti',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -541,7 +558,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           SizedBox(height: AppSpacing.xs),
           Text(
-            'Admin tarafindan secilen premium sepetleri kacirmayin',
+            'Admin tarafından seçilen premium sepetleri kaçırmayın',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -625,7 +642,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           title: title,
           icon: icon,
           iconColor: iconColor,
-          actionText: 'Tumunu Gor',
+          actionText: 'Tümünü Gör',
           onAction: () {
             ref.read(currentTabProvider.notifier).state = 1;
           },
@@ -677,7 +694,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       children: [
         const _SectionHeader(
-          title: 'Son Incelediklerin',
+          title: 'Son İncelediklerin',
           icon: Icons.history,
           iconColor: AppColors.secondary,
         ),
@@ -692,7 +709,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             itemBuilder: (context, index) {
               final item = items[index];
               final productId = (item['productId'] ?? item['id'] ?? '').toString();
-              final productName = (item['productName'] ?? 'Urun').toString();
+              final productName = (item['productName'] ?? 'Ürün').toString();
               final imageUrl = (item['imageUrl'] ?? '').toString();
 
               return InkWell(

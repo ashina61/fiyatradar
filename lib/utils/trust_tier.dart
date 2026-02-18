@@ -16,7 +16,7 @@ class TrustTierInfo {
 
 TrustTierInfo trustTierFromScore(int score) {
   final normalized = score.clamp(0, 100);
-  if (normalized <= 19) {
+  if (normalized <= 20) {
     return const TrustTierInfo(
       label: 'Bronz',
       emoji: '🥉',
@@ -24,7 +24,7 @@ TrustTierInfo trustTierFromScore(int score) {
       color: Color(0xFF8D5A3A),
     );
   }
-  if (normalized <= 39) {
+  if (normalized <= 40) {
     return const TrustTierInfo(
       label: 'Gümüş',
       emoji: '🥈',
@@ -32,20 +32,12 @@ TrustTierInfo trustTierFromScore(int score) {
       color: Color(0xFF8D99AE),
     );
   }
-  if (normalized <= 59) {
+  if (normalized <= 70) {
     return const TrustTierInfo(
       label: 'Altın',
       emoji: '🥇',
       icon: Icons.workspace_premium_rounded,
       color: Color(0xFFC9A227),
-    );
-  }
-  if (normalized <= 79) {
-    return const TrustTierInfo(
-      label: 'Platin',
-      emoji: '🏅',
-      icon: Icons.military_tech_rounded,
-      color: Color(0xFF3F8EC4),
     );
   }
 

@@ -12,6 +12,7 @@ import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
 import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
+import '../../utils/trust_tier.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -161,7 +162,12 @@ class _PremiumHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final level = levelBuilder(totalPoints);
-    final shownLevel = levelName.trim().isEmpty ? level.label : levelName;
+    // Use trust score to determine badge tier when trust score is available
+    final trustTier = trustScore > 0
+        ? trustTierFromScore(trustScore.round())
+        : null;
+    final badgeEmoji = trustTier?.emoji ?? level.emoji;
+    final badgeLabel = trustTier?.label ?? (levelName.trim().isEmpty ? level.label : levelName);
     final shownUsername = username.trim().isEmpty ? displayName : username.trim();
 
     return Container(
@@ -225,10 +231,10 @@ class _PremiumHeaderCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(level.emoji, style: const TextStyle(fontSize: 16)),
+                Text(badgeEmoji, style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 6),
                 Text(
-                  shownLevel,
+                  badgeLabel,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -582,9 +588,12 @@ class MyPricesScreen extends StatelessWidget {
               final data = docs[index].data();
               final ts = data['createdAt'];
               final date = ts is Timestamp ? ts.toDate() : null;
+              final productName = (data['productName'] ?? data['urunAdi'] ?? data['name'] ?? data['title'] ?? '').toString().trim();
+              final displayName = productName.isEmpty ? 'İsimsiz Ürün' : productName;
+              final formattedDate = date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}';
               return ListTile(
-                title: Text((data['productName'] ?? 'Ürün').toString()),
-                subtitle: Text('${(data['storeName'] ?? 'Market').toString()} • ${(data['branchStoreId'] ?? data['branchId'] ?? '').toString()} • ${date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}'}'),
+                title: Text(displayName),
+                subtitle: Text('${(data['storeName'] ?? 'Market').toString()} • $formattedDate'),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,

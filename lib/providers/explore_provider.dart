@@ -75,7 +75,7 @@ class ExploreFeedItem {
     if (fromPrice != null && fromPrice.isNotEmpty) return fromPrice;
     final fromStore = store?.displayName.trim();
     if (fromStore != null && fromStore.isNotEmpty) return fromStore;
-    return 'Magaza';
+    return 'Mağaza';
   }
 
   String get locationLabel {
@@ -338,7 +338,7 @@ class ExploreController extends StateNotifier<ExploreState> {
           storeId: price.branchStoreId,
           storeName: price.storeName?.trim().isNotEmpty == true
               ? price.storeName!.trim()
-              : (store?.displayName.trim().isNotEmpty == true ? store!.displayName.trim() : 'Magaza'),
+              : (store?.displayName.trim().isNotEmpty == true ? store!.displayName.trim() : 'Mağaza'),
           logoUrl: null,
           url: _onlineStoreUrl(store),
           price: price.price,
