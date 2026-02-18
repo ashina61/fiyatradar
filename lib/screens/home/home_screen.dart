@@ -11,7 +11,8 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/home_product_card.dart';
-import '../../widgets/ultra_category_card.dart';
+import '../../models/category_theme.dart';
+import '../../widgets/category_card.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
@@ -33,11 +34,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
+  final Set<String> _precachedIcons = <String>{};
+  late final ProviderSubscription<AsyncValue<List<CategoryModel>>> _categoryPrecacheSub;
 
   @override
   void initState() {
     super.initState();
     _startBannerAutoScroll();
+    _categoryPrecacheSub = ref.listenManual<AsyncValue<List<CategoryModel>>>(
+      categoriesProvider,
+      (_, next) => next.whenData(_precacheCategoryIcons),
+      fireImmediately: true,
+    );
+  }
+
+  Future<void> _precacheCategoryIcons(List<CategoryModel> categories) async {
+    if (!mounted) return;
+
+    for (final category in categories) {
+      if (_precachedIcons.contains(category.iconAssetPath)) continue;
+      _precachedIcons.add(category.iconAssetPath);
+      await precacheImage(AssetImage(category.iconAssetPath), context);
+    }
   }
 
   void _startBannerAutoScroll() {
@@ -57,6 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _categoryPrecacheSub.close();
     _bannerController.dispose();
     super.dispose();
   }
@@ -67,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final userAsync = ref.watch(userModelStreamProvider);
     final bannersAsync = ref.watch(activeBannersProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final selectedCategory = ref.watch(selectedCategoryFilterProvider);
+    final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
@@ -146,7 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.lg),
                 child: categoriesAsync.when(
-                  data: (categories) => _buildCategoriesSection(theme, categories, selectedCategory),
+                  data: (_) => _buildCategoriesSection(theme, ref.watch(orderedCategoriesProvider), selectedCategoryId),
                   loading: () => _buildCategoriesLoading(theme),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
@@ -571,7 +590,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCategoriesSection(ThemeData theme, List<CategoryModel> categories, String selectedCategory) {
+  Widget _buildCategoriesSection(ThemeData theme, List<CategoryModel> categories, String? selectedCategoryId) {
     if (categories.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -586,7 +605,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 102,
+          height: 104,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
@@ -594,13 +613,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
             itemBuilder: (context, index) {
               final cat = categories[index];
-              final isSelected = selectedCategory == cat.title;
-              return UltraCategoryCard(
-                categoryName: cat.title,
+              final categoryTheme = CategoryThemeCatalog.resolve(
+                id: cat.canonicalId,
+                title: cat.title,
+              );
+              final isSelected = selectedCategoryId == categoryTheme.id;
+              return CategoryCard(
+                title: cat.title,
+                iconAssetPath: cat.iconAssetPath,
+                accentColor: categoryTheme.accentColor,
+                bgTint: categoryTheme.bgTint,
                 isSelected: isSelected,
                 onTap: () {
                   ref.read(currentTabProvider.notifier).state = 1;
                   Future.delayed(const Duration(milliseconds: 100), () {
+                    ref.read(selectedCategoryIdProvider.notifier).state = categoryTheme.id;
                     ref.read(selectedCategoryFilterProvider.notifier).state = cat.title;
                   });
                 },
@@ -625,7 +652,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 102,
+          height: 104,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
