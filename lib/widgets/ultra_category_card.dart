@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../ui/categories/category_theme.dart';
+import 'category_icon_tile.dart';
+
 class UltraCategoryCard extends StatefulWidget {
   const UltraCategoryCard({
     super.key,
@@ -11,20 +14,6 @@ class UltraCategoryCard extends StatefulWidget {
   final String categoryName;
   final bool isSelected;
   final VoidCallback onTap;
-
-  static const Map<String, String> categoryIcons = {
-    'temizlik': 'assets/icons/categories/temizlik.png',
-    'kisisel_bakim': 'assets/icons/categories/kisisel_bakim.png',
-    'kitap': 'assets/icons/categories/kitap.png',
-    'spor': 'assets/icons/categories/spor.png',
-    'gida': 'assets/icons/categories/gida.png',
-    'elektronik': 'assets/icons/categories/elektronik.png',
-    'bebek': 'assets/icons/categories/bebek.png',
-    'evcil_hayvan': 'assets/icons/categories/evcil_hayvan.png',
-    'ev_yasam': 'assets/icons/categories/ev_yasam.png',
-    'icecek': 'assets/icons/categories/icecek.png',
-    'atistirmalik': 'assets/icons/categories/atistirmalik.png',
-  };
 
   static String normalize(String value) {
     const trToAscii = {
@@ -59,16 +48,9 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
   @override
   Widget build(BuildContext context) {
     final normalizedCategory = UltraCategoryCard.normalize(widget.categoryName);
-    final iconPath = UltraCategoryCard.categoryIcons[normalizedCategory];
-    debugPrint(
-      'UltraCategoryCard category="${widget.categoryName}" normalized="$normalizedCategory" icon="$iconPath"',
-    );
+    final iconPath = categoryIconAssetOrNull(normalizedCategory);
     final showGlow = widget.isSelected || _hovered;
-    final scale = widget.isSelected
-        ? 0.96
-        : (_pressed
-            ? 0.97
-            : 1.0);
+    final scale = _pressed ? 0.98 : 1.0;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -121,15 +103,10 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (iconPath != null) ...[
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: Image.asset(
-                      iconPath,
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.contain,
-                    ),
+                  CategoryIconTile(
+                    assetPath: iconPath,
+                    isActive: widget.isSelected,
+                    isHovered: _hovered,
                   ),
                   const SizedBox(height: 10),
                 ],
