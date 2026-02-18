@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/price_model.dart';
 import '../models/product_model.dart';
 import '../models/store_model.dart';
@@ -555,6 +555,6 @@ final exploreControllerProvider =
 });
 
 final exploreLatestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getLatestPrices(limit: 60);
 });

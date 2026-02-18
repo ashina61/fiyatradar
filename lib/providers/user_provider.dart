@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import 'firebase_init_provider.dart';
 import '../models/user_model.dart';
 import '../models/product_model.dart';
 import '../services/firestore_service.dart';
@@ -8,7 +8,7 @@ import 'auth_provider.dart';
 import 'product_provider.dart';
 
 final allUsersProvider = StreamProvider<List<UserModel>>((ref) {
-  if (!firebaseInitialized) return Stream.value([]);
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllUsers();
 });
 

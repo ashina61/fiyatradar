@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../main.dart';
+import '../../providers/firebase_init_provider.dart';
 import '../../models/banner_model.dart';
 import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
