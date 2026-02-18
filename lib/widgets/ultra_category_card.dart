@@ -49,7 +49,6 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
   Widget build(BuildContext context) {
     final normalizedCategory = UltraCategoryCard.normalize(widget.categoryName);
     final iconPath = categoryIconAssetOrNull(normalizedCategory);
-    final showGlow = widget.isSelected || _hovered;
     final scale = _pressed ? 0.98 : 1.0;
 
     return MouseRegion(
@@ -90,7 +89,7 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
-                if (showGlow)
+                if (widget.isSelected || _hovered)
                   BoxShadow(
                     color: const Color(0xFFC8A97E).withOpacity(widget.isSelected ? 0.28 : 0.18),
                     blurRadius: widget.isSelected ? 20 : 14,
@@ -102,14 +101,11 @@ class _UltraCategoryCardState extends State<UltraCategoryCard> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (iconPath != null) ...[
-                  CategoryIconTile(
-                    assetPath: iconPath,
-                    isActive: widget.isSelected,
-                    isHovered: _hovered,
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                CategoryIcon(
+                  assetPath: iconPath,
+                  isActive: widget.isSelected,
+                ),
+                const SizedBox(height: 10),
                 Text(
                   widget.categoryName,
                   maxLines: 2,
