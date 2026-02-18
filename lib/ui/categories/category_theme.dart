@@ -145,3 +145,8 @@ CategoryMeta metaFromFirestoreId(String id) {
   final normalized = id.trim().toLowerCase();
   return _categoryMetaMap[normalized] ?? _fallbackCategory;
 }
+
+String? categoryIconAssetOrNull(String id) {
+  final normalized = id.trim().toLowerCase();
+  return _categoryMetaMap[normalized]?.iconAsset;
+}
