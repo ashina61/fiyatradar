@@ -6,6 +6,8 @@ import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
 import '../../models/category_model.dart';
+import '../../ui/categories/category_chip.dart';
+import '../../ui/categories/category_theme.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -66,6 +68,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final userAsync = ref.watch(userModelStreamProvider);
     final bannersAsync = ref.watch(activeBannersProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
+    final selectedCategory = ref.watch(selectedCategoryFilterProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
@@ -144,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.lg),
                 child: categoriesAsync.when(
-                  data: (categories) => _buildCategoriesSection(theme, categories),
+                  data: (categories) => _buildCategoriesSection(theme, categories, selectedCategory),
                   loading: () => _buildCategoriesLoading(theme),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
@@ -569,7 +572,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCategoriesSection(ThemeData theme, List<CategoryModel> categories) {
+  Widget _buildCategoriesSection(ThemeData theme, List<CategoryModel> categories, String selectedCategory) {
     if (categories.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -584,25 +587,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 100,
+          height: 102,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm + 4),
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
             itemBuilder: (context, index) {
               final cat = categories[index];
-              final catName = cat.name;
-              return _CategoryChip(
-                name: catName,
-                iconData: _categoryIcon(cat.iconName),
-                color: _categoryColor(index),
-                imageUrl: cat.versionedImageUrl,
+              final meta = metaFromFirestoreId(cat.id);
+              final isSelected = selectedCategory == cat.title;
+              return PremiumCategoryChip(
+                meta: CategoryMeta(
+                  id: meta.id,
+                  firestoreId: cat.id,
+                  title: cat.title,
+                  iconAsset: meta.iconAsset,
+                  sort: cat.sort ?? meta.sort,
+                ),
+                selected: isSelected,
                 onTap: () {
                   ref.read(currentTabProvider.notifier).state = 1;
-                  // Set category filter via a brief delay to let the tab switch first
                   Future.delayed(const Duration(milliseconds: 100), () {
-                    ref.read(selectedCategoryFilterProvider.notifier).state = catName;
+                    ref.read(selectedCategoryFilterProvider.notifier).state = cat.title;
                   });
                 },
               );
@@ -625,9 +632,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        const SizedBox(
-          height: 100,
-          child: Center(child: CircularProgressIndicator()),
+        SizedBox(
+          height: 102,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: 6,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (_, __) => Container(
+              width: 98,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.outline),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -773,33 +793,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  IconData _categoryIcon(String iconName) {
-    switch (iconName) {
-      case 'devices':
-        return Icons.devices;
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'cleaning_services':
-        return Icons.cleaning_services;
-      case 'face':
-        return Icons.face;
-      case 'home':
-        return Icons.home;
-      case 'checkroom':
-        return Icons.checkroom;
-      case 'sports':
-        return Icons.sports;
-      case 'toys':
-        return Icons.toys;
-      case 'book':
-        return Icons.book;
-      case 'directions_car':
-        return Icons.directions_car;
-      default:
-        return Icons.category;
-    }
-  }
-
   Widget _buildLatestPricesSection(ThemeData theme, List<PriceModel> prices) {
     if (prices.isEmpty) return const SizedBox.shrink();
 
@@ -844,21 +837,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Color _categoryColor(int index) {
-    const colors = [
-      AppColors.primary,
-      AppColors.secondary,
-      AppColors.info,
-      AppColors.accent,
-      AppColors.error,
-      AppColors.primaryDark,
-      AppColors.secondaryDark,
-      AppColors.accentDark,
-      AppColors.primaryLight,
-      AppColors.secondaryLight,
-    ];
-    return colors[index % colors.length];
-  }
 }
 
 // ============================================================
@@ -916,71 +894,6 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// Category Chip
-// ============================================================
-
-class _CategoryChip extends StatelessWidget {
-  final String name;
-  final IconData iconData;
-  final Color color;
-  final String? imageUrl;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.name,
-    required this.iconData,
-    required this.color,
-    this.imageUrl,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 74,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              key: ValueKey(imageUrl ?? name),
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Icon(iconData, color: color, size: 26),
-                    )
-                  : Icon(iconData, color: color, size: 26),
-            ),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

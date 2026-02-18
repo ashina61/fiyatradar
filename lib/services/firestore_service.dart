@@ -1968,29 +1968,61 @@ class FirestoreService {
   }
 
   Future<String> addCategory(
-    String name,
+    String title,
     String iconName, {
     String? imageUrl,
     String? imagePath,
     bool isActive = true,
     int? order,
   }) async {
+    final normalizedId = title
+        .trim()
+        .toLowerCase()
+        .replaceAll('ı', 'i')
+        .replaceAll('ğ', 'g')
+        .replaceAll('ü', 'u')
+        .replaceAll('ş', 's')
+        .replaceAll('ö', 'o')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
     final doc = await _categoriesRef.add({
-      'name': name,
-      'iconName': iconName,
+      'id': normalizedId,
+      'title': title,
       'isActive': isActive,
-      if (order != null) 'order': order,
+      if (order != null) 'sort': order,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-      if (imageUrl != null) 'imageUrl': imageUrl,
-      if (imagePath != null) 'imagePath': imagePath,
     });
     return doc.id;
   }
 
   Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
+    final sanitized = Map<String, dynamic>.from(data)
+      ..remove('iconName')
+      ..remove('imageUrl')
+      ..remove('imagePath')
+      ..remove('name')
+      ..remove('order');
+    if (sanitized.containsKey('title') && sanitized['title'] is String) {
+      final title = (sanitized['title'] as String).trim();
+      sanitized['title'] = title;
+      sanitized['id'] = title
+          .toLowerCase()
+          .replaceAll('ı', 'i')
+          .replaceAll('ğ', 'g')
+          .replaceAll('ü', 'u')
+          .replaceAll('ş', 's')
+          .replaceAll('ö', 'o')
+          .replaceAll('ç', 'c')
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+          .replaceAll(RegExp(r'^_+|_+$'), '');
+    }
+    if (sanitized.containsKey('sort') && sanitized['sort'] is! num) {
+      sanitized.remove('sort');
+    }
     await _categoriesRef.doc(categoryId).update({
-      ...data,
+      ...sanitized,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
