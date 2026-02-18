@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
@@ -11,8 +12,7 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/home_product_card.dart';
-import '../../models/category_theme.dart';
-import '../../widgets/category_card.dart';
+import '../../widgets/category_tile_v3.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
@@ -34,6 +34,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
+  final ScrollController _categoryScrollController = ScrollController();
+  bool _isSnappingCategories = false;
+
+  static const double _categoryTileWidth = 110;
+  static const double _categoryTileSpacing = 12;
+  static const double _categoryListHorizontalPadding = 16;
   final Set<String> _precachedIcons = <String>{};
   late final ProviderSubscription<AsyncValue<List<CategoryModel>>> _categoryPrecacheSub;
 
@@ -54,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     for (final category in categories) {
       if (_precachedIcons.contains(category.iconAssetPath)) continue;
       _precachedIcons.add(category.iconAssetPath);
-      await precacheImage(AssetImage(category.iconAssetPath), context);
+      await precacheImage(AssetImage(category.iconAssetPath), context).catchError((_) {});
     }
   }
 
@@ -76,6 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _bannerTimer?.cancel();
     _categoryPrecacheSub.close();
+    _categoryScrollController.dispose();
     _bannerController.dispose();
     super.dispose();
   }
@@ -605,34 +612,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 104,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              final categoryTheme = CategoryThemeCatalog.resolve(
-                id: cat.canonicalId,
-                title: cat.title,
-              );
-              final isSelected = selectedCategoryId == categoryTheme.id;
-              return CategoryCard(
-                title: cat.title,
-                iconAssetPath: cat.iconAssetPath,
-                accentColor: categoryTheme.accentColor,
-                bgTint: categoryTheme.bgTint,
-                isSelected: isSelected,
-                onTap: () {
-                  ref.read(currentTabProvider.notifier).state = 1;
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    ref.read(selectedCategoryIdProvider.notifier).state = categoryTheme.id;
-                    ref.read(selectedCategoryFilterProvider.notifier).state = cat.title;
-                  });
-                },
-              );
+          height: 142,
+          child: NotificationListener<ScrollEndNotification>(
+            onNotification: (notification) {
+              if (_isSnappingCategories || !_categoryScrollController.hasClients || categories.length <= 1) {
+                return false;
+              }
+
+              final rawIndex = (_categoryScrollController.offset /
+                      (_categoryTileWidth + _categoryTileSpacing))
+                  .round();
+              final targetIndex = rawIndex.clamp(0, categories.length - 1);
+              final targetOffset =
+                  targetIndex * (_categoryTileWidth + _categoryTileSpacing);
+
+              if ((_categoryScrollController.offset - targetOffset).abs() < 2) {
+                return false;
+              }
+
+              _isSnappingCategories = true;
+              _categoryScrollController
+                  .animateTo(
+                    targetOffset,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                  )
+                  .whenComplete(() => _isSnappingCategories = false);
+
+              return false;
             },
+            child: ListView.separated(
+              controller: _categoryScrollController,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: _categoryListHorizontalPadding,
+              ),
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: _categoryTileSpacing),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final isSelected = selectedCategoryId == category.canonicalId;
+
+                return CategoryTileV3(
+                  category: category,
+                  isSelected: isSelected,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(currentTabProvider.notifier).state = 1;
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      ref.read(selectedCategoryIdProvider.notifier).state =
+                          category.canonicalId;
+                      ref.read(selectedCategoryFilterProvider.notifier).state =
+                          category.title;
+                    });
+                  },
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -652,17 +691,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
-          height: 104,
+          height: 142,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: _categoryListHorizontalPadding),
             scrollDirection: Axis.horizontal,
             itemCount: 6,
-            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+            separatorBuilder: (_, __) => const SizedBox(width: _categoryTileSpacing),
             itemBuilder: (_, __) => Container(
-              width: 98,
+              width: _categoryTileWidth,
               decoration: BoxDecoration(
                 color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: AppColors.outline),
               ),
             ),
