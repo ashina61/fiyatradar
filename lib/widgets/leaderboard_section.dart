@@ -2,10 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/leaderboard_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
 import '../utils/cities_tr.dart';
-import '../utils/level_system.dart';
+import '../utils/level_style.dart';
 import 'level_badge.dart';
 
 class LeaderboardSection extends ConsumerWidget {
@@ -253,7 +254,7 @@ class _PodiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = levelBuilder(item.totalPoints);
+    final level = LevelStyle.fromTotalPoints(item.totalPoints);
     return Container(
       margin: EdgeInsets.only(bottom: compact ? 0 : 22),
       padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 12 : 16),
@@ -296,7 +297,7 @@ class _LeaderboardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = levelBuilder(item.totalPoints);
+    final level = LevelStyle.fromTotalPoints(item.totalPoints);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(

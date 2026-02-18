@@ -89,6 +89,18 @@ class AuthService {
             .collection('users')
             .doc(credential.user!.uid)
             .set(user.toFirestore());
+        await _firestore.collection('users').doc(credential.user!.uid).set({
+          'displayName': name,
+          'photoURL': '',
+          'city': cityName,
+          'totalPoints': 0,
+          'weeklyPoints': 0,
+          'monthlyPoints': 0,
+          'streakDays': 0,
+          'trustScorePercent': 0,
+          'trustScore': 0.0,
+          'level': 'Standart',
+        }, SetOptions(merge: true));
 
         if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
           try {
@@ -158,12 +170,24 @@ class AuthService {
             name: user.displayName ?? 'Kullanici',
             photoUrl: user.photoURL,
             inviteCode: _generateInviteCode(user.uid),
-            city: 'İstanbul',
+            city: null,
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
           );
 
-          await _firestore.collection('users').doc(user.uid).set(newUser.toFirestore());
+          await _firestore.collection('users').doc(user.uid).set({
+            ...newUser.toFirestore(),
+            'displayName': newUser.name,
+            'photoURL': user.photoURL ?? '',
+            'city': null,
+            'totalPoints': 0,
+            'weeklyPoints': 0,
+            'monthlyPoints': 0,
+            'streakDays': 0,
+            'trustScorePercent': 0,
+            'trustScore': 0.0,
+            'level': 'Standart',
+          }, SetOptions(merge: true));
           return newUser;
         } else {
           final data = docSnapshot.data();

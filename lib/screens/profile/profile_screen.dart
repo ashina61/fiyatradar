@@ -10,9 +10,8 @@ import '../../providers/product_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
-import '../../utils/level_system.dart';
+import '../../utils/level_style.dart';
 import '../../utils/theme.dart';
-import '../../utils/trust_tier.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -110,9 +109,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await userRef.set({
         'displayName': 'Kullanıcı',
         'photoUrl': '',
+        'photoURL': '',
         'verified': false,
         'trustScore': 0,
-        'levelName': 'Elmas seviyesi',
+        'levelName': 'Standart',
         'monthlySavings': '₺0',
         'topMarket': 'Henüz yok',
         'totalPoints': 0,
@@ -130,9 +130,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? '').toString(),
-      photoUrl: (data['photoUrl'] ?? '').toString(),
+      photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
-      levelName: tierFromBackend.isEmpty ? levelBuilder(totalPoints).label : tierFromBackend,
+      levelName: LevelStyle.fromLevelLabel(tierFromBackend, fallbackTotalPoints: totalPoints).label,
       trustScore: (trustProfile['trustScorePercent'] as num?)?.toDouble() ?? 0,
     );
   }
@@ -161,13 +161,9 @@ class _PremiumHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = levelBuilder(totalPoints);
-    // Use trust score to determine badge tier when trust score is available
-    final trustTier = trustScore > 0
-        ? trustTierFromScore(trustScore.round())
-        : null;
-    final badgeEmoji = trustTier?.emoji ?? level.emoji;
-    final badgeLabel = trustTier?.label ?? (levelName.trim().isEmpty ? level.label : levelName);
+    final level = LevelStyle.fromLevelLabel(levelName, fallbackTotalPoints: totalPoints);
+    final badgeEmoji = level.emoji;
+    final badgeLabel = level.label;
     final shownUsername = username.trim().isEmpty ? displayName : username.trim();
 
     return Container(
@@ -274,7 +270,6 @@ class _Avatar extends StatelessWidget {
                 fit: BoxFit.cover,
                 memCacheWidth: 220,
                 memCacheHeight: 220,
-                filterQuality: FilterQuality.high,
                 errorWidget: (_, __, ___) => Container(
                   color: const Color(0xFFFFE8B7),
                   alignment: Alignment.center,
