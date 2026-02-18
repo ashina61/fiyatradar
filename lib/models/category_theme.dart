@@ -35,7 +35,7 @@ class CategoryThemeCatalog {
     CategoryTheme(
       id: 'kisisel_bakim',
       title: 'Kişisel Bakım',
-      iconAssetPath: '${assetsBasePath}temizlik.png',
+      iconAssetPath: '${assetsBasePath}kisisel_bakim.png',
       accentColor: Color(0xFFB88458),
       bgTint: Color(0x12B88458),
       sortOrder: 2,
