@@ -743,6 +743,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                       ],
+                      const AppSectionHeader(
+                        title: 'Topluluk Dogrulamasi',
+                        subtitle: 'Son fiyatin guven durumunu degerlendirin',
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      priceHistoryAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Hata: $e'),
+                        data: (prices) => _buildVerificationSection(prices),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
                       _buildSectionCard(
                         title: 'Fiyat Gecmisi',
                         trailing: 'Son 30 gün',
@@ -774,18 +786,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       _buildCheapestStoresSection(priceHistory ?? const []),
-                      const SizedBox(height: AppSpacing.lg),
-                      const AppSectionHeader(
-                        title: 'Topluluk Dogrulamasi',
-                        subtitle: 'Son fiyatin guven durumunu degerlendirin',
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      priceHistoryAsync.when(
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Hata: $e'),
-                        data: (prices) => _buildVerificationSection(prices),
-                      ),
                       const SizedBox(height: AppSpacing.lg),
 
                       const SizedBox(height: AppSpacing.lg),

@@ -38,7 +38,7 @@ const Map<String, Color> levelColorMap = {
   'Standart': Color(0xFF6B7280),
   'Bronz': Color(0xFF8D5A3A),
   'Gümüş': Color(0xFF6B7280),
-  'Elmas': Color(0xFFC89B3C),
+  'Elmas': Color(0xFF1C6FB2),
 };
 
 const List<UserLevel> kUserLevels = [
@@ -84,9 +84,9 @@ const List<UserLevel> kUserLevels = [
   UserLevel(
     label: 'Elmas',
     icon: Icons.diamond_rounded,
-    gradient: [Color(0xFFF8E7A1), Color(0xFFC89B3C)],
-    borderColor: Color(0xFFB8860B),
-    textColor: Color(0xFF2F2204),
+    gradient: [Color(0xFFE8F4FF), Color(0xFFB7DFFF)],
+    borderColor: Color(0xFF7DB9E8),
+    textColor: Color(0xFF144B78),
     minPoints: 5000,
     emoji: '💎',
     badgeBackground: Color(0xFFE9F4FF),
