@@ -268,7 +268,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Barkodla eslesen urun bulunamadi. Listeden secim yapabilirsiniz.'),
+        content: const Text('Barkodla eşleşen ürün bulunamadı. Listeden seçim yapabilirsiniz.'),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
       ),
@@ -317,7 +317,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     Padding(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Text(
-                        'Urun Secin',
+                        'Ürün Seçin',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -325,7 +325,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ),
                     Expanded(
                       child: products.isEmpty
-                          ? const Center(child: Text('Henuz urun yok'))
+                          ? const Center(child: Text('Henüz ürün yok'))
                           : ListView.separated(
                               controller: scrollController,
                               padding: const EdgeInsets.symmetric(
@@ -425,7 +425,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           const Icon(Icons.location_on, color: AppColors.primary, size: 20),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
-                            'Magaza (Sube) Secin',
+                            'Mağaza (Şube) Seçin',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -899,14 +899,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         child: const Icon(Icons.add_business, color: AppColors.accent, size: 22),
       ),
       title: const Text(
-        'Bu magaza listede yok +',
+        'Bu mağaza listede yok +',
         style: TextStyle(
           fontWeight: FontWeight.w600,
           color: AppColors.accent,
         ),
       ),
       subtitle: const Text(
-        'Yeni magaza onerisi gonder',
+        'Yeni mağaza önerisi gönder',
         style: TextStyle(fontSize: 12),
       ),
       onTap: () {
@@ -936,7 +936,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             ),
             const SizedBox(width: AppSpacing.sm),
             const Expanded(
-              child: Text('Yeni Magaza Oner', style: TextStyle(fontSize: 16)),
+              child: Text('Yeni Mağaza Öner', style: TextStyle(fontSize: 16)),
             ),
           ]),
           content: Column(
@@ -945,7 +945,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Magaza Adi',
+                  labelText: 'Mağaza Adı',
                   hintText: 'Orn: Cagri Market',
                   prefixIcon: Icon(Icons.store_outlined),
                 ),
@@ -964,7 +964,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Konum otomatik olarak alinacaktir. Magaza admin onayi sonrasi aktif olur.',
+                        'Konum otomatik olarak alınacaktır. Mağaza admin onayı sonrası aktif olur.',
                         style: TextStyle(fontSize: 11, color: AppColors.info),
                       ),
                     ),
@@ -1003,7 +1003,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text('Magaza onerisi gonderildi! Admin onayi bekleniyor.'),
+                            content: const Text('Mağaza önerisi gönderildi! Admin onayı bekleniyor.'),
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -1014,7 +1014,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Magaza onerisi gonderilemedi: $e'),
+                            content: Text('Mağaza önerisi gönderilemedi: $e'),
                             backgroundColor: AppColors.error,
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -1044,7 +1044,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Lutfen bir urun secin. Listeden sec veya oneriden dokun.'),
+          content: const Text('Lütfen bir ürün seçin. Listeden seç veya öneriden dokunun.'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1055,7 +1055,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     if (_selectedStore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Lutfen bir magaza (sube) secin'),
+          content: const Text('Lütfen bir mağaza (şube) seçin'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1267,8 +1267,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               TextFormField(
                 controller: _productController,
                 decoration: InputDecoration(
-                  labelText: 'Urun Adi',
-                  hintText: 'Urun adi veya barkod numarasi',
+                  labelText: 'Ürün Adı',
+                  hintText: 'Ürün adı veya barkod numarası',
                   prefixIcon: const Icon(Icons.shopping_bag_outlined),
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1305,7 +1305,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 textInputAction: TextInputAction.next,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Urun adi gerekli';
+                    return 'Ürün adı gerekli';
                   }
                   return null;
                 },
@@ -1391,7 +1391,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Kategori secin';
+                      return 'Kategori seçin';
                     }
                     return null;
                   },
@@ -1430,7 +1430,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               // Step 3: Source selection
 
                 Text(
-                  'Magaza (Sube) Secin',
+                  'Mağaza (Şube) Seçin',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),

@@ -171,10 +171,18 @@ class _CommentInputState extends State<CommentInput> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isNotEmpty) {
-      widget.onSubmit(text);
-      _controller.clear();
+    if (text.isEmpty) return;
+    if (text.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Yorum en az 10 karakter olmalıdır.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
+    widget.onSubmit(text);
+    _controller.clear();
   }
 
   @override

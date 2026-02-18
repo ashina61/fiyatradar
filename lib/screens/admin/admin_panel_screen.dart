@@ -97,14 +97,14 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           unselectedLabelColor: Theme.of(context).hintColor,
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           tabs: const [
-            Tab(text: 'Urunler', icon: Icon(Icons.inventory_2_outlined)),
-            Tab(text: 'Magazalar', icon: Icon(Icons.storefront_outlined)),
+            Tab(text: 'Ürünler', icon: Icon(Icons.inventory_2_outlined)),
+            Tab(text: 'Mağazalar', icon: Icon(Icons.storefront_outlined)),
             Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
             Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
             Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
             Tab(text: 'Aktüel Yönetimi', icon: Icon(Icons.local_offer_outlined)),
             Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
-            Tab(text: 'Kullanicilar', icon: Icon(Icons.people_outlined)),
+            Tab(text: 'Kullanıcılar', icon: Icon(Icons.people_outlined)),
             Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
             Tab(text: 'Rozet Olaylari', icon: Icon(Icons.workspace_premium_outlined)),
           ],
@@ -161,7 +161,7 @@ class _ProductHubTabState extends State<_ProductHubTab>
           child: TabBar(
             controller: _tabController,
             tabs: const [
-              Tab(text: 'Urunler'),
+              Tab(text: 'Ürünler'),
               Tab(text: 'Oneriler'),
             ],
           ),
@@ -434,7 +434,7 @@ class _ProductManagementTab extends ConsumerWidget {
 
             setDialogState(() {
               isFetchingBarcode = true;
-              barcodeHint = 'Barkoddan urun bilgisi aliniyor...';
+              barcodeHint = 'Barkoddan ürün bilgisi alınıyor...';
             });
 
             final result = await _openFoodFactsService.fetchByBarcode(barcode);
@@ -443,7 +443,7 @@ class _ProductManagementTab extends ConsumerWidget {
             setDialogState(() {
               isFetchingBarcode = false;
               if (result == null) {
-                barcodeHint = 'Urun bulunamadi, manuel ekleyebilirsiniz';
+                barcodeHint = 'Ürün bulunamadı, manuel ekleyebilirsiniz';
                 openFoodFactsImageUrl = null;
                 return;
               }

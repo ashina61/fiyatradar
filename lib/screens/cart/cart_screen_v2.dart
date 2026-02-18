@@ -449,8 +449,6 @@ class CartCollapsibleHeader extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Fiyat Sepeti', style: theme.textTheme.headlineSmall),
-                        const SizedBox(height: 4),
                         Text(
                           'Marketleri tek dokunuşla karşılaştır.',
                           style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),

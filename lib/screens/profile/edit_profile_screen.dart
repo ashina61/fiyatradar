@@ -150,9 +150,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _sendVerificationMail() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    await user.sendEmailVerification();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Doğrulama e-postası gönderildi.')));
+    try {
+      await user.sendEmailVerification();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Doğrulama e-postası gönderildi. Lütfen gelen kutunuzu kontrol edin.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('E-posta gönderilemedi. Lütfen tekrar deneyin.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _changePassword() async {
@@ -295,7 +310,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       leading: Icon(_emailVerified ? Icons.verified : Icons.error_outline, color: _emailVerified ? Colors.green : Colors.orange),
                       title: Text(_email.isEmpty ? 'E-posta bulunamadı' : _email),
                       subtitle: Text(_emailVerified ? 'E-posta doğrulandı' : 'E-posta doğrulanmadı'),
-                      trailing: _emailVerified ? null : TextButton(onPressed: _sendVerificationMail, child: const Text('Doğrula')),
+                      trailing: _emailVerified ? null : TextButton(
+                        onPressed: _sendVerificationMail,
+                        child: const Text('Doğrulama e-postası gönder'),
+                      ),
                     ),
                     ListTile(leading: const Icon(Icons.password_rounded), title: const Text('Şifre değiştir'), onTap: _changePassword),
                     const ListTile(leading: Icon(Icons.devices_rounded), title: Text('Oturumlar / cihazlar'), subtitle: Text('Bu özellik yakında gelişmiş şekilde sunulacak.')),

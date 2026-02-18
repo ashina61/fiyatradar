@@ -129,7 +129,7 @@ class BasketViewModel extends ChangeNotifier {
         notifyListeners();
       },
       onError: (_) {
-        errorMessage = 'Urun bilgileri alinamadi.';
+        errorMessage = 'Ürün bilgileri alınamadı.';
         notifyListeners();
       },
     );
