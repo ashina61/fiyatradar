@@ -15,9 +15,14 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/formatters.dart';
+import '../../utils/theme.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/premium_scaffold_shell.dart';
 import 'cart_result_tab.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CartScreenV2 – Premium Redesign
+// ─────────────────────────────────────────────────────────────────────────────
 
 class CartScreenV2 extends ConsumerStatefulWidget {
   const CartScreenV2({super.key});
@@ -26,7 +31,8 @@ class CartScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<CartScreenV2> createState() => _CartScreenV2State();
 }
 
-class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerProviderStateMixin {
+class _CartScreenV2State extends ConsumerState<CartScreenV2>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
   @override
@@ -48,116 +54,143 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
     return authState.when(
       data: (user) {
         if (user == null) {
-          return _LoginPromptCard(
-            onLoginHint: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Devam etmek için giriş yapın.')),
-            ),
-          );
+          return const _LoginPromptCard();
         }
 
         final viewModel = ref.watch(basketViewModelProvider);
         final itemCount = ref.watch(
-          basketViewModelProvider.select(
-            (vm) => vm.items.fold<int>(0, (sum, item) => sum + item.quantity),
-          ),
+          basketViewModelProvider
+              .select((vm) => vm.items.fold<int>(0, (s, i) => s + i.quantity)),
         );
         final estimatedTotal = ref.watch(
           basketViewModelProvider.select((vm) => vm.computedEstimatedTotal),
         );
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Fiyat Sepeti'),
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              indicator: UnderlineTabIndicator(
-                borderRadius: BorderRadius.circular(999),
-                borderSide: BorderSide(width: 3.5, color: Theme.of(context).colorScheme.primary),
-                insets: const EdgeInsets.symmetric(horizontal: 54),
-              ),
-              tabs: const [
-                Tab(text: 'Sepet'),
-                Tab(text: 'Sonuç'),
-              ],
-            ),
-          ),
+          backgroundColor: AppColors.background,
+          appBar: _buildAppBar(context),
           body: PremiumScaffoldShell(
             child: TabBarView(
-            controller: _tabController,
-            children: [
-              _CartTabContent(
-                viewModel: viewModel,
-                itemCount: itemCount,
-                onAddProduct: () => _showProductPicker(context, viewModel),
-                estimatedTotal: estimatedTotal,
-                onCalculate: () async {
-                  if (viewModel.items.isEmpty) {
-                    ScaffoldMessenger.of(context)
-                      ..clearSnackBars()
-                      ..showSnackBar(
-                        const SnackBar(
-                          content: Text('Hesaplama için en az bir ürün ekleyin.'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    return;
-                  }
-                  HapticFeedback.mediumImpact();
-                  await viewModel.calculate();
-                  if (!mounted) return;
-                  if (viewModel.comparisonState.status != CartComparisonStatus.loading &&
-                      viewModel.comparisonState.status != CartComparisonStatus.idle) {
-                    _tabController.animateTo(1);
-                  }
-                },
-              ),
-              CartResultTab(
-                state: viewModel.comparisonState,
-                onCalculate: () async {
-                  HapticFeedback.mediumImpact();
-                  await viewModel.calculate();
-                  if (!mounted) return;
-                  _tabController.animateTo(1);
-                },
-                onGoToCart: () => _tabController.animateTo(0),
-                onAddPrice: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AddPriceScreen(),
-                    ),
-                  );
-                },
-                onRetry: () async {
-                  HapticFeedback.mediumImpact();
-                  await viewModel.calculate();
-                  if (!mounted) return;
-                  _tabController.animateTo(1);
-                },
-                onSelectStores: () => _showStoreFilterSheet(context, viewModel),
-                selectedStoreNames: viewModel.selectedStoreNames,
-              ),
-            ],
+              controller: _tabController,
+              children: [
+                // ── Tab 1: Sepetim ──
+                _CartBody(
+                  viewModel: viewModel,
+                  itemCount: itemCount,
+                  estimatedTotal: estimatedTotal,
+                  onAddProduct: () => _showProductPicker(context, viewModel),
+                  onAddPrice: (product) => _navigateToAddPrice(context, product),
+                  onCalculate: () => _handleCalculate(viewModel),
+                ),
+                // ── Tab 2: Karşılaştır ──
+                CartResultTab(
+                  state: viewModel.comparisonState,
+                  onCalculate: () => _handleCalculate(viewModel),
+                  onGoToCart: () => _tabController.animateTo(0),
+                  onAddPrice: () => _navigateToAddPrice(context, null),
+                  onRetry: () => _handleCalculate(viewModel),
+                  onSelectStores: () =>
+                      _showStoreFilterSheet(context, viewModel),
+                  selectedStoreNames: viewModel.selectedStoreNames,
+                ),
+              ],
             ),
           ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, __) => const Scaffold(body: SizedBox.shrink()),
     );
   }
 
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AppBar(
+      title: const Text('Sepetim'),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(48),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.all(4),
+          child: TabBar(
+            controller: _tabController,
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            indicator: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.shadow.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            labelColor: cs.primary,
+            unselectedLabelColor: cs.onSurfaceVariant,
+            labelStyle: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+            tabs: const [
+              Tab(text: 'Sepet'),
+              Tab(text: 'Karşılaştır'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-  Future<void> _showStoreFilterSheet(BuildContext context, BasketViewModel viewModel) async {
+  Future<void> _handleCalculate(BasketViewModel viewModel) async {
+    if (viewModel.items.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Hesaplama için en az bir ürün ekleyin.'),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    await viewModel.calculate();
+    if (!mounted) return;
+    if (viewModel.comparisonState.status != CartComparisonStatus.loading &&
+        viewModel.comparisonState.status != CartComparisonStatus.idle) {
+      _tabController.animateTo(1);
+    }
+  }
+
+  void _navigateToAddPrice(BuildContext context, ProductModel? product) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
+    );
+  }
+
+  // ── Store Filter Bottom Sheet ──
+  Future<void> _showStoreFilterSheet(
+      BuildContext context, BasketViewModel viewModel) async {
     await viewModel.loadStoresIfNeeded();
     if (!context.mounted) return;
 
+    final cs = Theme.of(context).colorScheme;
     final initialSelection = Set<String>.from(viewModel.selectedStoreIds);
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         final tempSelection = Set<String>.from(initialSelection);
         return StatefulBuilder(
@@ -167,144 +200,161 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
 
             Widget buildStoreList(List<StoreModel> stores) {
               if (stores.isEmpty) {
-                return const Center(child: Text('Bu sekmede mağaza bulunamadı.'));
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.store_outlined,
+                            size: 40, color: cs.onSurfaceVariant),
+                        const SizedBox(height: 12),
+                        Text('Bu sekmede mağaza bulunamadı.',
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                );
               }
-              return ListView.builder(
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: stores.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
                 itemBuilder: (_, index) {
                   final store = stores[index];
                   final isSelected = tempSelection.contains(store.id);
-                  return CheckboxListTile(
-                    value: isSelected,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(store.displayName),
-                    subtitle: store.isOnline
-                        ? const Text('Online')
-                        : Text([store.neighborhood, store.district].where((e) => e.isNotEmpty).join(', ')),
-                    onChanged: (value) {
-                      setModalState(() {
-                        if (value == true) {
-                          tempSelection.add(store.id);
-                        } else {
-                          tempSelection.remove(store.id);
-                        }
-                      });
-                    },
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? cs.primaryContainer.withOpacity(0.3)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: CheckboxListTile(
+                      value: isSelected,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      title: Text(store.displayName,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      subtitle: Text(
+                        store.isOnline
+                            ? 'Online'
+                            : [store.neighborhood, store.district]
+                                .where((e) => e.isNotEmpty)
+                                .join(', '),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          if (value == true) {
+                            tempSelection.add(store.id);
+                          } else {
+                            tempSelection.remove(store.id);
+                          }
+                        });
+                      },
+                    ),
                   );
                 },
               );
             }
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                ),
-                child: DefaultTabController(
-                  length: 2,
-                  child: SizedBox(
-                    height: MediaQuery.of(ctx).size.height * 0.72,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Mağaza Seç', style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 8),
-                        Chip(label: Text('Seçili: ${tempSelection.length} mağaza')),
-                        const SizedBox(height: 8),
-                        const TabBar(
-                          tabs: [
-                            Tab(text: 'Yakınımda'),
-                            Tab(text: 'Online'),
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text('Mağaza Seç',
+                                style:
+                                    Theme.of(context).textTheme.headlineSmall),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: cs.primaryContainer.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${tempSelection.length} seçili',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                      color: cs.primary,
+                                      fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: TabBar(
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        dividerColor: Colors.transparent,
+                        indicator: BoxDecoration(
+                          color: cs.primaryContainer.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        tabs: const [
+                          Tab(text: 'Yakınımda'),
+                          Tab(text: 'Online'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: TabBarView(
+                          children: [
+                            buildStoreList(nearbyStores),
+                            buildStoreList(onlineStores),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              buildStoreList(nearbyStores),
-                              buildStoreList(onlineStores),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
+                      ),
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                        child: SizedBox(
                           width: double.infinity,
+                          height: 52,
                           child: FilledButton(
                             onPressed: () {
-                              viewModel.setSelectedStoreIds(Set<String>.from(tempSelection));
+                              viewModel.setSelectedStoreIds(
+                                  Set<String>.from(tempSelection));
                               Navigator.of(ctx).pop();
                             },
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                            ),
                             child: const Text('Uygula'),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showProductPicker(BuildContext context, BasketViewModel viewModel) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        final controller = TextEditingController();
-        return StatefulBuilder(
-          builder: (_, setModalState) {
-            final query = controller.text.trim().toLowerCase();
-            final allProducts = ref.watch(allProductsProvider).valueOrNull ?? [];
-            final filtered = allProducts.where((product) {
-              if (query.isEmpty) return true;
-              return product.name.toLowerCase().contains(query) ||
-                  product.brand.toLowerCase().contains(query);
-            }).toList();
-
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      onChanged: (_) => setModalState(() {}),
-                      decoration: const InputDecoration(
-                        hintText: 'Ürün ara',
-                        prefixIcon: Icon(Icons.search_rounded),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: MediaQuery.of(ctx).size.height * 0.48,
-                      child: ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (_, index) {
-                          final product = filtered[index];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                            title: Text(product.name),
-                            subtitle: Text(product.brand),
-                            trailing: const Icon(Icons.add_circle_outline_rounded),
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              viewModel.addProduct(product.id);
-                              Navigator.pop(ctx);
-                            },
-                          );
-                        },
                       ),
                     ),
                   ],
@@ -316,14 +366,213 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
       },
     );
   }
+
+  // ── Product Picker Bottom Sheet ──
+  void _showProductPicker(BuildContext context, BasketViewModel viewModel) {
+    final cs = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return StatefulBuilder(
+          builder: (_, setModalState) {
+            final query = controller.text.trim().toLowerCase();
+            final allProducts =
+                ref.watch(allProductsProvider).valueOrNull ?? [];
+            final filtered = allProducts.where((product) {
+              if (query.isEmpty) return true;
+              return product.name.toLowerCase().contains(query) ||
+                  product.brand.toLowerCase().contains(query);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.72,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Ürün Ekle',
+                            style: Theme.of(context).textTheme.headlineSmall),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: controller,
+                          onChanged: (_) => setModalState(() {}),
+                          decoration: InputDecoration(
+                            hintText: 'Ürün veya marka ara...',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: query.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded),
+                                    onPressed: () {
+                                      controller.clear();
+                                      setModalState(() {});
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor:
+                                cs.surfaceContainerHighest.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (filtered.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.search_off_rounded,
+                                size: 48, color: cs.onSurfaceVariant),
+                            const SizedBox(height: 12),
+                            Text('Ürün bulunamadı',
+                                style: Theme.of(context).textTheme.titleMedium),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 2),
+                        itemBuilder: (_, index) {
+                          final product = filtered[index];
+                          final hasPrice = product.lastPrice != null;
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                viewModel.addProduct(product.id);
+                                Navigator.pop(ctx);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    AppNetworkImage(
+                                      imageUrl: product.mainImage,
+                                      cacheKey: product.id,
+                                      width: 44,
+                                      height: 44,
+                                      fit: BoxFit.cover,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(product.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            product.brand.isNotEmpty
+                                                ? product.brand
+                                                : 'Marka bilgisi yok',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (hasPrice)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: cs.primaryContainer
+                                              .withOpacity(0.3),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          formatTRY(product.lastPrice!),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelMedium
+                                              ?.copyWith(
+                                                color: cs.primary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: cs.primary.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.add_rounded,
+                                          size: 18, color: cs.primary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
-class _CartTabContent extends StatefulWidget {
-  const _CartTabContent({
+// ─────────────────────────────────────────────────────────────────────────────
+// _CartBody – The main cart tab content
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CartBody extends StatefulWidget {
+  const _CartBody({
     required this.viewModel,
     required this.itemCount,
     required this.estimatedTotal,
     required this.onAddProduct,
+    required this.onAddPrice,
     required this.onCalculate,
   });
 
@@ -331,295 +580,549 @@ class _CartTabContent extends StatefulWidget {
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
   final VoidCallback onAddProduct;
+  final void Function(ProductModel? product) onAddPrice;
   final VoidCallback onCalculate;
 
   @override
-  State<_CartTabContent> createState() => _CartTabContentState();
+  State<_CartBody> createState() => _CartBodyState();
 }
 
-class _CartTabContentState extends State<_CartTabContent> {
-  late final ScrollController _scrollController;
-  double _scrollOffset = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController()
-      ..addListener(() {
-        setState(() => _scrollOffset = _scrollController.offset.clamp(0, 220));
-      });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
+class _CartBodyState extends State<_CartBody> {
   @override
   Widget build(BuildContext context) {
+    if (widget.viewModel.isLoadingItems) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (widget.viewModel.items.isEmpty) {
+      return _EmptyCartView(onAdd: widget.onAddProduct);
+    }
+
     return Column(
       children: [
         Expanded(
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              CartCollapsibleHeader(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            children: [
+              // ── Stats Header ──
+              _StatsHeader(
                 itemCount: widget.itemCount,
+                estimatedTotal: widget.estimatedTotal,
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                sliver: SliverToBoxAdapter(
-                  child: widget.viewModel.isLoadingItems
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      : widget.viewModel.items.isEmpty
-                          ? _EmptyState(onAdd: widget.onAddProduct)
-                          : Column(
-                              children: [
-                                for (final item in widget.viewModel.items)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: CartItemCard(
-                                      item: item,
-                                      product: widget.viewModel.productMap[item.productId],
-                                      lastKnownPrice: item.lastKnownPrice,
-                                      onQuantityChanged: (qty) =>
-                                          widget.viewModel.updateQuantity(item.productId, qty),
-                                      onRemove: () => widget.viewModel.updateQuantity(item.productId, 0),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                ),
+              const SizedBox(height: 24),
+
+              // ── Section Label ──
+              _SectionLabel(
+                label: 'Ürünler',
+                trailing: '${widget.viewModel.items.length} çeşit',
               ),
+              const SizedBox(height: 12),
+
+              // ── Cart Items ──
+              ...widget.viewModel.items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                final product = widget.viewModel.productMap[item.productId];
+                return TweenAnimationBuilder<double>(
+                  key: ValueKey(item.productId),
+                  tween: Tween(begin: 0, end: 1),
+                  duration: Duration(milliseconds: 300 + (index * 50)),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, 16 * (1 - value)),
+                      child: child,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Dismissible(
+                      key: ValueKey('dismiss_${item.productId}'),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (_) {
+                        HapticFeedback.mediumImpact();
+                        widget.viewModel
+                            .updateQuantity(item.productId, 0);
+                      },
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 24),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.error,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.delete_outline_rounded,
+                            color: Colors.white, size: 24),
+                      ),
+                      child: _CartProductCard(
+                        item: item,
+                        product: product,
+                        onQuantityChanged: (qty) =>
+                            widget.viewModel.updateQuantity(item.productId, qty),
+                        onRemove: () =>
+                            widget.viewModel.updateQuantity(item.productId, 0),
+                        onAddPrice: () => widget.onAddPrice(product),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 8),
+
+              // ── Add Product Card ──
+              _AddProductPrompt(onTap: widget.onAddProduct),
+
+              const SizedBox(height: 100),
             ],
           ),
         ),
-        CartBottomSummaryBar(
+        // ── Bottom Action Bar ──
+        _CartActionBar(
           itemCount: widget.itemCount,
           estimatedTotal: widget.estimatedTotal,
           isLoading: widget.viewModel.isCalculating,
-          onAddProduct: widget.onAddProduct,
           onCalculate: widget.onCalculate,
-          scrollOffset: _scrollOffset,
+          onAddProduct: widget.onAddProduct,
         ),
       ],
     );
   }
 }
 
-class CartCollapsibleHeader extends StatelessWidget {
-  const CartCollapsibleHeader({
-    super.key,
+// ─────────────────────────────────────────────────────────────────────────────
+// _StatsHeader – Top summary with item count & estimated total
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatsHeader extends StatelessWidget {
+  const _StatsHeader({
     required this.itemCount,
+    required this.estimatedTotal,
   });
 
   final int itemCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return SliverAppBar(
-      pinned: true,
-      expandedHeight: 164,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: cs.surface,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: LayoutBuilder(
-        builder: (context, constraints) {
-          final t = ((constraints.maxHeight - kToolbarHeight) / (164 - kToolbarHeight)).clamp(0.0, 1.0);
-          final compact = t < 0.35;
-
-          return FlexibleSpaceBar(
-            titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 14, end: 16),
-            title: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: compact
-                  ? Row(
-                      key: const ValueKey('compact'),
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$itemCount ürün hazır',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      key: const ValueKey('expanded'),
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Marketleri tek dokunuşla karşılaştır.',
-                          style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: const [
-                            _StepChip(label: 'Seç'),
-                            _StepChip(label: 'Hesapla'),
-                            _StepChip(label: 'Gör'),
-                          ],
-                        ),
-                      ],
-                    ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _StepChip extends StatelessWidget {
-  const _StepChip({required this.label});
-
-  final String label;
+  final BasketEstimatedTotal estimatedTotal;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.secondaryContainer.withOpacity(0.96),
-            cs.tertiaryContainer.withOpacity(0.82),
-          ],
-        ),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        child: Text(label, style: Theme.of(context).textTheme.labelMedium),
-      ),
-    );
-  }
-}
-
-class CartItemCard extends StatelessWidget {
-  const CartItemCard({
-    super.key,
-    required this.item,
-    required this.product,
-    required this.lastKnownPrice,
-    required this.onQuantityChanged,
-    required this.onRemove,
-  });
-
-  final BasketItemModel item;
-  final ProductModel? product;
-  final double? lastKnownPrice;
-  final ValueChanged<int> onQuantityChanged;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            cs.surface.withOpacity(0.96),
-            cs.surfaceContainerHighest.withOpacity(0.72),
+            AppColors.primary.withOpacity(0.08),
+            AppColors.accent.withOpacity(0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Item count
+              Expanded(
+                child: _StatItem(
+                  icon: Icons.shopping_bag_outlined,
+                  value: '$itemCount',
+                  label: 'ürün',
+                  color: cs.primary,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 44,
+                color: cs.outlineVariant.withOpacity(0.3),
+              ),
+              // Estimated total
+              Expanded(
+                child: _StatItem(
+                  icon: Icons.payments_outlined,
+                  value: formatTRY(estimatedTotal.total, keepTrailingZeros: true),
+                  label: estimatedTotal.hasMissingPrices
+                      ? 'kısmi toplam'
+                      : 'tahmini',
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          if (estimatedTotal.hasMissingPrices) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 18, color: AppColors.warning),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${estimatedTotal.missingPriceCount} üründe fiyat bilgisi eksik',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 18, color: color),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SectionLabel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label, this.trailing});
+
+  final String label;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 16,
+          decoration: BoxDecoration(
+            color: cs.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const Spacer(),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _CartProductCard – Premium product card with price display
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CartProductCard extends StatelessWidget {
+  const _CartProductCard({
+    required this.item,
+    required this.product,
+    required this.onQuantityChanged,
+    required this.onRemove,
+    required this.onAddPrice,
+  });
+
+  final BasketItemModel item;
+  final ProductModel? product;
+  final ValueChanged<int> onQuantityChanged;
+  final VoidCallback onRemove;
+  final VoidCallback onAddPrice;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final hasPrice = item.lastKnownPrice != null;
+    final lineTotal = hasPrice ? item.lastKnownPrice! * item.quantity : null;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.1),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: cs.shadow.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          AppNetworkImage(
-            imageUrl: product?.mainImage,
-            cacheKey: product?.id ?? item.productId,
-            width: 60,
-            height: 60,
-            fit: BoxFit.cover,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product?.name ?? 'Ürün',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall,
+          // ── Top Row: Image + Info ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Product image
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: cs.surfaceContainerHighest.withOpacity(0.3),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  product?.brand.isNotEmpty == true ? product!.brand : 'Marka bilgisi yok',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                child: AppNetworkImage(
+                  imageUrl: product?.mainImage,
+                  cacheKey: product?.id ?? item.productId,
+                  width: 68,
+                  height: 68,
+                  fit: BoxFit.cover,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                if ((product?.category ?? '').isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      product!.category,
-                      style: theme.textTheme.labelSmall?.copyWith(color: cs.primary),
+              ),
+              const SizedBox(width: 14),
+              // Product info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product?.name ?? 'Ürün',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                const SizedBox(height: 4),
-                if (lastKnownPrice != null)
-                  Text(
-                    'Son fiyat: ${formatTRY(lastKnownPrice!, trailingSymbol: true, keepTrailingZeros: true)}',
-                    style: theme.textTheme.labelMedium,
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: cs.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (product?.brand.isNotEmpty == true)
+                          Text(
+                            product!.brand,
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        if (product?.brand.isNotEmpty == true &&
+                            (product?.category ?? '').isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Container(
+                              width: 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: cs.onSurfaceVariant,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        if ((product?.category ?? '').isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: cs.primaryContainer.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              product!.category,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: Text(
-                      'Fiyat yok',
-                      style: theme.textTheme.labelSmall?.copyWith(color: cs.onErrorContainer),
-                    ),
-                  ),
-              ],
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          QuantityStepper(
-            quantity: item.quantity,
-            onChanged: onQuantityChanged,
-            onRemove: onRemove,
+
+          const SizedBox(height: 14),
+          // Divider
+          Container(
+            height: 1,
+            color: cs.outlineVariant.withOpacity(0.2),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Bottom Row: Price + Quantity ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Price section
+              Expanded(
+                child: hasPrice
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                formatTRY(item.lastKnownPrice!,
+                                    trailingSymbol: true,
+                                    keepTrailingZeros: true),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                ' /adet',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (item.quantity > 1 && lineTotal != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                'Toplam: ${formatTRY(lineTotal, trailingSymbol: true, keepTrailingZeros: true)}',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: cs.errorContainer.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        size: 14,
+                                        color: cs.onErrorContainer),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Fiyat yok',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: cs.onErrorContainer,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: onAddPrice,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: cs.primary.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    'Fiyat Ekle',
+                                    style:
+                                        theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+              // Quantity control
+              _QuantityControl(
+                quantity: item.quantity,
+                onChanged: onQuantityChanged,
+                onRemove: onRemove,
+              ),
+            ],
           ),
         ],
       ),
@@ -627,9 +1130,12 @@ class CartItemCard extends StatelessWidget {
   }
 }
 
-class QuantityStepper extends StatefulWidget {
-  const QuantityStepper({
-    super.key,
+// ─────────────────────────────────────────────────────────────────────────────
+// _QuantityControl – Modern quantity stepper
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuantityControl extends StatefulWidget {
+  const _QuantityControl({
     required this.quantity,
     required this.onChanged,
     required this.onRemove,
@@ -640,13 +1146,11 @@ class QuantityStepper extends StatefulWidget {
   final VoidCallback onRemove;
 
   @override
-  State<QuantityStepper> createState() => _QuantityStepperState();
+  State<_QuantityControl> createState() => _QuantityControlState();
 }
 
-class _QuantityStepperState extends State<QuantityStepper> {
+class _QuantityControlState extends State<_QuantityControl> {
   Timer? _repeatTimer;
-  double _minusScale = 1;
-  double _plusScale = 1;
 
   @override
   void dispose() {
@@ -654,26 +1158,8 @@ class _QuantityStepperState extends State<QuantityStepper> {
     super.dispose();
   }
 
-  void _animate(bool plus) {
-    setState(() {
-      if (plus) {
-        _plusScale = 0.88;
-      } else {
-        _minusScale = 0.88;
-      }
-    });
-    Future<void>.delayed(const Duration(milliseconds: 90), () {
-      if (!mounted) return;
-      setState(() {
-        _plusScale = 1;
-        _minusScale = 1;
-      });
-    });
-  }
-
   void _changeBy(int delta) {
     HapticFeedback.selectionClick();
-    _animate(delta > 0);
     final next = widget.quantity + delta;
     if (next <= 0) {
       widget.onRemove();
@@ -685,73 +1171,129 @@ class _QuantityStepperState extends State<QuantityStepper> {
   void _onLongPressStart(int delta) {
     _changeBy(delta);
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(const Duration(milliseconds: 140), (_) {
-      _changeBy(delta);
-    });
+    _repeatTimer = Timer.periodic(
+        const Duration(milliseconds: 140), (_) => _changeBy(delta));
   }
 
-  void _onLongPressEnd() {
-    _repeatTimer?.cancel();
-  }
+  void _onLongPressEnd() => _repeatTimer?.cancel();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
+    final isOne = widget.quantity <= 1;
+
+    return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            cs.surface.withOpacity(0.98),
-            cs.surfaceContainerLow.withOpacity(0.9),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(0.07),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: cs.surfaceContainerHighest.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () => _changeBy(-1),
-              onLongPressStart: (_) => _onLongPressStart(-1),
-              onLongPressEnd: (_) => _onLongPressEnd(),
-              child: AnimatedScale(
-                duration: const Duration(milliseconds: 120),
-                scale: _minusScale,
-                child: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Minus / Delete
+          GestureDetector(
+            onTap: () => _changeBy(-1),
+            onLongPressStart: (_) => _onLongPressStart(-1),
+            onLongPressEnd: (_) => _onLongPressEnd(),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isOne
+                    ? Icons.delete_outline_rounded
+                    : Icons.remove_rounded,
+                size: 18,
+                color: isOne ? cs.error : cs.onSurface,
               ),
             ),
-            const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 140),
-              transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+          ),
+          // Count
+          Container(
+            constraints: const BoxConstraints(minWidth: 36),
+            alignment: Alignment.center,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: animation,
+                child: child,
+              ),
               child: Text(
                 '${widget.quantity}',
                 key: ValueKey(widget.quantity),
-                style: Theme.of(context).textTheme.titleSmall,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _changeBy(1),
-              onLongPressStart: (_) => _onLongPressStart(1),
-              onLongPressEnd: (_) => _onLongPressEnd(),
-              child: AnimatedScale(
-                duration: const Duration(milliseconds: 120),
-                scale: _plusScale,
-                child: const Icon(Icons.add_circle_rounded, size: 22),
+          ),
+          // Plus
+          GestureDetector(
+            onTap: () => _changeBy(1),
+            onLongPressStart: (_) => _onLongPressStart(1),
+            onLongPressEnd: (_) => _onLongPressEnd(),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: cs.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.add_rounded, size: 18, color: cs.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _AddProductPrompt – Dashed-border card to add products
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddProductPrompt extends StatelessWidget {
+  const _AddProductPrompt({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: cs.primary.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: cs.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.add_rounded, size: 20, color: cs.primary),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Ürün Ekle',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ],
         ),
@@ -760,229 +1302,321 @@ class _QuantityStepperState extends State<QuantityStepper> {
   }
 }
 
-class CartBottomSummaryBar extends StatelessWidget {
-  const CartBottomSummaryBar({
-    super.key,
+// ─────────────────────────────────────────────────────────────────────────────
+// _CartActionBar – Premium bottom action bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CartActionBar extends StatelessWidget {
+  const _CartActionBar({
     required this.itemCount,
     required this.estimatedTotal,
     required this.isLoading,
-    required this.onAddProduct,
     required this.onCalculate,
-    required this.scrollOffset,
+    required this.onAddProduct,
   });
 
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
   final bool isLoading;
-  final VoidCallback onAddProduct;
   final VoidCallback onCalculate;
-  final double scrollOffset;
+  final VoidCallback onAddProduct;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final blurTarget = scrollOffset > 120 ? 18.0 : 8.0;
-    final shadowOpacity = (0.08 + (scrollOffset / 240) * 0.12).clamp(0.08, 0.2);
-    final sweepOpacity = (0.12 - (scrollOffset / 260) * 0.06).clamp(0.04, 0.12);
-    final totalPrefix = estimatedTotal.hasMissingPrices ? 'Kısmi toplam' : 'Tahmini toplam';
-    final totalSuffix = estimatedTotal.hasMissingPrices ? ' • Eksik: ${estimatedTotal.missingPriceCount} ürün' : '';
+    final theme = Theme.of(context);
 
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 8, end: blurTarget),
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        builder: (context, blur, _) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.surface.withOpacity(0.84),
-                      cs.surfaceContainerLow.withOpacity(0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.shadow.withOpacity(shadowOpacity),
-                      blurRadius: 20 + scrollOffset * 0.08,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: RepaintBoundary(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: _SummaryLightSweep(opacity: sweepOpacity),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isLoading)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: LinearProgressIndicator(
-                                minHeight: 4,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '$itemCount ürün',
-                                      style: Theme.of(context).textTheme.titleSmall,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '$totalPrefix: ',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(color: cs.onSurfaceVariant),
-                                        ),
-                                        Expanded(
-                                          child: _AnimatedCurrency(value: estimatedTotal.total),
-                                        ),
-                                        if (totalSuffix.isNotEmpty)
-                                          Text(
-                                            totalSuffix,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(color: cs.onSurfaceVariant),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _PressScale(
-                                child: FilledButton.icon(
-                                  onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-                                  icon: isLoading
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.auto_graph_rounded),
-                                  label: const Text('Hesapla'),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: onAddProduct,
-                                tooltip: 'Ürün ekle',
-                                icon: const Icon(Icons.add_rounded),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primary,
+              AppColors.primaryDark,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLoading)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ),
+            Row(
+              children: [
+                // Total info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$itemCount ürün',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: estimatedTotal.total),
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) => Text(
+                          formatTRY(value, keepTrailingZeros: true),
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Add product
+                IconButton(
+                  onPressed: onAddProduct,
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.add_rounded,
+                        color: Colors.white, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Calculate button
+                _PressScale(
+                  child: FilledButton(
+                    onPressed: itemCount == 0 || isLoading ? null : onCalculate,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
+                      disabledBackgroundColor: Colors.white.withOpacity(0.3),
+                      disabledForegroundColor: Colors.white.withOpacity(0.5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isLoading)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 8),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          )
+                        else
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: Icon(Icons.compare_arrows_rounded, size: 18),
+                          ),
+                        Text(
+                          'Hesapla',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 }
 
-class _AnimatedCurrency extends StatelessWidget {
-  const _AnimatedCurrency({required this.value});
+// ─────────────────────────────────────────────────────────────────────────────
+// _EmptyCartView
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final double value;
+class _EmptyCartView extends StatelessWidget {
+  const _EmptyCartView({required this.onAdd});
 
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-      builder: (context, animatedValue, _) {
-        final formatted = formatTRY(animatedValue, keepTrailingZeros: true);
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.98, end: 1),
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutBack,
-          builder: (_, scale, child) => Transform.scale(scale: scale, alignment: Alignment.centerLeft, child: child),
-          child: RichText(
-            text: TextSpan(
-              style: textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
-              children: [
-                TextSpan(text: formatted, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SummaryLightSweep extends StatefulWidget {
-  const _SummaryLightSweep({required this.opacity});
-
-  final double opacity;
-
-  @override
-  State<_SummaryLightSweep> createState() => _SummaryLightSweepState();
-}
-
-class _SummaryLightSweepState extends State<_SummaryLightSweep> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))
-    ..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final x = -1.2 + (_controller.value * 2.4);
-          return Transform.translate(
-            offset: Offset(MediaQuery.sizeOf(context).width * x, 0),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                width: 120,
-                height: 2,
-                color: cs.onSurface.withOpacity(widget.opacity),
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon container
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primary.withOpacity(0.08),
+                    AppColors.accent.withOpacity(0.06),
+                  ],
+                ),
+                shape: BoxShape.circle,
+                border:
+                    Border.all(color: AppColors.primary.withOpacity(0.12)),
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                size: 48,
+                color: AppColors.primary.withOpacity(0.6),
               ),
             ),
-          );
-        },
+            const SizedBox(height: 24),
+            Text(
+              'Sepetiniz boş',
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ürün ekleyerek marketler arasında\nfiyat karşılaştırması yapın.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+            ),
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Ürün Ekle'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 28, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Seç  ·  Hesapla  ·  Karşılaştır',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _LoginPromptCard
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LoginPromptCard extends StatelessWidget {
+  const _LoginPromptCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lock_outline_rounded,
+                    size: 40, color: cs.primary),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Giriş Yapın',
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sepet özelliğini kullanmak için\nhesabınıza giriş yapmalısınız.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Devam etmek için giriş yapın.')),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text('Giriş Yap'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PressScale – Tap animation wrapper
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _PressScale extends StatefulWidget {
   const _PressScale({required this.child});
@@ -998,13 +1632,22 @@ class _PressScaleState extends State<_PressScale> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.98),
+      onTapDown: (_) => setState(() => _scale = 0.96),
       onTapCancel: () => setState(() => _scale = 1),
       onTapUp: (_) => setState(() => _scale = 1),
-      child: AnimatedScale(scale: _scale, duration: const Duration(milliseconds: 140), curve: Curves.easeOutCubic, child: widget.child),
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CartResultSheet – Legacy compatibility (kept for external usage)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class CartResultSheet extends StatelessWidget {
   const CartResultSheet({
@@ -1028,201 +1671,142 @@ class CartResultSheet extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Hesaplama Sonucu', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                if (notice != null)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(notice!, style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                if (best != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('En uygun market', style: Theme.of(context).textTheme.labelLarge),
-                        const SizedBox(height: 4),
-                        Text(best.marketName, style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: 4),
-                        Text(formatTRY(best.total), style: Theme.of(context).textTheme.titleLarge),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                if (hasLocationPermission && result.nearestMarket != null)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('En yakın market'),
-                    subtitle: Text(
-                      '${result.nearestMarket!.marketName} • ${result.nearestMarket!.distanceKm?.toStringAsFixed(1)} km',
-                    ),
-                    trailing: Text(formatTRY(result.nearestMarket!.total)),
-                  )
-                else
-                  const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('En yakın market'),
-                    subtitle: Text('Konum izni verirsen yakın marketi gösterebiliriz.'),
-                  ),
-                const SizedBox(height: 16),
-                Text('En düşük 3 market', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ...alternatives.take(3).map(
-                      (entry) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.storefront_outlined),
-                        title: Row(
-                          children: [
-                            Expanded(child: Text(entry.marketName)),
-                            if (entry.hasMissingProducts)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: cs.errorContainer,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Eksik ürün',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(color: cs.onErrorContainer),
-                                ),
-                              )
-                          ],
-                        ),
-                        subtitle: Text(
-                          () {
-                            final details = [
-                              if (entry.distanceKm != null) '${entry.distanceKm!.toStringAsFixed(1)} km',
-                              if (entry.missingProductIds.isNotEmpty)
-                                'Eksik ürün: ${entry.missingProductIds.length}',
-                            ];
-                            return details.isEmpty ? 'Tüm ürünler mevcut' : details.join(' • ');
-                          }(),
-                        ),
-                        trailing: Text(formatTRY(entry.total)),
-                      ),
-                    ),
-                const SizedBox(height: 12),
-                Text('Ürün bazlı fiyatlar', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ...result.sortedMarkets.map(
-                  (entry) {
-                    return ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(bottom: 8),
-                      title: Text(entry.marketName),
-                      subtitle: Text(
-                        entry.hasMissingProducts
-                            ? 'Eksik ürün: ${entry.missingProductIds.length}'
-                            : 'Toplam ${formatTRY(entry.total)}',
-                      ),
-                      children: [
-                        for (final line in entry.lines)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(line.productName),
-                            subtitle: Text(
-                              '${line.quantity} adet • ${formatTRY(line.unitPrice)}',
-                            ),
-                            trailing: Text(formatTRY(line.lineTotal)),
-                          ),
-                        if (entry.hasMissingProducts)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('Eksik ürün sayısı: ${entry.missingProductIds.length}'),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
-
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.secondaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.shopping_basket_outlined, size: 32),
-          ),
-          const SizedBox(height: 12),
-          Text('Sepetin boş', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Karşılaştırma için birkaç ürün ekleyin.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Ürün ekle'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginPromptCard extends StatelessWidget {
-  const _LoginPromptCard({required this.onLoginHint});
-
-  final VoidCallback onLoginHint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.lock_outline_rounded, size: 48),
+            Text('Hesaplama Sonucu',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            Text('Sepet için giriş yapmalısınız', style: Theme.of(context).textTheme.titleMedium),
+            if (notice != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(notice!,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+            if (best != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('En uygun market',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 4),
+                    Text(best.marketName,
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 4),
+                    Text(formatTRY(best.total),
+                        style: Theme.of(context).textTheme.titleLarge),
+                  ],
+                ),
+              ),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onLoginHint,
-              child: const Text('Devam et'),
+            if (hasLocationPermission && result.nearestMarket != null)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('En yakın market'),
+                subtitle: Text(
+                  '${result.nearestMarket!.marketName} • ${result.nearestMarket!.distanceKm?.toStringAsFixed(1)} km',
+                ),
+                trailing: Text(formatTRY(result.nearestMarket!.total)),
+              )
+            else
+              const ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('En yakın market'),
+                subtitle: Text(
+                    'Konum izni verirsen yakın marketi gösterebiliriz.'),
+              ),
+            const SizedBox(height: 16),
+            Text('En düşük 3 market',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ...alternatives.take(3).map(
+                  (entry) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.storefront_outlined),
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(entry.marketName)),
+                        if (entry.hasMissingProducts)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: cs.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Eksik ürün',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: cs.onErrorContainer),
+                            ),
+                          )
+                      ],
+                    ),
+                    subtitle: Text(
+                      () {
+                        final details = [
+                          if (entry.distanceKm != null)
+                            '${entry.distanceKm!.toStringAsFixed(1)} km',
+                          if (entry.missingProductIds.isNotEmpty)
+                            'Eksik ürün: ${entry.missingProductIds.length}',
+                        ];
+                        return details.isEmpty
+                            ? 'Tüm ürünler mevcut'
+                            : details.join(' • ');
+                      }(),
+                    ),
+                    trailing: Text(formatTRY(entry.total)),
+                  ),
+                ),
+            const SizedBox(height: 12),
+            Text('Ürün bazlı fiyatlar',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ...result.sortedMarkets.map(
+              (entry) {
+                return ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 8),
+                  title: Text(entry.marketName),
+                  subtitle: Text(
+                    entry.hasMissingProducts
+                        ? 'Eksik ürün: ${entry.missingProductIds.length}'
+                        : 'Toplam ${formatTRY(entry.total)}',
+                  ),
+                  children: [
+                    for (final line in entry.lines)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(line.productName),
+                        subtitle: Text(
+                          '${line.quantity} adet • ${formatTRY(line.unitPrice)}',
+                        ),
+                        trailing: Text(formatTRY(line.lineTotal)),
+                      ),
+                    if (entry.hasMissingProducts)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                            'Eksik ürün sayısı: ${entry.missingProductIds.length}'),
+                      ),
+                  ],
+                );
+              },
             ),
           ],
         ),
