@@ -199,12 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
-          ),
+        decoration: BoxDecoration(
+          gradient: _backgroundGradient(theme),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -233,7 +229,21 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  LinearGradient _backgroundGradient(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        scheme.primaryContainer.withOpacity(0.18),
+        scheme.surfaceVariant.withOpacity(0.35),
+        scheme.surface,
+      ],
+    );
+  }
+
   Widget _buildHeader(ThemeData theme) {
+
     return Column(
       children: [
         Container(
@@ -242,11 +252,11 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFD3E3FF)),
+            color: theme.colorScheme.surface,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2563EB).withOpacity(0.12),
+                color: theme.colorScheme.primary.withOpacity(0.12),
                 blurRadius: 26,
                 offset: const Offset(0, 12),
               ),
@@ -280,12 +290,12 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE5ECF8)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.05),
+            color: theme.colorScheme.onSurface.withOpacity(0.06),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),

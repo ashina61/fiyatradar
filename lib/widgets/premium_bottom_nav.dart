@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/motion_tokens.dart';
 import '../utils/theme.dart';
 
 class PremiumBottomNav extends StatelessWidget {
@@ -71,8 +72,8 @@ class PremiumBottomNav extends StatelessWidget {
                           return Stack(
                             children: [
                               AnimatedPositioned(
-                                duration: const Duration(milliseconds: 340),
-                                curve: Curves.easeOutCubic,
+                                duration: MotionTokens.navigation,
+                                curve: MotionTokens.standard,
                                 left: bubbleLeft + 6,
                                 top: 15,
                                 child: Container(
@@ -236,8 +237,8 @@ class _NavItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedScale(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutBack,
+              duration: MotionTokens.base,
+              curve: MotionTokens.standard,
               scale: selected ? 1.1 : 1,
               child: Icon(
                 icon,
@@ -248,11 +249,11 @@ class _NavItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             AnimatedSlide(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
+              duration: MotionTokens.base,
+              curve: MotionTokens.standard,
               offset: selected ? Offset.zero : const Offset(0, 0.22),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 220),
+                duration: MotionTokens.fast,
                 opacity: selected ? 1 : 0.74,
                 child: Text(
                   label,

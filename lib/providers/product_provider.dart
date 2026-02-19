@@ -9,6 +9,7 @@ import '../models/store_suggestion_model.dart';
 import '../models/category_model.dart';
 import '../models/category_theme.dart';
 import '../models/product_suggestion_model.dart';
+import '../services/catalog_service.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 
@@ -16,24 +17,28 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
 });
 
+final catalogServiceProvider = Provider<CatalogService>((ref) {
+  return CatalogService();
+});
+
 final trendingProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getTrendingProducts();
+  return ref.watch(catalogServiceProvider).getTrendingProducts();
 });
 
 final recommendedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getRecommendedProducts();
+  return ref.watch(catalogServiceProvider).getRecommendedProducts();
 });
 
 final allProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getAllProducts();
+  return ref.watch(catalogServiceProvider).getAllProducts();
 });
 
 final productProvider = FutureProvider.family<ProductModel?, String>((ref, productId) async {
   if (!ref.watch(firebaseInitializedProvider)) return null;
-  return ref.watch(firestoreServiceProvider).getProduct(productId);
+  return ref.watch(catalogServiceProvider).getProduct(productId);
 });
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
@@ -47,7 +52,7 @@ final searchResultsProvider = FutureProvider<List<ProductModel>>((ref) async {
   if (query.isEmpty || !ref.watch(firebaseInitializedProvider)) {
     return [];
   }
-  return ref.watch(firestoreServiceProvider).searchProducts(query);
+  return ref.watch(catalogServiceProvider).searchProducts(query);
 });
 
 class ProductNotifier extends StateNotifier<AsyncValue<void>> {
@@ -113,7 +118,7 @@ final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 // Product by ID (stream version)
 final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, productId) {
   if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value(null);
-  return ref.watch(firestoreServiceProvider).getAllProducts().map(
+  return ref.watch(catalogServiceProvider).getAllProducts().map(
     (products) => products.where((p) => p.id == productId).firstOrNull,
   );
 });
@@ -121,19 +126,19 @@ final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, p
 // Comments for a product
 final productCommentsProvider = StreamProvider.family<List<CommentModel>, String>((ref, productId) {
   if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getComments(productId);
+  return ref.watch(catalogServiceProvider).getComments(productId);
 });
 
 // Price history for a product
 final productPriceHistoryProvider = StreamProvider.family<List<PriceModel>, String>((ref, productId) {
   if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getPricesForProduct(productId);
+  return ref.watch(catalogServiceProvider).getPricesForProduct(productId);
 });
 
 // Latest prices across all products (for home screen)
 final latestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getLatestPrices(limit: 10);
+  return ref.watch(catalogServiceProvider).getLatestPrices(limit: 10);
 });
 
 // Reports (for admin panel)
@@ -227,6 +232,5 @@ final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) 
   if (user == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).recentlyViewedStream(user.uid);
 });
-
 
 
