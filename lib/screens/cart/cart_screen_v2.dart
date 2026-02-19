@@ -91,6 +91,13 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                 viewModel: viewModel,
                 itemCount: itemCount,
                 onAddProduct: () => _showProductPicker(context, viewModel),
+                onAddPrice: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AddPriceScreen(),
+                    ),
+                  );
+                },
                 estimatedTotal: estimatedTotal,
                 onCalculate: () async {
                   if (viewModel.items.isEmpty) {
@@ -324,6 +331,7 @@ class _CartTabContent extends StatefulWidget {
     required this.itemCount,
     required this.estimatedTotal,
     required this.onAddProduct,
+    required this.onAddPrice,
     required this.onCalculate,
   });
 
@@ -331,6 +339,7 @@ class _CartTabContent extends StatefulWidget {
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
   final VoidCallback onAddProduct;
+  final VoidCallback onAddPrice;
   final VoidCallback onCalculate;
 
   @override
@@ -378,7 +387,10 @@ class _CartTabContentState extends State<_CartTabContent> {
                           ),
                         )
                       : widget.viewModel.items.isEmpty
-                          ? _EmptyState(onAdd: widget.onAddProduct)
+                          ? _EmptyState(
+                              onAdd: widget.onAddProduct,
+                              onAddPrice: widget.onAddPrice,
+                            )
                           : Column(
                               children: [
                                 for (final item in widget.viewModel.items)
@@ -405,6 +417,7 @@ class _CartTabContentState extends State<_CartTabContent> {
           estimatedTotal: widget.estimatedTotal,
           isLoading: widget.viewModel.isCalculating,
           onAddProduct: widget.onAddProduct,
+          onAddPrice: widget.onAddPrice,
           onCalculate: widget.onCalculate,
           scrollOffset: _scrollOffset,
         ),
@@ -428,14 +441,14 @@ class CartCollapsibleHeader extends StatelessWidget {
 
     return SliverAppBar(
       pinned: true,
-      expandedHeight: 164,
+      expandedHeight: 188,
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: cs.surface,
       surfaceTintColor: Colors.transparent,
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
-          final t = ((constraints.maxHeight - kToolbarHeight) / (164 - kToolbarHeight)).clamp(0.0, 1.0);
+          final t = ((constraints.maxHeight - kToolbarHeight) / (188 - kToolbarHeight)).clamp(0.0, 1.0);
           final compact = t < 0.35;
 
           return FlexibleSpaceBar(
@@ -460,16 +473,31 @@ class CartCollapsibleHeader extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Marketleri tek dokunuşla karşılaştır.',
+                          'Akıllı sepetin hazır: fiyatları anında kıyasla.',
                           style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Toplam ürün: $itemCount',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: cs.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           children: const [
-                            _StepChip(label: 'Seç'),
-                            _StepChip(label: 'Hesapla'),
-                            _StepChip(label: 'Gör'),
+                            _StepChip(label: 'Ürünleri ekle'),
+                            _StepChip(label: 'Karşılaştır'),
+                            _StepChip(label: 'Akıllı tercih'),
                           ],
                         ),
                       ],
@@ -767,6 +795,7 @@ class CartBottomSummaryBar extends StatelessWidget {
     required this.estimatedTotal,
     required this.isLoading,
     required this.onAddProduct,
+    required this.onAddPrice,
     required this.onCalculate,
     required this.scrollOffset,
   });
@@ -775,6 +804,7 @@ class CartBottomSummaryBar extends StatelessWidget {
   final BasketEstimatedTotal estimatedTotal;
   final bool isLoading;
   final VoidCallback onAddProduct;
+  final VoidCallback onAddPrice;
   final VoidCallback onCalculate;
   final double scrollOffset;
 
@@ -886,10 +916,34 @@ class CartBottomSummaryBar extends StatelessWidget {
                                   label: const Text('Hesapla'),
                                 ),
                               ),
-                              IconButton(
-                                onPressed: onAddProduct,
-                                tooltip: 'Ürün ekle',
-                                icon: const Icon(Icons.add_rounded),
+                              PopupMenuButton<String>(
+                                tooltip: 'Hızlı işlemler',
+                                onSelected: (value) {
+                                  if (value == 'product') onAddProduct();
+                                  if (value == 'price') onAddPrice();
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem<String>(
+                                    value: 'product',
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Icon(Icons.add_box_outlined),
+                                      title: Text('Ürün ekle'),
+                                    ),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'price',
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Icon(Icons.price_change_outlined),
+                                      title: Text('Fiyat ekle'),
+                                    ),
+                                  ),
+                                ],
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Icon(Icons.more_horiz_rounded),
+                                ),
                               ),
                             ],
                           ),
@@ -1160,9 +1214,10 @@ class CartResultSheet extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
+  const _EmptyState({required this.onAdd, required this.onAddPrice});
 
   final VoidCallback onAdd;
+  final VoidCallback onAddPrice;
 
   @override
   Widget build(BuildContext context) {
@@ -1192,10 +1247,24 @@ class _EmptyState extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Ürün ekle'),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Ürün ekle'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onAddPrice,
+                  icon: const Icon(Icons.price_change_outlined),
+                  label: const Text('Fiyat ekle'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -14,6 +14,7 @@ import '../../utils/theme.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/premium_scaffold_shell.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -1196,71 +1197,66 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(allProductsProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fiyat Ekle'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Photo bonus info
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accent.withOpacity(0.1),
-                      AppColors.accent.withOpacity(0.05),
+      body: PremiumScaffoldShell(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        scheme.primaryContainer.withOpacity(0.78),
+                        scheme.tertiaryContainer.withOpacity(0.7),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                      color: AppColors.accent.withOpacity(0.3), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: scheme.surface.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: Icon(Icons.workspace_premium_rounded,
+                            color: scheme.primary, size: 22),
                       ),
-                      child: const Icon(Icons.stars,
-                          color: AppColors.accent, size: 22),
-                    ),
-                    const SizedBox(width: AppSpacing.sm + 4),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Fiyat ekleyerek puan kazan!',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppColors.textPrimary,
-                            ),
+                      const SizedBox(width: AppSpacing.sm + 4),
+                      Expanded(
+                        child: Text(
+                          'Katkınla tasarrufa yön ver. Her fiyat girişi +${AppConstants.pointsForPriceEntry}, fotoğraflı giriş +${AppConstants.pointsForPriceEntryWithPhoto} puan.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
-                            'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: AppSpacing.lg),
 
               // Step 1: Product field
@@ -1521,53 +1517,51 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
               const SizedBox(height: AppSpacing.md),
 
-              // Legal Disclaimer
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(
-                      color: AppColors.info.withOpacity(0.3), width: 1),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        AppConstants.priceDisclaimer,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textSecondary),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.gpp_good_outlined, color: scheme.secondary, size: 20),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          AppConstants.priceDisclaimer,
+                          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: AppSpacing.xl),
 
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Fiyatı Kaydet'),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Fiyat Ekle'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
