@@ -13,6 +13,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/home_product_card.dart';
 import '../../widgets/category_tile_v3.dart';
+import '../../widgets/staggered_fade_slide.dart';
+import '../../widgets/premium_pressable.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
@@ -124,7 +126,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-                child: GestureDetector(
+                child: PremiumPressable(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                   onTap: () {
                     ref.read(currentTabProvider.notifier).state = 1;
                   },
@@ -735,16 +738,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm + 4),
             itemBuilder: (context, index) {
               final product = products[index];
-              return HomeProductCard(
-                product: product,
-                width: 165,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(productId: product.id),
-                    ),
-                  );
-                },
+              return StaggeredFadeSlide(
+                index: index,
+                child: HomeProductCard(
+                  product: product,
+                  width: 165,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(productId: product.id),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -790,7 +796,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final productName = (item['productName'] ?? 'Ürün').toString();
               final imageUrl = (item['imageUrl'] ?? '').toString();
 
-              return InkWell(
+              return PremiumPressable(
                 borderRadius: BorderRadius.circular(AppRadius.lg),
                 onTap: productId.isEmpty
                     ? null
