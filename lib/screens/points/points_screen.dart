@@ -1,69 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../utils/theme.dart';
+import '../../widgets/leaderboard_section.dart';
 import 'models/points_models.dart';
 
-class PointsScreen extends StatelessWidget {
+class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
+
+  @override
+  ConsumerState<PointsScreen> createState() => _PointsScreenState();
+}
+
+class _PointsScreenState extends ConsumerState<PointsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final data = PointsMockData.build();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F7),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        titleSpacing: 0,
+        centerTitle: true,
         title: const Text(
           'Puanlar',
           style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 24,
-            color: Color(0xFF2F1D0A),
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.3,
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: Column(
-          children: [
-            _TabSwitcher(),
-            const SizedBox(height: 16),
-            _ScoreOverviewCard(summary: data.summary),
-            const SizedBox(height: 16),
-            _GoalsSection(tasks: data.dailyTasks),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TabSwitcher extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F1E8),
-        borderRadius: BorderRadius.circular(36),
-        border: Border.all(color: const Color(0xFFE3D4B6)),
-      ),
-      child: Row(
-        children: const [
-          Expanded(
-            child: _TabChip(
-              title: 'Genel Bakış',
-              isSelected: true,
-            ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: _PremiumTabBar(controller: _tabController),
           ),
           Expanded(
-            child: _TabChip(
-              title: 'Zirvedekiler',
-              isSelected: false,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _OverviewTab(data: data),
+                const _LeaderboardTab(),
+              ],
             ),
           ),
         ],
@@ -72,180 +70,186 @@ class _TabSwitcher extends StatelessWidget {
   }
 }
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({required this.title, required this.isSelected});
+// ---------- Premium Tab Bar ----------
 
-  final String title;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFC5913B) : Colors.transparent,
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: isSelected ? Colors.white : const Color(0xFF6A5436),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScoreOverviewCard extends StatelessWidget {
-  const _ScoreOverviewCard({required this.summary});
-
-  final PointsSummary summary;
+class _PremiumTabBar extends StatelessWidget {
+  const _PremiumTabBar({required this.controller});
+  final TabController controller;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 52,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDFDFD),
-        borderRadius: BorderRadius.circular(30),
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
       ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFCF7),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFE8DBC2)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5ECDE),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFFE2D1B0)),
-              ),
-              child: const Text(
-                '✨ Prestij Skoru',
-                style: TextStyle(
-                  color: Color(0xFF8A6A31),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            _CircleScore(summary: summary),
-            const SizedBox(height: 22),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F8FB),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFFD6DAE3), width: 2),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.shield_outlined, color: Color(0xFF9AB3C7), size: 32),
-                  SizedBox(width: 10),
-                  Text(
-                    'STANDART',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 42 / 2,
-                      color: Color(0xFF3E4A5D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              '${summary.nextLevelRemaining} puan kaldı',
-              style: const TextStyle(
-                color: Color(0xFF5A4B34),
-                fontSize: 19,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F0DE),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFFE8D2A7)),
-              ),
-              child: const Text(
-                'Bu hafta +47 puan kazandın',
-                style: TextStyle(
-                  color: Color(0xFF665033),
-                  fontSize: 19,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+      child: TabBar(
+        controller: controller,
+        indicator: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textTertiary,
+        labelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+        tabs: const [
+          Tab(text: 'Genel Bakis'),
+          Tab(text: 'Zirvedekiler'),
+        ],
       ),
     );
   }
 }
 
-class _CircleScore extends StatelessWidget {
-  const _CircleScore({required this.summary});
+// ---------- Overview Tab ----------
 
+class _OverviewTab extends StatelessWidget {
+  const _OverviewTab({required this.data});
+  final PointsMockData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: Column(
+        children: [
+          _PrestigeScoreCard(summary: data.summary),
+          const SizedBox(height: 20),
+          _StatsRow(summary: data.summary),
+          const SizedBox(height: 20),
+          _LevelProgressCard(summary: data.summary),
+          const SizedBox(height: 20),
+          _DailyGoalsSection(tasks: data.dailyTasks),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- Leaderboard Tab ----------
+
+class _LeaderboardTab extends StatelessWidget {
+  const _LeaderboardTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: const LeaderboardSection(
+        outerPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+}
+
+// ---------- Prestige Score Card ----------
+
+class _PrestigeScoreCard extends StatelessWidget {
+  const _PrestigeScoreCard({required this.summary});
   final PointsSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 300,
-      child: Stack(
-        alignment: Alignment.center,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFF8EF),
+            Color(0xFFF8EDDB),
+          ],
+        ),
+        border: Border.all(color: const Color(0xFFE8D5B8)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
         children: [
-          SizedBox(
-            width: 270,
-            height: 270,
-            child: CircularProgressIndicator(
-              value: summary.progress,
-              strokeWidth: 18,
-              strokeCap: StrokeCap.round,
-              backgroundColor: const Color(0xFFEEE2CB),
-              color: const Color(0xFFD9A13F),
+          // Prestige label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'Prestij Skoru',
+              style: TextStyle(
+                color: AppColors.primaryDark,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
+          const SizedBox(height: 24),
+          // Circular score
+          _AnimatedScoreRing(summary: summary),
+          const SizedBox(height: 20),
+          // Level badge
           Container(
-            width: 230,
-            height: 230,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFF7E9),
-              shape: BoxShape.circle,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${summary.totalPoints}',
-                  style: const TextStyle(
-                    fontSize: 74,
-                    color: Color(0xFF2F1A06),
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                  ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Toplam Puan',
-                  style: TextStyle(
-                    fontSize: 22,
-                    color: Color(0xFF655C4F),
-                    fontWeight: FontWeight.w500,
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0E6D8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.shield_rounded, color: AppColors.textSecondary, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  summary.levelName.toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 1.5,
                   ),
                 ),
               ],
@@ -257,63 +261,97 @@ class _CircleScore extends StatelessWidget {
   }
 }
 
-class _GoalsSection extends StatelessWidget {
-  const _GoalsSection({required this.tasks});
+// ---------- Animated Score Ring ----------
 
-  final List<DailyTask> tasks;
+class _AnimatedScoreRing extends StatelessWidget {
+  const _AnimatedScoreRing({required this.summary});
+  final PointsSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
+    return SizedBox(
+      width: 200,
+      height: 200,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Hedefler',
-                style: TextStyle(
-                  color: Color(0xFF31200E),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 44 / 2,
+          // Background ring
+          SizedBox(
+            width: 200,
+            height: 200,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: 12,
+              strokeCap: StrokeCap.round,
+              backgroundColor: Colors.transparent,
+              color: AppColors.outline.withOpacity(0.4),
+            ),
+          ),
+          // Progress ring
+          SizedBox(
+            width: 200,
+            height: 200,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: summary.progress),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 12,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.transparent,
+                  color: AppColors.primary,
+                );
+              },
+            ),
+          ),
+          // Inner circle with score
+          Container(
+            width: 160,
+            height: 160,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.08),
+                  blurRadius: 16,
+                  spreadRadius: 2,
                 ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9EED6),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: const Color(0xFFE0C48E)),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TweenAnimationBuilder<int>(
+                  tween: IntTween(begin: 0, end: summary.totalPoints),
+                  duration: const Duration(milliseconds: 1200),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    return Text(
+                      '$value',
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                        height: 1,
+                        letterSpacing: -1,
+                      ),
+                    );
+                  },
                 ),
-                child: const Text(
-                  'Bugün',
+                const SizedBox(height: 4),
+                const Text(
+                  'Toplam Puan',
                   style: TextStyle(
-                    color: Color(0xFF7A5E2D),
+                    fontSize: 13,
+                    color: AppColors.textTertiary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 17,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            itemCount: tasks.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              mainAxisExtent: 190,
+              ],
             ),
-            itemBuilder: (context, index) => _GoalCard(task: tasks[index]),
           ),
         ],
       ),
@@ -321,76 +359,385 @@ class _GoalsSection extends StatelessWidget {
   }
 }
 
-class _GoalCard extends StatelessWidget {
-  const _GoalCard({required this.task});
+// ---------- Stats Row ----------
 
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.summary});
+  final PointsSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.trending_up_rounded,
+            iconColor: AppColors.success,
+            label: 'Bu Hafta',
+            value: '+47',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.flag_rounded,
+            iconColor: AppColors.primary,
+            label: 'Sonraki Seviye',
+            value: '${summary.nextLevelRemaining}',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.local_fire_department_rounded,
+            iconColor: const Color(0xFFE67E22),
+            label: 'Seri',
+            value: '3 gun',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textTertiary,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- Level Progress Card ----------
+
+class _LevelProgressCard extends StatelessWidget {
+  const _LevelProgressCard({required this.summary});
+  final PointsSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Seviye Ilerleme',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${(summary.progress * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: summary.progress),
+              duration: const Duration(milliseconds: 1000),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return LinearProgressIndicator(
+                  minHeight: 10,
+                  value: value,
+                  backgroundColor: AppColors.surfaceVariant,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                summary.levelName,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                '${summary.nextLevelRemaining} puan kaldi',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- Daily Goals Section ----------
+
+class _DailyGoalsSection extends StatelessWidget {
+  const _DailyGoalsSection({required this.tasks});
+  final List<DailyTask> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Gunluk Hedefler',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primary),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bugun',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ...tasks.map((task) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _DailyGoalCard(task: task),
+            )),
+      ],
+    );
+  }
+}
+
+class _DailyGoalCard extends StatelessWidget {
+  const _DailyGoalCard({required this.task});
   final DailyTask task;
 
   @override
   Widget build(BuildContext context) {
     final remaining = (task.target - task.current).clamp(0, task.target);
+    final isComplete = remaining == 0;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8D9BC)),
+        color: isComplete ? AppColors.success.withOpacity(0.04) : AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isComplete ? AppColors.success.withOpacity(0.3) : AppColors.outline.withOpacity(0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
+          // Icon
           Container(
-            width: 34,
-            height: 34,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: task.iconBackground,
+              color: isComplete ? AppColors.success.withOpacity(0.1) : task.iconBackground,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(task.icon, size: 20, color: const Color(0xFF8B6A2D)),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            task.title.replaceFirst('Fiyat Bildir', 'Bugün Fiyat').replaceFirst('Doğrula', 'Bugün Doğrulama').replaceFirst('Yorum Yap', 'Bugün Foto'),
-            style: const TextStyle(
-              color: Color(0xFF34210E),
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-            ),
-            maxLines: 2,
-          ),
-          const Spacer(),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 10,
-              value: task.progress,
-              backgroundColor: const Color(0xFFF1E8D8),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFE2D3B4)),
+            child: Icon(
+              isComplete ? Icons.check_rounded : task.icon,
+              size: 22,
+              color: isComplete ? AppColors.success : AppColors.primaryDark,
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(width: 14),
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isComplete ? AppColors.success : AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  task.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Progress bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 6,
+                    value: task.progress,
+                    backgroundColor: AppColors.surfaceVariant,
+                    valueColor: AlwaysStoppedAnimation(
+                      isComplete ? AppColors.success : AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Reward & progress
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'Kalan: $remaining',
-                style: const TextStyle(
-                  color: Color(0xFF6D6253),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '+${task.reward}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 6),
               Text(
-                '+${task.reward} puan',
+                '${task.current}/${task.target}',
                 style: const TextStyle(
-                  color: Color(0xFF8B6A2D),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textTertiary,
                 ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
