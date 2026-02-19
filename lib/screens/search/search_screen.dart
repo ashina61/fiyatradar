@@ -146,24 +146,42 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
   Widget _buildAktuelCard(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActualsScreen())),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ActualsScreen()),
+          );
+        },
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryDark],
+            ),
           ),
           child: const Row(
             children: [
               Icon(Icons.local_offer, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(child: Text('Aktüel Fırsatlar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+              Expanded(
+                child: Text(
+                  'Aktüel Fırsatlar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               Icon(Icons.chevron_right, color: Colors.white),
-              ],
-            ),
+            ],
           ),
         ),
       ),
