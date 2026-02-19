@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,13 +102,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
+    final trendingCount = trendingAsync.valueOrNull?.length ?? 0;
+    final recommendedCount = recommendedAsync.valueOrNull?.length ?? 0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+        child: Stack(
+          children: [
+            const Positioned(top: -90, left: -45, child: _AmbientOrb(size: 220, color: AppColors.primaryLight, opacity: 0.25)),
+            const Positioned(top: 180, right: -70, child: _AmbientOrb(size: 240, color: AppColors.accentLight, opacity: 0.22)),
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
             // ---------- Custom App Bar ----------
             SliverToBoxAdapter(
               child: Padding(
@@ -157,6 +164,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                child: _buildPremiumHero(theme, trendingCount, recommendedCount),
+              ),
+            ),
 
             // ---------- Banner Carousel ----------
             SliverToBoxAdapter(
@@ -246,7 +260,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SliverToBoxAdapter(
               child: SizedBox(height: AppSpacing.xl),
             ),
+              ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumHero(ThemeData theme, int trendingCount, int recommendedCount) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.94, end: 1),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withOpacity(0.92),
+              AppColors.accent.withOpacity(0.92),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.32),
+              blurRadius: 26,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bugünün premium fırsat akışı',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'En iyi düşüşleri gör, karşılaştır, alarmı tek dokunuşla kur.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withOpacity(0.92),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(child: _buildHeroStat(theme, 'Trend', '$trendingCount ürün', Icons.trending_down_rounded)),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: _buildHeroStat(theme, 'Öneri', '$recommendedCount ürün', Icons.auto_awesome_rounded)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroStat(ThemeData theme, String label, String value, IconData icon) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.16),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70)),
+                    Text(value, style: theme.textTheme.titleSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -966,3 +1073,34 @@ class _SectionHeader extends StatelessWidget {
 // ============================================================
 // Product Card (horizontal scroll card)
 // ============================================================
+
+class _AmbientOrb extends StatelessWidget {
+  const _AmbientOrb({
+    required this.size,
+    required this.color,
+    required this.opacity,
+  });
+
+  final double size;
+  final Color color;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withOpacity(opacity),
+              color.withOpacity(0),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

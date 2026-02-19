@@ -7,6 +7,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/theme.dart';
 import '../../widgets/home_product_card.dart';
+import '../../widgets/premium_scaffold_shell.dart';
 import '../product/product_detail_screen.dart';
 import '../actual/actuals_screen.dart';
 
@@ -54,16 +55,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: Column(
+        child: PremiumScaffoldShell(
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: Column(
             children: [
               _buildSearchBar(theme, state),
               _buildConditionalAktuelCard(theme),
               _buildModeTabs(theme, state),
               _buildCategoryChips(theme, state),
               Expanded(child: _buildBody(theme, state)),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -159,7 +162,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
               SizedBox(width: 8),
               Expanded(child: Text('Aktüel Fırsatlar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
               Icon(Icons.chevron_right, color: Colors.white),
-            ],
+              ],
+            ),
           ),
         ),
       ),
