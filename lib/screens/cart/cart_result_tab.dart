@@ -82,7 +82,7 @@ class _IdleState extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: () {
                   HapticFeedback.mediumImpact();
@@ -147,7 +147,7 @@ class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderS
                 Expanded(child: block(height: 96)),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             block(height: 20, width: 190),
             const SizedBox(height: 10),
             block(height: 84),
@@ -218,9 +218,9 @@ class _SuccessStateState extends State<_SuccessState> {
               scrollFactor: _scrollOffset,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _MiniInsights(best: best, nearest: nearest),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Text('Market Karşılaştırma', style: Theme.of(context).textTheme.titleLarge),
           Text(
             'Sepetin toplamı markete göre değişebilir.',
@@ -313,17 +313,24 @@ class _HeroCard extends StatelessWidget {
         scale: scale,
         alignment: Alignment.topCenter,
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.surface.withOpacity(0.96),
+                cs.surfaceContainerHighest.withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: cs.outlineVariant.withOpacity(0.42)),
             boxShadow: [
               BoxShadow(
                 color: cs.primary.withOpacity(glowOpacity),
-                blurRadius: 24,
+                blurRadius: 30,
                 spreadRadius: 1,
-                offset: const Offset(0, 8),
+                offset: const Offset(0, 12),
               ),
             ],
           ),
@@ -383,10 +390,16 @@ class _MiniInsights extends StatelessWidget {
       children: [
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: cs.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  cs.surfaceContainer.withOpacity(0.95),
+                  cs.surfaceContainerHigh.withOpacity(0.82),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: cs.outlineVariant.withOpacity(0.32)),
             ),
             child: nearest == null
                 ? Column(
@@ -428,10 +441,16 @@ class _MiniInsights extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: cs.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  cs.surfaceContainer.withOpacity(0.95),
+                  cs.surfaceContainerHigh.withOpacity(0.82),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: cs.outlineVariant.withOpacity(0.32)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,11 +538,25 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
     final rankLabel = widget.rank == 1 ? '#1 En Uygun' : '#${widget.rank}';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surface.withOpacity(0.95),
+            cs.surfaceContainerHigh.withOpacity(0.88),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withOpacity(widget.rank == 1 ? 0.12 : 0.08),
+            blurRadius: widget.rank == 1 ? 22 : 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -570,7 +603,10 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                             children: [
                               if (widget.rank == 1) Icon(Icons.workspace_premium_rounded, size: 14, color: cs.primary),
                               if (widget.rank == 1) const SizedBox(width: 4),
-                              Text(rankLabel, style: Theme.of(context).textTheme.labelMedium),
+                              Text(
+                                rankLabel,
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                              ),
                             ],
                           ),
                         ),
@@ -633,7 +669,11 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                               builder: (context, value, _) => Container(
                                 width: constraints.maxWidth * value,
                                 decoration: BoxDecoration(
-                                  color: widget.rank == 1 ? cs.primary : cs.secondary,
+                                  gradient: LinearGradient(
+                                    colors: widget.rank == 1
+                                        ? [cs.primary, cs.tertiary]
+                                        : [cs.secondary, cs.secondary.withOpacity(0.68)],
+                                  ),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),

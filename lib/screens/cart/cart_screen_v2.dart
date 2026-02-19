@@ -71,7 +71,12 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
             bottom: TabBar(
               controller: _tabController,
               indicatorSize: TabBarIndicatorSize.tab,
-              indicatorWeight: 3,
+              dividerColor: Colors.transparent,
+              indicator: UnderlineTabIndicator(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: BorderSide(width: 3.5, color: Theme.of(context).colorScheme.primary),
+                insets: const EdgeInsets.symmetric(horizontal: 54),
+              ),
               tabs: const [
                 Tab(text: 'Sepet'),
                 Tab(text: 'Sonuç'),
@@ -487,11 +492,24 @@ class _StepChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withOpacity(0.8),
+        gradient: LinearGradient(
+          colors: [
+            cs.secondaryContainer.withOpacity(0.96),
+            cs.tertiaryContainer.withOpacity(0.82),
+          ],
+        ),
+        border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         child: Text(label, style: Theme.of(context).textTheme.labelMedium),
       ),
     );
@@ -522,14 +540,21 @@ class CartItemCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.52),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surface.withOpacity(0.96),
+            cs.surfaceContainerHighest.withOpacity(0.72),
+          ],
+        ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: cs.shadow.withOpacity(0.1),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -674,9 +699,23 @@ class _QuantityStepperState extends State<QuantityStepper> {
     final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.surface.withOpacity(0.9),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            cs.surface.withOpacity(0.98),
+            cs.surfaceContainerLow.withOpacity(0.9),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withOpacity(0.07),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -762,7 +801,14 @@ class CartBottomSummaryBar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: cs.surface.withOpacity(0.74),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.surface.withOpacity(0.84),
+                      cs.surfaceContainerLow.withOpacity(0.7),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
                   boxShadow: [
