@@ -19,25 +19,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingPageData> _pages = const [
     _OnboardingPageData(
-      icon: Icons.location_on_rounded,
-      title: 'Mahalledeki Fiyatları Keşfet',
+      title: 'Mahallendeki fırsatları keşfet',
       description:
-          'Yakınındaki marketlerdeki güncel fiyatları anında gör, en ucuz seçeneği kolayca bul.',
-      accent: Color(0xFFB5651D),
+          'Yakındaki marketlerde fiyatları canlı takip et, her alışverişte en avantajlı rotayı seç.',
+      icon: Icons.explore_rounded,
+      stats: '150K+ doğrulanmış fiyat',
+      highlights: ['Canlı market karşılaştırması', 'Konuma göre öneriler'],
+      accent: AppColors.primary,
+      glow: Color(0xFFD4874A),
     ),
     _OnboardingPageData(
+      title: 'Topluluk gücüyle güvenli veri',
+      description:
+          'Doğrulanan fiyatlara katkı ver, güven puanı yükselt ve premium deneyimi açan ödüller kazan.',
       icon: Icons.verified_user_rounded,
-      title: 'Toplulukla Doğrula, Tasarruf Et',
-      description:
-          'Fiyatları toplulukla doğrula, güvenilir verilere katkıda bulun ve puan kazan.',
-      accent: Color(0xFF0891B2),
+      stats: '%98 güvenilirlik skoru',
+      highlights: ['Topluluk onay sistemi', 'Akıllı güven puanı'],
+      accent: AppColors.accent,
+      glow: Color(0xFFE8C9A8),
     ),
     _OnboardingPageData(
-      icon: Icons.shopping_basket_rounded,
-      title: 'Sepetini Karşılaştır, En Ucuzu Bul',
+      title: 'Sepeti tek dokunuşla optimize et',
       description:
-          'Alışveriş listeni ekle, tüm marketleri karşılaştır ve en avantajlı markete git.',
-      accent: Color(0xFF4CAF50),
+          'Ürün listeni ekle, marketleri otomatik kıyasla ve toplam maliyeti tek ekranda düşür.',
+      icon: Icons.shopping_bag_rounded,
+      stats: 'Aylık ort. %23 tasarruf',
+      highlights: ['Akıllı sepet kıyaslama', 'Anlık tasarruf analizi'],
+      accent: AppColors.secondaryDark,
+      glow: Color(0xFFF5EDE6),
     ),
   ];
 
@@ -60,7 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _nextPage() {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 320),
+        duration: const Duration(milliseconds: 360),
         curve: Curves.easeOutCubic,
       );
     } else {
@@ -70,74 +79,134 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final page = _pages[_currentPage];
+
     return Scaffold(
-      body: Container(
+      body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFAF6F3), Color(0xFFF5EDE6), Colors.white],
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    const Text('FiyatRadar', style: TextStyle(fontWeight: FontWeight.w800)),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _currentPage == _pages.length - 1 ? null : _completeOnboarding,
-                      child: const Text('Geç'),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -120,
+              right: -80,
+              child: _GlowOrb(color: page.glow, size: 260),
+            ),
+            Positioned(
+              bottom: 120,
+              left: -120,
+              child: _GlowOrb(color: page.accent.withOpacity(0.16), size: 320),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.sm,
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pages.length,
-                  onPageChanged: (value) => setState(() => _currentPage = value),
-                  itemBuilder: (context, index) => _OnboardingPage(data: _pages[index]),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _pages.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          width: _currentPage == index ? 24 : 8,
-                          height: 8,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: _currentPage == index ? const Color(0xFF2563EB) : const Color(0xFFC8D7F2),
-                            borderRadius: BorderRadius.circular(99),
+                            color: AppColors.surface.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: AppColors.outlineVariant,
+                            ),
+                          ),
+                          child: const Text(
+                            'FiyatRadar',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ),
-                      ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: _currentPage == _pages.length - 1
+                              ? null
+                              : _completeOnboarding,
+                          child: const Text('Geç'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton.icon(
-                        onPressed: _nextPage,
-                        icon: Icon(_currentPage == _pages.length - 1 ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded),
-                        label: Text(_currentPage == _pages.length - 1 ? 'Başla' : 'Devam Et'),
-                      ),
+                  ),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _pages.length,
+                      onPageChanged: (value) => setState(() => _currentPage = value),
+                      itemBuilder: (context, index) => _OnboardingPage(data: _pages[index]),
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            _pages.length,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              width: _currentPage == index ? 34 : 10,
+                              height: 10,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                gradient: _currentPage == index
+                                    ? AppColors.gradientWarm
+                                    : null,
+                                color: _currentPage == index
+                                    ? null
+                                    : AppColors.outlineVariant,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: _nextPage,
+                            icon: Icon(
+                              _currentPage == _pages.length - 1
+                                  ? Icons.auto_awesome_rounded
+                                  : Icons.arrow_forward_rounded,
+                            ),
+                            label: Text(
+                              _currentPage == _pages.length - 1
+                                  ? 'Premium Deneyime Başla'
+                                  : 'Devam Et',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -146,16 +215,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
 class _OnboardingPageData {
   const _OnboardingPageData({
-    required this.icon,
     required this.title,
     required this.description,
+    required this.icon,
+    required this.stats,
+    required this.highlights,
     required this.accent,
+    required this.glow,
   });
 
-  final IconData icon;
   final String title;
   final String description;
+  final IconData icon;
+  final String stats;
+  final List<String> highlights;
   final Color accent;
+  final Color glow;
 }
 
 class _OnboardingPage extends StatelessWidget {
@@ -165,38 +240,147 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 190,
-            height: 190,
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(48),
+              borderRadius: BorderRadius.circular(30),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [data.accent.withOpacity(0.16), data.accent.withOpacity(0.04)],
+                colors: [
+                  Colors.white.withOpacity(0.95),
+                  data.glow.withOpacity(0.28),
+                ],
               ),
-              border: Border.all(color: data.accent.withOpacity(0.35)),
+              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
+              boxShadow: [
+                BoxShadow(
+                  color: data.accent.withOpacity(0.16),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+              ],
             ),
-            child: Icon(data.icon, size: 88, color: data.accent),
+            child: Column(
+              children: [
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [data.accent, data.glow],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Icon(data.icon, color: Colors.white, size: 40),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.78),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    data.stats,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           Text(
             data.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.2),
+            style: textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
             data.description,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: AppColors.textSecondary, height: 1.5),
+            style: textTheme.bodyLarge?.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ...data.highlights.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_rounded, size: 18, color: data.accent),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      item,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color,
+              color.withOpacity(0.08),
+              Colors.transparent,
+            ],
+            stops: const [0, 0.5, 1],
+          ),
+        ),
       ),
     );
   }
