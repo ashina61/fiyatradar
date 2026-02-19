@@ -16,6 +16,7 @@ import '../../providers/product_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/premium_scaffold_shell.dart';
 import 'cart_result_tab.dart';
 
 class CartScreenV2 extends ConsumerStatefulWidget {
@@ -69,13 +70,16 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
             title: const Text('Fiyat Sepeti'),
             bottom: TabBar(
               controller: _tabController,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorWeight: 3,
               tabs: const [
                 Tab(text: 'Sepet'),
                 Tab(text: 'Sonuç'),
               ],
             ),
           ),
-          body: TabBarView(
+          body: PremiumScaffoldShell(
+            child: TabBarView(
             controller: _tabController,
             children: [
               _CartTabContent(
@@ -130,6 +134,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
                 selectedStoreNames: viewModel.selectedStoreNames,
               ),
             ],
+            ),
           ),
         );
       },

@@ -45,7 +45,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final currentTab = ref.watch(currentTabProvider);
 
     return Scaffold(
-      body: IndexedStack(index: currentTab, children: _screens),
+      body: Stack(
+        children: [
+          for (var i = 0; i < _screens.length; i++)
+            IgnorePointer(
+              ignoring: currentTab != i,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                opacity: currentTab == i ? 1 : 0,
+                child: KeyedSubtree(
+                  key: ValueKey('tab-$i'),
+                  child: _screens[i],
+                ),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: PremiumBottomNav(
         currentIndex: currentTab,
         onCenterTap: _openAddPrice,

@@ -13,6 +13,7 @@ import '../../utils/formatters.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../utils/level_style.dart';
 import '../../utils/theme.dart';
+import '../../widgets/premium_scaffold_shell.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -49,7 +50,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
-      body: userAsync.when(
+      body: PremiumScaffoldShell(
+        child: userAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
         data: (userModel) {
@@ -100,6 +102,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             },
           );
         },
+        ),
       ),
     );
   }

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../utils/motion_tokens.dart';
 
-class PremiumBottomNav extends StatelessWidget {
+class PremiumBottomNav extends StatefulWidget {
   const PremiumBottomNav({
     super.key,
     required this.currentIndex,
@@ -17,6 +17,17 @@ class PremiumBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   final VoidCallback onCenterTap;
 
+  @override
+  State<PremiumBottomNav> createState() => _PremiumBottomNavState();
+}
+
+class _PremiumBottomNavState extends State<PremiumBottomNav>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2100),
+  )..repeat(reverse: true);
+
   static const _tabs = <_NavTab>[
     _NavTab(index: 0, label: 'Ana Sayfa', icon: Icons.home_rounded),
     _NavTab(index: 1, label: 'Keşfet', icon: Icons.explore_rounded),
@@ -25,17 +36,24 @@ class PremiumBottomNav extends StatelessWidget {
   ];
 
   @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final width = MediaQuery.sizeOf(context).width * 0.92;
-    final selectedSlot = _tabs.indexWhere((tab) => tab.index == currentIndex).clamp(0, _tabs.length - 1);
+    final width = MediaQuery.sizeOf(context).width * 0.93;
+    final selectedSlot =
+        _tabs.indexWhere((tab) => tab.index == widget.currentIndex).clamp(0, _tabs.length - 1);
 
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.only(bottom: 14),
+      minimum: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
-        height: 98,
+        height: 104,
         child: Center(
           child: SizedBox(
             width: width,
@@ -44,21 +62,29 @@ class PremiumBottomNav extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(32),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                     child: Container(
-                      height: 74,
+                      height: 78,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: scheme.surface.withOpacity(0.96),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: scheme.outlineVariant.withOpacity(0.7)),
+                        color: scheme.surface.withOpacity(0.94),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: scheme.outlineVariant.withOpacity(0.8)),
+                        gradient: LinearGradient(
+                          colors: [
+                            scheme.surface.withOpacity(0.94),
+                            scheme.surfaceVariant.withOpacity(0.9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: scheme.onSurface.withOpacity(0.12),
+                            color: scheme.primary.withOpacity(0.15),
                             blurRadius: 24,
-                            offset: const Offset(0, 10),
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
@@ -74,20 +100,24 @@ class PremiumBottomNav extends StatelessWidget {
                               AnimatedPositioned(
                                 duration: MotionTokens.navigation,
                                 curve: MotionTokens.standard,
-                                left: bubbleLeft + 6,
-                                top: 15,
+                                left: bubbleLeft + 8,
+                                top: 14,
                                 child: Container(
-                                  width: slotWidth - 12,
-                                  height: 44,
+                                  width: slotWidth - 16,
+                                  height: 48,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(24),
-                                    color: scheme.secondaryContainer.withOpacity(0.9),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        scheme.primaryContainer.withOpacity(0.9),
+                                        scheme.secondaryContainer.withOpacity(0.82),
+                                      ],
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: scheme.primary.withOpacity(0.2),
-                                        blurRadius: 16,
-                                        spreadRadius: 1,
-                                        offset: const Offset(0, 4),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 5),
                                       ),
                                     ],
                                   ),
@@ -100,10 +130,10 @@ class PremiumBottomNav extends StatelessWidget {
                                       child: _NavItem(
                                         icon: tab.icon,
                                         label: tab.label,
-                                        selected: currentIndex == tab.index,
+                                        selected: widget.currentIndex == tab.index,
                                         onTap: () {
                                           HapticFeedback.selectionClick();
-                                          onTap(tab.index);
+                                          widget.onTap(tab.index);
                                         },
                                       ),
                                     ),
@@ -113,10 +143,10 @@ class PremiumBottomNav extends StatelessWidget {
                                       child: _NavItem(
                                         icon: tab.icon,
                                         label: tab.label,
-                                        selected: currentIndex == tab.index,
+                                        selected: widget.currentIndex == tab.index,
                                         onTap: () {
                                           HapticFeedback.selectionClick();
-                                          onTap(tab.index);
+                                          widget.onTap(tab.index);
                                         },
                                       ),
                                     ),
@@ -130,11 +160,12 @@ class PremiumBottomNav extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: -14,
+                  top: -15,
                   child: _CenterActionButton(
+                    pulse: _pulseController,
                     onTap: () {
-                      HapticFeedback.selectionClick();
-                      onCenterTap();
+                      HapticFeedback.mediumImpact();
+                      widget.onCenterTap();
                     },
                   ),
                 ),
@@ -148,8 +179,12 @@ class PremiumBottomNav extends StatelessWidget {
 }
 
 class _CenterActionButton extends StatelessWidget {
-  const _CenterActionButton({required this.onTap});
+  const _CenterActionButton({
+    required this.pulse,
+    required this.onTap,
+  });
 
+  final Animation<double> pulse;
   final VoidCallback onTap;
 
   @override
@@ -159,54 +194,65 @@ class _CenterActionButton extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  scheme.primaryContainer.withOpacity(0.65),
-                  scheme.secondary.withOpacity(0.55),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withOpacity(0.24),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primary,
-                    border: Border.all(color: scheme.onPrimary.withOpacity(0.35)),
+      child: AnimatedBuilder(
+        animation: pulse,
+        builder: (context, _) {
+          final aura = 0.18 + (pulse.value * 0.16);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primaryContainer.withOpacity(0.8),
+                      scheme.secondary.withOpacity(0.76),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(Icons.add_rounded, size: 30, color: scheme.onPrimary, semanticLabel: 'Fiyat ekle'),
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.primary.withOpacity(aura),
+                      blurRadius: 24,
+                      offset: const Offset(0, 9),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.primary,
+                        border: Border.all(color: scheme.onPrimary.withOpacity(0.4)),
+                      ),
+                      child: Icon(
+                        Icons.add_rounded,
+                        size: 31,
+                        color: scheme.onPrimary,
+                        semanticLabel: 'Fiyat Ekle',
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Fiyat Ekle',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+              const SizedBox(height: 3),
+              Text(
+                'Fiyat Ekle',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -231,17 +277,17 @@ class _NavItem extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
       onTap: onTap,
       child: SizedBox(
-        height: 74,
+        height: 78,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedScale(
               duration: MotionTokens.base,
               curve: MotionTokens.standard,
-              scale: selected ? 1.1 : 1,
+              scale: selected ? 1.14 : 1,
               child: Icon(
                 icon,
                 semanticLabel: label,
@@ -250,19 +296,14 @@ class _NavItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            AnimatedSlide(
-              duration: MotionTokens.base,
-              curve: MotionTokens.standard,
-              offset: selected ? Offset.zero : const Offset(0, 0.22),
-              child: AnimatedOpacity(
-                duration: MotionTokens.fast,
-                opacity: selected ? 1 : 0.74,
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
+            AnimatedOpacity(
+              duration: MotionTokens.fast,
+              opacity: selected ? 1 : 0.7,
+              child: Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),
