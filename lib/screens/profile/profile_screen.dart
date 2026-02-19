@@ -18,6 +18,7 @@ import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
@@ -84,6 +85,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       levelName: data.levelName,
                       totalPoints: data.totalPoints,
                       isAdmin: userModel?.isAdmin == true,
+                      onPointsTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
                       onEdit: () async {
                         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                         if (mounted) setState(() => _reloadKey++);
@@ -156,6 +158,7 @@ class _PremiumHeaderCard extends StatelessWidget {
     required this.trustTotalVotes,
     required this.totalPoints,
     required this.isAdmin,
+    required this.onPointsTap,
     required this.onEdit,
   });
 
@@ -167,6 +170,7 @@ class _PremiumHeaderCard extends StatelessWidget {
   final int trustTotalVotes;
   final int totalPoints;
   final bool isAdmin;
+  final VoidCallback onPointsTap;
   final VoidCallback onEdit;
 
   @override
@@ -226,6 +230,27 @@ class _PremiumHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _TrustMiniCard(score: trustScore, totalVotes: trustTotalVotes),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: onPointsTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFFE4D1AC)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.stars_rounded, size: 16, color: Color(0xFFB8863B)),
+                  const SizedBox(width: 6),
+                  Text('$totalPoints Puan', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF4B360F))),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
