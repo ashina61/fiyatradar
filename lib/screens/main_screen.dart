@@ -5,7 +5,7 @@ import 'cart/cart_screen.dart';
 import '../widgets/premium_bottom_nav.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';
-import 'profile/profile_screen.dart';
+import '../features/profile/profile_screen.dart';
 import 'search/search_screen.dart';
 
 final currentTabProvider = StateProvider<int>((ref) => 0);
