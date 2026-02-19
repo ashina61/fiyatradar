@@ -67,11 +67,11 @@ class PointsMockData {
   factory PointsMockData.build() {
     return const PointsMockData(
       summary: PointsSummary(
-        totalPoints: 420,
-        level: 3,
-        levelName: 'Katkıcı',
-        nextLevelRemaining: 180,
-        progress: 0.7,
+        totalPoints: 200,
+        level: 2,
+        levelName: 'Standart',
+        nextLevelRemaining: 300,
+        progress: 0.38,
       ),
       dailyTasks: [
         DailyTask(
