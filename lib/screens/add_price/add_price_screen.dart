@@ -1350,7 +1350,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     ),
                     items: categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
                         .toList(),
                     onChanged: (value) => setState(() => _selectedCategory = value),
                     validator: (v) => v == null ? 'Kategori seçin' : null,

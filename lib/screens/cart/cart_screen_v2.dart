@@ -789,7 +789,7 @@ class CartBottomSummaryBar extends StatelessWidget {
     final totalSuffix = estimatedTotal.hasMissingPrices ? ' • Eksik: ${estimatedTotal.missingPriceCount} ürün' : '';
 
     return SafeArea(
-      minimum: const EdgeInsets.zero,
+      minimum: EdgeInsets.zero,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         decoration: BoxDecoration(
