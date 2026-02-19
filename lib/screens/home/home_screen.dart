@@ -134,20 +134,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Container(
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
+                      color: theme.colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(AppRadius.lg),
                     ),
                     padding:
                         const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                     child: Row(
                       children: [
-                        const Icon(Icons.search,
-                            color: AppColors.textTertiary, size: 22),
+                        Icon(Icons.search,
+                            color: theme.colorScheme.onSurfaceVariant, size: 22),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
                           'Ürün, mağaza veya kategori ara...',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textTertiary,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -777,10 +777,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Column(
       children: [
-        const _SectionHeader(
+        _SectionHeader(
           title: 'Son İncelediklerin',
           icon: Icons.history,
-          iconColor: AppColors.secondary,
+          iconColor: theme.colorScheme.secondary,
         ),
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
@@ -820,18 +820,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   width: double.infinity,
                                   fit: BoxFit.cover,
                                   errorWidget: (_, __, ___) => Container(
-                                    color: AppColors.surfaceVariant,
-                                    child: const Icon(
+                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    child: Icon(
                                       Icons.inventory_2_outlined,
-                                      color: AppColors.textTertiary,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 )
                               : Container(
-                                  color: AppColors.surfaceVariant,
-                                  child: const Icon(
+                                  color: theme.colorScheme.surfaceContainerHighest,
+                                  child: Icon(
                                     Icons.inventory_2_outlined,
-                                    color: AppColors.textTertiary,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                         ),
@@ -933,7 +933,7 @@ class _SectionHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 22, color: iconColor ?? AppColors.primary),
+                Icon(icon, size: 22, color: iconColor ?? Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 6),
               ],
               Text(
@@ -950,8 +950,8 @@ class _SectionHeader extends StatelessWidget {
               onTap: onAction,
               child: Text(
                 actionText!,
-                style: const TextStyle(
-                  color: AppColors.primary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),

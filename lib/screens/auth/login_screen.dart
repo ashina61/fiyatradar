@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/firebase_init_provider.dart';
 import '../../services/auth_service.dart';
@@ -7,14 +8,14 @@ import '../../utils/theme.dart';
 import '../main_screen.dart';
 import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -36,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    if (!firebaseInitialized) {
+    if (!ref.read(firebaseInitializedProvider)) {
       _showErrorSnackBar(
         'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.',
       );
@@ -66,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    if (!firebaseInitialized) {
+    if (!ref.read(firebaseInitializedProvider)) {
       _showErrorSnackBar(
         'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.',
       );
@@ -104,10 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showErrorSnackBar(String message) {
+    final scheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.error,
+        backgroundColor: scheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -129,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         title: const Row(
           children: [
-            Icon(Icons.lock_reset, color: AppColors.primary),
+            Icon(Icons.lock_reset),
             SizedBox(width: AppSpacing.sm),
             Text('Şifremi Unuttum'),
           ],
@@ -168,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('Şifre sıfırlama e-postası gönderildi!'),
-                    backgroundColor: AppColors.success,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -276,10 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const Text(
           'Market fiyatlarını takip et, doğrula ve puan kazan.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -316,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                   child: Text(
                     'veya e-posta ile',
-                    style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
                 const Expanded(child: Divider()),
@@ -380,7 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: theme.colorScheme.onPrimary),
                       )
                     : const Text('Giriş Yap'),
               ),
@@ -389,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Hesabın yok mu?', style: TextStyle(color: AppColors.textSecondary)),
+                Text('Hesabın yok mu?', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
                 TextButton(onPressed: _navigateToRegister, child: const Text('Kayıt Ol')),
               ],
             ),

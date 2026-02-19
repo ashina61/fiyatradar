@@ -118,9 +118,7 @@ final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 // Product by ID (stream version)
 final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, productId) {
   if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value(null);
-  return ref.watch(catalogServiceProvider).getAllProducts().map(
-    (products) => products.where((p) => p.id == productId).firstOrNull,
-  );
+  return ref.watch(catalogServiceProvider).getProductStream(productId);
 });
 
 // Comments for a product

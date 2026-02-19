@@ -9,12 +9,11 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
-import 'providers/auth_provider.dart';
 import 'providers/firebase_init_provider.dart';
+import 'providers/app_start_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/main_screen.dart';
-import 'services/auth_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -118,19 +117,28 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
                 await prefs.setBool('onboarding_complete', true);
               },
             )
-          : _buildHomeScreen(),
+          : const _AppStartGate(),
     );
   }
 
-  Widget _buildHomeScreen() {
-    // If Firebase is initialized, check auth state
-    if (firebaseInitialized) {
-      final authService = AuthService();
-      if (authService.currentUser != null) {
+}
+
+
+class _AppStartGate extends ConsumerWidget {
+  const _AppStartGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appStartState = ref.watch(appStartStateProvider);
+    switch (appStartState) {
+      case AppStartState.loading:
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      case AppStartState.authenticated:
         return const MainScreen();
-      }
+      case AppStartState.login:
+        return const LoginScreen();
     }
-    // Firebase başlamadıysa veya kullanıcı yoksa giriş ekranına at
-    return const LoginScreen();
   }
 }
