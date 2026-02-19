@@ -18,20 +18,20 @@ class BadgesList extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'Rozetler',
+                'Rozet Koleksiyonu',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF111827),
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ),
             Text(
               '$earnedCount/${badges.length}',
               style: const TextStyle(
-                fontSize: 18,
-                color: Color(0xFF9CA3AF),
-                fontWeight: FontWeight.w500,
+                fontSize: 15,
+                color: Color(0xFF475569),
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -39,7 +39,7 @@ class BadgesList extends StatelessWidget {
         const SizedBox(height: 12),
         for (final badge in badges) ...[
           _BadgeTile(badge: badge),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
         ],
       ],
     );
@@ -53,65 +53,77 @@ class _BadgeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = badge.earned ? const Color(0xFF111827) : const Color(0xFFC4C8CF);
-    final subtitleColor = badge.earned ? const Color(0xFF9CA3AF) : const Color(0xFFD1D5DB);
+    final titleColor = badge.earned ? const Color(0xFF0F172A) : const Color(0xFF64748B);
 
-    return Opacity(
-      opacity: badge.earned ? 1 : 0.75,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0D000000),
-              offset: Offset(0, 4),
-              blurRadius: 12,
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: badge.earned ? const Color(0xFFCFFAFE) : const Color(0xFFE2E8F0),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(color: badge.iconBackground, shape: BoxShape.circle),
-              child: Icon(badge.icon, color: badge.iconColor, size: 30),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: badge.iconBackground,
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    badge.title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
+            child: Icon(badge.icon, color: badge.iconColor, size: 24),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        badge.title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      badge.earned ? Icons.check_circle : Icons.lock_outline_rounded,
+                      color: badge.earned ? const Color(0xFF06B6D4) : const Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  badge.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: badge.progress.clamp(0, 1),
+                    minHeight: 6,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      badge.earned ? const Color(0xFF06B6D4) : const Color(0xFF94A3B8),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    badge.description,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: subtitleColor,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(
-              badge.earned ? Icons.check_circle : Icons.lock,
-              color: badge.earned ? const Color(0xFF10B981) : const Color(0xFFD1D5DB),
-              size: 30,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

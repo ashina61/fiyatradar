@@ -15,35 +15,31 @@ class StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1,
+      childAspectRatio: 1.25,
       children: [
         _StatGridCard(
           value: '${stats.katki}',
-          label: 'Fiyat Bildirimi',
+          label: 'Fiyat Katkısı',
           icon: Icons.sell_rounded,
-          iconColor: const Color(0xFF10B981),
-          iconBackground: const Color(0xFFEAFBF5),
+          color: const Color(0xFF059669),
         ),
         _StatGridCard(
           value: '${stats.dogrulama}',
           label: 'Doğrulama',
-          icon: Icons.done_all_rounded,
-          iconColor: const Color(0xFF60A5FA),
-          iconBackground: const Color(0xFFEFF6FF),
-        ),
-        _StatGridCard(
-          value: '${stats.puan}',
-          label: 'Toplam Puan',
-          icon: Icons.star_rounded,
-          iconColor: const Color(0xFFF59E0B),
-          iconBackground: const Color(0xFFFFF7E8),
+          icon: Icons.task_alt_rounded,
+          color: const Color(0xFF2563EB),
         ),
         _StatGridCard(
           value: '${stats.earnedBadgeCount}',
-          label: 'Rozet',
+          label: 'Elite Rozet',
           icon: Icons.workspace_premium_rounded,
-          iconColor: const Color(0xFF6366F1),
-          iconBackground: const Color(0xFFEEF0FF),
+          color: const Color(0xFF7C3AED),
+        ),
+        _StatGridCard(
+          value: '${stats.seriGun}',
+          label: 'Seri Gün',
+          icon: Icons.local_fire_department_rounded,
+          color: const Color(0xFFEF4444),
         ),
       ],
     );
@@ -55,60 +51,58 @@ class _StatGridCard extends StatelessWidget {
     required this.value,
     required this.label,
     required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
+    required this.color,
   });
 
   final String value;
   final String label;
   final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            offset: Offset(0, 4),
-            blurRadius: 12,
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
           Container(
-            width: 68,
-            height: 68,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: iconBackground,
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: iconColor, size: 34),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: 30 / 1.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 15,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

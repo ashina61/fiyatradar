@@ -13,58 +13,76 @@ class LevelCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF111827), Color(0xFF1F2937)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2B0F172A),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                'Seviye ${stats.seviye}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFACC15).withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'SEVİYE ${stats.seviye}',
+                  style: const TextStyle(
+                    color: Color(0xFFFDE68A),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
               const Spacer(),
-              Text(
-                '${stats.puan}/${stats.puanMax} puan',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF9CA3AF),
-                ),
-              ),
+              const Icon(Icons.diamond_rounded, color: Color(0xFF93C5FD), size: 20),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          Text(
+            '${stats.puan}/${stats.puanMax} puan',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Bir üst elite seviyeye ilerliyorsun',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFFCBD5E1),
+            ),
+          ),
+          const SizedBox(height: 16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(99),
+            borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 10,
-              backgroundColor: const Color(0xFFE5E7EB),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+              backgroundColor: const Color(0xFF334155),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF22D3EE)),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  BoxDecoration _cardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE5E7EB)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x0D000000),
-          offset: Offset(0, 4),
-          blurRadius: 12,
-        ),
-      ],
     );
   }
 }
