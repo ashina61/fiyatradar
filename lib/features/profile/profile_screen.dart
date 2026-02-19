@@ -15,6 +15,7 @@ class BadgeItem {
     required this.iconColor,
     required this.iconBackground,
     required this.earned,
+    required this.progress,
   });
 
   final String title;
@@ -23,6 +24,7 @@ class BadgeItem {
   final Color iconColor;
   final Color iconBackground;
   final bool earned;
+  final double progress;
 }
 
 class ProfileStats {
@@ -54,7 +56,7 @@ class ProfileStats {
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  static const Color _background = Color(0xFFF6F7F8);
+  static const Color _background = Color(0xFFF1F4FA);
 
   ProfileStats _mockStats() {
     return const ProfileStats(
@@ -74,46 +76,52 @@ class ProfileScreen extends StatelessWidget {
           iconColor: Color(0xFFF59E0B),
           iconBackground: Color(0xFFFFF7E8),
           earned: true,
+          progress: 1,
         ),
         BadgeItem(
           title: 'Güvenilir',
           description: 'Güven skorun 80 üzeri',
           icon: Icons.verified_user_rounded,
-          iconColor: Color(0xFF10B981),
-          iconBackground: Color(0xFFEAFBF5),
+          iconColor: Color(0xFF00C2A8),
+          iconBackground: Color(0xFFEEFCF9),
           earned: true,
+          progress: 1,
         ),
         BadgeItem(
           title: 'Aktif Üye',
           description: '7 gün üst üste katkı',
           icon: Icons.local_fire_department_rounded,
-          iconColor: Color(0xFFEF4444),
-          iconBackground: Color(0xFFFFEEF0),
+          iconColor: Color(0xFFFF5D5D),
+          iconBackground: Color(0xFFFFEFEF),
           earned: true,
+          progress: 0.72,
         ),
         BadgeItem(
           title: 'Market Uzmanı',
           description: '50 fiyat bildirimi yap',
-          icon: Icons.shopping_cart_rounded,
-          iconColor: Color(0xFF9CA3AF),
-          iconBackground: Color(0xFFF2F4F7),
+          icon: Icons.shopping_bag_rounded,
+          iconColor: Color(0xFF667085),
+          iconBackground: Color(0xFFF3F5F8),
           earned: false,
+          progress: 0.68,
         ),
         BadgeItem(
           title: 'Doğrulayıcı',
           description: '100 fiyatı doğrula',
           icon: Icons.check_circle_rounded,
-          iconColor: Color(0xFF9CA3AF),
-          iconBackground: Color(0xFFF2F4F7),
+          iconColor: Color(0xFF667085),
+          iconBackground: Color(0xFFF3F5F8),
           earned: false,
+          progress: 0.54,
         ),
         BadgeItem(
           title: 'Altın Üye',
           description: '1000 puan kazan',
           icon: Icons.emoji_events_rounded,
-          iconColor: Color(0xFF9CA3AF),
-          iconBackground: Color(0xFFF2F4F7),
+          iconColor: Color(0xFF667085),
+          iconBackground: Color(0xFFF3F5F8),
           earned: false,
+          progress: 0.42,
         ),
       ],
     );
@@ -127,43 +135,45 @@ class ProfileScreen extends StatelessWidget {
       backgroundColor: _background,
       body: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: ProfileHeader(stats: stats),
-          ),
+          SliverToBoxAdapter(child: ProfileHeader(stats: stats)),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
             sliver: SliverList(
-              delegate: SliverChildListDelegate(
-                [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: LevelCard(stats: stats),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: TrustScoreCard(score: stats.guvenSkor)),
-                    ],
+              delegate: SliverChildListDelegate([
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: LevelCard(stats: stats)),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: TrustScoreCard(score: stats.guvenSkor)),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Performans Panosu',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.2,
                   ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Detaylı İstatistikler',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
-                    ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Topluluk içindeki etkinliğini premium metriklerle takip et.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 16),
-                  StatsGrid(stats: stats),
-                  const SizedBox(height: 24),
-                  BadgesList(badges: stats.badges),
-                  const SizedBox(height: 24),
-                  CtaBanner(points: stats.puan),
-                  const SizedBox(height: 12),
-                ],
-              ),
+                ),
+                const SizedBox(height: 14),
+                StatsGrid(stats: stats),
+                const SizedBox(height: 26),
+                BadgesList(badges: stats.badges),
+                const SizedBox(height: 24),
+                CtaBanner(points: stats.puan),
+              ]),
             ),
           ),
         ],

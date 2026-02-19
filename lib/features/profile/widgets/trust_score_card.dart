@@ -7,55 +7,48 @@ class TrustScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final meter = score / 100;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            offset: Offset(0, 4),
-            blurRadius: 12,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         children: [
-          Container(
-            width: 86,
-            height: 86,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF10B981), width: 4),
-            ),
+          Stack(
             alignment: Alignment.center,
-            child: Text(
-              '$score',
-              style: const TextStyle(
-                fontSize: 36 / 1.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF10B981),
+            children: [
+              SizedBox(
+                width: 88,
+                height: 88,
+                child: CircularProgressIndicator(
+                  value: meter,
+                  strokeWidth: 8,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0EA5E9)),
+                ),
               ),
-            ),
+              Text(
+                '$score',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           const Text(
-            'Yüksek',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF10B981),
-            ),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'Güven Skoru',
+            'Premium Güven',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF9CA3AF),
+              fontSize: 13,
+              color: Color(0xFF334155),
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

@@ -8,56 +8,59 @@ class CtaBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFFF59E0B), Color(0xFFEA8B00)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0EA5E9), Color(0xFF4338CA)],
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x33111827),
-            offset: Offset(0, 10),
-            blurRadius: 20,
+            color: Color(0x262563EB),
+            offset: Offset(0, 12),
+            blurRadius: 24,
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(color: Color(0x33FFFFFF), shape: BoxShape.circle),
-            child: const Icon(Icons.star_rounded, color: Colors.white, size: 38),
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              color: Color(0x33FFFFFF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 30),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$points Puan',
+                  '$points Puan · Elite Club',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 40 / 1.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 const Text(
-                  'Görevler, ödüller ve seviyeler',
+                  'Görevleri tamamla, ödül vitrinin aç.',
                   style: TextStyle(
-                    color: Color(0xFFFDF5E8),
-                    fontSize: 15,
+                    color: Color(0xFFE0E7FF),
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 34),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 30),
         ],
       ),
     );
