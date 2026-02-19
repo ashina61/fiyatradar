@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../utils/motion_tokens.dart';
-import '../utils/theme.dart';
 
 class PremiumBottomNav extends StatelessWidget {
   const PremiumBottomNav({
@@ -28,7 +27,8 @@ class PremiumBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-        final width = MediaQuery.sizeOf(context).width * 0.92;
+    final scheme = theme.colorScheme;
+    final width = MediaQuery.sizeOf(context).width * 0.92;
     final selectedSlot = _tabs.indexWhere((tab) => tab.index == currentIndex).clamp(0, _tabs.length - 1);
 
     return SafeArea(
@@ -51,12 +51,12 @@ class PremiumBottomNav extends StatelessWidget {
                       height: 74,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: theme.brightness == Brightness.dark ? AppColors.surfaceDark.withOpacity(0.95) : AppColors.surface.withOpacity(0.96),
+                        color: scheme.surface.withOpacity(0.96),
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: theme.brightness == Brightness.dark ? Colors.white.withOpacity(0.06) : AppColors.outlineVariant.withOpacity(0.7)),
+                        border: Border.all(color: scheme.outlineVariant.withOpacity(0.7)),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.textPrimary.withOpacity(0.12),
+                            color: scheme.onSurface.withOpacity(0.12),
                             blurRadius: 24,
                             offset: const Offset(0, 10),
                           ),
@@ -81,10 +81,10 @@ class PremiumBottomNav extends StatelessWidget {
                                   height: 44,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(24),
-                                    color: AppColors.secondaryLight.withOpacity(0.9),
+                                    color: scheme.secondaryContainer.withOpacity(0.9),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.2),
+                                        color: scheme.primary.withOpacity(0.2),
                                         blurRadius: 16,
                                         spreadRadius: 1,
                                         offset: const Offset(0, 4),
@@ -169,15 +169,15 @@ class _CenterActionButton extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primaryLight.withOpacity(0.65),
-                  AppColors.secondary.withOpacity(0.55),
+                  scheme.primaryContainer.withOpacity(0.65),
+                  scheme.secondary.withOpacity(0.55),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.24),
+                  color: scheme.primary.withOpacity(0.24),
                   blurRadius: 18,
                   offset: const Offset(0, 7),
                 ),
@@ -189,10 +189,10 @@ class _CenterActionButton extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.primary,
-                    border: Border.all(color: Colors.white.withOpacity(0.35)),
+                    color: scheme.primary,
+                    border: Border.all(color: scheme.onPrimary.withOpacity(0.35)),
                   ),
-                  child: const Icon(Icons.add_rounded, size: 30, color: Colors.white, semanticLabel: 'Fiyat ekle'),
+                  child: Icon(Icons.add_rounded, size: 30, color: scheme.onPrimary, semanticLabel: 'Fiyat ekle'),
                 ),
               ),
             ),
@@ -201,7 +201,7 @@ class _CenterActionButton extends StatelessWidget {
           Text(
             'Fiyat Ekle',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+              color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -244,7 +244,7 @@ class _NavItem extends StatelessWidget {
                 icon,
                 semanticLabel: label,
                 size: 24,
-                color: selected ? AppColors.primary : (theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary),
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 2),
@@ -258,7 +258,7 @@ class _NavItem extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: selected ? AppColors.primary : (theme.brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondary),
+                        color: selected ? scheme.primary : scheme.onSurfaceVariant,
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       ),
                 ),

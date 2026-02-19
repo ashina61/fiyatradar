@@ -71,6 +71,16 @@ class CatalogService {
     return product;
   }
 
+  Stream<ProductModel?> getProductStream(String productId) {
+    if (productId.trim().isEmpty) return Stream.value(null);
+    return _productsRef.doc(productId).snapshots().asyncMap((doc) async {
+      if (!doc.exists) return null;
+      final product = ProductModel.fromFirestore(doc);
+      await _ensureOpenFoodFactsImage(product);
+      return product;
+    });
+  }
+
   Future<void> incrementViewCount(String productId) async {
     await _productsRef.doc(productId).update({
       'viewCount': FieldValue.increment(1),
