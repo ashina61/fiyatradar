@@ -155,7 +155,8 @@ class _CenterActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+    final scheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -227,6 +228,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
