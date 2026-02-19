@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,6 +65,18 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2> with SingleTickerPr
         );
 
         return Scaffold(
+          backgroundColor: const Color(0xFFFAFAFA),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: const Color(0xFFE65100),
+            foregroundColor: Colors.white,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
           appBar: AppBar(
             title: const Text('Fiyat Sepeti'),
             bottom: TabBar(
@@ -376,8 +387,36 @@ class _CartTabContentState extends State<_CartTabContent> {
               CartCollapsibleHeader(
                 itemCount: widget.itemCount,
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onAddProduct,
+                          icon: const Icon(Icons.add_box_outlined),
+                          label: const Text('Ürün Ekle'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: widget.onCalculate,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE65100),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.auto_graph_rounded),
+                          label: const Text('Akıllı Tercih'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 132),
                 sliver: SliverToBoxAdapter(
                   child: widget.viewModel.isLoadingItems
                       ? const Center(
@@ -492,53 +531,11 @@ class CartCollapsibleHeader extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: const [
-                            _StepChip(label: 'Ürünleri ekle'),
-                            _StepChip(label: 'Karşılaştır'),
-                            _StepChip(label: 'Akıllı tercih'),
-                          ],
-                        ),
                       ],
                     ),
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _StepChip extends StatelessWidget {
-  const _StepChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.secondaryContainer.withOpacity(0.96),
-            cs.tertiaryContainer.withOpacity(0.82),
-          ],
-        ),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        child: Text(label, style: Theme.of(context).textTheme.labelMedium),
       ),
     );
   }
@@ -568,21 +565,13 @@ class CartItemCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.surface.withOpacity(0.96),
-            cs.surfaceContainerHighest.withOpacity(0.72),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.1),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -724,26 +713,11 @@ class _QuantityStepperState extends State<QuantityStepper> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            cs.surface.withOpacity(0.98),
-            cs.surfaceContainerLow.withOpacity(0.9),
-          ],
-        ),
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(0.07),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -757,7 +731,7 @@ class _QuantityStepperState extends State<QuantityStepper> {
               child: AnimatedScale(
                 duration: const Duration(milliseconds: 120),
                 scale: _minusScale,
-                child: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+                child: const Icon(Icons.remove_circle_outline_rounded, size: 26, color: Color(0xFF333333)),
               ),
             ),
             const SizedBox(width: 8),
@@ -767,7 +741,7 @@ class _QuantityStepperState extends State<QuantityStepper> {
               child: Text(
                 '${widget.quantity}',
                 key: ValueKey(widget.quantity),
-                style: Theme.of(context).textTheme.titleSmall,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(width: 8),
@@ -778,7 +752,7 @@ class _QuantityStepperState extends State<QuantityStepper> {
               child: AnimatedScale(
                 duration: const Duration(milliseconds: 120),
                 scale: _plusScale,
-                child: const Icon(Icons.add_circle_rounded, size: 22),
+                child: const Icon(Icons.add_circle_rounded, size: 26, color: Color(0xFFE65100)),
               ),
             ),
           ],
@@ -811,151 +785,86 @@ class CartBottomSummaryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final blurTarget = scrollOffset > 120 ? 18.0 : 8.0;
-    final shadowOpacity = (0.08 + (scrollOffset / 240) * 0.12).clamp(0.08, 0.2);
-    final sweepOpacity = (0.12 - (scrollOffset / 260) * 0.06).clamp(0.04, 0.12);
     final totalPrefix = estimatedTotal.hasMissingPrices ? 'Kısmi toplam' : 'Tahmini toplam';
     final totalSuffix = estimatedTotal.hasMissingPrices ? ' • Eksik: ${estimatedTotal.missingPriceCount} ürün' : '';
 
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 8, end: blurTarget),
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        builder: (context, blur, _) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.surface.withOpacity(0.84),
-                      cs.surfaceContainerLow.withOpacity(0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.shadow.withOpacity(shadowOpacity),
-                      blurRadius: 20 + scrollOffset * 0.08,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+      minimum: const EdgeInsets.zero,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLoading)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: LinearProgressIndicator(
+                  minHeight: 4,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: RepaintBoundary(
-                  child: Stack(
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Positioned.fill(
-                        child: _SummaryLightSweep(opacity: sweepOpacity),
+                      Text(
+                        '$itemCount ürün',
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
+                      const SizedBox(height: 4),
+                      Row(
                         children: [
-                          if (isLoading)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: LinearProgressIndicator(
-                                minHeight: 4,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '$itemCount ürün',
-                                      style: Theme.of(context).textTheme.titleSmall,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '$totalPrefix: ',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(color: cs.onSurfaceVariant),
-                                        ),
-                                        Expanded(
-                                          child: _AnimatedCurrency(value: estimatedTotal.total),
-                                        ),
-                                        if (totalSuffix.isNotEmpty)
-                                          Text(
-                                            totalSuffix,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(color: cs.onSurfaceVariant),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _PressScale(
-                                child: FilledButton.icon(
-                                  onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-                                  icon: isLoading
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.auto_graph_rounded),
-                                  label: const Text('Hesapla'),
-                                ),
-                              ),
-                              PopupMenuButton<String>(
-                                tooltip: 'Hızlı işlemler',
-                                onSelected: (value) {
-                                  if (value == 'product') onAddProduct();
-                                  if (value == 'price') onAddPrice();
-                                },
-                                itemBuilder: (context) => const [
-                                  PopupMenuItem<String>(
-                                    value: 'product',
-                                    child: ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: Icon(Icons.add_box_outlined),
-                                      title: Text('Ürün ekle'),
-                                    ),
-                                  ),
-                                  PopupMenuItem<String>(
-                                    value: 'price',
-                                    child: ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: Icon(Icons.price_change_outlined),
-                                      title: Text('Fiyat ekle'),
-                                    ),
-                                  ),
-                                ],
-                                child: const Padding(
-                                  padding: EdgeInsets.all(8),
-                                  child: Icon(Icons.more_horiz_rounded),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            '$totalPrefix: ',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                           ),
+                          Expanded(
+                            child: _AnimatedCurrency(value: estimatedTotal.total),
+                          ),
+                          if (totalSuffix.isNotEmpty)
+                            Text(
+                              totalSuffix,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                            ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                _PressScale(
+                  child: FilledButton.icon(
+                    onPressed: itemCount == 0 || isLoading ? null : onCalculate,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFE65100),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_graph_rounded),
+                    label: const Text('Hesapla'),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -990,50 +899,6 @@ class _AnimatedCurrency extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _SummaryLightSweep extends StatefulWidget {
-  const _SummaryLightSweep({required this.opacity});
-
-  final double opacity;
-
-  @override
-  State<_SummaryLightSweep> createState() => _SummaryLightSweepState();
-}
-
-class _SummaryLightSweepState extends State<_SummaryLightSweep> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))
-    ..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final x = -1.2 + (_controller.value * 2.4);
-          return Transform.translate(
-            offset: Offset(MediaQuery.sizeOf(context).width * x, 0),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                width: 120,
-                height: 2,
-                color: cs.onSurface.withOpacity(widget.opacity),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }

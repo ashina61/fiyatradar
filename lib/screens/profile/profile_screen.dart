@@ -10,6 +10,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
+import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../utils/level_style.dart';
 import '../../utils/theme.dart';
@@ -20,7 +21,6 @@ import '../notifications/notifications_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
-import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -810,20 +810,20 @@ class _SettingsSection extends ConsumerWidget {
             _SettingsDivider(),
           ],
           _SettingsTile(
+            icon: Icons.help_center_outlined,
+            title: 'Yardim ve SSS',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileHelpScreen()),
+            ),
+          ),
+          _SettingsDivider(),
+          _SettingsTile(
             icon: Icons.info_outline_rounded,
             title: 'Hakkinda',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AboutScreen()),
-            ),
-          ),
-          _SettingsDivider(),
-          _SettingsTile(
-            icon: Icons.history_rounded,
-            title: 'Guncelleme Gecmisi',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()),
             ),
           ),
           _SettingsDivider(),
@@ -1174,6 +1174,166 @@ class ReceiptsScreen extends StatelessWidget {
   }
 }
 
+
+class ProfileHelpScreen extends StatelessWidget {
+  const ProfileHelpScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Yardim ve SSS')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: const [
+          _HelpSectionCard(
+            title: 'Sikca Sorulan Sorular',
+            icon: Icons.quiz_outlined,
+            children: [
+              _FaqItem(
+                question: 'Fiyat nasil eklenir?',
+                answer:
+                    'Ana ekrandan + butonuna basin, urun secin, fiyat ve magazayi girip Fiyati Kaydet ile gonderin.',
+              ),
+              _FaqItem(
+                question: 'Ekledigim fiyatlar hemen yayinlanir mi?',
+                answer:
+                    'Fiyatlar topluluk geri bildirimleri ve sistem kontrolleri ile dogrulanir. Supheli fiyatlar moderasyona dusebilir.',
+              ),
+              _FaqItem(
+                question: 'Hesapla ozelligi ne yapar?',
+                answer:
+                    'Sepetinizdeki urunleri secili magazalar arasinda kiyaslar ve tahmini toplam tutari gosterir.',
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          _HelpSectionCard(
+            title: 'Puan Toplama Sistemi',
+            icon: Icons.stars_rounded,
+            children: [
+              _BulletText('Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan kazandirir.'),
+              _BulletText('Fotograf eklenen fiyat girisi +${AppConstants.pointsForPriceEntryWithPhoto} puan kazandirir.'),
+              _BulletText('Dogrulanan katkilarda guven puaniniz yukselir, hatali bildirimlerde dusebilir.'),
+              _BulletText('Puanlar rozetleri, seviye ilerlemesini ve liderlik tablosundaki siranizi etkiler.'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HelpSectionCard extends StatelessWidget {
+  const _HelpSectionCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqItem extends StatelessWidget {
+  const _FaqItem({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            question,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            answer,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.35,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletText extends StatelessWidget {
+  const _BulletText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -1230,11 +1390,37 @@ class AboutScreen extends StatelessWidget {
             title: 'Kullanim Sartlari',
             onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
           ),
-          const SizedBox(height: 8),
-          _SettingsTile(
-            icon: Icons.history_rounded,
-            title: 'Guncelleme Gecmisi',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateHistoryScreen())),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.history_rounded, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Son Yapilanlar',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                _BulletText('Fiyat Ekle ekrani Material 3 stiline gore yenilendi.'),
+                _BulletText('Fiyat Sepeti ekraninda aksiyonlar sadeleştirildi ve sticky alt bar iyileştirildi.'),
+                _BulletText('Profil ekranina Yardim ve SSS bolumu eklendi.'),
+              ],
+            ),
           ),
         ],
       ),
