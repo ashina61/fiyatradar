@@ -59,12 +59,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           child: FadeTransition(
             opacity: _fadeAnim,
             child: Column(
-            children: [
-              _buildSearchBar(theme, state),
-              _buildConditionalAktuelCard(theme),
-              _buildModeTabs(theme, state),
-              _buildCategoryChips(theme, state),
-              Expanded(child: _buildBody(theme, state)),
+              children: [
+                _buildSearchBar(theme, state),
+                _buildConditionalAktuelCard(theme),
+                _buildModeTabs(theme, state),
+                _buildCategoryChips(theme, state),
+                Expanded(child: _buildBody(theme, state)),
               ],
             ),
           ),
@@ -130,8 +130,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
       ),
     );
   }
-
-
   Widget _buildConditionalAktuelCard(ThemeData theme) {
     final actualAsync = ref.watch(latestActiveActualProvider);
     return actualAsync.when(
@@ -146,12 +144,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
   Widget _buildAktuelCard(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        0,
-        AppSpacing.md,
-        AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: () {
