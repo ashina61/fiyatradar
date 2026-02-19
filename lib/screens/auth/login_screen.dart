@@ -200,85 +200,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: _backgroundGradient(theme),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFAF6F3), Color(0xFFF5EDE6), Colors.white],
+          ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: AppSpacing.lg,
-              right: AppSpacing.lg,
-              top: AppSpacing.md,
-              bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+        child: Stack(
+          children: [
+            const Positioned(
+              top: -150,
+              left: -80,
+              child: _LoginGlow(color: AppColors.secondaryLight, size: 320),
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Center(
-                child: Column(
-                  children: [
-                    const SizedBox(height: AppSpacing.md),
-                    _buildHeader(theme),
-                    const SizedBox(height: AppSpacing.xl),
-                    _buildAuthCard(theme),
-                  ],
+            Positioned(
+              bottom: -120,
+              right: -40,
+              child: _LoginGlow(
+                color: AppColors.primaryLight.withOpacity(0.6),
+                size: 280,
+              ),
+            ),
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  top: AppSpacing.md,
+                  bottom:
+                      MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: AppSpacing.sm),
+                        _buildHeader(theme),
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildAuthCard(theme),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  LinearGradient _backgroundGradient(ThemeData theme) {
-    final scheme = theme.colorScheme;
-    return LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        scheme.primaryContainer.withOpacity(0.18),
-        scheme.surfaceVariant.withOpacity(0.35),
-        scheme.surface,
-      ],
-    );
-  }
-
   Widget _buildHeader(ThemeData theme) {
-
     return Column(
       children: [
         Container(
-          width: 96,
-          height: 96,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            color: theme.colorScheme.surface,
-            border: Border.all(color: theme.colorScheme.outlineVariant),
+            color: Colors.white.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: theme.colorScheme.primary.withOpacity(0.12),
-                blurRadius: 26,
-                offset: const Offset(0, 12),
+                color: AppColors.primary.withOpacity(0.12),
+                blurRadius: 30,
+                offset: const Offset(0, 16),
               ),
             ],
           ),
-          child: Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
+          child: Container(
+            width: 84,
+            height: 84,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: AppColors.gradientWarm,
+            ),
+            child:
+                Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'FiyatRadar\'a hoş geldin',
+          'Tekrar hoş geldin',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         const Text(
-          'Market fiyatlarını takip et, doğrula ve puan kazan.',
+          'FiyatRadar premium deneyimiyle fiyatları doğrula, karşılaştır ve akıllı tasarruf et.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+            height: 1.4,
+          ),
         ),
       ],
     );
@@ -289,14 +310,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.95),
+            AppColors.surfaceVariant.withOpacity(0.9),
+          ],
+        ),
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.9)),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.onSurface.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: AppColors.primaryDark.withOpacity(0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
@@ -306,19 +334,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildGoogleButton(theme),
+            _buildGoogleButton(),
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                  child: Text(
-                    'veya e-posta ile',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                Expanded(
+                  child: Divider(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.8),
                   ),
                 ),
-                const Expanded(child: Divider()),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  child: Text(
+                    'veya e-posta ile',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Divider(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.8),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
@@ -326,9 +366,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'E-posta',
-                prefixIcon: Icon(Icons.email_outlined),
+              decoration: _inputDecoration(
+                'E-posta',
+                Icons.mail_outline_rounded,
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -346,12 +386,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               obscureText: _obscurePassword,
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _isLoading ? null : _login(),
-              decoration: InputDecoration(
-                labelText: 'Şifre',
-                prefixIcon: const Icon(Icons.lock_outline_rounded),
+              decoration: _inputDecoration('Şifre', Icons.lock_outline_rounded)
+                  .copyWith(
                 suffixIcon: IconButton(
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
                 ),
               ),
               validator: (value) {
@@ -372,25 +416,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             SizedBox(
-              height: 52,
+              height: 54,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
                 child: _isLoading
                     ? SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: theme.colorScheme.onPrimary),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: theme.colorScheme.onPrimary,
+                        ),
                       )
                     : const Text('Giriş Yap'),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Hesabın yok mu?', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-                TextButton(onPressed: _navigateToRegister, child: const Text('Kayıt Ol')),
-              ],
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.8),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Hesabın yok mu?',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  TextButton(
+                    onPressed: _navigateToRegister,
+                    child: const Text('Kayıt Ol'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -398,25 +467,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildGoogleButton(ThemeData theme) {
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.86),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: AppColors.outlineVariant.withOpacity(0.9)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.7),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
     return SizedBox(
-      height: 52,
+      height: 54,
       child: OutlinedButton(
         onPressed: _isGoogleLoading ? null : _signInWithGoogle,
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
+          backgroundColor: Colors.white.withOpacity(0.86),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.95)),
         ),
         child: _isGoogleLoading
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.2))
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
+              )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.login_rounded, size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.g_mobiledata_rounded, size: 24),
+                  SizedBox(width: 6),
                   Text('Google ile giriş yap'),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _LoginGlow extends StatelessWidget {
+  const _LoginGlow({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withOpacity(0.06), Colors.transparent],
+            stops: const [0, 0.55, 1],
+          ),
+        ),
       ),
     );
   }

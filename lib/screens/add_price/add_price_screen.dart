@@ -14,6 +14,7 @@ import '../../utils/theme.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/premium_scaffold_shell.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -1196,381 +1197,279 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(allProductsProvider);
+    const primaryCta = Color(0xFFE65100);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Fiyat Ekle'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Photo bonus info
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accent.withOpacity(0.1),
-                      AppColors.accent.withOpacity(0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                      color: AppColors.accent.withOpacity(0.3), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: const Icon(Icons.stars,
-                          color: AppColors.accent, size: 22),
-                    ),
-                    const SizedBox(width: AppSpacing.sm + 4),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Fiyat ekleyerek puan kazan!',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan, '
-                            'fotografli +${AppConstants.pointsForPriceEntryWithPhoto} puan',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Step 1: Product field
-              TextFormField(
-                controller: _productController,
-                decoration: InputDecoration(
-                  labelText: 'Ürün Adı',
-                  hintText: 'Ürün adı veya barkod numarası',
-                  prefixIcon: const Icon(Icons.shopping_bag_outlined),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.qr_code_scanner),
-                        onPressed: () async {
-                          final code = await BarcodeScannerSheet.scan(
-                            context,
-                            title: 'Barkod Tara',
-                          );
-                          if (!mounted || code == null) return;
-                          productsAsync.whenData((products) {
-                            _matchScannedBarcode(code, products);
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.list),
-                        onPressed: _showProductPicker,
-                      ),
-                    ],
-                  ),
-                ),
-                onChanged: (value) {
-                  setState(() => _productQuery = value.trim());
-                  productsAsync.whenData((products) {
-                    _updateProductSuggestions(products, value);
-                  });
-                  if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
-                    setState(() => _selectedProduct = null);
-                  }
-                },
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Ürün adı gerekli';
-                  }
-                  return null;
-                },
-              ),
-              if (_showProductSuggestions)
+      body: PremiumScaffoldShell(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Container(
-                  margin: const EdgeInsets.only(top: AppSpacing.xs),
-                  constraints: const BoxConstraints(maxHeight: 220),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: AppColors.outline),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFEFEBE9), Color(0xFFD7CCC8)],
+                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(color: const Color(0xFFBCAAA4)),
                   ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _productSuggestions.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final product = _productSuggestions[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(product.name),
-                        subtitle: Text(
-                          [product.brand, if (product.barcode != null) product.barcode!]
-                              .where((item) => item.trim().isNotEmpty)
-                              .join(' • '),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        onTap: () => _selectProduct(product),
-                      );
-                    },
+                        child: const Icon(Icons.workspace_premium_rounded,
+                            color: primaryCta, size: 24),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          'Katkınla tasarrufa yön ver. Her fiyat girişi +${AppConstants.pointsForPriceEntry}, fotoğraflı giriş +${AppConstants.pointsForPriceEntryWithPhoto} puan.',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF212121),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              if (_productQuery.length >= 2 && _productSuggestions.isEmpty)
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  title: const Text('Bu ürün yok +', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Ürün öner'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                  onTap: _showProductSuggestionDialog,
-                ),
-              if (_selectedProduct != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.sm),
-                  child: Chip(
-                    avatar: const Icon(Icons.check_circle,
-                        color: AppColors.success, size: 18),
-                    label: Text(_selectedProduct!.name),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedProduct = null;
-                        _productController.clear();
-                        _showProductSuggestions = false;
-                        _productSuggestions = const [];
-                      });
-                    },
+                const SizedBox(height: AppSpacing.md),
+                FilledButton.icon(
+                  onPressed: () async {
+                    final code = await BarcodeScannerSheet.scan(
+                      context,
+                      title: 'Barkod Okut',
+                    );
+                    if (!mounted || code == null) return;
+                    productsAsync.whenData((products) {
+                      _matchScannedBarcode(code, products);
+                    });
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: primaryCta,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text('Barkod Okut'),
                 ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Category dropdown
-              categoriesAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Hata: $e'),
-                data: (categories) => DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _productController,
                   decoration: InputDecoration(
-                    labelText: 'Kategori',
-                    helperText: _selectedProduct != null ? 'Kategori ürünle birlikte kilitlendi' : null,
-                    prefixIcon: const Icon(Icons.category_outlined),
+                    labelText: 'Ürün Adı',
+                    hintText: 'Ürün adı veya barkod numarası',
+                    prefixIcon: const Icon(Icons.shopping_bag_outlined),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.list),
+                      onPressed: _showProductPicker,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  items: categories
-                      .map((cat) => DropdownMenuItem(
-                            value: cat.name,
-                            child: Text(cat.name),
-                          ))
-                      .toList(),
-                  onChanged: _selectedProduct != null
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _selectedCategory = value;
-                          });
-                        },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Kategori seçin';
+                  onChanged: (value) {
+                    setState(() => _productQuery = value.trim());
+                    productsAsync.whenData((products) {
+                      _updateProductSuggestions(products, value);
+                    });
+                    if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
+                      setState(() => _selectedProduct = null);
                     }
+                  },
+                  textInputAction: TextInputAction.next,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Ürün adı gerekli' : null,
+                ),
+                if (_showProductSuggestions)
+                  Container(
+                    margin: const EdgeInsets.only(top: AppSpacing.xs),
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.outline),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _productSuggestions.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final product = _productSuggestions[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(product.name),
+                          subtitle: Text(product.brand),
+                          onTap: () => _selectProduct(product),
+                        );
+                      },
+                    ),
+                  ),
+                if (_productQuery.isNotEmpty && !_showProductSuggestions)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _showProductSuggestionDialog,
+                      icon: const Icon(Icons.lightbulb_outline),
+                      label: const Text('Ürün öner'),
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+                categoriesAsync.when(
+                  data: (categories) => DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    decoration: InputDecoration(
+                      labelText: 'Kategori',
+                      prefixIcon: const Icon(Icons.category_outlined),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    items: categories
+                        .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
+                        .toList(),
+                    onChanged: (value) => setState(() => _selectedCategory = value),
+                    validator: (v) => v == null ? 'Kategori seçin' : null,
+                  ),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Kategori yüklenemedi: $e'),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+([.,][0-9]{0,2})?$'))],
+                  decoration: InputDecoration(
+                    labelText: 'Fiyat (₺)',
+                    prefixIcon: const Icon(Icons.currency_lira),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Fiyat gerekli';
+                    final parsed = double.tryParse(value.replaceAll(',', '.'));
+                    if (parsed == null || parsed <= 0) return 'Geçerli fiyat girin';
                     return null;
                   },
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Step 2: Price field
-              TextFormField(
-                controller: _priceController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d,.]')),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Fiyat',
-                  hintText: '0.00',
-                  prefixText: '\u20BA ',
-                  prefixIcon: Icon(Icons.price_change_outlined),
-                ),
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Fiyat gerekli';
-                  }
-                  final price = double.tryParse(value.replaceAll(',', '.'));
-                  if (price == null || price <= 0) {
-                    return 'Gecerli bir fiyat girin';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Step 3: Source selection
-
-                Text(
-                  'Mağaza (Şube) Seçin',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
                 InkWell(
-                  onTap: _showStorePicker,
                   borderRadius: BorderRadius.circular(AppRadius.md),
+                  onTap: _showStorePicker,
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: _selectedStore != null
-                            ? AppColors.primary.withOpacity(0.5)
-                            : AppColors.outline,
+                        color: _selectedStore != null ? primaryCta : AppColors.outline,
                         width: _selectedStore != null ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       color: _selectedStore != null
-                          ? AppColors.primary.withOpacity(0.05)
-                          : null,
+                          ? const Color(0xFFFFF3E0)
+                          : Colors.white,
                     ),
                     child: _selectedStore != null
                         ? Row(
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                                ),
-                                child: Icon(
-                                  _selectedStore!.isOnline ? Icons.language : Icons.store,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
+                              Icon(
+                                _selectedStore!.isOnline ? Icons.language : Icons.store,
+                                color: primaryCta,
                               ),
-                              const SizedBox(width: AppSpacing.md),
+                              const SizedBox(width: AppSpacing.sm),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _selectedStore!.isOnline
-                                          ? '🌐 ${_selectedStore!.displayName}'
-                                          : _selectedStore!.displayName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    if (_selectedStore!.isOnline)
-                                      const Text(
-                                        'Online mağaza • Konum gerektirmez',
-                                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                      )
-                                    else if (_selectedStore!.neighborhood.isNotEmpty)
-                                      Text(
-                                        '${_selectedStore!.neighborhood}, ${_selectedStore!.district}',
-                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                      ),
-                                  ],
+                                child: Text(
+                                  _selectedStore!.displayName,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed: () {
-                                  setState(() => _selectedStore = null);
-                                },
+                                icon: const Icon(Icons.close),
+                                onPressed: () => setState(() => _selectedStore = null),
                               ),
                             ],
                           )
-                        : Row(
+                        : const Row(
                             children: [
-                              const Icon(Icons.location_on_outlined, color: AppColors.textSecondary),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Text(
-                                  'Yakındaki veya online bir mağaza seçin',
-                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                              Icon(Icons.location_on_outlined),
+                              SizedBox(width: AppSpacing.sm),
+                              Expanded(child: Text('Yakındaki veya online mağaza seçin')),
+                              Icon(Icons.chevron_right),
                             ],
                           ),
                   ),
                 ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Legal Disclaimer
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(
-                      color: AppColors.info.withOpacity(0.3), width: 1),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        AppConstants.priceDisclaimer,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
+                const SizedBox(height: AppSpacing.xl),
+                FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: FilledButton.styleFrom(
+                    backgroundColor: primaryCta,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Fiyat Ekle'),
+                      : const Text('Fiyatı Kaydet'),
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: Color(0xFF333333)),
+                      SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          AppConstants.priceDisclaimer,
+                          style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 }
