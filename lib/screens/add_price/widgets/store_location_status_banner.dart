@@ -21,9 +21,9 @@ class StoreLocationStatusBanner extends StatelessWidget {
   final bool locationServiceDisabled;
   final bool locationUnavailable;
   final bool hasUserPosition;
-  final VoidCallback onOpenLocationSettings;
-  final VoidCallback onOpenAppSettings;
-  final VoidCallback onRetry;
+  final Future<void> Function() onOpenLocationSettings;
+  final Future<void> Function() onOpenAppSettings;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +56,7 @@ class StoreLocationStatusBanner extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: scheme.error),
             ),
           ),
-          TextButton(onPressed: onOpenLocationSettings, child: const Text('Konum servislerini aç')),
+          TextButton(onPressed: () { onOpenLocationSettings(); }, child: const Text('Konum servislerini aç')),
         ]),
       );
     }
@@ -78,7 +78,13 @@ class StoreLocationStatusBanner extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: locationPermissionDeniedForever ? onOpenAppSettings : onRetry,
+            onPressed: () {
+              if (locationPermissionDeniedForever) {
+                onOpenAppSettings();
+              } else {
+                onRetry();
+              }
+            },
             child: const Text('Konumu Aç'),
           ),
         ]),
@@ -97,7 +103,7 @@ class StoreLocationStatusBanner extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Tekrar dene')),
+          TextButton(onPressed: () { onRetry(); }, child: const Text('Tekrar dene')),
         ]),
       );
     }

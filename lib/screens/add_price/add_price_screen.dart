@@ -9,6 +9,7 @@ import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/store_model.dart';
 import '../../utils/constants.dart';
+import '../../utils/theme.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_scaffold_shell.dart';
 import 'widgets/add_price_header_banner.dart';
@@ -210,6 +211,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         locationServiceDisabled: _locationServiceDisabled,
         locationUnavailable: _locationUnavailable,
         onRetryLocation: () => _loadUserPosition(requestPermission: true),
+        selectedStore: _selectedStore,
         onSelectStore: (store) => setState(() => _selectedStore = store),
         onDistanceMapChanged: (map) {
           if (!mounted) return;
@@ -229,14 +231,53 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: const Text('Yeni Mağaza Öner'),
-          content: TextField(
-            controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Mağaza Adı',
-              hintText: 'Orn: Cagri Market',
-            ),
-            autofocus: true,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.add_business, color: AppColors.accent, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Expanded(child: Text('Yeni Mağaza Öner', style: TextStyle(fontSize: 16))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Mağaza Adı',
+                  hintText: 'Orn: Cagri Market',
+                  prefixIcon: Icon(Icons.store_outlined),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: AppColors.info),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Konum otomatik olarak alınacaktır. Mağaza admin onayı sonrası aktif olur.',
+                        style: TextStyle(fontSize: 11, color: AppColors.info),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -273,7 +314,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Mağaza önerisi gönderilemedi: $e'),
-                            backgroundColor: Colors.red,
+                            backgroundColor: AppColors.error,
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -376,7 +417,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Fiyat eklendi! Puanın hesabına işlendi.'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
@@ -395,7 +436,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
           ),
@@ -406,7 +447,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hata: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
           ),

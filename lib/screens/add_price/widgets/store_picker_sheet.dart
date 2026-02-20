@@ -21,6 +21,7 @@ class StorePickerSheet extends ConsumerStatefulWidget {
     required this.locationServiceDisabled,
     required this.locationUnavailable,
     required this.onRetryLocation,
+    required this.selectedStore,
     required this.onSelectStore,
     required this.onDistanceMapChanged,
     required this.onAddNewStore,
@@ -33,7 +34,8 @@ class StorePickerSheet extends ConsumerStatefulWidget {
   final bool locationPermissionDeniedForever;
   final bool locationServiceDisabled;
   final bool locationUnavailable;
-  final VoidCallback onRetryLocation;
+  final Future<void> Function() onRetryLocation;
+  final StoreModel? selectedStore;
   final ValueChanged<StoreModel> onSelectStore;
   final ValueChanged<Map<String, double>> onDistanceMapChanged;
   final VoidCallback onAddNewStore;
@@ -104,8 +106,12 @@ class _StorePickerSheetState extends ConsumerState<StorePickerSheet> {
                       locationServiceDisabled: widget.locationServiceDisabled,
                       locationUnavailable: widget.locationUnavailable,
                       hasUserPosition: widget.userPosition != null,
-                      onOpenLocationSettings: Geolocator.openLocationSettings,
-                      onOpenAppSettings: Geolocator.openAppSettings,
+                      onOpenLocationSettings: () async {
+                        await Geolocator.openLocationSettings();
+                      },
+                      onOpenAppSettings: () async {
+                        await Geolocator.openAppSettings();
+                      },
                       onRetry: widget.onRetryLocation,
                     )
                   : _onlineInfoBanner(),
@@ -150,6 +156,16 @@ class _StorePickerSheetState extends ConsumerState<StorePickerSheet> {
         }).toList();
 
         final visibleStores = filteredStores.isEmpty ? nearbyStores : filteredStores;
+
+        if (widget.userPosition != null && visibleStores.isNotEmpty) {
+          final nearestStore = visibleStores.first;
+          final nearestDistance = distanceMap[nearestStore.id] ?? double.infinity;
+          if (nearestDistance <= 30 && widget.selectedStore == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.onSelectStore(nearestStore);
+            });
+          }
+        }
 
         if (visibleStores.isEmpty) {
           return const Center(child: Text('Yakındaki mağaza bulunamadı.'));
