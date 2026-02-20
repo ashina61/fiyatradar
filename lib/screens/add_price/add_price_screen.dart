@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AddPriceScreen extends StatefulWidget {
+import '../../models/price_model.dart';
+import '../../models/product_model.dart';
+import '../../models/store_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../utils/constants.dart';
+
+class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
 
   @override
-  State<AddPriceScreen> createState() => _AddPriceScreenState();
+  ConsumerState<AddPriceScreen> createState() => _AddPriceScreenState();
 }
 
-class _AddPriceScreenState extends State<AddPriceScreen> {
-  final int rewardPoints = 12;
+class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _priceController = TextEditingController(text: '0,00');
+  final TextEditingController _productController = TextEditingController();
+
+  ProductModel? _selectedProduct;
+  String? _selectedCategory;
+  StoreModel? _selectedStore;
+  bool _isSubmitting = false;
 
   static const Color _bg = Color(0xFFF5EEE4);
   static const Color _paper = Color(0xFFFFFBF6);
@@ -61,11 +75,14 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
   @override
   void dispose() {
     _priceController.dispose();
+    _productController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final rewardPoints = AppConstants.pointsForPriceEntry;
+
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -73,19 +90,22 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
           children: [
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 250),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopBar(context),
-                  const SizedBox(height: 24),
-                  _buildRewardStrip(),
-                  const SizedBox(height: 28),
-                  _buildDetailsSection(),
-                  const SizedBox(height: 28),
-                  _buildCommunityNote(),
-                  const SizedBox(height: 28),
-                  _buildPriceHero(),
-                ],
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTopBar(context),
+                    const SizedBox(height: 24),
+                    _buildRewardStrip(rewardPoints),
+                    const SizedBox(height: 28),
+                    _buildDetailsSection(),
+                    const SizedBox(height: 28),
+                    _buildCommunityNote(),
+                    const SizedBox(height: 28),
+                    _buildPriceHero(),
+                  ],
+                ),
               ),
             ),
             _buildStickyFooter(),
@@ -132,7 +152,7 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
     );
   }
 
-  Widget _buildRewardStrip() {
+  Widget _buildRewardStrip(int rewardPoints) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -210,21 +230,21 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
             children: [
               _detailRow(
                 label: 'ÜRÜN',
-                value: 'Seç veya yaz',
+                value: _selectedProduct?.name ?? 'Seç veya yaz',
                 trailing: '›',
                 onTap: _onProductTap,
               ),
               _divider(),
               _detailRow(
                 label: 'KATEGORİ',
-                value: 'İçecek',
+                value: _selectedCategory ?? 'Kategori seç',
                 trailing: '▾',
                 onTap: _onCategoryTap,
               ),
               _divider(),
               _detailRow(
                 label: 'MAĞAZA',
-                value: 'Mağaza / Şube seç',
+                value: _selectedStore?.displayName ?? 'Mağaza / Şube seç',
                 trailing: '›',
                 onTap: _onStoreTap,
               ),
@@ -368,12 +388,19 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
+                child: TextFormField(
                   controller: _priceController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
                   ],
+                  validator: (value) {
+                    final raw = (value ?? '').trim();
+                    if (raw.isEmpty) return 'Fiyat girin';
+                    final parsed = double.tryParse(raw.replaceAll(',', '.'));
+                    if (parsed == null || parsed <= 0) return 'Geçerli fiyat girin';
+                    return null;
+                  },
                   style: const TextStyle(
                     fontSize: 42,
                     fontWeight: FontWeight.w600,
@@ -428,7 +455,7 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _onSave,
+                onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _title,
                   foregroundColor: Colors.white,
@@ -441,7 +468,13 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
                     letterSpacing: 1.6,
                   ),
                 ),
-                child: const Text('KAYDET'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('KAYDET'),
               ),
             ),
             const SizedBox(height: 10),
@@ -456,37 +489,204 @@ class _AddPriceScreenState extends State<AddPriceScreen> {
     );
   }
 
-  void _onProductTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('TODO: Ürün seçim ekranına yönlendir.')),
+  Future<void> _onProductTap() async {
+    final products = ref.read(allProductsProvider).valueOrNull ?? const <ProductModel>[];
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ürünler yüklenemedi. Lütfen tekrar deneyin.')),
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<ProductModel>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: ListView.separated(
+            itemCount: products.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return ListTile(
+                title: Text(product.name),
+                subtitle: Text(product.brand),
+                onTap: () => Navigator.pop(context, product),
+              );
+            },
+          ),
+        );
+      },
     );
+
+    if (!mounted || selected == null) return;
+    setState(() {
+      _selectedProduct = selected;
+      _productController.text = selected.name;
+      _selectedCategory = selected.categories.isNotEmpty ? selected.categories.first : _selectedCategory;
+    });
   }
 
-  void _onCategoryTap() {
-    showModalBottomSheet<void>(
+  Future<void> _onCategoryTap() async {
+    final categories = ref.read(categoriesProvider).valueOrNull ?? const [];
+    if (categories.isEmpty) return;
+
+    final selected = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: _paper,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => const SizedBox(
-        height: 180,
-        child: Center(
-          child: Text('TODO: Kategori bottom sheet içeriği'),
-        ),
+      builder: (context) {
+        return SafeArea(
+          child: ListView.builder(
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index].title;
+              return ListTile(
+                title: Text(category),
+                trailing: category == _selectedCategory ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, category),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+    setState(() => _selectedCategory = selected);
+  }
+
+  Future<void> _onStoreTap() async {
+    final stores = ref.read(allStoresStreamProvider).valueOrNull ?? const <StoreModel>[];
+    if (stores.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mağazalar yüklenemedi. Lütfen tekrar deneyin.')),
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<StoreModel>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (context) {
+        return SafeArea(
+          child: ListView.separated(
+            itemCount: stores.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final store = stores[index];
+              return ListTile(
+                title: Text(store.displayName),
+                subtitle: Text('${store.city} / ${store.district}'),
+                onTap: () => Navigator.pop(context, store),
+              );
+            },
+          ),
+        );
+      },
     );
+
+    if (!mounted || selected == null) return;
+    setState(() => _selectedStore = selected);
   }
 
-  void _onStoreTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('TODO: Mağaza/Şube seçim akışına yönlendir.')),
-    );
-  }
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  void _onSave() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Kaydedilecek fiyat: ${_priceController.text}')),
-    );
+    if (_selectedProduct == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen bir ürün seçin.')),
+      );
+      return;
+    }
+
+    if (_selectedStore == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen bir mağaza (şube) seçin')),
+      );
+      return;
+    }
+
+    final userModel = ref.read(userModelStreamProvider).value;
+    if (userModel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiyat eklemek için giriş yapmalısınız')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final priceText = _priceController.text.replaceAll(',', '.');
+      final price = double.tryParse(priceText) ?? 0.0;
+
+      final latestPrice = await firestoreService.getLatestPriceForStore(
+        productId: _selectedProduct!.id,
+        branchStoreId: _selectedStore!.id,
+      );
+      if (latestPrice != null && (latestPrice.price - price).abs() <= 0.01) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu ürün için aynı mağazada aynı fiyat zaten mevcut.')),
+        );
+        return;
+      }
+
+      final priceModel = PriceModel(
+        id: '',
+        productId: _selectedProduct!.id,
+        userId: userModel.uid,
+        userName: userModel.name,
+        price: price,
+        branchStoreId: _selectedStore!.id,
+        chainId: _selectedStore!.brandId,
+        priceSourceType: 'branch',
+        storeName: _selectedStore!.displayName,
+        barcode: _selectedProduct!.barcode,
+        reportedAt: DateTime.now(),
+        addedByDisplayName: userModel.name,
+        addedByTrustScoreSnapshot: userModel.reliabilityScore,
+        addedByLevelSnapshot: userModel.points >= 5000
+            ? 'Elmas'
+            : (userModel.points >= 2000 ? 'Gümüş' : (userModel.points >= 500 ? 'Bronz' : 'Standart')),
+        addedByVerifiedBadge: userModel.isAdmin,
+      );
+
+      await firestoreService.addPriceReport(priceModel);
+      await ref.read(authServiceProvider).incrementPriceEntries(userModel.uid);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiyat eklendi! Puanın hesabına işlendi.')),
+      );
+
+      _priceController.clear();
+      setState(() {
+        _selectedProduct = null;
+        _selectedStore = null;
+        _selectedCategory = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }
