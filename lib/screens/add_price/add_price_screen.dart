@@ -67,13 +67,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   @override
   void initState() {
     super.initState();
-    _productController.addListener(_onFormFieldChanged);
-    _priceController.addListener(_onFormFieldChanged);
     _loadUserPosition();
-  }
-
-  void _onFormFieldChanged() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _loadUserPosition({bool requestPermission = true}) async {
@@ -157,8 +151,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   @override
   void dispose() {
-    _productController.removeListener(_onFormFieldChanged);
-    _priceController.removeListener(_onFormFieldChanged);
     _productController.dispose();
     _priceController.dispose();
     _productFocusNode.dispose();
@@ -232,6 +224,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         _selectedStore != null &&
         _productController.text.trim().isNotEmpty &&
         _priceController.text.trim().isNotEmpty;
+  }
+
+  String get _ctaLabel {
+    if (_isSubmitting) return 'Gönderiliyor...';
+    if (_selectedStore == null) return 'Devam etmek için mağaza seçin';
+    if (_productController.text.trim().isEmpty) return 'Önce ürün adını girin';
+    if (_priceController.text.trim().isEmpty) return 'Önce fiyat bilgisini girin';
+    return 'Fiyatı Kaydet';
   }
 
   Future<void> _showProductSuggestionDialog() async {
@@ -1369,7 +1369,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ],
                         )
                       : Text(
-                          _selectedStore == null ? 'Devam etmek için mağaza seçin' : 'Fiyatı Kaydet',
+                          _ctaLabel,
                           style: const TextStyle(
                             fontFamily: 'Google Sans',
                             fontSize: radarTitleSize,
@@ -1448,7 +1448,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           _moveSuggestionSelection(-1);
                           return KeyEventResult.handled;
                         }
-                        if (event.logicalKey == LogicalKeyboardKey.enter) {
+                        if (event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
                           _submitProductTextField();
                           return KeyEventResult.handled;
                         }
@@ -1514,7 +1515,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           itemBuilder: (_, index) {
                             final product = _productSuggestions[index];
                             final isSelected = index == _selectedSuggestionIndex;
-                            return ListTile(
+                            return Semantics(
+                              selected: isSelected,
+                              button: true,
+                              label:
+                                  '${product.name}, marka ${product.brand}${isSelected ? ', seçili' : ''}',
+                              child: ListTile(
                               selected: isSelected,
                               selectedTileColor: radarAmber400.withOpacity(0.18),
                               dense: true,
@@ -1538,7 +1544,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                 ),
                               ),
                               onTap: () => _selectProduct(product),
-                            );
+                            ));
                           },
                         ),
                       )),
@@ -1604,6 +1610,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             child: TextFormField(
                               controller: _priceController,
                               focusNode: _priceFocusNode,
+                              onChanged: (_) => setState(() {}),
                               textInputAction: TextInputAction.done,
                               onFieldSubmitted: (_) {
                                 FocusScope.of(context).unfocus();
@@ -1644,7 +1651,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
+                    Semantics(
+                      button: true,
+                      label: _selectedStore == null
+                          ? 'Mağaza seç, zorunlu alan'
+                          : 'Seçili mağaza: ${_selectedStore!.displayName}. Değiştirmek için dokun.',
+                      child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
                         HapticFeedback.selectionClick();
@@ -1676,7 +1688,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ],
                         ),
                       ),
-                    ),
+                    )),
                     const SizedBox(height: 6),
                     Text(
                       _selectedStore == null
