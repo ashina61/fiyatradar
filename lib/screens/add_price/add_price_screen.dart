@@ -34,7 +34,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   ProductModel? _selectedProduct;
   List<ProductModel> _productSuggestions = const [];
   bool _showProductSuggestions = false;
-  String _productQuery = '';
   bool _isSubmitting = false;
   Position? _userPosition;
   bool _isResolvingUserPosition = false;
@@ -303,6 +302,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               minChildSize: 0.3,
               expand: false,
               builder: (context, scrollController) {
+                final scheme = Theme.of(context).colorScheme;
+                final textTheme = Theme.of(context).textTheme;
                 return Column(
                   children: [
                     Container(
@@ -310,7 +311,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+                        color: scheme.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -318,9 +319,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Text(
                         'Ürün Seçin',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     Expanded(
@@ -340,24 +339,25 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.primaryContainer,
+                                      color: scheme.primaryContainer,
                                       borderRadius:
                                           BorderRadius.circular(AppRadius.sm),
                                     ),
                                     child: Icon(
                                         Icons.shopping_bag_outlined,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: scheme.primary,
                                         size: 22),
                                   ),
-                                  title: Text(product.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600)),
+                                  title: Text(
+                                    product.name,
+                                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
                                   subtitle: Text(product.category),
                                   trailing: product.lastPrice != null
                                       ? Text(
                                           _formatPrice(product.lastPrice!),
                                           style: TextStyle(
-                                            color: Theme.of(context).colorScheme.primary,
+                                            color: scheme.primary,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         )
@@ -406,6 +406,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               minChildSize: 0.3,
               expand: false,
               builder: (ctx, scrollController) {
+                final scheme = Theme.of(ctx).colorScheme;
+                final textTheme = Theme.of(ctx).textTheme;
                 return Column(
                   children: [
                     Container(
@@ -413,7 +415,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+                        color: scheme.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -421,13 +423,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Row(
                         children: [
-                          Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary, size: 20),
+                          Icon(Icons.location_on, color: scheme.primary, size: 20),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
                             'Mağaza (Şube) Seçin',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -496,6 +496,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     ScrollController scrollController,
     BuildContext ctx,
   ) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return storesAsync.when(
       loading: () => _buildStoreSkeletonList(),
       error: (e, st) {
@@ -565,32 +567,32 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: Icon(Icons.store, color: Theme.of(context).colorScheme.onSecondaryContainer, size: 22),
+                child: Icon(Icons.store, color: scheme.onSecondaryContainer, size: 22),
               ),
               title: Text(
                 store.displayName,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '${store.neighborhood.isEmpty ? '-' : store.neighborhood} mah.',
-                    style: const TextStyle(fontSize: 12),
+                    style: textTheme.labelSmall,
                   ),
                   if (_isStoreLocationMissing(store))
                     Text(
                       'Admin uyarisi: Bu sube icin konum bilgisi eksik.',
-                      style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error),
+                      style: textTheme.labelSmall?.copyWith(color: scheme.error),
                     ),
                 ],
               ),
               trailing: Text(
                 distanceText,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               onTap: () {
                 setState(() {
@@ -610,6 +612,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     ScrollController scrollController,
     BuildContext ctx,
   ) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return storesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) {
@@ -644,16 +648,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: Icon(Icons.language, color: Theme.of(context).colorScheme.onSecondaryContainer, size: 22),
+                child: Icon(Icons.language, color: scheme.onSecondaryContainer, size: 22),
               ),
               title: Text(
                 '🌐 ${store.displayName}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
-              trailing: Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              trailing: Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant),
               onTap: () {
                 setState(() {
                   _selectedStore = store.copyWith(type: StoreType.online);
@@ -668,16 +672,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildOnlineInfoBanner() {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
+        color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(
         '🌐 Online mağazalar konumdan bağımsızdır',
-        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSecondaryContainer),
+        style: textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
       ),
     );
   }
@@ -886,27 +892,29 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildAddNewStoreItem(BuildContext ctx) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return ListTile(
       leading: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
+          color: scheme.primaryContainer,
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: 1.5),
+          border: Border.all(color: scheme.outlineVariant, width: 1.5),
         ),
-        child: Icon(Icons.add_business, color: Theme.of(context).colorScheme.primary, size: 22),
+        child: Icon(Icons.add_business, color: scheme.primary, size: 22),
       ),
       title: Text(
         'Bu mağaza listede yok +',
-        style: TextStyle(
+        style: textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary,
+          color: scheme.primary,
         ),
       ),
-      subtitle: const Text(
+      subtitle: Text(
         'Yeni mağaza önerisi gönder',
-        style: TextStyle(fontSize: 12),
+        style: textTheme.labelSmall,
       ),
       onTap: () {
         Navigator.pop(ctx);
@@ -917,6 +925,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   void _showAddNewStoreDialog() {
     final nameController = TextEditingController();
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     bool isSubmitting = false;
 
     showDialog(
@@ -928,14 +938,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: Icon(Icons.add_business, color: Theme.of(context).colorScheme.primary, size: 20),
+              child: Icon(Icons.add_business, color: scheme.primary, size: 20),
             ),
             const SizedBox(width: AppSpacing.sm),
-            const Expanded(
-              child: Text('Yeni Mağaza Öner', style: TextStyle(fontSize: 16)),
+            Expanded(
+              child: Text('Yeni Mağaza Öner', style: textTheme.titleLarge),
             ),
           ]),
           content: Column(
@@ -954,17 +964,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.location_on, size: 14, color: Theme.of(context).colorScheme.onSecondaryContainer),
-                    SizedBox(width: 6),
+                    Icon(Icons.location_on, size: 14, color: scheme.onSecondaryContainer),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Konum otomatik olarak alınacaktır. Mağaza admin onayı sonrası aktif olur.',
-                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSecondaryContainer),
+                        style: textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
                       ),
                     ),
                   ],
@@ -1336,7 +1346,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ),
                       ),
                       onChanged: (value) {
-                        setState(() => _productQuery = value.trim());
                         productsAsync.whenData((products) {
                           _updateProductSuggestions(products, value);
                         });
