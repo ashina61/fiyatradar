@@ -1024,7 +1024,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Mağaza önerisi gönderilemedi: $e'),
-                            backgroundColor: Theme.of(context).colorScheme.error,
+                            backgroundColor: scheme.error,
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -1049,6 +1049,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Future<void> _submit() async {
+    final scheme = Theme.of(context).colorScheme;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1151,7 +1152,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
               ],
             ),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: scheme.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -1173,7 +1174,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
+            backgroundColor: scheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1185,7 +1186,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hata: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
+            backgroundColor: scheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.sm)),
