@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +35,7 @@ class StorePickerSheet extends ConsumerStatefulWidget {
   final bool locationPermissionDeniedForever;
   final bool locationServiceDisabled;
   final bool locationUnavailable;
-  final Future<void> Function() onRetryLocation;
+  final FutureOr<void> Function() onRetryLocation;
   final StoreModel? selectedStore;
   final ValueChanged<StoreModel> onSelectStore;
   final ValueChanged<Map<String, double>> onDistanceMapChanged;

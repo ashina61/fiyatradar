@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../utils/constants.dart';
 
@@ -21,9 +22,9 @@ class StoreLocationStatusBanner extends StatelessWidget {
   final bool locationServiceDisabled;
   final bool locationUnavailable;
   final bool hasUserPosition;
-  final Future<void> Function() onOpenLocationSettings;
-  final Future<void> Function() onOpenAppSettings;
-  final Future<void> Function() onRetry;
+  final FutureOr<void> Function() onOpenLocationSettings;
+  final FutureOr<void> Function() onOpenAppSettings;
+  final FutureOr<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
