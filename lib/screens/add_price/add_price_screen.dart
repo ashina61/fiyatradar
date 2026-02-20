@@ -10,27 +10,10 @@ import '../../providers/price_provider.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/store_model.dart';
-import '../../utils/theme.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_scaffold_shell.dart';
-
-const Color radarBrown900 = Color(0xFF5D4037);
-const Color radarBrown700 = Color(0xFF795548);
-const Color radarBrown500 = Color(0xFF8D6E63);
-const Color radarAmber600 = Color(0xFFC8956C);
-const Color radarAmber400 = Color(0xFFD4A574);
-const Color radarCream100 = Color(0xFFFFF8F0);
-const Color radarCream200 = Color(0xFFF5EDE4);
-const Color radarCream300 = Color(0xFFEDE0D4);
-
-const double radarDisplaySize = 28;
-const double radarHeadlineSize = 22;
-const double radarTitleSize = 18;
-const double radarBodySize = 15;
-const double radarLabelSize = 13;
-const double radarCaptionSize = 11;
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -327,7 +310,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.outlineVariant,
+                        color: Theme.of(context).colorScheme.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -357,14 +340,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryLight
-                                          .withOpacity(0.1),
+                                      color: Theme.of(context).colorScheme.primaryContainer,
                                       borderRadius:
                                           BorderRadius.circular(AppRadius.sm),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                         Icons.shopping_bag_outlined,
-                                        color: AppColors.primary,
+                                        color: Theme.of(context).colorScheme.primary,
                                         size: 22),
                                   ),
                                   title: Text(product.name,
@@ -374,8 +356,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                   trailing: product.lastPrice != null
                                       ? Text(
                                           _formatPrice(product.lastPrice!),
-                                          style: const TextStyle(
-                                            color: AppColors.primary,
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.primary,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         )
@@ -431,7 +413,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.outlineVariant,
+                        color: Theme.of(context).colorScheme.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -439,7 +421,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+                          Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary, size: 20),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
                             'Mağaza (Şube) Seçin',
@@ -583,10 +565,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: const Icon(Icons.store, color: AppColors.secondary, size: 22),
+                child: Icon(Icons.store, color: Theme.of(context).colorScheme.onSecondaryContainer, size: 22),
               ),
               title: Text(
                 store.displayName,
@@ -600,9 +582,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     style: const TextStyle(fontSize: 12),
                   ),
                   if (_isStoreLocationMissing(store))
-                    const Text(
+                    Text(
                       'Admin uyarisi: Bu sube icin konum bilgisi eksik.',
-                      style: TextStyle(fontSize: 11, color: AppColors.error),
+                      style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error),
                     ),
                 ],
               ),
@@ -662,16 +644,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: const Icon(Icons.language, color: AppColors.info, size: 22),
+                child: Icon(Icons.language, color: Theme.of(context).colorScheme.onSecondaryContainer, size: 22),
               ),
               title: Text(
                 '🌐 ${store.displayName}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              trailing: const Icon(Icons.chevron_right, size: 18, color: AppColors.textSecondary),
+              trailing: Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
               onTap: () {
                 setState(() {
                   _selectedStore = store.copyWith(type: StoreType.online);
@@ -690,12 +672,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.info.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
-      child: const Text(
+      child: Text(
         '🌐 Online mağazalar konumdan bağımsızdır',
-        style: TextStyle(fontSize: 12, color: AppColors.info),
+        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSecondaryContainer),
       ),
     );
   }
@@ -909,17 +891,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: AppColors.accent.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: 1.5),
         ),
-        child: const Icon(Icons.add_business, color: AppColors.accent, size: 22),
+        child: Icon(Icons.add_business, color: Theme.of(context).colorScheme.primary, size: 22),
       ),
-      title: const Text(
+      title: Text(
         'Bu mağaza listede yok +',
         style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: AppColors.accent,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
       subtitle: const Text(
@@ -946,10 +928,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: const Icon(Icons.add_business, color: AppColors.accent, size: 20),
+              child: Icon(Icons.add_business, color: Theme.of(context).colorScheme.primary, size: 20),
             ),
             const SizedBox(width: AppSpacing.sm),
             const Expanded(
@@ -972,17 +954,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.location_on, size: 14, color: AppColors.info),
+                    Icon(Icons.location_on, size: 14, color: Theme.of(context).colorScheme.onSecondaryContainer),
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Konum otomatik olarak alınacaktır. Mağaza admin onayı sonrası aktif olur.',
-                        style: TextStyle(fontSize: 11, color: AppColors.info),
+                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSecondaryContainer),
                       ),
                     ),
                   ],
@@ -1032,7 +1014,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Mağaza önerisi gönderilemedi: $e'),
-                            backgroundColor: AppColors.error,
+                            backgroundColor: Theme.of(context).colorScheme.error,
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -1159,7 +1141,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
               ],
             ),
-            backgroundColor: AppColors.success,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.md),
@@ -1181,7 +1163,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: AppColors.error,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1193,7 +1175,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hata: $e'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.sm)),
@@ -1209,43 +1191,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   String _formatPrice(double price) => formatTRY(price);
 
-  InputDecoration _radarFieldDecoration({
-    required String hintText,
-    Widget? prefixIcon,
-    Widget? suffixIcon,
+  Widget _groupCard({
+    required BuildContext context,
+    required List<Widget> children,
+    Color? backgroundColor,
   }) {
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: const TextStyle(
-        color: radarBrown500,
-        fontSize: radarBodySize,
-        fontFamily: 'Inter',
-      ),
-      prefixIcon: prefixIcon,
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: radarCream300,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: radarAmber600, width: 1.4),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    );
-  }
-
-  Widget _groupCard({required List<Widget> children}) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: radarCream200,
+        color: backgroundColor ?? scheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1259,27 +1214,24 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(allProductsProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: radarCream100,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: radarCream100,
+        backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
+        title: Text(
           'Fiyat Ekle',
-          style: TextStyle(
-            fontFamily: 'Google Sans',
-            fontSize: radarDisplaySize,
-            color: radarBrown900,
-            fontWeight: FontWeight.w700,
-          ),
+          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          color: radarCream100,
+          color: scheme.surface,
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1289,39 +1241,33 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: radarAmber600,
-                    disabledBackgroundColor: radarAmber600.withOpacity(0.6),
-                    foregroundColor: Colors.white,
+                    backgroundColor: scheme.primary,
+                    foregroundColor: scheme.onPrimary,
                     minimumSize: const Size.fromHeight(56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text(
-                          'Fiyatı Kaydet',
-                          style: TextStyle(
-                            fontFamily: 'Google Sans',
-                            fontSize: radarTitleSize,
-                            fontWeight: FontWeight.w700,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: scheme.onPrimary,
                           ),
+                        )
+                      : Text(
+                          'Fiyatı Kaydet',
+                          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                         ),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Fiyatlar kullanıcılar tarafından bildirilmektedir...',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: radarCaptionSize,
-                  color: radarBrown500,
-                ),
+                style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -1338,20 +1284,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: radarCream200,
+                    color: scheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.workspace_premium_rounded, color: radarAmber600, size: 20),
-                      SizedBox(width: 10),
+                      Icon(Icons.workspace_premium_rounded, color: scheme.onSecondaryContainer, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Katkınla tasarrufa yön ver...',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: radarBodySize,
-                            color: radarBrown900,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSecondaryContainer,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1361,29 +1305,24 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
                 const SizedBox(height: 16),
                 _groupCard(
+                  context: context,
+                  backgroundColor: scheme.surfaceVariant,
                   children: [
-                    const Text(
+                    Text(
                       'Ürün ve Kategori',
-                      style: TextStyle(
-                        fontFamily: 'Google Sans',
-                        fontSize: radarTitleSize,
-                        color: radarBrown900,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _productController,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: radarBodySize,
-                        color: radarBrown900,
-                      ),
-                      decoration: _radarFieldDecoration(
+                      style: textTheme.bodyMedium,
+                      decoration: InputDecoration(
                         hintText: 'Ürün Adı',
-                        prefixIcon: const Icon(Icons.shopping_bag_outlined, color: radarBrown700),
+                        filled: true,
+                        fillColor: scheme.surface,
+                        prefixIcon: Icon(Icons.shopping_bag_outlined, color: scheme.onSurfaceVariant),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: radarAmber600),
+                          icon: Icon(Icons.qr_code_scanner_rounded, color: scheme.primary),
                           onPressed: () async {
                             final code = await BarcodeScannerSheet.scan(
                               context,
@@ -1412,14 +1351,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         margin: const EdgeInsets.only(top: AppSpacing.xs),
                         constraints: const BoxConstraints(maxHeight: 220),
                         decoration: BoxDecoration(
-                          color: radarCream100,
+                          color: scheme.surface,
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(color: radarCream300),
+                          border: Border.all(color: scheme.outlineVariant),
                         ),
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: _productSuggestions.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, __) => Divider(height: 1, color: scheme.outlineVariant),
                           itemBuilder: (_, index) {
                             final product = _productSuggestions[index];
                             return ListTile(
@@ -1435,56 +1374,49 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     categoriesAsync.when(
                       data: (categories) => DropdownButtonFormField<String>(
                         value: _selectedCategory,
-                        dropdownColor: radarCream100,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          color: radarBrown900,
-                          fontSize: radarBodySize,
-                        ),
-                        decoration: _radarFieldDecoration(
+                        dropdownColor: scheme.surface,
+                        style: textTheme.bodyMedium,
+                        decoration: InputDecoration(
                           hintText: 'Kategori',
-                          prefixIcon: const Icon(Icons.category_outlined, color: radarBrown700),
+                          filled: true,
+                          fillColor: scheme.surface,
+                          prefixIcon: Icon(Icons.category_outlined, color: scheme.onSurfaceVariant),
                         ),
-                        iconEnabledColor: radarBrown700,
+                        iconEnabledColor: scheme.onSurfaceVariant,
                         items: categories
                             .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
                             .toList(),
                         onChanged: (value) => setState(() => _selectedCategory = value),
                         validator: (v) => v == null ? 'Kategori seçin' : null,
                       ),
-                      loading: () => const LinearProgressIndicator(color: radarAmber600),
+                      loading: () => LinearProgressIndicator(color: scheme.primary),
                       error: (e, _) => Text('Kategori yüklenemedi: $e'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _groupCard(
+                  context: context,
+                  backgroundColor: scheme.surfaceVariant,
                   children: [
-                    const Text(
+                    Text(
                       'Fiyat ve Konum',
-                      style: TextStyle(
-                        fontFamily: 'Google Sans',
-                        fontSize: radarTitleSize,
-                        color: radarBrown900,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: radarCream300,
+                        color: scheme.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Text(
+                          Text(
                             '₺',
-                            style: TextStyle(
-                              color: radarBrown700,
-                              fontSize: 34,
+                            style: textTheme.titleLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
                               fontWeight: FontWeight.w700,
-                              fontFamily: 'DM Sans',
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1493,19 +1425,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               controller: _priceController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+([.,][0-9]{0,2})?$'))],
-                              style: const TextStyle(
-                                fontFamily: 'DM Sans',
-                                fontSize: 40,
-                                fontWeight: FontWeight.w700,
-                                color: radarBrown900,
-                              ),
-                              decoration: const InputDecoration(
+                              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                              decoration: InputDecoration(
                                 hintText: '0,00',
                                 border: InputBorder.none,
-                                hintStyle: TextStyle(
-                                  color: radarBrown500,
-                                  fontFamily: 'DM Sans',
-                                  fontSize: 36,
+                                hintStyle: textTheme.titleLarge?.copyWith(
+                                  color: scheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1527,25 +1452,23 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                         decoration: BoxDecoration(
-                          color: radarCream300,
+                          color: scheme.surface,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on_outlined, color: radarBrown700),
+                            Icon(Icons.location_on_outlined, color: scheme.onSurfaceVariant),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 _selectedStore?.displayName ?? 'Mağaza Seçin',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: radarBodySize,
-                                  color: _selectedStore == null ? radarBrown500 : radarBrown900,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: _selectedStore == null ? scheme.onSurfaceVariant : scheme.onSurface,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: radarBrown700),
+                            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
                           ],
                         ),
                       ),
@@ -1559,6 +1482,5 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       ),
     );
   }
-
 
 }
