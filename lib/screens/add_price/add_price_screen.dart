@@ -14,7 +14,11 @@ import '../../utils/theme.dart';
 import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_section_header.dart';
+import '../../widgets/premium_pressable.dart';
 import '../../widgets/premium_scaffold_shell.dart';
+import '../../widgets/staggered_fade_slide.dart';
 
 const Color radarBrown900 = Color(0xFF5D4037);
 const Color radarBrown700 = Color(0xFF795548);
@@ -1241,18 +1245,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  Widget _groupCard({required List<Widget> children}) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: radarCream200,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
+  String _storeSelectionSubtitle() {
+    if (_selectedStore == null) {
+      return 'Mağaza, şube ve kanal seçimi yapın';
+    }
+
+    if (_selectedStore!.type == StoreType.online) {
+      return 'Online mağaza';
+    }
+
+    final neighborhood = _selectedStore!.neighborhood.trim();
+    if (neighborhood.isEmpty) {
+      return 'Fiziksel mağaza';
+    }
+
+    return '$neighborhood mah.';
   }
 
   @override
@@ -1360,17 +1367,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _groupCard(
-                  children: [
-                    const Text(
-                      'Ürün ve Kategori',
-                      style: TextStyle(
-                        fontFamily: 'Google Sans',
-                        fontSize: radarTitleSize,
-                        color: radarBrown900,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                StaggeredFadeSlide(
+                  index: 0,
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const AppSectionHeader(title: 'Ürün ve Kategori'),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _productController,
@@ -1455,20 +1459,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       loading: () => const LinearProgressIndicator(color: radarAmber600),
                       error: (e, _) => Text('Kategori yüklenemedi: $e'),
                     ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                _groupCard(
-                  children: [
-                    const Text(
-                      'Fiyat ve Konum',
-                      style: TextStyle(
-                        fontFamily: 'Google Sans',
-                        fontSize: radarTitleSize,
-                        color: radarBrown900,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                StaggeredFadeSlide(
+                  index: 1,
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const AppSectionHeader(title: 'Fiyat ve Konum'),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1521,36 +1524,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                    _PremiumListTile(
+                      icon: Icons.location_on_outlined,
+                      title: _selectedStore?.displayName ?? 'Mağaza seçin',
+                      subtitle: _storeSelectionSubtitle(),
+                      titleColor: _selectedStore == null ? radarBrown500 : radarBrown900,
                       onTap: _showStorePicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: radarCream300,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.location_on_outlined, color: radarBrown700),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _selectedStore?.displayName ?? 'Mağaza Seçin',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: radarBodySize,
-                                  color: _selectedStore == null ? radarBrown500 : radarBrown900,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right, color: radarBrown700),
-                          ],
-                        ),
-                      ),
                     ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1561,4 +1544,67 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
 
+}
+
+class _PremiumListTile extends StatelessWidget {
+  const _PremiumListTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.titleColor = radarBrown900,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color titleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: radarCream300,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: radarBrown700),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: radarBodySize,
+                      color: titleColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: radarCaptionSize,
+                      color: radarBrown500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: radarBrown700),
+          ],
+        ),
+      ),
+    );
+  }
 }
