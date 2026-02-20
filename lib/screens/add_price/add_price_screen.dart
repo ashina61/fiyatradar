@@ -45,12 +45,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _productController = TextEditingController();
   final _priceController = TextEditingController();
+  final _productFocusNode = FocusNode();
+  final _priceFocusNode = FocusNode();
 
   StoreModel? _selectedStore;
   String? _selectedCategory;
   ProductModel? _selectedProduct;
   List<ProductModel> _productSuggestions = const [];
   bool _showProductSuggestions = false;
+  int _selectedSuggestionIndex = -1;
   String _productQuery = '';
   bool _isSubmitting = false;
   Position? _userPosition;
@@ -64,7 +67,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   @override
   void initState() {
     super.initState();
+    _productController.addListener(_onFormFieldChanged);
+    _priceController.addListener(_onFormFieldChanged);
     _loadUserPosition();
+  }
+
+  void _onFormFieldChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadUserPosition({bool requestPermission = true}) async {
@@ -148,8 +157,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   @override
   void dispose() {
+    _productController.removeListener(_onFormFieldChanged);
+    _priceController.removeListener(_onFormFieldChanged);
     _productController.dispose();
     _priceController.dispose();
+    _productFocusNode.dispose();
+    _priceFocusNode.dispose();
     super.dispose();
   }
 
@@ -160,8 +173,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _productController.text = product.name;
       _selectedCategory = product.categories.isNotEmpty ? product.categories.first : null;
       _showProductSuggestions = false;
+      _selectedSuggestionIndex = -1;
       _productSuggestions = const [];
     });
+    HapticFeedback.selectionClick();
   }
 
   void _updateProductSuggestions(List<ProductModel> allProducts, String rawQuery) {
@@ -169,6 +184,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     if (query.length < 2) {
       setState(() {
         _showProductSuggestions = false;
+        _selectedSuggestionIndex = -1;
         _productSuggestions = const [];
       });
       return;
@@ -183,7 +199,39 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     setState(() {
       _showProductSuggestions = suggestions.isNotEmpty;
       _productSuggestions = suggestions;
+      _selectedSuggestionIndex = suggestions.isEmpty ? -1 : 0;
     });
+  }
+
+  void _moveSuggestionSelection(int direction) {
+    if (!_showProductSuggestions || _productSuggestions.isEmpty) return;
+    setState(() {
+      if (_selectedSuggestionIndex < 0) {
+        _selectedSuggestionIndex = 0;
+        return;
+      }
+      _selectedSuggestionIndex = (_selectedSuggestionIndex + direction)
+          .clamp(0, _productSuggestions.length - 1);
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  void _submitProductTextField() {
+    if (_showProductSuggestions &&
+        _selectedSuggestionIndex >= 0 &&
+        _selectedSuggestionIndex < _productSuggestions.length) {
+      _selectProduct(_productSuggestions[_selectedSuggestionIndex]);
+      _priceFocusNode.requestFocus();
+      return;
+    }
+    _priceFocusNode.requestFocus();
+  }
+
+  bool get _canSubmit {
+    return !_isSubmitting &&
+        _selectedStore != null &&
+        _productController.text.trim().isNotEmpty &&
+        _priceController.text.trim().isNotEmpty;
   }
 
   Future<void> _showProductSuggestionDialog() async {
@@ -280,6 +328,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _selectedProduct = null;
       _productController.text = code;
       _showProductSuggestions = false;
+      _selectedSuggestionIndex = -1;
       _productSuggestions = const [];
     });
 
@@ -611,6 +660,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
               onTap: () {
+                HapticFeedback.selectionClick();
                 setState(() {
                   _selectedStore = store;
                 });
@@ -673,6 +723,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               trailing: const Icon(Icons.chevron_right, size: 18, color: AppColors.textSecondary),
               onTap: () {
+                HapticFeedback.selectionClick();
                 setState(() {
                   _selectedStore = store.copyWith(type: StoreType.online);
                 });
@@ -1211,11 +1262,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   InputDecoration _radarFieldDecoration({
     required String hintText,
+    String? helperText,
     Widget? prefixIcon,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
       hintText: hintText,
+      helperText: helperText,
       hintStyle: const TextStyle(
         color: radarBrown500,
         fontSize: radarBodySize,
@@ -1287,7 +1340,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _isSubmitting ? null : _submit,
+                  onPressed: _canSubmit
+                      ? () async {
+                          await HapticFeedback.mediumImpact();
+                          _submit();
+                        }
+                      : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: radarAmber600,
                     disabledBackgroundColor: radarAmber600.withOpacity(0.6),
@@ -1298,14 +1356,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Gönderiliyor...'),
+                          ],
                         )
-                      : const Text(
-                          'Fiyatı Kaydet',
-                          style: TextStyle(
+                      : Text(
+                          _selectedStore == null ? 'Devam etmek için mağaza seçin' : 'Fiyatı Kaydet',
+                          style: const TextStyle(
                             fontFamily: 'Google Sans',
                             fontSize: radarTitleSize,
                             fontWeight: FontWeight.w700,
@@ -1372,43 +1437,69 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _productController,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: radarBodySize,
-                        color: radarBrown900,
-                      ),
-                      decoration: _radarFieldDecoration(
-                        hintText: 'Ürün Adı',
-                        prefixIcon: const Icon(Icons.shopping_bag_outlined, color: radarBrown700),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: radarAmber600),
-                          onPressed: () async {
-                            final code = await BarcodeScannerSheet.scan(
-                              context,
-                              title: 'Barkod Okut',
-                            );
-                            if (!mounted || code == null) return;
-                            productsAsync.whenData((products) {
-                              _matchScannedBarcode(code, products);
-                            });
-                          },
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() => _productQuery = value.trim());
-                        productsAsync.whenData((products) {
-                          _updateProductSuggestions(products, value);
-                        });
-                        if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
-                          setState(() => _selectedProduct = null);
+                    Focus(
+                      onKeyEvent: (_, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          _moveSuggestionSelection(1);
+                          return KeyEventResult.handled;
                         }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _moveSuggestionSelection(-1);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.enter) {
+                          _submitProductTextField();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
                       },
-                      validator: (value) => value == null || value.isEmpty ? 'Ürün adı gerekli' : null,
+                      child: TextFormField(
+                        controller: _productController,
+                        focusNode: _productFocusNode,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.name],
+                        onFieldSubmitted: (_) => _submitProductTextField(),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: radarBodySize,
+                          color: radarBrown900,
+                        ),
+                        decoration: _radarFieldDecoration(
+                          hintText: 'Ürün Adı',
+                          helperText: 'Ürün adını yazın veya barkod okutun.',
+                          prefixIcon: const Icon(Icons.shopping_bag_outlined, color: radarBrown700),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: radarAmber600),
+                            onPressed: () async {
+                              final code = await BarcodeScannerSheet.scan(
+                                context,
+                                title: 'Barkod Okut',
+                              );
+                              if (!mounted || code == null) return;
+                              productsAsync.whenData((products) {
+                                _matchScannedBarcode(code, products);
+                              });
+                            },
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() => _productQuery = value.trim());
+                          productsAsync.whenData((products) {
+                            _updateProductSuggestions(products, value);
+                          });
+                          if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
+                            setState(() => _selectedProduct = null);
+                          }
+                        },
+                        validator: (value) => value == null || value.isEmpty ? 'Ürün adını paylaşır mısınız?' : null,
+                      ),
                     ),
                     if (_showProductSuggestions)
-                      Container(
+                      Semantics(
+                        container: true,
+                        label: 'Ürün öneri listesi, yukarı ve aşağı ok tuşları ile seçim yapabilirsiniz.',
+                        child: Container(
                         margin: const EdgeInsets.only(top: AppSpacing.xs),
                         constraints: const BoxConstraints(maxHeight: 220),
                         decoration: BoxDecoration(
@@ -1422,15 +1513,35 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (_, index) {
                             final product = _productSuggestions[index];
+                            final isSelected = index == _selectedSuggestionIndex;
                             return ListTile(
+                              selected: isSelected,
+                              selectedTileColor: radarAmber400.withOpacity(0.18),
                               dense: true,
                               title: Text(product.name),
                               subtitle: Text(product.brand),
+                              titleTextStyle: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: radarBodySize,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: radarBrown900,
+                              ),
+                              minVerticalPadding: 10,
+                              minTileHeight: 44,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              leading: Semantics(
+                                label: isSelected ? 'Seçili ürün' : 'Ürün',
+                                child: Icon(
+                                  isSelected ? Icons.arrow_right_rounded : Icons.shopping_bag_outlined,
+                                  color: isSelected ? radarAmber600 : radarBrown700,
+                                ),
+                              ),
                               onTap: () => _selectProduct(product),
                             );
                           },
                         ),
-                      ),
+                      )),
                     const SizedBox(height: 12),
                     categoriesAsync.when(
                       data: (categories) => DropdownButtonFormField<String>(
@@ -1443,6 +1554,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ),
                         decoration: _radarFieldDecoration(
                           hintText: 'Kategori',
+                          helperText: 'Ürünün ait olduğu kategoriyi seçin.',
                           prefixIcon: const Icon(Icons.category_outlined, color: radarBrown700),
                         ),
                         iconEnabledColor: radarBrown700,
@@ -1491,6 +1603,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _priceController,
+                              focusNode: _priceFocusNode,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) {
+                                FocusScope.of(context).unfocus();
+                                if (_canSubmit) {
+                                  HapticFeedback.mediumImpact();
+                                  _submit();
+                                }
+                              },
+                              autofillHints: const [AutofillHints.transactionAmount],
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+([.,][0-9]{0,2})?$'))],
                               style: const TextStyle(
@@ -1502,6 +1624,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               decoration: const InputDecoration(
                                 hintText: '0,00',
                                 border: InputBorder.none,
+                                helperText: 'Örn: 129,90',
                                 hintStyle: TextStyle(
                                   color: radarBrown500,
                                   fontFamily: 'DM Sans',
@@ -1510,9 +1633,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                 ),
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'Fiyat gerekli';
+                                if (value == null || value.trim().isEmpty) return 'Fiyat bilgisini girin (Örn: 129,90).';
                                 final parsed = double.tryParse(value.replaceAll(',', '.'));
-                                if (parsed == null || parsed <= 0) return 'Geçerli fiyat girin';
+                                if (parsed == null || parsed <= 0) return 'Lütfen fiyatı örnek formata göre girin (Örn: 129,90).';
                                 return null;
                               },
                             ),
@@ -1523,8 +1646,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     const SizedBox(height: 12),
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: _showStorePicker,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _showStorePicker();
+                      },
                       child: Container(
+                        constraints: const BoxConstraints(minHeight: 48),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                         decoration: BoxDecoration(
                           color: radarCream300,
@@ -1536,11 +1663,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                _selectedStore?.displayName ?? 'Mağaza Seçin',
+                                _selectedStore?.displayName ?? 'Mağaza seçimi zorunlu',
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: radarBodySize,
-                                  color: _selectedStore == null ? radarBrown500 : radarBrown900,
+                                  color: _selectedStore == null ? radarBrown700 : radarBrown900,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1548,6 +1675,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             const Icon(Icons.chevron_right, color: radarBrown700),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _selectedStore == null
+                          ? 'Devam etmek için mağaza seçin.'
+                          : 'Mağaza seçildi, kaydetmeye hazırsınız.',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: radarLabelSize,
+                        color: radarBrown700,
                       ),
                     ),
                   ],
