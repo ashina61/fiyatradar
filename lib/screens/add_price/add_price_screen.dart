@@ -54,7 +54,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   List<ProductModel> _productSuggestions = const [];
   bool _showProductSuggestions = false;
   int _selectedSuggestionIndex = -1;
-  String _productQuery = '';
   bool _isSubmitting = false;
   Position? _userPosition;
   bool _isResolvingUserPosition = false;
@@ -1485,13 +1484,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ),
                         ),
                         onChanged: (value) {
-                          setState(() => _productQuery = value.trim());
                           productsAsync.whenData((products) {
                             _updateProductSuggestions(products, value);
                           });
-                          if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
-                            setState(() => _selectedProduct = null);
-                          }
+                          setState(() {
+                            if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
+                              _selectedProduct = null;
+                            }
+                          });
                         },
                         validator: (value) => value == null || value.isEmpty ? 'Ürün adını paylaşır mısınız?' : null,
                       ),
