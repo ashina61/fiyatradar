@@ -16,6 +16,22 @@ import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_scaffold_shell.dart';
 
+const Color radarBrown900 = Color(0xFF5D4037);
+const Color radarBrown700 = Color(0xFF795548);
+const Color radarBrown500 = Color(0xFF8D6E63);
+const Color radarAmber600 = Color(0xFFC8956C);
+const Color radarAmber400 = Color(0xFFD4A574);
+const Color radarCream100 = Color(0xFFFFF8F0);
+const Color radarCream200 = Color(0xFFF5EDE4);
+const Color radarCream300 = Color(0xFFEDE0D4);
+
+const double radarDisplaySize = 28;
+const double radarHeadlineSize = 22;
+const double radarTitleSize = 18;
+const double radarBodySize = 15;
+const double radarLabelSize = 13;
+const double radarCaptionSize = 11;
+
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
 
@@ -1193,246 +1209,93 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   String _formatPrice(double price) => formatTRY(price);
 
+  InputDecoration _radarFieldDecoration({
+    required String hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        color: radarBrown500,
+        fontSize: radarBodySize,
+        fontFamily: 'Inter',
+      ),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: radarCream300,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: radarAmber600, width: 1.4),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
+  Widget _groupCard({required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: radarCream200,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final productsAsync = ref.watch(allProductsProvider);
-    const primaryCta = Color(0xFFE65100);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: radarCream100,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: radarCream100,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Fiyat Ekle'),
+        title: const Text(
+          'Fiyat Ekle',
+          style: TextStyle(
+            fontFamily: 'Google Sans',
+            fontSize: radarDisplaySize,
+            color: radarBrown900,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
-      body: PremiumScaffoldShell(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFEFEBE9), Color(0xFFD7CCC8)],
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    border: Border.all(color: const Color(0xFFBCAAA4)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        child: const Icon(Icons.workspace_premium_rounded,
-                            color: primaryCta, size: 24),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Text(
-                          'Katkınla tasarrufa yön ver. Her fiyat girişi +${AppConstants.pointsForPriceEntry}, fotoğraflı giriş +${AppConstants.pointsForPriceEntryWithPhoto} puan.',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF212121),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                FilledButton.icon(
-                  onPressed: () async {
-                    final code = await BarcodeScannerSheet.scan(
-                      context,
-                      title: 'Barkod Okut',
-                    );
-                    if (!mounted || code == null) return;
-                    productsAsync.whenData((products) {
-                      _matchScannedBarcode(code, products);
-                    });
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: primaryCta,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text('Barkod Okut'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _productController,
-                  decoration: InputDecoration(
-                    labelText: 'Ürün Adı',
-                    hintText: 'Ürün adı veya barkod numarası',
-                    prefixIcon: const Icon(Icons.shopping_bag_outlined),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.list),
-                      onPressed: _showProductPicker,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() => _productQuery = value.trim());
-                    productsAsync.whenData((products) {
-                      _updateProductSuggestions(products, value);
-                    });
-                    if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
-                      setState(() => _selectedProduct = null);
-                    }
-                  },
-                  textInputAction: TextInputAction.next,
-                  validator: (value) =>
-                      value == null || value.isEmpty ? 'Ürün adı gerekli' : null,
-                ),
-                if (_showProductSuggestions)
-                  Container(
-                    margin: const EdgeInsets.only(top: AppSpacing.xs),
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: Border.all(color: AppColors.outline),
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _productSuggestions.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (_, index) {
-                        final product = _productSuggestions[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(product.name),
-                          subtitle: Text(product.brand),
-                          onTap: () => _selectProduct(product),
-                        );
-                      },
-                    ),
-                  ),
-                if (_productQuery.isNotEmpty && !_showProductSuggestions)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: _showProductSuggestionDialog,
-                      icon: const Icon(Icons.lightbulb_outline),
-                      label: const Text('Ürün öner'),
-                    ),
-                  ),
-                const SizedBox(height: AppSpacing.md),
-                categoriesAsync.when(
-                  data: (categories) => DropdownButtonFormField<String>(
-                    value: _selectedCategory,
-                    decoration: InputDecoration(
-                      labelText: 'Kategori',
-                      prefixIcon: const Icon(Icons.category_outlined),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    items: categories
-                        .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
-                        .toList(),
-                    onChanged: (value) => setState(() => _selectedCategory = value),
-                    validator: (v) => v == null ? 'Kategori seçin' : null,
-                  ),
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('Kategori yüklenemedi: $e'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+([.,][0-9]{0,2})?$'))],
-                  decoration: InputDecoration(
-                    labelText: 'Fiyat (₺)',
-                    prefixIcon: const Icon(Icons.currency_lira),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Fiyat gerekli';
-                    final parsed = double.tryParse(value.replaceAll(',', '.'));
-                    if (parsed == null || parsed <= 0) return 'Geçerli fiyat girin';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  onTap: _showStorePicker,
-                  child: Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _selectedStore != null ? primaryCta : AppColors.outline,
-                        width: _selectedStore != null ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      color: _selectedStore != null
-                          ? const Color(0xFFFFF3E0)
-                          : Colors.white,
-                    ),
-                    child: _selectedStore != null
-                        ? Row(
-                            children: [
-                              Icon(
-                                _selectedStore!.isOnline ? Icons.language : Icons.store,
-                                color: primaryCta,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  _selectedStore!.displayName,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed: () => setState(() => _selectedStore = null),
-                              ),
-                            ],
-                          )
-                        : const Row(
-                            children: [
-                              Icon(Icons.location_on_outlined),
-                              SizedBox(width: AppSpacing.sm),
-                              Expanded(child: Text('Yakındaki veya online mağaza seçin')),
-                              Icon(Icons.chevron_right),
-                            ],
-                          ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                FilledButton(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          color: radarCream100,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: primaryCta,
+                    backgroundColor: radarAmber600,
+                    disabledBackgroundColor: radarAmber600.withOpacity(0.6),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    minimumSize: const Size.fromHeight(56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
@@ -1440,29 +1303,254 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Fiyatı Kaydet'),
+                      : const Text(
+                          'Fiyatı Kaydet',
+                          style: TextStyle(
+                            fontFamily: 'Google Sans',
+                            fontSize: radarTitleSize,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Fiyatlar kullanıcılar tarafından bildirilmektedir...',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: radarCaptionSize,
+                  color: radarBrown500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: PremiumScaffoldShell(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                    color: radarCream200,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline, size: 18, color: Color(0xFF333333)),
-                      SizedBox(width: AppSpacing.sm),
+                      Icon(Icons.workspace_premium_rounded, color: radarAmber600, size: 20),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          AppConstants.priceDisclaimer,
-                          style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
+                          'Katkınla tasarrufa yön ver...',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: radarBodySize,
+                            color: radarBrown900,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                _groupCard(
+                  children: [
+                    const Text(
+                      'Ürün ve Kategori',
+                      style: TextStyle(
+                        fontFamily: 'Google Sans',
+                        fontSize: radarTitleSize,
+                        color: radarBrown900,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _productController,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: radarBodySize,
+                        color: radarBrown900,
+                      ),
+                      decoration: _radarFieldDecoration(
+                        hintText: 'Ürün Adı',
+                        prefixIcon: const Icon(Icons.shopping_bag_outlined, color: radarBrown700),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.qr_code_scanner_rounded, color: radarAmber600),
+                          onPressed: () async {
+                            final code = await BarcodeScannerSheet.scan(
+                              context,
+                              title: 'Barkod Okut',
+                            );
+                            if (!mounted || code == null) return;
+                            productsAsync.whenData((products) {
+                              _matchScannedBarcode(code, products);
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _productQuery = value.trim());
+                        productsAsync.whenData((products) {
+                          _updateProductSuggestions(products, value);
+                        });
+                        if (_selectedProduct != null && value.trim() != _selectedProduct!.name) {
+                          setState(() => _selectedProduct = null);
+                        }
+                      },
+                      validator: (value) => value == null || value.isEmpty ? 'Ürün adı gerekli' : null,
+                    ),
+                    if (_showProductSuggestions)
+                      Container(
+                        margin: const EdgeInsets.only(top: AppSpacing.xs),
+                        constraints: const BoxConstraints(maxHeight: 220),
+                        decoration: BoxDecoration(
+                          color: radarCream100,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(color: radarCream300),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: _productSuggestions.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            final product = _productSuggestions[index];
+                            return ListTile(
+                              dense: true,
+                              title: Text(product.name),
+                              subtitle: Text(product.brand),
+                              onTap: () => _selectProduct(product),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    categoriesAsync.when(
+                      data: (categories) => DropdownButtonFormField<String>(
+                        value: _selectedCategory,
+                        dropdownColor: radarCream100,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          color: radarBrown900,
+                          fontSize: radarBodySize,
+                        ),
+                        decoration: _radarFieldDecoration(
+                          hintText: 'Kategori',
+                          prefixIcon: const Icon(Icons.category_outlined, color: radarBrown700),
+                        ),
+                        iconEnabledColor: radarBrown700,
+                        items: categories
+                            .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
+                            .toList(),
+                        onChanged: (value) => setState(() => _selectedCategory = value),
+                        validator: (v) => v == null ? 'Kategori seçin' : null,
+                      ),
+                      loading: () => const LinearProgressIndicator(color: radarAmber600),
+                      error: (e, _) => Text('Kategori yüklenemedi: $e'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _groupCard(
+                  children: [
+                    const Text(
+                      'Fiyat ve Konum',
+                      style: TextStyle(
+                        fontFamily: 'Google Sans',
+                        fontSize: radarTitleSize,
+                        color: radarBrown900,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: radarCream300,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text(
+                            '₺',
+                            style: TextStyle(
+                              color: radarBrown700,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'DM Sans',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _priceController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+([.,][0-9]{0,2})?$'))],
+                              style: const TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 40,
+                                fontWeight: FontWeight.w700,
+                                color: radarBrown900,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '0,00',
+                                border: InputBorder.none,
+                                hintStyle: TextStyle(
+                                  color: radarBrown500,
+                                  fontFamily: 'DM Sans',
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) return 'Fiyat gerekli';
+                                final parsed = double.tryParse(value.replaceAll(',', '.'));
+                                if (parsed == null || parsed <= 0) return 'Geçerli fiyat girin';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _showStorePicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: radarCream300,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, color: radarBrown700),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _selectedStore?.displayName ?? 'Mağaza Seçin',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: radarBodySize,
+                                  color: _selectedStore == null ? radarBrown500 : radarBrown900,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: radarBrown700),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1471,5 +1559,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       ),
     );
   }
+
 
 }
