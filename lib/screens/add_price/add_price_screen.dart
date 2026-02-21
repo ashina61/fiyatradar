@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -8,7 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
+import '../../utils/motion_tokens.dart';
+import '../../utils/theme.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/premium_pressable.dart';
+import '../../widgets/staggered_fade_slide.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -18,23 +21,25 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 }
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _priceController = TextEditingController();
   final _productController = TextEditingController();
   final _searchController = TextEditingController();
+  final _priceFocus = FocusNode();
 
   late final TabController _tabController;
-
-  static const _brown900 = Color(0xFF5D4037);
-  static const _brown700 = Color(0xFF795548);
-  static const _brown500 = Color(0xFF8D6E63);
-  static const _amber600 = Color(0xFFC8956C);
-  static const _amber400 = Color(0xFFD4A574);
-  static const _cream100 = Color(0xFFFFF8F0);
-  static const _cream200 = Color(0xFFF5EDE4);
-  static const _cream300 = Color(0xFFEDE0D4);
+  late final AnimationController _headerAnimController;
+  late final Animation<double> _headerFade;
+  late final AnimationController _priceGlowController;
 
   static const _categories = ['Gıda', 'Kişisel Bakım', 'Temizlik', 'Teknoloji'];
+
+  static const _categoryIcons = <String, IconData>{
+    'Gıda': Icons.restaurant_rounded,
+    'Kişisel Bakım': Icons.spa_rounded,
+    'Temizlik': Icons.cleaning_services_rounded,
+    'Teknoloji': Icons.devices_rounded,
+  };
 
   @override
   void initState() {
@@ -44,6 +49,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       if (!_tabController.indexIsChanging) return;
       ref.read(addPriceProvider.notifier).setActiveTab(_tabController.index);
     });
+
+    _headerAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _headerFade = CurvedAnimation(
+      parent: _headerAnimController,
+      curve: Curves.easeOutCubic,
+    );
+    _headerAnimController.forward();
+
+    _priceGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -52,6 +72,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     _priceController.dispose();
     _productController.dispose();
     _searchController.dispose();
+    _priceFocus.dispose();
+    _headerAnimController.dispose();
+    _priceGlowController.dispose();
     super.dispose();
   }
 
@@ -59,17 +82,23 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   Widget build(BuildContext context) {
     ref.listen(addPriceProvider.select((s) => s.error), (_, next) {
       if (next != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(next)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
       }
     });
 
     final state = ref.watch(addPriceProvider);
     final notifier = ref.read(addPriceProvider.notifier);
+    final theme = Theme.of(context);
 
     if (_tabController.index != state.activeTab) {
       _tabController.animateTo(state.activeTab);
     }
-
     if (_priceController.text != state.price) _priceController.text = state.price;
     if (_productController.text != state.productName) {
       _productController.text = state.productName;
@@ -78,98 +107,288 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       _searchController.text = state.searchQuery;
     }
 
-    final media = MediaQuery.of(context);
-    final width = media.size.width;
-    final height = media.size.height;
-    final scale = (math.min(width / 390, height / 844)).clamp(0.84, 1.12);
-
-    final hPad = (width * 0.055).clamp(16.0, 26.0);
-    final topPad = (height * 0.03).clamp(14.0, 28.0);
-    final bottomSafe = media.padding.bottom;
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _cream100,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(hPad, topPad, hPad, 120 + bottomSafe),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(onInfoPressed: _showInfoModal, scale: scale),
-                  SizedBox(height: 16 * scale),
-                  _buildPriceSection(state, scale),
-                  SizedBox(height: 16 * scale),
-                  _buildDetailsSection(state, notifier, scale),
-                  SizedBox(height: 24 * scale),
-                  _buildStoreSection(state, notifier, scale),
-                ],
-              ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Ambient gradient orbs (like home screen)
+          Positioned(
+            top: -80,
+            right: -60,
+            child: _AmbientOrb(size: 240, color: AppColors.primary, opacity: 0.08),
+          ),
+          Positioned(
+            top: 300,
+            left: -80,
+            child: _AmbientOrb(size: 200, color: AppColors.accent, opacity: 0.06),
+          ),
+          Positioned(
+            bottom: 120,
+            right: -40,
+            child: _AmbientOrb(size: 160, color: AppColors.secondary, opacity: 0.05),
+          ),
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                FadeTransition(
+                  opacity: _headerFade,
+                  child: _buildHeader(theme),
+                ),
+
+                // Scrollable content
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 100 + bottomSafe),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Price input
+                        StaggeredFadeSlide(
+                          index: 0,
+                          child: _buildPriceCard(state, theme),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Product details
+                        StaggeredFadeSlide(
+                          index: 1,
+                          child: _buildProductSection(state, notifier, theme),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Category selection
+                        StaggeredFadeSlide(
+                          index: 2,
+                          child: _buildCategorySection(state, notifier, theme),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Store selection
+                        StaggeredFadeSlide(
+                          index: 3,
+                          child: _buildStoreSection(state, notifier, theme),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            _buildBottomAction(state, scale),
-          ],
-        ),
+          ),
+
+          // Bottom action
+          _buildBottomAction(state, theme, bottomSafe),
+        ],
       ),
     );
   }
 
-  Widget _buildPriceSection(AddPriceState state, double scale) {
-    final amountFont = (64 * scale).clamp(38.0, 62.0);
-    final currencyFont = (40 * scale).clamp(24.0, 36.0);
-
-    return Center(
-      child: Column(
+  // ─── Header ──────────────────────────────────────────────────
+  Widget _buildHeader(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
         children: [
-          Text(
-            'ÜRÜN FİYATI',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13 * scale,
-              fontWeight: FontWeight.w600,
-              color: _brown500,
-              letterSpacing: 1,
+          PremiumPressable(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.maybePop(context),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.textSecondary,
+                size: 22,
+              ),
             ),
           ),
-          SizedBox(height: 8 * scale),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Fiyat Ekle',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Topluluga katkida bulun',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Points indicator
+          PremiumPressable(
+            borderRadius: BorderRadius.circular(24),
+            onTap: _showInfoModal,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.accent.withOpacity(0.12),
+                    AppColors.secondary.withOpacity(0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.accent.withOpacity(0.15)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.stars_rounded, color: AppColors.accent, size: 17),
+                  SizedBox(width: 5),
+                  Text(
+                    '+10',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppColors.accentDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Price Card ──────────────────────────────────────────────
+  Widget _buildPriceCard(AddPriceState state, ThemeData theme) {
+    return AnimatedBuilder(
+      animation: _priceGlowController,
+      builder: (context, child) {
+        final glowOpacity = 0.06 + (_priceGlowController.value * 0.06);
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.xxl),
+            border: Border.all(
+              color: state.price.isNotEmpty
+                  ? AppColors.primary.withOpacity(0.3)
+                  : AppColors.outline.withOpacity(0.4),
+              width: state.price.isNotEmpty ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(
+                  state.price.isNotEmpty ? glowOpacity : 0.03,
+                ),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: Column(
+        children: [
+          // Label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.price_change_outlined,
+                    size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'URUN FIYATI',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Price input
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: 10 * scale),
-                  child: Text(
-                    '₺',
-                    style: TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: currencyFont,
-                      fontWeight: FontWeight.w700,
-                      color: _brown500,
-                    ),
+                Text(
+                  '\u20BA',
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 36,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textTertiary,
                   ),
                 ),
+                const SizedBox(width: 4),
                 SizedBox(
-                  width: 220 * scale,
+                  width: 200,
                   child: TextField(
                     controller: _priceController,
+                    focusNode: _priceFocus,
                     onChanged: ref.read(addPriceProvider.notifier).setPrice,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
+                    ],
                     style: TextStyle(
                       fontFamily: 'DM Sans',
-                      fontSize: amountFont,
+                      fontSize: 56,
                       fontWeight: FontWeight.w700,
-                      color: _brown900,
+                      color: AppColors.textPrimary,
                       letterSpacing: -2,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                     textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      fillColor: Colors.transparent,
+                      filled: false,
                       hintText: '0,00',
-                      hintStyle: TextStyle(color: _cream300),
+                      hintStyle: TextStyle(
+                        fontFamily: 'DM Sans',
+                        fontSize: 56,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.outline,
+                        letterSpacing: -2,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
                     ),
                   ),
                 ),
@@ -181,194 +400,361 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
-  Widget _buildDetailsSection(AddPriceState state, AddPriceNotifier notifier, double scale) {
+  // ─── Product Section ─────────────────────────────────────────
+  Widget _buildProductSection(
+      AddPriceState state, AddPriceNotifier notifier, ThemeData theme) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _InputBox(
-          scale: scale,
+        _SectionLabel(
+          icon: Icons.inventory_2_outlined,
+          label: 'Urun Bilgisi',
+          theme: theme,
+        ),
+        const SizedBox(height: 10),
+        // Product name input
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: AppColors.outline.withOpacity(0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Row(
             children: [
-              Icon(Icons.qr_code_scanner_rounded, size: 24 * scale, color: _brown900),
-              SizedBox(width: 10 * scale),
+              const SizedBox(width: 14),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.edit_rounded,
+                    size: 18, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _productController,
                   onChanged: notifier.setProductName,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15 * scale,
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: _brown900,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Ürün adını yazın veya barkod okutun',
-                    hintStyle: TextStyle(color: _brown500),
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent,
+                    filled: false,
+                    hintText: 'Urun adini yazin',
+                    hintStyle: TextStyle(color: AppColors.textHint),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: _scanBarcode,
-                icon: Icon(Icons.center_focus_strong, color: _brown500, size: 22 * scale),
+              PremiumPressable(
+                borderRadius: BorderRadius.circular(10),
+                onTap: _scanBarcode,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 20,
+                    color: AppColors.accent,
+                  ),
+                ),
               ),
             ],
           ),
         ),
-        SizedBox(height: 12 * scale),
-        _InputBox(
-          scale: scale,
-          child: Row(
-            children: [
-              Icon(Icons.category_outlined, size: 24 * scale, color: _brown500),
-              SizedBox(width: 10 * scale),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: state.selectedCategory,
-                  isExpanded: true,
-                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: _brown500, size: 20 * scale),
-                  decoration: const InputDecoration(border: InputBorder.none),
-                  hint: Text(
-                    'Kategori Seçin',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15 * scale,
-                      fontWeight: FontWeight.w500,
-                      color: _brown500,
-                    ),
+        // Barcode badge
+        if (state.barcode != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.success.withOpacity(0.15)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle_rounded,
+                    size: 14, color: AppColors.success),
+                const SizedBox(width: 6),
+                Text(
+                  'Barkod: ${state.barcode}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.success,
                   ),
-                  items: _categories
-                      .map((category) => DropdownMenuItem(value: category, child: Text(category)))
-                      .toList(),
-                  onChanged: notifier.setCategory,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ─── Category Section ────────────────────────────────────────
+  Widget _buildCategorySection(
+      AddPriceState state, AddPriceNotifier notifier, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel(
+          icon: Icons.category_rounded,
+          label: 'Kategori',
+          theme: theme,
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _categories.map((category) {
+            final isSelected = state.selectedCategory == category;
+            final icon = _categoryIcons[category] ?? Icons.label_rounded;
+            return PremiumPressable(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => notifier.setCategory(category),
+              child: AnimatedContainer(
+                duration: MotionTokens.fast,
+                curve: MotionTokens.standard,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary.withOpacity(0.1)
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary.withOpacity(0.4)
+                        : AppColors.outline.withOpacity(0.4),
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textTertiary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      category,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    if (isSelected) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.check_rounded,
+                          size: 16, color: AppColors.primary),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          }).toList(),
         ),
       ],
     );
   }
 
-  Widget _buildStoreSection(AddPriceState state, AddPriceNotifier notifier, double scale) {
+  // ─── Store Section ───────────────────────────────────────────
+  Widget _buildStoreSection(
+      AddPriceState state, AddPriceNotifier notifier, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Nerede Gördün?',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 18 * scale,
-            fontWeight: FontWeight.w600,
-            color: _brown900,
-          ),
+        _SectionLabel(
+          icon: Icons.storefront_rounded,
+          label: 'Nerede Gordun?',
+          theme: theme,
         ),
-        SizedBox(height: 12 * scale),
+        const SizedBox(height: 10),
+
+        // Tab bar
         Container(
-          padding: EdgeInsets.all(4 * scale),
-          decoration: BoxDecoration(color: _cream200, borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.outline.withOpacity(0.3)),
+          ),
           child: TabBar(
             controller: _tabController,
             indicator: BoxDecoration(
-              color: _amber600,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
                 BoxShadow(
-                  color: Color.fromRGBO(200, 149, 108, 0.3),
+                  color: AppColors.primary.withOpacity(0.1),
                   blurRadius: 8,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
-            labelColor: Colors.white,
-            unselectedLabelColor: _brown700,
-            labelStyle: TextStyle(fontSize: 14 * scale, fontWeight: FontWeight.w600, fontFamily: 'Inter'),
-            tabs: [
-              Tab(icon: Icon(Icons.location_on_outlined, size: 18 * scale), text: 'Yakınımda'),
-              Tab(icon: Icon(Icons.language_rounded, size: 18 * scale), text: 'Online'),
-            ],
-          ),
-        ),
-        SizedBox(height: 12 * scale),
-        _InputBox(
-          scale: scale,
-          padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
-          child: Row(
-            children: [
-              Icon(Icons.search, size: 20 * scale, color: _brown500),
-              SizedBox(width: 10 * scale),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: notifier.setSearchQuery,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Market veya platform ara...',
-                    hintStyle: TextStyle(color: _brown500),
-                  ),
+            dividerColor: Colors.transparent,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textTertiary,
+            labelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Inter',
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Inter',
+            ),
+            tabs: const [
+              Tab(
+                height: 40,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on_rounded, size: 16),
+                    SizedBox(width: 6),
+                    Text('Yakinimda'),
+                  ],
+                ),
+              ),
+              Tab(
+                height: 40,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.language_rounded, size: 16),
+                    SizedBox(width: 6),
+                    Text('Online'),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        SizedBox(height: 12 * scale),
+        const SizedBox(height: 12),
+
+        // Search field
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.surface.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.outline.withOpacity(0.4)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.search_rounded,
+                        color: AppColors.primary, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: notifier.setSearchQuery,
+                      style: theme.textTheme.bodyMedium,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        fillColor: Colors.transparent,
+                        filled: false,
+                        hintText: 'Market veya platform ara...',
+                        hintStyle:
+                            TextStyle(color: AppColors.textHint, fontSize: 14),
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Store list
         if (state.isStoresLoading)
-          const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+          _buildStoresLoading()
         else if (state.storesError != null)
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(14 * scale),
-            decoration: BoxDecoration(
-              color: _cream200,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _amber400),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mağazalar yüklenemedi.',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 14 * scale,
-                    fontWeight: FontWeight.w600,
-                    color: _brown900,
-                  ),
-                ),
-                SizedBox(height: 6 * scale),
-                Text(
-                  state.storesError!,
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 12 * scale, color: _brown500),
-                ),
-                SizedBox(height: 10 * scale),
-                TextButton(onPressed: notifier.loadStores, child: const Text('Tekrar Dene')),
-              ],
-            ),
-          )
+          _buildStoresError(state, notifier, theme)
         else if (state.visibleStores.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 22 * scale),
-            child: Center(
-              child: Text(
-                'Aramanıza uygun mağaza bulunamadı.',
-                style: TextStyle(fontFamily: 'Inter', fontSize: 14 * scale, color: _brown500),
-              ),
-            ),
-          )
+          _buildStoresEmpty(theme)
         else
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: state.visibleStores.length,
-            separatorBuilder: (_, __) => SizedBox(height: 10 * scale),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final store = state.visibleStores[index];
               final selected = state.selectedStore?.id == store.id;
-              return _StoreCard(
-                store: store,
-                selected: selected,
-                scale: scale,
-                onTap: () => notifier.setSelectedStore(store),
+              return StaggeredFadeSlide(
+                index: index,
+                baseDelayMs: 20,
+                stepDelayMs: 30,
+                child: _StoreCard(
+                  store: store,
+                  selected: selected,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    notifier.setSelectedStore(store);
+                  },
+                ),
               );
             },
           ),
@@ -376,64 +762,227 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
-  Widget _buildBottomAction(AddPriceState state, double scale) {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(20 * scale, 20 * scale, 20 * scale, 20 * scale + MediaQuery.of(context).padding.bottom),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [_cream100, _cream100, Colors.transparent],
-            stops: [0, .84, 1],
-          ),
-        ),
+  Widget _buildStoresLoading() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
         child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: state.isLoading || state.isStoresLoading ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _amber600,
-              elevation: 0,
-              padding: EdgeInsets.all(16 * scale),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-            child: state.isLoading
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Fiyatı Kaydet',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16 * scale,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 8 * scale),
-                      Icon(Icons.send_rounded, color: Colors.white, size: 18 * scale),
-                    ],
-                  ),
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: AppColors.primary.withOpacity(0.5),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildStoresError(
+      AddPriceState state, AddPriceNotifier notifier, ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.error_outline_rounded,
+                    size: 16, color: AppColors.error),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Magazalar yuklenemedi',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.storesError!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          PremiumPressable(
+            borderRadius: BorderRadius.circular(10),
+            onTap: notifier.loadStores,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Tekrar Dene',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoresEmpty(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.storefront_outlined,
+              size: 28,
+              color: AppColors.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Aramaniza uygun magaza bulunamadi',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Bottom Action ───────────────────────────────────────────
+  Widget _buildBottomAction(
+      AddPriceState state, ThemeData theme, double bottomSafe) {
+    final isReady = state.price.isNotEmpty &&
+        state.productName.isNotEmpty &&
+        state.selectedCategory != null &&
+        state.selectedStore != null;
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomSafe),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor.withOpacity(0.85),
+              border: Border(
+                top: BorderSide(color: AppColors.outline.withOpacity(0.3)),
+              ),
+            ),
+            child: PremiumPressable(
+              borderRadius: BorderRadius.circular(16),
+              onTap: state.isLoading || state.isStoresLoading ? null : _submit,
+              pressedScale: 0.98,
+              child: AnimatedContainer(
+                duration: MotionTokens.fast,
+                curve: MotionTokens.standard,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: isReady
+                      ? const LinearGradient(
+                          colors: [AppColors.primary, AppColors.accent],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        )
+                      : null,
+                  color: isReady ? null : AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: isReady
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: state.isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: isReady
+                                ? Colors.white
+                                : AppColors.textTertiary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Fiyati Kaydet',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isReady
+                                  ? Colors.white
+                                  : AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Actions ─────────────────────────────────────────────────
   Future<void> _scanBarcode() async {
     final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
     if (barcode != null && mounted) {
       ref.read(addPriceProvider.notifier).setBarcode(barcode);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Barkod okundu: $barcode')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Barkod okundu: $barcode'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     }
   }
 
@@ -445,62 +994,118 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       await ref.read(addPriceProvider.notifier).submitPrice(userId: userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fiyat başarıyla kaydedildi. +10 puan hesabına eklendi!')),
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Fiyat basariyla kaydedildi. +10 puan hesabina eklendi!'),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.success,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
+      Navigator.maybePop(context);
     } catch (_) {}
   }
 
   Future<void> _showInfoModal() async {
     await showDialog<void>(
       context: context,
-      barrierColor: const Color.fromRGBO(93, 64, 55, 0.6),
+      barrierColor: Colors.black54,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 28),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-              decoration: const BoxDecoration(
-                color: _cream100,
-                boxShadow: [
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+                boxShadow: const [
                   BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.2),
+                    color: Color.fromRGBO(0, 0, 0, 0.15),
                     blurRadius: 40,
                     offset: Offset(0, 20),
                   ),
                 ],
               ),
-              child: Stack(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Material(
-                      color: _cream200,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, size: 18, color: _brown700),
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.primary.withOpacity(0.12),
+                              AppColors.accent.withOpacity(0.08),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.info_rounded,
+                            color: AppColors.primary, size: 24),
                       ),
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      _ModalHeader(),
-                      SizedBox(height: 24),
-                      _ModalInfo(icon: Icons.star, text: 'Her fiyat girişi +10 Puan kazandırır!'),
-                      SizedBox(height: 16),
-                      _ModalInfo(
-                        icon: Icons.group,
-                        text: 'Fiyatlar tamamen kullanıcılar tarafından bildirilmektedir.',
-                        dark: true,
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Text(
+                          'Bilgilendirme',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      PremiumPressable(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              size: 18, color: AppColors.textSecondary),
+                        ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  _InfoRow(
+                    icon: Icons.stars_rounded,
+                    iconColor: AppColors.accent,
+                    text: 'Her fiyat girisi +10 Puan kazandirir!',
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.groups_rounded,
+                    iconColor: AppColors.primary,
+                    text:
+                        'Fiyatlar tamamen kullanicilar tarafindan bildirilmektedir.',
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.verified_rounded,
+                    iconColor: AppColors.success,
+                    text:
+                        'Dogru fiyat girisleri guven puaninizi arttirir.',
                   ),
                 ],
               ),
@@ -512,86 +1117,87 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onInfoPressed, required this.scale});
+// ════════════════════════════════════════════════════════════════
+// Supporting Widgets
+// ════════════════════════════════════════════════════════════════
 
-  final VoidCallback onInfoPressed;
-  final double scale;
+class _AmbientOrb extends StatelessWidget {
+  const _AmbientOrb({
+    required this.size,
+    required this.color,
+    required this.opacity,
+  });
+
+  final double size;
+  final Color color;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withOpacity(opacity),
+              color.withOpacity(0),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({
+    required this.icon,
+    required this.label,
+    required this.theme,
+  });
+
+  final IconData icon;
+  final String label;
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _IconBtn(icon: Icons.arrow_back_rounded, onTap: () => Navigator.maybePop(context), scale: scale),
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              'Fiyat Ekle',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 20 * scale,
-                fontWeight: FontWeight.w600,
-                color: _AddPriceScreenState._brown900,
-              ),
-            ),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: AppColors.primary),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
           ),
         ),
-        _IconBtn(icon: Icons.info_outline_rounded, onTap: onInfoPressed, scale: scale),
       ],
     );
   }
 }
 
-class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onTap, required this.scale});
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44 * scale,
-      height: 44 * scale,
-      child: IconButton(
-        onPressed: onTap,
-        icon: Icon(icon, size: 24 * scale, color: _AddPriceScreenState._brown900),
-      ),
-    );
-  }
-}
-
-class _InputBox extends StatelessWidget {
-  const _InputBox({required this.child, required this.scale, this.padding});
-
-  final Widget child;
-  final double scale;
-  final EdgeInsetsGeometry? padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding ?? EdgeInsets.all(14 * scale),
-      decoration: BoxDecoration(
-        color: _AddPriceScreenState._cream200,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.transparent),
-      ),
-      child: child,
-    );
-  }
-}
-
 class _StoreCard extends StatelessWidget {
-  const _StoreCard({required this.store, required this.selected, required this.onTap, required this.scale});
+  const _StoreCard({
+    required this.store,
+    required this.selected,
+    required this.onTap,
+  });
 
   final Store store;
   final bool selected;
   final VoidCallback onTap;
-  final double scale;
 
   Color _storeColor() {
     switch (store.id) {
@@ -608,7 +1214,7 @@ class _StoreCard extends StatelessWidget {
       case 'getir':
         return const Color(0xFF5D3EBC);
       default:
-        return _AddPriceScreenState._brown500;
+        return AppColors.primary;
     }
   }
 
@@ -620,44 +1226,71 @@ class _StoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
+    return PremiumPressable(
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: EdgeInsets.all(12 * scale),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: MotionTokens.fast,
+        curve: MotionTokens.standard,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? _AddPriceScreenState._cream100 : _AddPriceScreenState._cream200,
+          color: selected
+              ? AppColors.primary.withOpacity(0.04)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? _AddPriceScreenState._amber400 : Colors.transparent,
-            width: 2,
+            color: selected
+                ? AppColors.primary.withOpacity(0.35)
+                : AppColors.outline.withOpacity(0.4),
+            width: selected ? 1.5 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: selected
+                  ? AppColors.primary.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.03),
+              blurRadius: selected ? 12 : 8,
+              offset: Offset(0, selected ? 4 : 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
+            // Store logo
             Container(
-              width: 48 * scale,
-              height: 48 * scale,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: _storeColor(),
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: _storeColor().withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Center(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    store.logoUrl,
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 20 * scale,
-                      fontWeight: FontWeight.w700,
-                      color: _logoTextColor(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Text(
+                      store.logoUrl,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _logoTextColor(),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 12 * scale),
+            const SizedBox(width: 12),
+            // Store info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,32 +1298,77 @@ class _StoreCard extends StatelessWidget {
                   Text(
                     store.name,
                     style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 15 * scale,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: _AddPriceScreenState._brown900,
+                      color: selected
+                          ? AppColors.textPrimary
+                          : AppColors.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 2 * scale),
-                  Text(
-                    store.type == 'online'
-                        ? (store.subtitle ?? '')
-                        : '${store.distanceMeters}m • ${store.subtitle ?? ''}',
-                    style: TextStyle(fontSize: 13 * scale, color: _AddPriceScreenState._brown500),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (store.type != 'online') ...[
+                        Icon(Icons.near_me_rounded,
+                            size: 12, color: AppColors.textTertiary),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${store.distanceMeters}m',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                        if (store.subtitle != null) ...[
+                          const Text(' \u00B7 ',
+                              style: TextStyle(color: AppColors.textTertiary)),
+                        ],
+                      ],
+                      if (store.subtitle != null)
+                        Expanded(
+                          child: Text(
+                            store.subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
+            // Checkmark
             AnimatedScale(
-              duration: const Duration(milliseconds: 200),
-              scale: selected ? 1 : .8,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: selected ? 1 : 0,
-                child: Icon(
-                  Icons.check_circle,
-                  size: 24 * scale,
-                  color: _AddPriceScreenState._amber600,
+              duration: MotionTokens.fast,
+              curve: MotionTokens.standard,
+              scale: selected ? 1 : 0,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 16,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -701,74 +1379,47 @@ class _StoreCard extends StatelessWidget {
   }
 }
 
-class _ModalHeader extends StatelessWidget {
-  const _ModalHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        SizedBox(
-          width: 56,
-          height: 56,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: _AddPriceScreenState._cream200,
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-            ),
-            child: Icon(Icons.info, color: _AddPriceScreenState._amber600, size: 28),
-          ),
-        ),
-        SizedBox(height: 16),
-        Text(
-          'Bilgilendirme',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 20,
-            color: _AddPriceScreenState._brown900,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ModalInfo extends StatelessWidget {
-  const _ModalInfo({required this.icon, required this.text, this.dark = false});
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+  });
 
   final IconData icon;
+  final Color iconColor;
   final String text;
-  final bool dark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _AddPriceScreenState._cream200,
-        borderRadius: BorderRadius.circular(16),
+        color: iconColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: iconColor.withOpacity(0.1)),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: dark ? _AddPriceScreenState._brown500 : _AddPriceScreenState._amber600,
-              borderRadius: BorderRadius.circular(12),
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 20, color: Colors.white),
+            child: Icon(icon, size: 18, color: iconColor),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: const TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 14,
-                color: _AddPriceScreenState._brown700,
+                fontSize: 13,
+                color: AppColors.textSecondary,
                 height: 1.4,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
