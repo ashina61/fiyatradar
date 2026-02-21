@@ -185,7 +185,7 @@ class ProductDetailApiService {
       store: price.storeName ?? 'Bilinmeyen mağaza',
       userName: (price.userName ?? 'Anonim').trim().isEmpty ? 'Anonim' : price.userName!,
       userTier: (price.addedByLevelSnapshot ?? price.createdByBadgeSnapshot ?? 'Topluluk').toString(),
-      createdAtLabel: DateFormat('dd.MM.yyyy').format(price.reportedAt),
+      createdAtLabel: _formatTimeAgo(price.reportedAt),
       storeUrl: '',
       upVotes: price.upVotes,
       downVotes: price.downVotes,
