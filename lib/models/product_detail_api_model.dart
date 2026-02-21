@@ -141,15 +141,26 @@ class ProductComment {
 }
 
 class PriceHistoryPoint {
-  PriceHistoryPoint({required this.dateLabel, required this.price});
+  PriceHistoryPoint({
+    required this.dateLabel,
+    required this.price,
+    required this.reportedAt,
+  });
 
   final String dateLabel;
   final double price;
+  final DateTime reportedAt;
 
   factory PriceHistoryPoint.fromJson(Map<String, dynamic> json) {
+    final rawReportedAt = json['reportedAt'];
+    final reportedAt = rawReportedAt is String
+        ? DateTime.tryParse(rawReportedAt) ?? DateTime.now()
+        : DateTime.now();
+
     return PriceHistoryPoint(
       dateLabel: (json['dateLabel'] ?? '').toString(),
       price: (json['price'] as num?)?.toDouble() ?? 0,
+      reportedAt: reportedAt,
     );
   }
 }
