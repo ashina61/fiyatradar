@@ -1,43 +1,15 @@
-import 'dart:async';
+import 'dart:ui';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../utils/theme.dart';
-import '../../providers/product_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
-import '../../models/product_model.dart';
-import '../../models/comment_model.dart';
-import '../../models/price_model.dart';
-import '../../models/store_model.dart';
-import '../../services/location_service.dart';
-import '../../services/firestore_service.dart';
-import '../../utils/constants.dart';
-import '../../utils/formatters.dart';
-import '../../services/price_verification_service.dart';
-import '../../services/user_profile_service.dart';
-import '../../utils/level_style.dart';
-import '../../utils/level_system.dart';
-import '../../widgets/app_badge.dart';
-import '../../widgets/app_network_image.dart';
-import '../../widgets/app_section_header.dart';
-import '../../widgets/verify_action_button.dart';
 
-final _priceVerificationServiceProvider = Provider<PriceVerificationService>((ref) => const PriceVerificationService());
-final _userProfileServiceProvider = Provider<UserProfileService>((ref) => UserProfileService());
+import '../../models/product_detail_api_model.dart';
+import '../../providers/product_detail_provider.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
-  final String productId;
-  final String? highlightedCommentId;
-  final String? highlightedPriceId;
-
   const ProductDetailScreen({
     super.key,
     required this.productId,
@@ -45,2300 +17,422 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
     this.highlightedPriceId,
   });
 
+  final String productId;
+  final String? highlightedCommentId;
+  final String? highlightedPriceId;
+
   @override
   ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
+    with SingleTickerProviderStateMixin {
+  static const _brown900 = Color(0xFF5D4037);
+  static const _brown700 = Color(0xFF795548);
+  static const _brown500 = Color(0xFF8D6E63);
+  static const _amber600 = Color(0xFFC8956C);
+  static const _amber400 = Color(0xFFD4A574);
+  static const _cream100 = Color(0xFFFFF8F0);
+  static const _cream200 = Color(0xFFF5EDE4);
+  static const _cream300 = Color(0xFFEDE0D4);
+
+  late final AnimationController _heroFloatController;
   final _commentController = TextEditingController();
-  bool _isSubmittingComment = false;
-  bool _viewCounted = false;
-  double? _userLat;
-  double? _userLng;
-  final ValueNotifier<int> _verifySuccessSignal = ValueNotifier<int>(0);
-  final ValueNotifier<int> _rejectSuccessSignal = ValueNotifier<int>(0);
-  bool _isSubmittingVerification = false;
-  String? _activeVerificationPriceId;
-  int? _localVerifyUpCount;
-  int? _localVerifyDownCount;
-  Timer? _contributorPopupTimer;
-  String? _activeContributorPopupPriceId;
-  final Map<String, _ContributorUserMini> _contributorUserCache = <String, _ContributorUserMini>{};
-  final Map<String, Future<_ContributorUserMini>> _contributorUserFutureCache = <String, Future<_ContributorUserMini>>{};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_viewCounted) {
-        _viewCounted = true;
-        ref.read(firestoreServiceProvider).incrementViewCount(widget.productId);
-      }
-    });
-    _loadUserLocation();
+    _heroFloatController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _contributorPopupTimer?.cancel();
+    _heroFloatController.dispose();
     _commentController.dispose();
-    _verifySuccessSignal.dispose();
-    _rejectSuccessSignal.dispose();
     super.dispose();
   }
 
-  void _showContributorInfoPopup(String priceId) {
-    _contributorPopupTimer?.cancel();
-    setState(() {
-      _activeContributorPopupPriceId = priceId;
-    });
-
-    _contributorPopupTimer = Timer(const Duration(seconds: 7), () {
-      if (!mounted || _activeContributorPopupPriceId != priceId) {
-        return;
-      }
-      setState(() {
-        _activeContributorPopupPriceId = null;
-      });
-    });
-  }
-
-  Future<void> _submitComment() async {
-    if (_commentController.text.trim().isEmpty) return;
-
-    final userModel = ref.read(userModelStreamProvider).value;
-    if (userModel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Yorum eklemek icin giris yapmalisiniz'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmittingComment = true);
-
-    try {
-      final firestoreService = ref.read(firestoreServiceProvider);
-      final isAdmin = userModel.isAdmin || userModel.role == 'admin';
-      final comment = CommentModel(
-        id: '',
-        productId: widget.productId,
-        userId: userModel.uid,
-        userName: userModel.name,
-        userPhotoUrl: userModel.photoUrl,
-        authorRole: isAdmin ? 'admin' : 'user',
-        text: _commentController.text.trim(),
-        createdAt: DateTime.now(),
-      );
-
-      await firestoreService.addComment(comment);
-      _commentController.clear();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Yorum eklendi!'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hata: $e'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmittingComment = false);
-      }
-    }
-  }
-
-  Future<void> _loadUserLocation() async {
-    final position = await LocationService().getCurrentPosition();
-    if (!mounted) return;
-    setState(() {
-      _userLat = position?.latitude;
-      _userLng = position?.longitude;
-    });
-  }
-
-  _BranchStoreData? _resolveBranchStoreData(
-    List<PriceModel>? priceHistory,
-    List<StoreModel> stores,
-  ) {
-    if (priceHistory == null || priceHistory.isEmpty) {
-      return null;
-    }
-
-    final latestPrice = priceHistory.first;
-    if (latestPrice.branchStoreId.isEmpty) {
-      return _BranchStoreData(
-        branchStoreId: '',
-        chainId: latestPrice.chainId,
-        displayName: latestPrice.storeName,
-      );
-    }
-
-    StoreModel? matched;
-    for (final store in stores) {
-      if (store.id == latestPrice.branchStoreId) {
-        matched = store;
-        break;
-      }
-    }
-
-    if (matched == null) {
-      return _BranchStoreData(
-        branchStoreId: latestPrice.branchStoreId,
-        chainId: latestPrice.chainId,
-        displayName: latestPrice.storeName,
-      );
-    }
-
-    return _BranchStoreData(
-      branchStoreId: matched.id,
-      chainId: matched.brandId ?? latestPrice.chainId,
-      displayName: matched.displayName,
-      neighborhood: matched.neighborhood,
-      district: matched.district,
-      city: matched.city,
-      lat: matched.lat,
-      lng: matched.lng,
-      isOnline: matched.isOnline,
-    );
-  }
-
-  bool _isWithinNearbyRange(_BranchStoreData branchStore) {
-    if (_userLat == null || _userLng == null) return false;
-
-    final distance = Geolocator.distanceBetween(
-      _userLat!,
-      _userLng!,
-      branchStore.lat!,
-      branchStore.lng!,
-    );
-
-    return distance <= 30;
-  }
-
-  Future<void> _onStoreChipTap(_BranchStoreData? branchStore) async {
-    if (branchStore == null) {
-      return;
-    }
-
-    Uri? mapsUri;
-    if (branchStore.hasCoordinates) {
-      final destination = '${branchStore.lat},${branchStore.lng}';
-      final query = Uri.encodeComponent(branchStore.displayName ?? 'Mağaza');
-      mapsUri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=$destination&destination_place_id=&query=$query&travelmode=driving',
-      );
-    } else if (branchStore.hasMapsQuery) {
-      final encodedStoreQuery = Uri.encodeComponent(branchStore.mapsQuery);
-      mapsUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$encodedStoreQuery',
-      );
-    }
-
-    if (mapsUri == null) return;
-
-    final launched = await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
-    if (!launched && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Harita acilamadi'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-        ),
-      );
-    }
-  }
-
-  void _showAddCommentDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            top: AppSpacing.md,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                alignment: Alignment.center,
-              ),
-              Text(
-                'Yorum Ekle',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: _commentController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Yorumunuzu yazin...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ElevatedButton(
-                onPressed: _isSubmittingComment ? null : () {
-                  _submitComment();
-                  Navigator.pop(ctx);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                ),
-                child: _isSubmittingComment
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Gonder',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPriceAlertSheet(BuildContext context) {
-    final userModel = ref.read(userModelStreamProvider).value;
-    if (userModel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Fiyat alarmi icin giris yapmalisiniz'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-        ),
-      );
-      return;
-    }
-
-    final followedRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(userModel.uid)
-        .collection('followedProducts')
-        .doc(widget.productId);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) {
-        return FutureBuilder<DocumentSnapshot>(
-          future: followedRef.get(),
-          builder: (ctx, snapshot) {
-            final data = snapshot.data?.data() as Map<String, dynamic>?;
-            bool priceDropEnabled = data?['notifyOnPriceDrop'] ?? false;
-            bool newPriceEnabled = data?['notifyOnNewPrice'] ?? false;
-
-            return StatefulBuilder(
-              builder: (ctx, setSheetState) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                    left: AppSpacing.md,
-                    right: AppSpacing.md,
-                    top: AppSpacing.md,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.outlineVariant,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Fiyat Alarmi',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Bu urun icin bildirim tercihlerinizi secin',
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Fiyat dusunce bildir', style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text('Fiyat dususe gectiginde bildirim al', style: TextStyle(fontSize: 12)),
-                        value: priceDropEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) => setSheetState(() => priceDropEnabled = val),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Yeni fiyat eklenince bildir', style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text('Yeni bir fiyat girisi yapildiginda bildirim al', style: TextStyle(fontSize: 12)),
-                        value: newPriceEnabled,
-                        activeColor: AppColors.primary,
-                        onChanged: (val) => setSheetState(() => newPriceEnabled = val),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      ElevatedButton(
-                        onPressed: () async {
-                          try {
-                            if (!priceDropEnabled && !newPriceEnabled) {
-                              await followedRef.delete();
-                            } else {
-                              await followedRef.set({
-                                'notifyOnPriceDrop': priceDropEnabled,
-                                'notifyOnNewPrice': newPriceEnabled,
-                                'createdAt': FieldValue.serverTimestamp(),
-                              });
-                            }
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    priceDropEnabled || newPriceEnabled ? 'Fiyat alarmi kaydedildi' : 'Fiyat alarmi kaldirildi',
-                                  ),
-                                  backgroundColor: AppColors.success,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Hata: $e'),
-                                  backgroundColor: AppColors.error,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                        ),
-                        child: const Text(
-                          'Kaydet',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final productAsync = ref.watch(productByIdProvider(widget.productId));
-    final commentsAsync = ref.watch(productCommentsProvider(widget.productId));
-    final priceHistoryAsync = ref.watch(productPriceHistoryProvider(widget.productId));
-    final storesAsync = ref.watch(allStoresStreamProvider);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final isFavoriteAsync = ref.watch(isFavoriteProvider(widget.productId));
-    final favoriteOverride = ref.watch(favoriteOverrideProvider(widget.productId));
-    final isFavorite = favoriteOverride ?? (isFavoriteAsync.valueOrNull ?? false);
+    final state = ref.watch(productDetailProvider(widget.productId));
+    final notifier = ref.read(productDetailProvider(widget.productId).notifier);
 
-    return productAsync.when(
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Ürün Detayı')),
-        body: const Center(child: CircularProgressIndicator()),
+    return Scaffold(
+      backgroundColor: _cream100,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: _amber600,
+        onPressed: () {},
+        child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Ürün Detayı')),
-        body: Center(child: Text('Hata: $error')),
-      ),
-      data: (product) {
-        if (product == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Ürün Detayı')),
-            body: const Center(child: Text('Ürün bulunamadı')),
-          );
-        }
-
-        final categoryColor = _colorForCategory(product.category);
-        if (uid != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(firestoreServiceProvider).addRecentlyViewed(uid: uid, product: product);
-          });
-        }
-        final priceHistory = priceHistoryAsync.valueOrNull;
-        final stores = storesAsync.valueOrNull ?? const <StoreModel>[];
-        final branchStore = _resolveBranchStoreData(priceHistory, stores);
-        final isNearbyStore = branchStore != null && branchStore.hasCoordinates && _isWithinNearbyRange(branchStore);
-
-        return Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              // ---------- App Bar with premium hero image ----------
-              SliverAppBar(
-                expandedHeight: 320,
-                pinned: true,
-                backgroundColor: AppColors.surface,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildProductHeroImage(product),
-                      Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0x55000000), Colors.transparent, Color(0x45000000)],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: MediaQuery.of(context).padding.top + 8,
-                        right: 8,
-                        child: Row(
+      body: SafeArea(
+        child: state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : state.error != null
+                ? Center(child: Text(state.error!))
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final horizontal = constraints.maxWidth * 0.05;
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 100),
+                        child: Column(
                           children: [
-                            _buildHeroAction(
-                              icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-                              active: isFavorite,
-                              onTap: uid == null
-                                  ? null
-                                  : () async {
-                                      final previous = isFavorite;
-                                      final next = !previous;
-                                      ref.read(favoriteOverrideProvider(widget.productId).notifier).state = next;
-                                      try {
-                                        await ref.read(firestoreServiceProvider).toggleFavorite(
-                                              uid: uid,
-                                              productId: widget.productId,
-                                              payload: {
-                                                'productId': product.id,
-                                                'productName': product.name,
-                                                'imageUrl': product.effectiveImage,
-                                              },
-                                            );
-                                        ref.read(favoriteOverrideProvider(widget.productId).notifier).state = null;
-                                      } catch (_) {
-                                        ref.read(favoriteOverrideProvider(widget.productId).notifier).state = previous;
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
-                                          );
-                                        }
-                                      }
-                                    },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildHeroAction(
-                              icon: Icons.share,
-                              onTap: () => _shareProduct(product),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildHeroAction(
-                              icon: Icons.flag_outlined,
-                              onTap: () {
-                                final latest = priceHistoryAsync.valueOrNull;
-                                if (latest != null && latest.isNotEmpty) {
-                                  _showReportPriceDialog(latest.first);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ---------- Content ----------
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (product.brand.isNotEmpty) _buildMetaChip(product.brand, categoryColor),
-                          if (product.category.isNotEmpty) _buildMetaChip(product.category, categoryColor),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildMiniStatRow(priceHistory ?? const []),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Price card
-                      _buildPriceCard(
-                        product,
-                        latestPrice: (priceHistory != null && priceHistory.isNotEmpty) ? priceHistory.first : null,
-                        branchStore: branchStore,
-                        showNearbyGlow: isNearbyStore,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      // Legal disclaimer
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.info_outline, size: 13, color: AppColors.textTertiary.withOpacity(0.7)),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${AppConstants.priceDisclaimer}\nGörseller temsilidir. Marka sahipleri ile resmi bağlantı bulunmaz.',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.textTertiary.withOpacity(0.7),
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // Stats row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatItem(
-                            icon: Icons.price_change,
-                            value: '${product.priceEntryCount}',
-                            label: 'Fiyat Girisi',
-                            color: AppColors.primary,
-                          ),
-                          _buildStatItem(
-                            icon: Icons.visibility,
-                            value: '${product.viewCount}',
-                            label: 'Goruntuleme',
-                            color: AppColors.secondary,
-                          ),
-                          if (product.isTrending)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent.withOpacity(0.12),
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.md),
-                              ),
-                              child: const Row(
+                            _buildHero(state.data!, constraints),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: horizontal),
+                              child: Column(
                                 children: [
-                                  Text('\u{1F525}',
-                                      style: TextStyle(fontSize: 16)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Trend',
-                                    style: TextStyle(
-                                      color: AppColors.accentDark,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildHeader(state.data!),
+                                  const SizedBox(height: 16),
+                                  _buildPriceCard(state.data!, notifier, state.isSubmittingVote),
+                                  const SizedBox(height: 12),
+                                  _buildStats(state.data!.stats),
+                                  const SizedBox(height: 16),
+                                  _buildHistoryCard(state.history),
+                                  const SizedBox(height: 16),
+                                  _buildCommunityCard(state.data!, notifier, state.isSubmittingVote),
+                                  const SizedBox(height: 16),
+                                  _buildCommentsSection(state, notifier),
                                 ],
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-
-                      if (widget.highlightedPriceId != null) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(AppSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: AppColors.info.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            border: Border.all(color: AppColors.info.withOpacity(0.4)),
-                          ),
-                          child: Text(
-                            'Raporlanan fiyat kaydı odaklandi: ${widget.highlightedPriceId}',
-                            style: const TextStyle(fontSize: 12, color: AppColors.info),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                      const AppSectionHeader(
-                        title: 'Topluluk Doğrulaması',
-                        subtitle: 'Son fiyatın güven durumunu değerlendirin',
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      priceHistoryAsync.when(
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Hata: $e'),
-                        data: (prices) => _buildVerificationSection(prices),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildSectionCard(
-                        title: 'Fiyat Gecmisi',
-                        trailing: 'Son 30 gün',
-                        child: priceHistoryAsync.when(
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (e, _) => Text('Hata: $e'),
-                          data: (prices) => Column(
-                            children: [
-                              _buildPriceChart(prices),
-                              if (prices.isNotEmpty)
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton.icon(
-                                      onPressed: () => _showReportPriceDialog(prices.first),
-                                      icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.textTertiary),
-                                      label: const Text('Fiyati Raporla', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: () => _tryDeletePrice(prices.first),
-                                      icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error),
-                                      label: const Text('Fiyatı Sil', style: TextStyle(fontSize: 12, color: AppColors.error)),
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildCheapestStoresSection(priceHistory ?? const []),
-                      const SizedBox(height: AppSpacing.lg),
-
-                      const SizedBox(height: AppSpacing.lg),
-                      const AppSectionHeader(
-                        title: 'Yorumlar',
-                        subtitle: 'Toplulugun urun hakkindaki gorusleri',
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      commentsAsync.when(
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Hata: $e'),
-                        data: (comments) => _buildCommentsSection(
-                          context,
-                          comments,
-                          highlightedCommentId: widget.highlightedCommentId,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
+                      );
+                    },
                   ),
-                ),
+      ),
+    );
+  }
+
+  Widget _buildHero(ProductDetailResponse data, BoxConstraints constraints) {
+    return Container(
+      height: constraints.maxWidth * 0.8,
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(colors: [Colors.white, _cream200], center: Alignment(0, 0.2), radius: 0.85),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(top: 14, left: 16, right: 16, child: _buildHeroActions()),
+          Center(
+            child: AnimatedBuilder(
+              animation: _heroFloatController,
+              builder: (_, child) {
+                final dy = -10 * _heroFloatController.value;
+                return Transform.translate(offset: Offset(0, dy), child: child);
+              },
+              child: Image.network(data.imageUrl, height: constraints.maxWidth * 0.52, fit: BoxFit.contain),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroActions() {
+    Widget glass(IconData icon, VoidCallback onTap) => ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: InkWell(
+              onTap: onTap,
+              child: Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: Colors.white.withOpacity(0.6)),
+                child: Icon(icon, color: _brown900),
               ),
-            ],
+            ),
           ),
         );
-      },
-    );
-  }
-
-
-  Widget _buildMetaChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMiniStatRow(List<PriceModel> prices) {
-    final values = prices.map((p) => p.price).toList();
-    final latest = values.isNotEmpty ? values.first : null;
-    final cheapest = values.isNotEmpty ? values.reduce((a, b) => a < b ? a : b) : null;
-    final average = values.isNotEmpty ? values.reduce((a, b) => a + b) / values.length : null;
 
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(child: _buildMiniStatBox('Son Fiyat', latest)),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildMiniStatBox('En ucuz', cheapest)),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _buildMiniStatBox('Ortalama', average)),
+        glass(Icons.arrow_back, () => Navigator.pop(context)),
+        Row(children: [glass(Icons.favorite_border, () {}), const SizedBox(width: 10), glass(Icons.share, () {})]),
       ],
     );
   }
 
-  Widget _buildMiniStatBox(String title, double? value) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader(ProductDetailResponse data) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text(value == null ? '-' : formatTRY(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionCard({required String title, String? trailing, required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.65)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-              if (trailing != null)
-                Text(trailing, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-            ],
-          ),
+          ...data.categories.map((e) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: _cream300, borderRadius: BorderRadius.circular(20)),
+                child: Text(e, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: _brown700, fontSize: 12)),
+              )),
           Container(
-            margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            height: 1,
-            color: AppColors.outlineVariant.withOpacity(0.45),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildCheapestStoresSection(List<PriceModel> prices) {
-    final sorted = [...prices]..sort((a, b) => a.price.compareTo(b.price));
-    final cheapest = sorted.take(3).toList();
-
-    return _buildSectionCard(
-      title: 'En ucuz mağazalar',
-      child: cheapest.isEmpty
-          ? const Text('Henüz mağaza fiyatı yok')
-          : Column(
-              children: cheapest
-                  .map(
-                    (price) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _buildPremiumCheapestStoreItem(price),
-                    ),
-                  )
-                  .toList(),
-            ),
-    );
-  }
-
-  Widget _buildPremiumCheapestStoreItem(PriceModel price) {
-    final uid = (price.createdByUid ?? price.userId).trim();
-    return FutureBuilder<_ContributorUserMini>(
-      future: _getContributorUserMini(price),
-      builder: (context, userSnapshot) {
-        final userMini = userSnapshot.data ?? _ContributorUserMini.fallback(name: price.addedByDisplayName ?? 'Kullanıcı');
-        return StreamBuilder<UserProfileSummary?>(
-          stream: ref.read(_userProfileServiceProvider).streamUserSummary(uid),
-          builder: (context, summarySnapshot) {
-            final summary = summarySnapshot.data;
-            final trustPercent = summary?.trustScorePercent ?? price.addedByTrustScoreSnapshot.round().clamp(0, 100);
-            final trustTotalVotes = summary?.trustTotalVotes ?? 0;
-            final level = summary?.level ?? userMini.level;
-            final username = summary?.displayName ?? userMini.displayName;
-            final verification = ref.read(_priceVerificationServiceProvider).summaryForPrice(price);
-
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFFCF7), Color(0xFFF8F1E4)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE7CFAB), width: 1),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _displayPriceSourceName(price),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            const Text('Ekleyen:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                            _ContributorUserChip(
-                              username: username,
-                              level: level,
-                              onTap: () => _showContributorBottomSheet(
-                                username: username,
-                                level: level,
-                                trustPercent: trustPercent,
-                                trustTotalVotes: trustTotalVotes,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF8EA),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: const Color(0xFFE7CFAB)),
-                              ),
-                              child: Text(
-                                verification.approvalPercent == null ? 'Onay yok' : 'Onay %${verification.approvalPercent}',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4A3322)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 132),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        _formatPrice(price.price),
-                        maxLines: 1,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF7A4A21)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildPriceVerificationIndicator(PriceModel price) {
-    final bool verified = price.isApproved || price.verificationStatus == 'verified' || (price.upVotes > price.downVotes && price.upVotes > 0);
-    return Icon(
-      verified ? Icons.verified_rounded : Icons.verified_outlined,
-      size: 18,
-      color: verified ? const Color(0xFF26A65B) : AppColors.textTertiary,
-    );
-  }
-
-  Future<void> _showContributorBottomSheet({
-    required String username,
-    required UserLevel level,
-    required int trustPercent,
-    required int trustTotalVotes,
-  }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFFFDFBF7),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4C4AF),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 21,
-                        backgroundColor: const Color(0xFFEAD8BF),
-                        child: Text(username.substring(0, 1).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: level.badgeBackground,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: level.badgeBorder),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(level.emoji, style: TextStyle(fontSize: 16, color: level.badgeForeground)),
-                        const SizedBox(width: 8),
-                        Text('Seviye: ${level.label}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: level.badgeForeground)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text('Güven Skoru: %$trustPercent', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                  const SizedBox(height: 6),
-                  Text('Toplam oy: $trustTotalVotes', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Bu güven skoru, kullanıcının eklediği fiyatların doğrulanma/yanlışlanma performansından hesaplanır.',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary, height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-
-  Widget _buildPriceCard(
-    ProductModel product, {
-    required PriceModel? latestPrice,
-    required _BranchStoreData? branchStore,
-    required bool showNearbyGlow,
-  }) {
-    final storeName = branchStore?.displayName?.trim();
-    final hasStore = storeName != null && storeName.isNotEmpty;
-    final storeClickable = hasStore && (branchStore!.hasMapsQuery || branchStore.hasCoordinates);
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF8EFE2),
-              Color(0xFFF3E2CF),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: const Color(0xFFE1D0BD)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFB78A5A).withOpacity(0.12),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-      child: Container(
-        margin: const EdgeInsets.all(1),
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFDF8F2),
-                Color(0xFFF6EADC),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-            border: Border.all(color: const Color(0xFFE9D7C4)),
-          ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'Son Fiyat',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
-              child: Text(
-                product.lastPrice != null ? _formatPrice(product.lastPrice!) : 'Fiyat yok',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                  color: Color(0xFFB15C13),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Mağaza',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Center(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: storeClickable ? () => _onStoreChipTap(branchStore) : null,
-                  child: Ink(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE8DED3)),
-                      boxShadow: showNearbyGlow
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.16),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.035),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.storefront_outlined, size: 18, color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            hasStore ? storeName : 'Mağaza bilinmiyor',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (storeClickable) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (showNearbyGlow) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.24)),
-                ),
-                child: const Text(
-                  'Buradasın',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
-            if (latestPrice != null) ...[
-              const SizedBox(height: 16),
-              Center(
-                child: _buildLastPriceContributorRow(latestPrice),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLastPriceContributorRow(PriceModel price) {
-    final uid = (price.createdByUid ?? price.userId).trim();
-    return FutureBuilder<_ContributorUserMini>(
-      future: _getContributorUserMini(price),
-      builder: (context, userSnapshot) {
-        final userMini = userSnapshot.data ?? _ContributorUserMini.fallback(name: price.addedByDisplayName ?? 'Kullanıcı');
-
-        return StreamBuilder<Map<String, dynamic>>(
-          stream: ref.read(firestoreServiceProvider).streamUserTrustProfile(uid),
-          builder: (context, trustSnapshot) {
-            final fallbackScore = price.addedByTrustScoreSnapshot.round().clamp(0, 100);
-            final trustData = trustSnapshot.data ?? {'trustScorePercent': fallbackScore};
-            final trustPercent = (trustData['trustScorePercent'] as num?)?.toInt() ?? fallbackScore;
-            final upTotal = (trustData['upTotal'] as num?)?.toInt() ?? 0;
-            final downTotal = (trustData['downTotal'] as num?)?.toInt() ?? 0;
-            final total = upTotal + downTotal;
-            final verificationRate = total == 0 ? null : (upTotal / total * 100).round();
-            final showPopup = _activeContributorPopupPriceId == price.id;
-
-            return Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                        onTap: () => _showContributorInfoPopup(price.id),
-                        child: Ink(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: userMini.level.badgeBackground,
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            border: Border.all(color: userMini.level.badgeBorder),
-                          ),
-                          child: Text(
-                            '${userMini.level.emoji} ${userMini.displayName}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: userMini.level.badgeForeground,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (showPopup) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: userMini.level.badgeBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          verificationRate == null
-                              ? 'Seviye: ${userMini.level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: Veri yok'
-                              : 'Seviye: ${userMini.level.label}\nGüven Skoru: %$trustPercent\nDoğrulama: %$verificationRate',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildHeroAction({required IconData icon, VoidCallback? onTap, bool active = false}) {
-    return Material(
-      color: Colors.black.withOpacity(0.25),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, color: active ? AppColors.primaryLight : Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductHeroImage(ProductModel product) {
-    final imageUrl = _resolveProductImageUrl(product);
-    if (imageUrl == null || imageUrl.isEmpty) {
-      return _buildPremiumImagePlaceholder(product.name);
-    }
-
-    return SizedBox.expand(
-      child: CachedNetworkImage(
-        imageUrl: imageUrl,
-        fit: BoxFit.contain,
-        placeholder: (_, __) => Shimmer.fromColors(
-          baseColor: AppColors.surfaceVariant,
-          highlightColor: AppColors.surface,
-          child: Container(color: AppColors.surfaceVariant),
-        ),
-        errorWidget: (_, __, ___) => _buildPremiumImagePlaceholder(product.name),
-      ),
-    );
-  }
-
-  String? _resolveProductImageUrl(ProductModel product) {
-    if ((product.effectiveImage ?? '').trim().isNotEmpty) return product.effectiveImage!.trim();
-    if (product.imageUrls.isNotEmpty) {
-      return product.imageUrls.firstWhere(
-        (url) => url.trim().isNotEmpty,
-        orElse: () => '',
-      );
-    }
-    return null;
-  }
-
-  Widget _buildPremiumImagePlaceholder(String productName) {
-    final initial = productName.isNotEmpty ? productName[0].toUpperCase() : '?';
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary.withOpacity(0.22), AppColors.secondary.withOpacity(0.18)],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(initial, style: const TextStyle(fontSize: 92, fontWeight: FontWeight.w800, color: Colors.white70)),
-            const SizedBox(height: 8),
-            const Text('Görsel bulunamadı', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPriceChart(List<PriceModel> prices) {
-    if (prices.length < 2) {
-      return Container(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        child: const Center(
-          child: Column(
-            children: [
-              Icon(Icons.bar_chart,
-                  size: 48, color: AppColors.textTertiary),
-              SizedBox(height: AppSpacing.sm),
-              Text(
-                'Yeterli fiyat verisi yok',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Sort by date ascending
-    final sortedPrices = List<PriceModel>.from(prices)
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-    // Take last 5 prices for chart
-    final chartPrices = sortedPrices.length > 5
-        ? sortedPrices.sublist(sortedPrices.length - 5)
-        : sortedPrices;
-
-    final maxPrice = chartPrices.map((p) => p.price).reduce((a, b) => a > b ? a : b);
-    final minPrice = chartPrices.map((p) => p.price).reduce((a, b) => a < b ? a : b);
-    final range = maxPrice - minPrice;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Column(
-        children: [
-          // Chart bars
-          SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: chartPrices.map((price) {
-                final normalizedHeight =
-                    range > 0 ? ((price.price - minPrice) / range) : 0.5;
-                final barHeight =
-                    30.0 + (normalizedHeight * 80.0); // min 30, max 110
-
-                return Expanded(
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          _formatPriceShort(price.price),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Tooltip(
-                          message: '${_displayPriceSourceName(price)}\n${_formatPrice(price.price)}'
-                            '${price.isTrustedPrice ? '\nGuvenilir Fiyat' : ''}',
-                          child: Container(
-                            height: barHeight,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primaryLight,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                  AppRadius.sm),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          // Date labels
-          Row(
-            children: chartPrices.map((price) {
-              return Expanded(
-                child: Text(
-                  '${price.createdAt.day}/${price.createdAt.month}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              );
-            }).toList(),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: const Color(0xFFFFF3E0), borderRadius: BorderRadius.circular(20)),
+            child: Text('🔥 Trend', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFFEF6C00), fontSize: 12)),
           ),
         ],
       ),
-    );
+      const SizedBox(height: 10),
+      Text(data.title, style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w700, color: _brown900)),
+      const SizedBox(height: 6),
+      Text('👁 ${data.viewCount} Görüntüleme • 🏷 ${data.priceEntryCount} Fiyat Girişi', style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
+    ]);
   }
 
-
-  Widget _buildVerificationSection(List<PriceModel> prices) {
-    final latestPrice = prices.isNotEmpty ? prices.first : null;
-    if (latestPrice == null) {
-      _activeVerificationPriceId = null;
-      _localVerifyUpCount = null;
-      _localVerifyDownCount = null;
-    } else if (_activeVerificationPriceId != latestPrice.id) {
-      _activeVerificationPriceId = latestPrice.id;
-      _localVerifyUpCount = null;
-      _localVerifyDownCount = null;
-    }
-
-    final totalVerified = _localVerifyUpCount ?? latestPrice?.upVotes ?? 0;
-    final totalUnverified = _localVerifyDownCount ?? latestPrice?.downVotes ?? 0;
-    final total = totalVerified + totalUnverified;
-    final verificationRate = total > 0 ? (totalVerified / total) : 0.0;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
+  Widget _buildPriceCard(ProductDetailResponse data, ProductDetailNotifier notifier, bool isVoting) {
+    final p = data.bestPrice;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline),
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(colors: [_brown900, _brown700], begin: Alignment.topLeft, end: Alignment.bottomRight),
       ),
-      child: Column(
-        children: [
-          if (latestPrice != null)
-            StreamBuilder<String?>(
-              stream: uid == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(latestPrice.id, uid),
-              builder: (context, snapshot) {
-                final voteValue = snapshot.data;
-                final isLoggedIn = uid != null;
-                final hasVoted = voteValue == 'yes' || voteValue == 'no';
-                final isButtonsEnabled = isLoggedIn && !_isSubmittingVerification && !hasVoted;
-                return Row(
-                  children: [
-                    Expanded(
-                      child: VerifyActionButton(
-                        icon: Icons.thumb_up_outlined,
-                        successIcon: Icons.thumb_up,
-                        label: 'Doğrula',
-                        count: totalVerified,
-                        color: AppColors.success,
-                        isPositive: true,
-                        isSelected: voteValue == 'yes',
-                        isEnabled: isButtonsEnabled,
-                        isLoading: _isSubmittingVerification,
-                        successSignal: _verifySuccessSignal,
-                        onTap: () => _verifyLatestPrice(latestPrice, true),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: VerifyActionButton(
-                        icon: Icons.thumb_down_outlined,
-                        successIcon: Icons.thumb_down,
-                        label: 'Yanlış',
-                        count: totalUnverified,
-                        color: AppColors.error,
-                        isPositive: false,
-                        isSelected: voteValue == 'no',
-                        isEnabled: isButtonsEnabled,
-                        isLoading: _isSubmittingVerification,
-                        successSignal: _rejectSuccessSignal,
-                        onTap: () => _verifyLatestPrice(latestPrice, false),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          if (latestPrice != null)
-            StreamBuilder<String?>(
-              stream: uid == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(latestPrice.id, uid),
-              builder: (context, snapshot) {
-                final hasVoted = snapshot.data == 'yes' || snapshot.data == 'no';
-                if (uid == null) {
-                  return const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.sm),
-                    child: Text('Doğrulamak için giriş yap', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  );
-                }
-                if (hasVoted) {
-                  return const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.sm),
-                    child: Chip(
-                      label: Text('Oy verdin'),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          if (latestPrice != null) const SizedBox(height: AppSpacing.md),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            child: Stack(
-              children: [
-                Container(height: 8, width: double.infinity, color: AppColors.error.withOpacity(0.2)),
-                FractionallySizedBox(
-                  widthFactor: verificationRate,
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(AppRadius.full)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            total > 0 ? '%${(verificationRate * 100).toStringAsFixed(0)} doğrulandı' : 'Henüz doğrulama yapılmadı',
-            style: TextStyle(fontSize: 12, color: total > 0 ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _verifyLatestPrice(PriceModel price, bool isVerified) async {
-    final user = ref.read(userModelStreamProvider).valueOrNull;
-    if (user == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dogrulama icin giris yapmalisiniz'), behavior: SnackBarBehavior.floating),
-        );
-      }
-      return;
-    }
-
-    final service = ref.read(firestoreServiceProvider);
-    if (_isSubmittingVerification) return;
-
-    setState(() {
-      _isSubmittingVerification = true;
-    });
-
-    try {
-      final ownerUid = (price.createdByUid ?? price.userId).trim();
-      final result = await service.voteOnPrice(
-        priceId: price.id,
-        priceOwnerUid: ownerUid,
-        vote: isVerified ? 1 : -1,
-        voterUid: user.uid,
-      );
-      if (result.status == PriceVoteStatus.alreadyVoted) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Zaten oy verdin'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      if (result.status == PriceVoteStatus.selfVoteBlocked) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Kendi eklediğin fiyatı doğrulayamazsın.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      if (result.status == PriceVoteStatus.ignored) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('İşlem başarısız, tekrar dene.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-
-      setState(() {
-        _localVerifyUpCount = result.upCount;
-        _localVerifyDownCount = result.downCount;
-      });
-
-      if (isVerified) {
-        _verifySuccessSignal.value++;
-      } else {
-        _rejectSuccessSignal.value++;
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isVerified ? 'Doğruladın +2 puan' : 'Yanlış dedin +2 puan'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: isVerified ? AppColors.success : AppColors.error,
-        ),
-      );
-    } catch (e) {
-      debugPrint('verifyLatestPrice failed: $e');
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('İşlem başarısız, tekrar dene.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmittingVerification = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _tryDeletePrice(PriceModel price) async {
-    final user = ref.read(userModelStreamProvider).valueOrNull;
-    if (user == null) return;
-    final ownerUid = (price.createdByUid ?? price.userId).trim();
-    final canDelete = user.isAdmin || user.role == 'admin' || ownerUid == user.uid;
-    if (!canDelete) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu fiyatı silme yetkiniz yok.')));
-      }
-      return;
-    }
-    await ref.read(firestoreServiceProvider).softDeletePrice(priceId: price.id, deletedByUid: user.uid);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiyat silindi.')));
-    }
-  }
-
-  void _showReportPriceDialog(PriceModel price) {
-    final reasons = ['Yanlis fiyat', 'Yanlis magaza', 'Sahte giriş', 'Diger'];
-    String? selectedReason;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: const Row(children: [
-            Icon(Icons.flag_outlined, color: AppColors.error, size: 22),
-            SizedBox(width: 8),
-            Text('Fiyati Raporla'),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: reasons.map((r) => RadioListTile<String>(
-              title: Text(r, style: const TextStyle(fontSize: 14)),
-              value: r,
-              groupValue: selectedReason,
-              activeColor: AppColors.primary,
-              onChanged: (val) => setDialogState(() => selectedReason = val),
-            )).toList(),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: selectedReason == null ? null : () async {
-                final user = ref.read(userModelStreamProvider).valueOrNull;
-                if (user != null) {
-                  await ref.read(firestoreServiceProvider).reportPrice(
-                        priceId: price.id,
-                        userId: user.uid,
-                        reason: selectedReason!,
-                        contextId: widget.productId,
-                      );
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rapor gonderildi'), behavior: SnackBarBehavior.floating),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              child: const Text('Raporla', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showReportCommentDialog(CommentModel comment) {
-    final reasons = ['Uygunsuz icerik', 'Spam', 'Kufur/hakaret', 'Diger'];
-    String? selectedReason;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: const Row(children: [
-            Icon(Icons.flag_outlined, color: AppColors.error, size: 22),
-            SizedBox(width: 8),
-            Text('Yorumu Raporla'),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: reasons.map((r) => RadioListTile<String>(
-              title: Text(r, style: const TextStyle(fontSize: 14)),
-              value: r,
-              groupValue: selectedReason,
-              activeColor: AppColors.primary,
-              onChanged: (val) => setDialogState(() => selectedReason = val),
-            )).toList(),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Iptal')),
-            ElevatedButton(
-              onPressed: selectedReason == null ? null : () async {
-                final user = ref.read(userModelStreamProvider).valueOrNull;
-                if (user != null) {
-                  await ref.read(firestoreServiceProvider).reportComment(
-                        commentId: comment.id,
-                        userId: user.uid,
-                        reason: selectedReason!,
-                        contextId: comment.productId,
-                      );
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rapor gonderildi'), behavior: SnackBarBehavior.floating),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              child: const Text('Raporla', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentsSection(
-    BuildContext context,
-    List<CommentModel> comments, {
-    String? highlightedCommentId,
-  }) {
-    return Column(
-      children: [
-        if (comments.isEmpty)
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Container(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: const Center(
-              child: Column(
-                children: [
-                  Icon(Icons.comment_outlined,
-                      size: 48, color: AppColors.textTertiary),
-                  SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Henuz yorum yok',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+            child: Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400, fontWeight: FontWeight.w600, fontSize: 12)),
+          ),
+          Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+        ]),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(p.store, style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
+          Text('${p.price.toStringAsFixed(0)}₺', style: GoogleFonts.dmSans(fontSize: 48, fontWeight: FontWeight.w700, color: Colors.white)),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Ekleyen:', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+            const SizedBox(height: 3),
+            ShaderMask(
+              shaderCallback: (rect) => const LinearGradient(colors: [Color(0xFFE0F7FA), Color(0xFF00F2FE)]).createShader(rect),
+              child: Row(children: [
+                const Icon(Icons.diamond, color: Colors.white, size: 16),
+                const SizedBox(width: 4),
+                Text('${p.userTier} • ${p.userName}', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700)),
+              ]),
             ),
-          )
-        else
-          ...comments.map((comment) {
-            final isHighlighted =
-                highlightedCommentId != null && comment.id == highlightedCommentId;
-            return Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: isHighlighted
-                    ? AppColors.primary.withOpacity(0.06)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                border: Border.all(
-                  color: isHighlighted ? AppColors.primary : AppColors.outline,
-                  width: isHighlighted ? 1.5 : 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: comment.userPhotoUrl != null
-                            ? ClipOval(
-                                child: Image.network(
-                                  comment.userPhotoUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Center(
-                                    child: Text(
-                                      comment.userName.isNotEmpty
-                                          ? comment.userName[0]
-                                          : 'A',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : Center(
-                                child: Text(
-                                  comment.userName.isNotEmpty
-                                      ? comment.userName[0]
-                                      : 'A',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  comment.userName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                if (comment.authorRole == 'admin') ...[
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.verified,
-                                    size: 14,
-                                    color: Colors.blue,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            Text(
-                              _formatTimeAgo(comment.createdAt),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _showReportCommentDialog(comment),
-                        child: const Icon(Icons.flag_outlined,
-                            size: 16, color: AppColors.textTertiary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    comment.text,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          ]),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _amber600, foregroundColor: Colors.white),
+            onPressed: () async {
+              if (p.storeUrl.isEmpty) return;
+              await launchUrl(Uri.parse(p.storeUrl), mode: LaunchMode.externalApplication);
+            },
+            child: const Text('Mağazaya Git'),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: isVoting ? null : () => notifier.votePrice(priceId: p.id, isApproved: true),
+              icon: const Icon(Icons.thumb_up_alt_outlined),
+              label: Text('Doğrula (${p.upVotes})'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: isVoting ? null : () => notifier.votePrice(priceId: p.id, isApproved: false),
+              icon: const Icon(Icons.thumb_down_alt_outlined),
+              label: Text('Yanlış (${p.downVotes})'),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
 
-        const SizedBox(height: AppSpacing.sm),
+  Widget _buildStats(PriceStats stats) {
+    Widget item(String t, String v, {Color? bg, Color? valueColor}) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: bg ?? _cream200, borderRadius: BorderRadius.circular(18)),
+            child: Column(children: [
+              Text(t, style: GoogleFonts.inter(fontSize: 12, color: _brown500), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(v, style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor ?? _brown900)),
+            ]),
+          ),
+        );
+    return Row(children: [
+      item('En Düşük Fiyat', '${stats.lowest.toStringAsFixed(0)}₺', bg: const Color(0xFFFFF8E1), valueColor: const Color(0xFF2E7D32)),
+      const SizedBox(width: 10),
+      item('Ortalama', '${stats.average.toStringAsFixed(2)}₺'),
+      const SizedBox(width: 10),
+      item('En Yüksek', '${stats.highest.toStringAsFixed(0)}₺'),
+    ]);
+  }
+
+  Widget _buildHistoryCard(List<PriceHistoryPoint> history) {
+    if (history.isEmpty) {
+      return _card(child: Text('Fiyat geçmişi bulunamadı.', style: GoogleFonts.inter()));
+    }
+    final spots = history.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.price)).toList();
+    final minY = history.map((e) => e.price).reduce((a, b) => a < b ? a : b);
+    final maxY = history.map((e) => e.price).reduce((a, b) => a > b ? a : b);
+
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _titleRow('Fiyat Geçmişi', 'Son 30 gün'),
+        const SizedBox(height: 14),
         SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _showAddCommentDialog(context),
-            icon: const Icon(Icons.add_comment_outlined, size: 18),
-            label: const Text('Yorum Ekle'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: AppColors.primary, width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+          height: 180,
+          child: LineChart(
+            LineChartData(
+              minY: (minY * 0.9),
+              maxY: (maxY * 1.1),
+              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: (maxY - minY) / 3),
+              titlesData: FlTitlesData(
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 34, getTitlesWidget: (v, _) => Text('${v.toInt()}₺', style: GoogleFonts.dmSans(fontSize: 10, color: _brown500)))),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    interval: (spots.length / 2).clamp(1, spots.length).toDouble(),
+                    getTitlesWidget: (v, _) {
+                      final i = v.toInt();
+                      if (i < 0 || i >= history.length) return const SizedBox.shrink();
+                      return Text(history[i].dateLabel, style: GoogleFonts.inter(fontSize: 10, color: _brown500));
+                    },
+                  ),
+                ),
               ),
+              borderData: FlBorderData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  barWidth: 4,
+                  color: _amber600,
+                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [_amber600.withOpacity(0.35), _amber600.withOpacity(0.0)])),
+                  dotData: FlDotData(
+                    show: true,
+                    checkToShowDot: (spot, barData) => spot == spots.last,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 5, color: _amber600, strokeWidth: 2, strokeColor: Colors.white),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ]),
     );
   }
 
-  void _shareProduct(ProductModel product) {
-    final productName =
-        product.name.trim().isEmpty ? 'Ürün' : product.name.trim();
-    final currentPrice =
-        product.lastPrice != null ? formatTRY(product.lastPrice!) : 'Fiyat yok';
-    final store = (product.lastStore ?? '').trim().isNotEmpty
-        ? product.lastStore!.trim()
-        : 'Mağaza bilinmiyor';
-    final message = "FiyatRadar'da $productName'ı $store'da $currentPrice'ye buldum!\n"
-        'Uygulamayı indir: https://fiyatradar.app';
-
-    Share.share(message);
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} dakika once';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} saat once';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} gun once';
-    } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    }
-  }
-
-  String _formatPrice(double price) => formatTRYWhole(price);
-
-  String _displayPriceSourceName(PriceModel price) {
-    final raw = (price.storeName ?? '').trim();
-    return raw.isNotEmpty ? raw : 'Mağaza';
-  }
-
-  String _formatPriceShort(double price) => formatTRYWhole(price);
-
-  Future<_ContributorUserMini> _getContributorUserMini(PriceModel price) {
-    final uid = (price.createdByUid ?? price.userId).trim();
-    final rawFallbackName = (price.addedByDisplayName ?? '').trim();
-    final fallbackName = rawFallbackName.isEmpty ? 'Kullanıcı' : rawFallbackName;
-    final fallback = _ContributorUserMini.fallback(name: fallbackName);
-
-    if (uid.isEmpty) {
-      return Future<_ContributorUserMini>.value(fallback);
-    }
-
-    final cached = _contributorUserCache[uid];
-    if (cached != null) {
-      return Future<_ContributorUserMini>.value(cached);
-    }
-
-    final pending = _contributorUserFutureCache[uid];
-    if (pending != null) {
-      return pending;
-    }
-
-    final future = FirebaseFirestore.instance.collection('users').doc(uid).get().then((doc) {
-      final data = doc.data() ?? const <String, dynamic>{};
-      final displayNameRaw = ((data['name'] ?? data['displayName'] ?? fallbackName).toString()).trim();
-      final displayName = displayNameRaw.isEmpty ? 'Kullanıcı' : displayNameRaw;
-      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
-      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? 0).clamp(0, 100);
-      final trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
-      final level = LevelStyle.fromFinalLevel(totalPoints: totalPoints, trustPercent: trustPercent, totalVotes: trustTotalVotes);
-
-      final mini = _ContributorUserMini(displayName: displayName, level: level);
-      _contributorUserCache[uid] = mini;
-      return mini;
-    }).catchError((_) => fallback).whenComplete(() {
-      _contributorUserFutureCache.remove(uid);
-    });
-
-    _contributorUserFutureCache[uid] = future;
-    return future;
-  }
-
-
-  Color _colorForCategory(String category) {
-    switch (category) {
-      case 'Elektronik':
-        return AppColors.primary;
-      case 'Gida':
-        return AppColors.secondary;
-      case 'Temizlik':
-        return AppColors.info;
-      case 'Kisisel Bakim':
-        return AppColors.accent;
-      case 'Ev & Yasam':
-        return AppColors.secondaryDark;
-      case 'Giyim':
-        return AppColors.error;
-      case 'Spor':
-        return AppColors.primaryDark;
-      case 'Oyuncak':
-        return AppColors.accentDark;
-      case 'Kitap':
-        return AppColors.primaryLight;
-      case 'Otomotiv':
-        return AppColors.secondaryLight;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  IconData _iconForCategory(String category) {
-    switch (category) {
-      case 'Elektronik':
-        return Icons.devices;
-      case 'Gida':
-        return Icons.restaurant;
-      case 'Temizlik':
-        return Icons.cleaning_services;
-      case 'Kisisel Bakim':
-        return Icons.face;
-      case 'Ev & Yasam':
-        return Icons.home;
-      case 'Giyim':
-        return Icons.checkroom;
-      case 'Spor':
-        return Icons.sports;
-      case 'Oyuncak':
-        return Icons.toys;
-      case 'Kitap':
-        return Icons.book;
-      case 'Otomotiv':
-        return Icons.directions_car;
-      default:
-        return Icons.category;
-    }
-  }
-
-
-}
-
-
-class _ContributorUserMini {
-  const _ContributorUserMini({required this.displayName, required this.level});
-
-  final String displayName;
-  final UserLevel level;
-
-  factory _ContributorUserMini.fallback({required String name}) {
-    final displayName = name.trim().isEmpty ? 'Kullanıcı' : name.trim();
-    return _ContributorUserMini(displayName: displayName, level: LevelStyle.fromTotalPoints(0));
-  }
-}
-
-class _BranchStoreData {
-  final String branchStoreId;
-  final String? chainId;
-  final String? displayName;
-  final String? neighborhood;
-  final String? district;
-  final String? city;
-  final double? lat;
-  final double? lng;
-  final bool isOnline;
-
-  const _BranchStoreData({
-    required this.branchStoreId,
-    this.chainId,
-    this.displayName,
-    this.neighborhood,
-    this.district,
-    this.city,
-    this.lat,
-    this.lng,
-    this.isOnline = false,
-  });
-
-  bool get hasCoordinates => lat != null && lng != null && lat != 0 && lng != 0;
-
-  String get mapsQuery {
-    if (isOnline) return '';
-
-    final queryParts = [displayName, neighborhood, district, city]
-        .where((part) => part != null && part!.trim().isNotEmpty)
-        .map((part) => part!.trim())
-        .toList();
-
-    return queryParts.join(' ');
-  }
-
-  bool get hasMapsQuery => mapsQuery.isNotEmpty;
-}
-
-
-class _ContributorUserChip extends StatelessWidget {
-  const _ContributorUserChip({
-    required this.username,
-    required this.level,
-    required this.onTap,
-  });
-
-  final String username;
-  final UserLevel level;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: level.badgeBackground,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: level.badgeBorder),
+  Widget _buildCommunityCard(ProductDetailResponse data, ProductDetailNotifier notifier, bool isVoting) {
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Topluluk Merkezi', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: _brown900)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+            child: Text('%${data.trust.scorePercent} Güvenilir', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF2E7D32))),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(level.emoji, style: TextStyle(fontWeight: FontWeight.w700, color: level.badgeForeground)),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  username,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: level.badgeForeground),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(value: data.trust.scorePercent / 100, minHeight: 8, color: const Color(0xFF2E7D32), backgroundColor: _cream300),
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: ElevatedButton.icon(onPressed: isVoting ? null : () => notifier.votePrice(priceId: data.bestPrice.id, isApproved: true), icon: const Icon(Icons.thumb_up_outlined), label: Text('Doğrula (${data.trust.approveCount})'))),
+          const SizedBox(width: 8),
+          Expanded(child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFEBEE), foregroundColor: const Color(0xFFC62828)), onPressed: isVoting ? null : () => notifier.votePrice(priceId: data.bestPrice.id, isApproved: false), icon: const Icon(Icons.thumb_down_outlined), label: Text('Yanlış (${data.trust.rejectCount})'))),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildCommentsSection(ProductDetailState state, ProductDetailNotifier notifier) {
+    final data = state.data!;
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _titleRow('Son Yorumlar', '${data.comments.length} Yorum'),
+        const SizedBox(height: 12),
+        ...data.comments.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                CircleAvatar(backgroundColor: _hexColor(c.avatarBgHex), child: Text(c.author.isNotEmpty ? c.author[0] : '?', style: GoogleFonts.poppins(color: Colors.white))),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: _cream200, borderRadius: const BorderRadius.only(topRight: Radius.circular(16), bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text(c.author, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: _brown900)),
+                        Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 11, color: _brown500)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(c.text, style: GoogleFonts.inter(fontSize: 13, color: _brown700)),
+                    ]),
+                  ),
+                ),
+              ]),
+            )),
+        Row(children: [
+          const CircleAvatar(backgroundColor: _cream200, child: Icon(Icons.person, color: _brown700)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              style: GoogleFonts.inter(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Bir yorum yaz...',
+                hintStyle: GoogleFonts.inter(fontSize: 13),
+                filled: true,
+                fillColor: Colors.white,
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: _cream300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: _amber400)),
+                suffixIcon: IconButton(
+                  onPressed: state.isSubmittingComment
+                      ? null
+                      : () async {
+                          final text = _commentController.text.trim();
+                          if (text.isEmpty) return;
+                          final ok = await notifier.postComment(text);
+                          if (ok) _commentController.clear();
+                        },
+                  icon: state.isSubmittingComment
+                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send, color: _amber600),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        ]),
+      ]),
     );
+  }
+
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: _brown900.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 6))]),
+      child: child,
+    );
+  }
+
+  Widget _titleRow(String title, String subtitle) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: _brown900)),
+      Text(subtitle, style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
+    ]);
+  }
+
+  Color _hexColor(String hex) {
+    final clean = hex.replaceFirst('#', '');
+    if (clean.length == 6) return Color(int.parse('FF$clean', radix: 16));
+    return _amber600;
   }
 }
