@@ -99,11 +99,11 @@ class ProductDetailApiService {
       final snapshot = await _pricesRef
           .where('productId', isEqualTo: productId)
           .where('status', isEqualTo: 'active')
-          .where('reportedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
           .get();
 
       final points = snapshot.docs
           .map(PriceModel.fromFirestore)
+          .where((price) => !price.reportedAt.isBefore(since))
           .toList()
         ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
 
@@ -113,6 +113,7 @@ class ProductDetailApiService {
             (price) => PriceHistoryPoint(
               dateLabel: formatter.format(price.reportedAt),
               price: price.price,
+              reportedAt: price.reportedAt,
             ),
           )
           .toList(growable: false);
