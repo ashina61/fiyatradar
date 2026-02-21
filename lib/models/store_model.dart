@@ -158,7 +158,7 @@ class StoreModel {
       return (directLat, directLng);
     }
 
-    final geoPoint = data['geoPoint'] ?? data['location'] ?? data['coordinates'];
+    final geoPoint = data['geoPoint'] ?? data['location'] ?? data['coordinates'] ?? data['geo'];
     if (geoPoint is GeoPoint) {
       return (geoPoint.latitude, geoPoint.longitude);
     }

@@ -22,6 +22,9 @@ class PriceModel {
   final String? productName;
   final String? userName;
   final String? storeName;
+  final String? selectedProductId;
+  final String? selectedCategoryId;
+  final String? selectedStoreId;
   final String? storeLocation;
   final GeoPoint? geoPoint;
   final List<String> images;
@@ -64,6 +67,9 @@ class PriceModel {
     this.productName,
     this.userName,
     this.storeName,
+    this.selectedProductId,
+    this.selectedCategoryId,
+    this.selectedStoreId,
     this.storeLocation,
     this.geoPoint,
     this.images = const [],
@@ -165,6 +171,9 @@ class PriceModel {
       productName: data['productName'] as String?,
       userName: data['userName'] as String?,
       storeName: data['storeName'] as String?,
+      selectedProductId: data['selectedProductId'] as String?,
+      selectedCategoryId: data['selectedCategoryId'] as String?,
+      selectedStoreId: data['selectedStoreId'] as String?,
       storeLocation: data['storeLocation'] as String?,
       geoPoint: data['geoPoint'] as GeoPoint?,
       images: imageList,
@@ -222,6 +231,9 @@ class PriceModel {
       'productName': productName,
       'userName': userName,
       'storeName': storeName,
+      'selectedProductId': selectedProductId,
+      'selectedCategoryId': selectedCategoryId,
+      'selectedStoreId': selectedStoreId ?? branchStoreId,
       'storeLocation': storeLocation,
       'geoPoint': geoPoint,
       'images': mergedImages,
@@ -267,6 +279,9 @@ class PriceModel {
     String? productName,
     String? userName,
     String? storeName,
+    String? selectedProductId,
+    String? selectedCategoryId,
+    String? selectedStoreId,
     String? storeLocation,
     GeoPoint? geoPoint,
     List<String>? images,
@@ -309,6 +324,9 @@ class PriceModel {
       productName: productName ?? this.productName,
       userName: userName ?? this.userName,
       storeName: storeName ?? this.storeName,
+      selectedProductId: selectedProductId ?? this.selectedProductId,
+      selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
+      selectedStoreId: selectedStoreId ?? this.selectedStoreId,
       storeLocation: storeLocation ?? this.storeLocation,
       geoPoint: geoPoint ?? this.geoPoint,
       images: images ?? this.images,

@@ -11,7 +11,7 @@ class Store {
   final String id;
   final String name;
   final String type;
-  final int distanceMeters;
+  final int? distanceMeters;
   final String logoUrl;
   final String? subtitle;
 
@@ -20,7 +20,7 @@ class Store {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       type: json['type'] as String? ?? 'nearby',
-      distanceMeters: (json['distance_meters'] as num?)?.toInt() ?? 0,
+      distanceMeters: (json['distance_meters'] as num?)?.toInt(),
       logoUrl: json['logoUrl'] as String? ?? '',
       subtitle: json['subtitle'] as String?,
     );

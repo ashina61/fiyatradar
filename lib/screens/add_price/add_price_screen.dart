@@ -541,6 +541,23 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
             ),
           ),
         ],
+        if (state.productName.trim().length >= 2 &&
+            _productFocus.hasFocus &&
+            state.productSuggestions.isEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline.withOpacity(0.25)),
+            ),
+            child: const Text(
+              'Urun bulunamadi',
+              style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+            ),
+          ),
+        ],
         // Barcode badge
         if (state.barcode != null) ...[
           const SizedBox(height: 8),
@@ -751,6 +768,26 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
         ),
         const SizedBox(height: 12),
+        if (state.locationMessage != null && state.isNearbyMode) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withOpacity(0.45),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.outline.withOpacity(0.25)),
+            ),
+            child: Text(
+              state.locationMessage!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Search field
         ClipRRect(
@@ -1285,6 +1322,12 @@ class _StoreCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  String _formatDistance(int? meters) {
+    if (meters == null) return '—';
+    if (meters < 1000) return '${meters} m';
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
   Color _storeColor() {
     switch (store.id) {
       case 'bim':
@@ -1394,12 +1437,12 @@ class _StoreCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (store.type != 'online' && store.distanceMeters > 0) ...[
+                      if (store.type != 'online') ...[
                         Icon(Icons.near_me_rounded,
                             size: 12, color: AppColors.textTertiary),
                         const SizedBox(width: 4),
                         Text(
-                          '${store.distanceMeters}m',
+                          _formatDistance(store.distanceMeters),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
