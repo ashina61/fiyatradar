@@ -478,6 +478,40 @@ class FirestoreService {
         .toList();
   }
 
+  Future<List<ProductModel>> searchProductsByPrefix(
+    String query, {
+    int limit = 5,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const [];
+
+    final queryLower = trimmed.toLowerCase();
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+
+    try {
+      snapshot = await _productsRef
+          .orderBy('nameLower')
+          .startAt([queryLower])
+          .endAt(['$queryLower\uf8ff'])
+          .limit(limit)
+          .get();
+    } catch (_) {
+      snapshot = await _productsRef
+          .orderBy('name')
+          .startAt([trimmed])
+          .endAt(['$trimmed\uf8ff'])
+          .limit(limit)
+          .get();
+    }
+
+    final products = snapshot.docs
+        .map((doc) => ProductModel.fromFirestore(doc))
+        .where((product) => product.name.trim().isNotEmpty)
+        .toList(growable: false);
+
+    return products.take(limit).toList(growable: false);
+  }
+
   Future<ProductModel?> getProduct(String productId) async {
     final doc = await _productsRef.doc(productId).get();
     if (doc.exists) {

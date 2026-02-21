@@ -26,6 +26,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   final _productController = TextEditingController();
   final _searchController = TextEditingController();
   final _priceFocus = FocusNode();
+  final _productFocus = FocusNode();
 
   late final TabController _tabController;
   late final AnimationController _headerAnimController;
@@ -71,6 +72,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     _productController.dispose();
     _searchController.dispose();
     _priceFocus.dispose();
+    _productFocus.dispose();
     _headerAnimController.dispose();
     _priceGlowController.dispose();
     super.dispose();
@@ -107,9 +109,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
 
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Stack(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        notifier.clearProductSuggestions();
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: Stack(
         children: [
           // Ambient gradient orbs (like home screen)
           Positioned(
@@ -184,6 +192,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           // Bottom action
           _buildBottomAction(state, theme, bottomSafe),
         ],
+        ),
       ),
     );
   }
@@ -426,7 +435,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               Expanded(
                 child: TextField(
                   controller: _productController,
-                  onChanged: notifier.setProductName,
+                  focusNode: _productFocus,
+                  onChanged: notifier.onProductInputChanged,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -440,6 +450,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     hintStyle: TextStyle(color: AppColors.textHint),
                     contentPadding:
                         const EdgeInsets.symmetric(vertical: 16),
+                    suffixIcon: state.productName.trim().isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _productController.clear();
+                              notifier.onProductInputChanged('');
+                            },
+                            splashRadius: 16,
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -463,6 +487,60 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
             ],
           ),
         ),
+        if (_productFocus.hasFocus && state.productSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline.withOpacity(0.35)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              itemCount: state.productSuggestions.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: AppColors.outline.withOpacity(0.2),
+              ),
+              itemBuilder: (context, index) {
+                final suggestion = state.productSuggestions[index];
+                final detail = [
+                  if (suggestion.brand.trim().isNotEmpty) suggestion.brand.trim(),
+                  ...suggestion.categories.take(1),
+                ].join(' • ');
+                return ListTile(
+                  dense: true,
+                  visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
+                  title: Text(
+                    suggestion.name,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: detail.isEmpty
+                      ? null
+                      : Text(
+                          detail,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                  onTap: () {
+                    notifier.selectProductSuggestion(suggestion);
+                    _productFocus.unfocus();
+                  },
+                );
+              },
+            ),
+          ),
+        ],
         // Barcode badge
         if (state.barcode != null) ...[
           const SizedBox(height: 8),
@@ -515,16 +593,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
             final icon = _categoryIcons[category.title] ?? Icons.label_rounded;
             return PremiumPressable(
               borderRadius: BorderRadius.circular(14),
-              onTap: () => notifier.setCategory(category),
+              onTap: state.lockedCategoryByProduct ? null : () => notifier.setCategory(category),
               child: AnimatedContainer(
                 duration: MotionTokens.fast,
                 curve: MotionTokens.standard,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary.withOpacity(0.1)
-                      : AppColors.surface,
+                  color: state.lockedCategoryByProduct && !isSelected
+                      ? AppColors.surfaceVariant.withOpacity(0.5)
+                      : (isSelected
+                          ? AppColors.primary.withOpacity(0.1)
+                          : AppColors.surface),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isSelected
@@ -580,6 +660,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
             );
           }).toList(),
         ),
+
+        if (state.lockedCategoryByProduct) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Kategori secilen urune gore kilitlendi.',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textTertiary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -959,10 +1051,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   Future<void> _scanBarcode() async {
     final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
     if (barcode != null && mounted) {
-      ref.read(addPriceProvider.notifier).setBarcode(barcode);
+      final knownProduct = await ref.read(addPriceProvider.notifier).applyScannedBarcode(barcode);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Barkod okundu: $barcode'),
+          content: Text(
+            knownProduct
+                ? 'Barkod okundu ve urun secildi: $barcode'
+                : 'Barkod okundu: $barcode',
+          ),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
