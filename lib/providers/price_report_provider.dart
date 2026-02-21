@@ -132,16 +132,17 @@ class AddPriceState {
         : source
             .where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase()))
             .toList(growable: false);
-    final ordered = isNearbyMode
-        ? [...filtered]..sort((a, b) {
-            final ad = a.distanceMeters;
-            final bd = b.distanceMeters;
-            if (ad != null && bd != null) return ad.compareTo(bd);
-            if (ad != null) return -1;
-            if (bd != null) return 1;
-            return 0;
-          })
-        : filtered;
+    final ordered = List<Store>.of(filtered);
+    if (isNearbyMode) {
+      ordered.sort((a, b) {
+        final ad = a.distanceMeters;
+        final bd = b.distanceMeters;
+        if (ad != null && bd != null) return ad.compareTo(bd);
+        if (ad != null) return -1;
+        if (bd != null) return 1;
+        return 0;
+      });
+    }
     return ordered.take(5).toList(growable: false);
   }
 }
