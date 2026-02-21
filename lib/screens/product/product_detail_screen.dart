@@ -60,7 +60,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     _heroFloatController =
         AnimationController(vsync: this, duration: const Duration(seconds: 4))
           ..repeat(reverse: true);
-    _heroFloat = Tween<double>(begin: 0, end: -15).animate(
+    _heroFloat = Tween<double>(begin: 0, end: -10).animate(
       CurvedAnimation(parent: _heroFloatController, curve: Curves.easeInOut),
     );
     _chartPulseController = AnimationController(
@@ -137,20 +137,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                               ),
                               Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(20, 20, 20, 116),
+                                    const EdgeInsets.fromLTRB(24, 30, 24, 116),
                                 child: Column(
                                   children: [
                                     _buildHeader(state.data!),
-                                    const SizedBox(height: 32),
-                                    _buildPriceCard(state.data!, state.isSubmittingVote),
-                                    const SizedBox(height: 32),
-                                    _buildQuickStats(state.data!),
-                                    const SizedBox(height: 32),
-                                    _buildChart(state.history),
-                                    const SizedBox(height: 32),
-                                    _buildCommunityHub(state.data!, notifier, state.isSubmittingVote),
-                                    const SizedBox(height: 32),
-                                    _buildComments(state, notifier),
+                                    const SizedBox(height: 30),
+                                    BestPriceCard(data: state.data!, isVoting: state.isSubmittingVote),
+                                    const SizedBox(height: 28),
+                                    QuickStatsRow(stats: state.data!.stats),
+                                    const SizedBox(height: 28),
+                                    PriceHistoryPanel(history: state.history, pulseAnimation: _chartPulse),
+                                    const SizedBox(height: 28),
+                                    CommunityPanel(data: state.data!, notifier: notifier, isVoting: state.isSubmittingVote),
+                                    const SizedBox(height: 28),
+                                    CommentsPanel(state: state, notifier: notifier, controller: _commentController, productId: widget.productId),
                                   ],
                                 ),
                               ),
@@ -165,31 +165,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   }
 
   Widget _buildHeader(ProductDetailResponse data) => HeaderBlock(data: data);
-
-  Widget _buildPriceCard(ProductDetailResponse data, bool isVoting) {
-    return BestPriceCard(data: data, isVoting: isVoting);
-  }
-
-  Widget _buildQuickStats(ProductDetailResponse data) {
-    return QuickStatsRow(stats: data.stats);
-  }
-
-  Widget _buildChart(List<PriceHistoryPoint> history) {
-    return PriceHistoryPanel(history: history, pulseAnimation: _chartPulse);
-  }
-
-  Widget _buildCommunityHub(ProductDetailResponse data, ProductDetailNotifier notifier, bool isVoting) {
-    return CommunityPanel(data: data, notifier: notifier, isVoting: isVoting);
-  }
-
-  Widget _buildComments(ProductDetailState state, ProductDetailNotifier notifier) {
-    return CommentsPanel(
-      state: state,
-      notifier: notifier,
-      controller: _commentController,
-      productId: widget.productId,
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -287,7 +262,6 @@ class HeaderBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Badges ──
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -305,8 +279,6 @@ class HeaderBlock extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-
-        // ── Title ──
         Text(
           data.title,
           style: GoogleFonts.poppins(
@@ -317,8 +289,6 @@ class HeaderBlock extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-
-        // ── Meta row ──
         Row(
           children: [
             const Icon(Icons.visibility_outlined, size: 16, color: _brown500),
@@ -386,7 +356,7 @@ class _Badge extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// BEST PRICE CARD
+// BEST PRICE CARD (CodePen Birebir Klonu - Premium Design)
 // ═══════════════════════════════════════════════════════════════════
 class BestPriceCard extends ConsumerWidget {
   const BestPriceCard({super.key, required this.data, required this.isVoting});
@@ -401,104 +371,165 @@ class BestPriceCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_brown900, _brown700],
+          colors: [Color(0xFF8B6450), Color(0xFF5D4037)], 
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: const Color(0xFF5D4037).withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            top: -36,
-            right: -36,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.amber.withOpacity(0.2),
-                    blurRadius: 80,
-                    spreadRadius: 10,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400)),
-              const SizedBox(height: 16),
-              Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
-              const SizedBox(height: 8),
-              Text(
-                '$priceText₺',
-                style: GoogleFonts.dmSans(
-                  fontSize: 48,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _VipContributorChip(bestPrice: p),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      final service = ref.read(productDetailApiServiceProvider);
-                      final coords = await service.resolveStoreCoordinates(p);
-                      if (coords == null) return;
-
-                      final uri = Uri.parse(
-                        'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
-                      );
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _amber600,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Text('Mağazaya Git', style: TextStyle(color: Colors.white)),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward, size: 16, color: Colors.white),
-                        ],
+                child: Row(
+                  children: [
+                    const Text('👑', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'En İyi Fiyat',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFFFFD54F),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
                       ),
                     ),
+                  ],
+                ),
+              ),
+              Text(
+                p.createdAtLabel,
+                style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      p.store.isNotEmpty ? p.store[0].toUpperCase() : 'M',
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF00B1E7), 
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      p.store,
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF5D4037),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    priceText,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 48,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -1,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () async {
-                      final user = ref.read(authStateProvider).valueOrNull;
-                      if (user == null) return;
-                      await ref.read(firestoreServiceProvider).reportPrice(
-                        priceId: p.id,
-                        userId: user.uid,
-                        reason: 'Ürün detay fiyat raporu',
-                        contextId: data.id,
-                      );
-                    },
-                    icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                  Text(
+                    '₺',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 24,
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'EKLEYEN:',
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _VipContributorChip(bestPrice: p),
+                ],
+              ),
+              GestureDetector(
+                onTap: () async {
+                  final service = ref.read(productDetailApiServiceProvider);
+                  final coords = await service.resolveStoreCoordinates(p);
+                  if (coords == null) return;
+                  final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC8956C),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Mağazaya Git',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -605,7 +636,7 @@ class _VipContributorChip extends ConsumerWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// QUICK STATS
+// QUICK STATS (CodePen Birebir Klonu)
 // ═══════════════════════════════════════════════════════════════════
 class QuickStatsRow extends StatelessWidget {
   const QuickStatsRow({super.key, required this.stats});
@@ -614,39 +645,46 @@ class QuickStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget card(String title, String value,
-        {bool highlighted = false, Color? valueColor}) {
+    String formatPrice(double price) {
+      if (price % 1 == 0) {
+        return '${price.toInt()}₺';
+      }
+      return '${price.toStringAsFixed(2).replaceAll('.', ',')}₺';
+    }
+
+    Widget statCard(String title, String value, {bool isHighlighted = false}) {
       return Expanded(
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
           decoration: BoxDecoration(
-            color: highlighted ? const Color(0xFFFFF8E1) : _cream200,
+            color: isHighlighted ? const Color(0xFFFFFDF5) : const Color(0xFFF5EDE4),
             borderRadius: BorderRadius.circular(20),
-            border: highlighted
-                ? Border.all(color: const Color(0xFFFFC107))
-                : Border.all(color: Colors.transparent),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            border: Border.all(
+              color: isHighlighted ? const Color(0xFFFFE082) : Colors.transparent,
+              width: 1.5,
+            ),
           ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(title,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: _brown500,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: GoogleFonts.dmSans(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: valueColor ?? _brown900)),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF8D6E63),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: GoogleFonts.dmSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isHighlighted ? const Color(0xFF4CAF50) : const Color(0xFF5D4037),
+                ),
+              ),
             ],
           ),
         ),
@@ -655,13 +693,11 @@ class QuickStatsRow extends StatelessWidget {
 
     return Row(
       children: [
-        card('En Düşük Fiyat', '${stats.lowest.toStringAsFixed(0)}₺',
-            highlighted: true, valueColor: _success),
+        statCard('En Düşük\nFiyat', formatPrice(stats.lowest), isHighlighted: true),
         const SizedBox(width: 12),
-        card('Ortalama',
-            '${stats.average.toStringAsFixed(2).replaceAll('.', ',')}₺'),
+        statCard('Ortalama\n', formatPrice(stats.average)),
         const SizedBox(width: 12),
-        card('En Yüksek', '${stats.highest.toStringAsFixed(0)}₺'),
+        statCard('En Yüksek\n', formatPrice(stats.highest)),
       ],
     );
   }
@@ -693,20 +729,13 @@ class PriceHistoryPanel extends StatelessWidget {
 
     final minPrice = history.map((e) => e.price).reduce(math.min);
     final maxPrice = history.map((e) => e.price).reduce(math.max);
+    
     final chartMinY = (minPrice * 0.8).floorToDouble();
     final chartMaxY = (maxPrice * 1.2).ceilToDouble();
 
-    final firstReportedAt = history.first.reportedAt;
-    final normalizedSpots = history
-        .map(
-          (point) => FlSpot(
-            point.reportedAt.difference(firstReportedAt).inHours / 24,
-            point.price,
-          ),
-        )
-        .toList();
-    final maxX = normalizedSpots.isEmpty ? 1.0 : normalizedSpots.last.x;
-    final todaySpot = normalizedSpots.isEmpty ? null : normalizedSpots.last;
+    final spots = history.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), e.value.price);
+    }).toList();
 
     return _PremiumPanel(
       child: Column(
@@ -715,151 +744,103 @@ class PriceHistoryPanel extends StatelessWidget {
           _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
           const SizedBox(height: 24),
           SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                LineChart(
-                  LineChartData(
-                    minX: 0,
-                    maxX: maxX == 0 ? 1.0 : maxX,
-                    minY: chartMinY,
-                    maxY: chartMaxY,
-                    showingTooltipIndicators: normalizedSpots.isEmpty
-                        ? []
-                        : [
-                            ShowingTooltipIndicators([
-                              LineBarSpot(
-                                LineChartBarData(spots: normalizedSpots),
-                                0,
-                                normalizedSpots.last,
-                              ),
-                            ]),
-                          ],
-                    lineTouchData: LineTouchData(
-                      enabled: false,
-                      touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (_) => const Color(0xFF5D4037),
-                        tooltipRoundedRadius: 8,
-                        getTooltipItems: (touchedSpots) {
-                          return touchedSpots
-                              .map(
-                                (spot) => LineTooltipItem(
-                                  '${spot.y.toStringAsFixed(0)}₺',
-                                  GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              )
-                              .toList();
-                        },
-                      ),
-                    ),
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval:
-                          ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
-                      getDrawingHorizontalLine: (_) =>
-                          FlLine(color: const Color(0xFFF5EDE4), strokeWidth: 1),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 22,
-                          interval: maxX <= 0 ? 1 : maxX / 2,
-                          getTitlesWidget: (value, meta) {
-                            final midLabel = history[(history.length / 2).floor()].dateLabel;
-                            final labels = <double, String>{
-                              0: history.first.dateLabel,
-                              maxX / 2: midLabel,
-                              maxX: 'Bugün',
-                            };
-                            String? label;
-                            for (final entry in labels.entries) {
-                              if ((value - entry.key).abs() < 0.5) {
-                                label = entry.value;
-                                break;
-                              }
-                            }
-                            if (label == null) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                label,
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: const Color(0xFF8D6E63),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: normalizedSpots,
-                        isCurved: true,
-                        curveSmoothness: 0.35,
-                        color: const Color(0xFFC8956C),
-                        barWidth: 4,
-                        isStrokeCapRound: true,
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              const Color(0xFFC8956C).withOpacity(0.3),
-                              const Color(0xFFC8956C).withOpacity(0),
-                            ],
-                          ),
-                        ),
-                        dotData: const FlDotData(show: false),
-                      ),
-                    ],
-                  ),
-                ),
-                if (todaySpot != null)
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final safeMaxX = maxX <= 0 ? 1.0 : maxX;
-                      final safeRangeY = (chartMaxY - chartMinY) == 0
-                          ? 1.0
-                          : (chartMaxY - chartMinY);
-                      final dx =
-                          ((todaySpot.x / safeMaxX) * constraints.maxWidth).clamp(0.0, constraints.maxWidth);
-                      final dy = (((chartMaxY - todaySpot.y) / safeRangeY) * constraints.maxHeight)
-                          .clamp(0.0, constraints.maxHeight);
-
-                      return Positioned(
-                        left: dx - 8,
-                        top: dy - 8,
-                        child: ScaleTransition(
-                          scale: pulseAnimation,
-                          child: Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: _amber600,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                      );
+            height: 180, 
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: (history.length <= 1) ? 1.0 : (history.length - 1).toDouble(),
+                minY: chartMinY,
+                maxY: chartMaxY,
+                showingTooltipIndicators: spots.isEmpty ? [] : [
+                  ShowingTooltipIndicators([
+                    LineBarSpot(
+                      LineChartBarData(spots: spots), 
+                      0, 
+                      spots.last
+                    )
+                  ])
+                ],
+                lineTouchData: LineTouchData(
+                  enabled: false, 
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => const Color(0xFF5D4037), 
+                    tooltipRoundedRadius: 8,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) => LineTooltipItem(
+                        '${spot.y.toStringAsFixed(0)}₺',
+                        GoogleFonts.dmSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      )).toList();
                     },
                   ),
-              ],
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
+                  getDrawingHorizontalLine: (_) => FlLine(color: const Color(0xFFF5EDE4), strokeWidth: 1), 
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      interval: 1, 
+                      getTitlesWidget: (value, meta) {
+                        if (value % 1 != 0) return const SizedBox.shrink();
+                        final index = value.toInt();
+                        if (index < 0 || index >= history.length) return const SizedBox.shrink();
+                        
+                        if (index != 0 && index != history.length - 1 && index != (history.length / 2).floor()) {
+                          return const SizedBox.shrink();
+                        }
+                        
+                        final label = index == history.length - 1 ? 'Bugün' : history[index].dateLabel;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.35, 
+                    color: const Color(0xFFC8956C), 
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFFC8956C).withOpacity(0.3),
+                          const Color(0xFFC8956C).withOpacity(0.0),
+                        ],
+                      ),
+                    ),
+                    dotData: FlDotData(
+                      show: true,
+                      checkToShowDot: (spot, barData) => spot.x == barData.spots.last.x,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 6,
+                          color: const Color(0xFFC8956C),
+                          strokeWidth: 3,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1091,12 +1072,10 @@ class CommentsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Section header ──
           _sectionHeader('Son Yorumlar',
               subtitle: '${allComments.length} Yorum'),
           const SizedBox(height: 16),
 
-          // ── Comment cards ──
           ...comments.map(
             (c) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -1172,7 +1151,6 @@ class CommentsPanel extends StatelessWidget {
             ),
           ),
 
-          // ── Comment input ──
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1249,7 +1227,6 @@ class CommentsPanel extends StatelessWidget {
             ],
           ),
 
-          // ── View all button ──
           if (allComments.length > 2) ...[
             const SizedBox(height: 16),
             Center(
@@ -1357,15 +1334,15 @@ class _PremiumPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(26),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: _brown900.withOpacity(0.03),
               blurRadius: 20,
-              offset: const Offset(0, 10)),
+              offset: const Offset(0, 4)),
         ],
       ),
       child: child,
@@ -1405,10 +1382,10 @@ class _GlassIconButtonState extends State<GlassIconButton> {
               height: 44,
               width: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withOpacity(0.6),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: Colors.white24, width: 0.5),
+                    color: Colors.white.withOpacity(0.5), width: 0.5),
                 boxShadow: [
                   BoxShadow(
                       color: Colors.black.withOpacity(0.05),
