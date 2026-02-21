@@ -188,6 +188,7 @@ class ProductDetailApiService {
     if (price == null) {
       return BestPrice(
         id: '',
+        userId: '',
         price: 0,
         store: '',
         userName: 'Topluluk',
@@ -198,6 +199,7 @@ class ProductDetailApiService {
         storeLocation: '',
         upVotes: 0,
         downVotes: 0,
+        userTrustScore: 0,
       );
     }
 
@@ -206,6 +208,7 @@ class ProductDetailApiService {
 
     return BestPrice(
       id: price.id,
+      userId: (price.createdByUid ?? price.userId).trim(),
       price: price.price,
       store: price.storeName ?? 'Bilinmeyen mağaza',
       userName: (price.userName ?? 'Anonim').trim().isEmpty ? 'Anonim' : price.userName!,
@@ -216,6 +219,7 @@ class ProductDetailApiService {
       storeLocation: storeLocation,
       upVotes: price.upVotes,
       downVotes: price.downVotes,
+      userTrustScore: price.addedByTrustScoreSnapshot.round(),
     );
   }
 

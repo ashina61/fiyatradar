@@ -1,5 +1,7 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -136,35 +138,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                               ),
                               Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(20, 24, 20, 100),
+                                    const EdgeInsets.fromLTRB(24, 30, 24, 116),
                                 child: Column(
                                   children: [
-                                    HeaderBlock(data: state.data!),
-                                    const SizedBox(height: 24),
-                                    BestPriceCard(
-                                      data: state.data!,
-                                      isVoting: state.isSubmittingVote,
-                                    ),
-                                    const SizedBox(height: 24),
-                                    QuickStatsRow(stats: state.data!.stats),
-                                    const SizedBox(height: 24),
-                                    PriceHistoryPanel(
-                                      history: state.history,
-                                      pulseAnimation: _chartPulse,
-                                    ),
-                                    const SizedBox(height: 24),
-                                    CommunityPanel(
-                                      data: state.data!,
-                                      notifier: notifier,
-                                      isVoting: state.isSubmittingVote,
-                                    ),
-                                    const SizedBox(height: 24),
-                                    CommentsPanel(
-                                      state: state,
-                                      notifier: notifier,
-                                      controller: _commentController,
-                                      productId: widget.productId,
-                                    ),
+                                    _buildHeader(state.data!),
+                                    const SizedBox(height: 30),
+                                    _buildPriceCard(state.data!, state.isSubmittingVote),
+                                    const SizedBox(height: 28),
+                                    _buildQuickStats(state.data!),
+                                    const SizedBox(height: 28),
+                                    _buildChart(state.history),
+                                    const SizedBox(height: 28),
+                                    _buildCommunityHub(state.data!, notifier, state.isSubmittingVote),
+                                    const SizedBox(height: 28),
+                                    _buildComments(state, notifier),
                                   ],
                                 ),
                               ),
@@ -177,6 +164,34 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       ),
     );
   }
+
+  Widget _buildHeader(ProductDetailResponse data) => HeaderBlock(data: data);
+
+  Widget _buildPriceCard(ProductDetailResponse data, bool isVoting) {
+    return BestPriceCard(data: data, isVoting: isVoting);
+  }
+
+  Widget _buildQuickStats(ProductDetailResponse data) {
+    return QuickStatsRow(stats: data.stats);
+  }
+
+  Widget _buildChart(List<PriceHistoryPoint> history) {
+    return PriceHistoryPanel(history: history, pulseAnimation: _chartPulse);
+  }
+
+  Widget _buildCommunityHub(ProductDetailResponse data, ProductDetailNotifier notifier, bool isVoting) {
+    return CommunityPanel(data: data, notifier: notifier, isVoting: isVoting);
+  }
+
+  Widget _buildComments(ProductDetailState state, ProductDetailNotifier notifier) {
+    return CommentsPanel(
+      state: state,
+      notifier: notifier,
+      controller: _commentController,
+      productId: widget.productId,
+    );
+  }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -385,51 +400,44 @@ class BestPriceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = data.bestPrice;
     final priceText = p.price.toStringAsFixed(0);
-    final tier = _parseTier(p.userTier);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          begin: Alignment(-0.4, -0.4),
+          begin: Alignment(-0.5, -0.5),
           end: Alignment(1, 1),
-          colors: [_brown900, _brown700],
+          colors: [_brown900, _brown700, _brown500],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: _amber600.withOpacity(0.28),
+            blurRadius: 32,
+            spreadRadius: -8,
+            offset: const Offset(0, 16),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400)),
-          const SizedBox(height: 12),
-          Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
-          const SizedBox(height: 4),
-          Text('$priceText₺', style: GoogleFonts.dmSans(fontSize: 40, color: Colors.white, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: tier.bgColor,
-              border: Border.all(color: tier.borderColor),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(tier.icon, size: 16, color: tier.iconColor),
-                const SizedBox(width: 6),
-                ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(colors: tier.nameGradient).createShader(bounds),
-                  child: Text(
-                    '${_tierNamePrefix(p.userTier)} ${p.userName.isNotEmpty ? p.userName : 'Anonim'}',
-                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
-                ),
-              ],
+          Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
+          const SizedBox(height: 8),
+          Text(
+            '$priceText₺',
+            style: GoogleFonts.dmSans(
+              fontSize: 42,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
+          _VipContributorChip(bestPrice: p),
+          const SizedBox(height: 18),
           Row(
             children: [
               GestureDetector(
@@ -437,22 +445,28 @@ class BestPriceCard extends ConsumerWidget {
                   final service = ref.read(productDetailApiServiceProvider);
                   final coords = await service.resolveStoreCoordinates(p);
                   if (coords == null) return;
-                  final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
+                  final uri = Uri.parse(
+                    'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
+                  );
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: _amber600, borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _amber600,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
                       Text('Mağazaya Git', style: TextStyle(color: Colors.white)),
-                      SizedBox(width: 6),
+                      SizedBox(width: 8),
                       Icon(Icons.arrow_forward, size: 16, color: Colors.white),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 onPressed: () async {
                   final user = ref.read(authStateProvider).valueOrNull;
@@ -469,6 +483,102 @@ class BestPriceCard extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VipContributorChip extends ConsumerWidget {
+  const _VipContributorChip({required this.bestPrice});
+
+  final BestPrice bestPrice;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final displayName = bestPrice.userName.isNotEmpty ? bestPrice.userName : 'Anonim';
+    final vipGradient = const [Color(0xFF00F2FE), Color(0xFF4FACFE)];
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        final userSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(bestPrice.userId)
+            .get();
+        final userData = userSnap.data() ?? const <String, dynamic>{};
+        final trustScore = (userData['trustScorePercent'] as num?)?.toInt() ??
+            (userData['reliabilityScore'] as num?)?.toInt() ??
+            bestPrice.userTrustScore;
+        final level = (userData['eliteLevel'] ?? userData['level'] ?? bestPrice.userTier).toString();
+
+        if (!context.mounted) return;
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) {
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 34),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.92),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _brown900.withOpacity(0.14),
+                        blurRadius: 24,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Elmas VIP Profili',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: _brown900,
+                          )),
+                      const SizedBox(height: 12),
+                      Text('Elmas Seviyesi: $level',
+                          style: GoogleFonts.inter(fontSize: 14, color: _brown700)),
+                      const SizedBox(height: 8),
+                      Text('Güven Skoru: %$trustScore',
+                          style: GoogleFonts.inter(fontSize: 14, color: _brown700)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.white.withOpacity(0.08),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) => const LinearGradient(colors: vipGradient).createShader(bounds),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.diamond, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                displayName,
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -677,7 +787,7 @@ class PriceHistoryPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Text('Fiyat geçmişi bulunamadı.',
                 style: GoogleFonts.inter(color: _brown500)),
           ],
@@ -686,186 +796,210 @@ class PriceHistoryPanel extends StatelessWidget {
     }
 
     final values = history.map((e) => e.price).toList();
-    final min = values.reduce((a, b) => a < b ? a : b);
-    final max = values.reduce((a, b) => a > b ? a : b);
-    final spread = (max - min).abs() < 1 ? 1 : max - min;
-    final spots = history.asMap().entries.map((e) {
-      final scaled = 30 + ((e.value.price - min) / spread) * 60;
-      return FlSpot(e.key.toDouble(), scaled);
-    }).toList();
-    final latestScaledY = spots.isEmpty ? 30.0 : spots.last.y;
-    final latestTop = (95 - latestScaledY) / (95 - 25) * 130;
+    final min = values.reduce(math.min);
+    final max = values.reduce(math.max);
+    final spread = (max - min).abs() < 1 ? 1.0 : (max - min);
+    final spots = history.asMap().entries.map((entry) {
+      final scaled = 30 + ((entry.value.price - min) / spread) * 60;
+      return FlSpot(entry.key.toDouble(), scaled);
+    }).toList(growable: false);
+
+    final latestSpot = spots.last;
+    const chartMinY = 25.0;
+    const chartMaxY = 95.0;
+    final normalizedY = (latestSpot.y - chartMinY) / (chartMaxY - chartMinY);
+
+    final midIndex = history.length > 2 ? (history.length / 2).floor() : 0;
+    final shownBottomIndexes = {
+      0,
+      midIndex,
+      history.length - 1,
+    };
 
     return _PremiumPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           SizedBox(
-            height: 140,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                LineChart(
-                  LineChartData(
-                    minY: 25,
-                    maxY: 95,
-                    gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: 30,
-                        getDrawingHorizontalLine: (value) => FlLine(
-                              color: _cream200,
-                              strokeWidth: 1,
-                            )),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 36,
-                          interval: 30,
-                          getTitlesWidget: (value, _) {
-                            String label;
-                            if (value > 80) {
-                              label = '${max.toStringAsFixed(0)}₺';
-                            } else if (value > 50) {
-                              label =
-                                  '${((max + min) / 2).toStringAsFixed(0)}₺';
-                            } else {
-                              label = '${min.toStringAsFixed(0)}₺';
-                            }
-                            return Text(label,
-                                style: GoogleFonts.dmSans(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _brown500));
-                          },
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, _) {
-                            final i = value.toInt();
-                            if (i == 0 && history.isNotEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(history.first.dateLabel,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11, color: _brown500)),
-                              );
-                            }
-                            if (i == (history.length / 2).floor() &&
-                                history.length > 2) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                    history[(history.length / 2).floor()]
-                                        .dateLabel,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11, color: _brown500)),
-                              );
-                            }
-                            if (i == history.length - 1) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text('Bugün',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11, color: _brown500)),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: true,
-                        isStrokeCapRound: true,
-                        barWidth: 4,
-                        color: _amber600,
-                        belowBarData: BarAreaData(
+            height: 154,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const leftReserved = 36.0;
+                const rightReserved = 16.0;
+                final chartWidth = constraints.maxWidth - leftReserved - rightReserved;
+                final xRatio = history.length <= 1 ? 1.0 : latestSpot.x / (history.length - 1);
+                final bubbleLeft = leftReserved + (chartWidth * xRatio) - 36;
+                final bubbleTop = (1 - normalizedY) * 114;
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    LineChart(
+                      LineChartData(
+                        minX: 0,
+                        maxX: (history.length - 1).toDouble(),
+                        minY: chartMinY,
+                        maxY: chartMaxY,
+                        gridData: FlGridData(
                           show: true,
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              _amber600.withOpacity(0.4),
-                              _amber600.withOpacity(0),
-                            ],
+                          drawVerticalLine: false,
+                          horizontalInterval: 30,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: _cream200,
+                            strokeWidth: 1,
                           ),
                         ),
-                        dotData: const FlDotData(show: false),
-                      ),
-                    ],
-                  ),
-                ),
-                // Current price dot + tag
-                Positioned(
-                  right: 0,
-                  top: latestTop.clamp(4, 104),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _brown900,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${history.last.price.toStringAsFixed(0)}₺',
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      // Small arrow
-                      CustomPaint(
-                        size: const Size(8, 4),
-                        painter: _TrianglePainter(_brown900),
-                      ),
-                      const SizedBox(height: 2),
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ScaleTransition(
-                            scale: pulseAnimation,
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _amber600.withOpacity(0.25),
-                              ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: leftReserved,
+                              interval: 35,
+                              getTitlesWidget: (value, _) {
+                                if ((value - 25).abs() < 0.1) {
+                                  return Text('${min.toStringAsFixed(0)}₺',
+                                      style: GoogleFonts.dmSans(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: _brown500));
+                                }
+                                if ((value - 60).abs() < 0.1) {
+                                  return Text(
+                                      '${((max + min) / 2).toStringAsFixed(0)}₺',
+                                      style: GoogleFonts.dmSans(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: _brown500));
+                                }
+                                if ((value - 95).abs() < 0.1) {
+                                  return Text('${max.toStringAsFixed(0)}₺',
+                                      style: GoogleFonts.dmSans(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: _brown500));
+                                }
+                                return const SizedBox.shrink();
+                              },
                             ),
                           ),
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _amber600,
-                              border:
-                                  Border.all(color: Colors.white, width: 2),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: math.max(1, (history.length / 2).floor()).toDouble(),
+                              getTitlesWidget: (value, _) {
+                                final i = value.toInt();
+                                if (i < 0 || i >= history.length || !shownBottomIndexes.contains(i)) {
+                                  return const SizedBox.shrink();
+                                }
+                                final label = i == history.length - 1 ? 'Bugün' : history[i].dateLabel;
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(label,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11, color: _brown500)),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: spots,
+                            isCurved: true,
+                            isStrokeCapRound: true,
+                            barWidth: 4,
+                            color: _amber600,
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  _amber600.withOpacity(0.38),
+                                  _amber600.withOpacity(0),
+                                ],
+                              ),
+                            ),
+                            dotData: FlDotData(
+                              show: true,
+                              checkToShowDot: (spot, _) =>
+                                  (spot.x - latestSpot.x).abs() < 0.01,
+                              getDotPainter: (spot, percent, barData, index) {
+                                return FlDotCirclePainter(
+                                  radius: 5.5,
+                                  color: _amber600,
+                                  strokeWidth: 2,
+                                  strokeColor: Colors.white,
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                    Positioned(
+                      left: bubbleLeft.clamp(0, constraints.maxWidth - 72),
+                      top: bubbleTop.clamp(4, 108),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _brown900,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${history.last.price.toStringAsFixed(0)}₺',
+                              style: GoogleFonts.dmSans(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          CustomPaint(
+                            size: const Size(8, 4),
+                            painter: _TrianglePainter(_brown900),
+                          ),
+                          const SizedBox(height: 2),
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              ScaleTransition(
+                                scale: pulseAnimation,
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _amber600.withOpacity(0.25),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _amber600,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -896,7 +1030,7 @@ class _TrianglePainter extends CustomPainter {
 // ═══════════════════════════════════════════════════════════════════
 // COMMUNITY PANEL (trust / vote)
 // ═══════════════════════════════════════════════════════════════════
-class CommunityPanel extends StatelessWidget {
+class CommunityPanel extends ConsumerStatefulWidget {
   const CommunityPanel({
     super.key,
     required this.data,
@@ -909,93 +1043,135 @@ class CommunityPanel extends StatelessWidget {
   final bool isVoting;
 
   @override
+  ConsumerState<CommunityPanel> createState() => _CommunityPanelState();
+}
+
+class _CommunityPanelState extends ConsumerState<CommunityPanel> {
+  bool _sending = false;
+  bool? _localVote;
+
+  Future<void> _submitVote(bool isApproved) async {
+    setState(() {
+      _sending = true;
+      _localVote = isApproved;
+    });
+    await widget.notifier.votePrice(
+      priceId: widget.data.bestPrice.id,
+      isApproved: isApproved,
+    );
+    if (!mounted) return;
+    setState(() {
+      _sending = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return _PremiumPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final voteStream = user == null
+        ? const Stream<String?>.empty()
+        : ref.read(firestoreServiceProvider).streamUserVoteValue(widget.data.bestPrice.id, user.uid);
+
+    return StreamBuilder<String?>(
+      stream: voteStream,
+      builder: (context, snapshot) {
+        final remoteVote = snapshot.data == 'yes'
+            ? true
+            : snapshot.data == 'no'
+                ? false
+                : null;
+        final effectiveVote = _localVote ?? remoteVote;
+
+        var approveCount = widget.data.trust.approveCount;
+        var rejectCount = widget.data.trust.rejectCount;
+        if (effectiveVote == true) {
+          approveCount += 1;
+        } else if (effectiveVote == false) {
+          rejectCount += 1;
+        }
+        final total = approveCount + rejectCount;
+        final trustScore = total == 0 ? 0 : ((approveCount / total) * 100).round();
+
+        return _PremiumPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Topluluk Merkezi',
-                  style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _brown900)),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _successBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.verified_user,
-                        size: 14, color: _success),
-                    const SizedBox(width: 4),
-                    Text(
-                      '%${data.trust.scorePercent} Güvenilir',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: _success,
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Topluluk Merkezi',
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _brown900)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _successBg,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_user, size: 14, color: _success),
+                        const SizedBox(width: 4),
+                        Text(
+                          '%$trustScore Güvenilir',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Trust bar ──
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: data.trust.scorePercent / 100,
-              minHeight: 8,
-              backgroundColor: _cream300,
-              color: _success,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Vote buttons ──
-          Row(
-            children: [
-              Expanded(
-                child: _TrustButton(
-                  label: 'Doğrula (${data.trust.approveCount})',
-                  icon: Icons.thumb_up_outlined,
+              const SizedBox(height: 18),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: trustScore / 100,
+                  minHeight: 8,
+                  backgroundColor: _cream300,
                   color: _success,
-                  bgColor: _successBg,
-                  onPressed: isVoting
-                      ? null
-                      : () => notifier.votePrice(
-                          priceId: data.bestPrice.id, isApproved: true),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _TrustButton(
-                  label: 'Yanlış (${data.trust.rejectCount})',
-                  icon: Icons.thumb_down_outlined,
-                  color: _danger,
-                  bgColor: _dangerBg,
-                  opacity: 0.7,
-                  onPressed: isVoting
-                      ? null
-                      : () => notifier.votePrice(
-                          priceId: data.bestPrice.id, isApproved: false),
-                ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TrustButton(
+                      label: 'Doğrula ($approveCount)',
+                      icon: Icons.thumb_up_outlined,
+                      color: _success,
+                      bgColor: _successBg,
+                      isActive: effectiveVote == true,
+                      onPressed: (_sending || widget.isVoting)
+                          ? null
+                          : () => _submitVote(true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _TrustButton(
+                      label: 'Yanlış ($rejectCount)',
+                      icon: Icons.thumb_down_outlined,
+                      color: _danger,
+                      bgColor: _dangerBg,
+                      isActive: effectiveVote == false,
+                      onPressed: (_sending || widget.isVoting)
+                          ? null
+                          : () => _submitVote(false),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1007,7 +1183,7 @@ class _TrustButton extends StatelessWidget {
     required this.color,
     required this.bgColor,
     required this.onPressed,
-    this.opacity = 1.0,
+    required this.isActive,
   });
 
   final String label;
@@ -1015,35 +1191,32 @@ class _TrustButton extends StatelessWidget {
   final Color color;
   final Color bgColor;
   final VoidCallback? onPressed;
-  final double opacity;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
-      child: Material(
-        color: bgColor,
+    return Material(
+      color: isActive ? color.withOpacity(0.16) : bgColor,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: color,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1244,7 +1417,7 @@ class CommentsPanel extends StatelessWidget {
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => AllCommentsScreen(comments: allComments)));
                 },
                 child: Text(
-                  'Tüm yorumları gör',
+                  'Tüm Yorumları Gör',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1344,7 +1517,7 @@ class _PremiumPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(26),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
