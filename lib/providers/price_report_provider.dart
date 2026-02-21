@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/price_report.dart';
 import '../models/store.dart';
-import '../services/price_report_api_service.dart';
+import '../services/store_service.dart';
 
 class AddPriceState {
   const AddPriceState({
@@ -15,6 +15,8 @@ class AddPriceState {
     this.selectedStore,
     this.nearbyStores = const [],
     this.onlineStores = const [],
+    this.isStoresLoading = false,
+    this.storesError,
     this.isLoading = false,
     this.error,
   });
@@ -28,6 +30,8 @@ class AddPriceState {
   final Store? selectedStore;
   final List<Store> nearbyStores;
   final List<Store> onlineStores;
+  final bool isStoresLoading;
+  final String? storesError;
   final bool isLoading;
   final String? error;
 
@@ -44,6 +48,9 @@ class AddPriceState {
     bool clearSelectedStore = false,
     List<Store>? nearbyStores,
     List<Store>? onlineStores,
+    bool? isStoresLoading,
+    String? storesError,
+    bool clearStoresError = false,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -58,6 +65,8 @@ class AddPriceState {
       selectedStore: clearSelectedStore ? null : (selectedStore ?? this.selectedStore),
       nearbyStores: nearbyStores ?? this.nearbyStores,
       onlineStores: onlineStores ?? this.onlineStores,
+      isStoresLoading: isStoresLoading ?? this.isStoresLoading,
+      storesError: clearStoresError ? null : (storesError ?? this.storesError),
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
     );
@@ -71,40 +80,39 @@ class AddPriceState {
   }
 }
 
-final priceReportApiServiceProvider = Provider<PriceReportApiService>((ref) {
-  return PriceReportApiService();
+final storeServiceProvider = Provider<StoreService>((ref) {
+  return StoreService();
 });
 
 final addPriceProvider = StateNotifierProvider<AddPriceNotifier, AddPriceState>((ref) {
-  return AddPriceNotifier(ref.read(priceReportApiServiceProvider));
+  return AddPriceNotifier(ref.read(storeServiceProvider));
 });
 
 class AddPriceNotifier extends StateNotifier<AddPriceState> {
-  AddPriceNotifier(this._api) : super(const AddPriceState()) {
+  AddPriceNotifier(this._service) : super(const AddPriceState()) {
     loadStores();
   }
 
-  final PriceReportApiService _api;
-
-  static const _fallbackNearby = <Store>[
-    Store(id: 'bim', name: 'BİM', type: 'nearby', distanceMeters: 150, logoUrl: 'B', subtitle: 'Cumhuriyet Mah.'),
-    Store(id: 'a101', name: 'A101', type: 'nearby', distanceMeters: 230, logoUrl: 'A', subtitle: 'Atatürk Cad.'),
-    Store(id: 'migros', name: 'Migros Jet', type: 'nearby', distanceMeters: 400, logoUrl: 'M', subtitle: 'Sahil Yolu'),
-    Store(id: 'sok', name: 'ŞOK Market', type: 'nearby', distanceMeters: 550, logoUrl: 'Ş', subtitle: 'Merkez Sok.'),
-  ];
-
-  static const _fallbackOnline = <Store>[
-    Store(id: 'trendyol', name: 'Trendyol Go', type: 'online', distanceMeters: 0, logoUrl: 'T', subtitle: 'Hızlı Teslimat'),
-    Store(id: 'getir', name: 'Getir', type: 'online', distanceMeters: 0, logoUrl: 'G', subtitle: 'Dakikalar İçinde'),
-  ];
+  final StoreService _service;
 
   Future<void> loadStores() async {
+    state = state.copyWith(isStoresLoading: true, clearStoresError: true);
     try {
-      final nearby = await _api.fetchStores(type: 'nearby');
-      final online = await _api.fetchStores(type: 'online');
-      state = state.copyWith(nearbyStores: nearby, onlineStores: online, clearError: true);
-    } catch (_) {
-      state = state.copyWith(nearbyStores: _fallbackNearby, onlineStores: _fallbackOnline);
+      final nearby = await _service.fetchStores(type: 'nearby');
+      final online = await _service.fetchStores(type: 'online');
+      state = state.copyWith(
+        nearbyStores: nearby,
+        onlineStores: online,
+        isStoresLoading: false,
+        clearStoresError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isStoresLoading: false,
+        storesError: e.toString(),
+        nearbyStores: const [],
+        onlineStores: const [],
+      );
     }
   }
 
@@ -142,7 +150,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         userId: userId,
         barcode: state.barcode,
       );
-      await _api.submitPrice(report);
+      await _service.submitPrice(report);
       state = state.copyWith(
         isLoading: false,
         price: '',

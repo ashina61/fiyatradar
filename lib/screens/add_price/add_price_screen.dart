@@ -1,13 +1,14 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../models/store.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key});
@@ -16,10 +17,13 @@ class AddPriceScreen extends ConsumerStatefulWidget {
   ConsumerState<AddPriceScreen> createState() => _AddPriceScreenState();
 }
 
-class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
+class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
+    with SingleTickerProviderStateMixin {
   final _priceController = TextEditingController();
   final _productController = TextEditingController();
   final _searchController = TextEditingController();
+
+  late final TabController _tabController;
 
   static const _brown900 = Color(0xFF5D4037);
   static const _brown700 = Color(0xFF795548);
@@ -33,7 +37,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   static const _categories = ['Gıda', 'Kişisel Bakım', 'Temizlik', 'Teknoloji'];
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) return;
+      ref.read(addPriceProvider.notifier).setActiveTab(_tabController.index);
+    });
+  }
+
+  @override
   void dispose() {
+    _tabController.dispose();
     _priceController.dispose();
     _productController.dispose();
     _searchController.dispose();
@@ -49,6 +64,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     });
 
     final state = ref.watch(addPriceProvider);
+    final notifier = ref.read(addPriceProvider.notifier);
+
+    if (_tabController.index != state.activeTab) {
+      _tabController.animateTo(state.activeTab);
+    }
+
     if (_priceController.text != state.price) _priceController.text = state.price;
     if (_productController.text != state.productName) {
       _productController.text = state.productName;
@@ -57,110 +78,92 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _searchController.text = state.searchQuery;
     }
 
+    final media = MediaQuery.of(context);
+    final width = media.size.width;
+    final height = media.size.height;
+    final scale = (math.min(width / 390, height / 844)).clamp(0.84, 1.12);
+
+    final hPad = (width * 0.055).clamp(16.0, 26.0);
+    final topPad = (height * 0.03).clamp(14.0, 28.0);
+    final bottomSafe = media.padding.bottom;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE0E0E0),
-      body: Center(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 414),
-          height: 896,
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          decoration: BoxDecoration(
-            color: _cream100,
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: Colors.white, width: 8),
-            boxShadow: const [
-              BoxShadow(
-                color: Color.fromRGBO(0, 0, 0, 0.25),
-                blurRadius: 50,
-                spreadRadius: -12,
-                offset: Offset(0, 25),
+      backgroundColor: _cream100,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(hPad, topPad, hPad, 120 + bottomSafe),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Header(onInfoPressed: _showInfoModal, scale: scale),
+                  SizedBox(height: 16 * scale),
+                  _buildPriceSection(state, scale),
+                  SizedBox(height: 16 * scale),
+                  _buildDetailsSection(state, notifier, scale),
+                  SizedBox(height: 24 * scale),
+                  _buildStoreSection(state, notifier, scale),
+                ],
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    _Header(onInfoPressed: _showInfoModal),
-                    Expanded(
-                      child: DefaultTabController(
-                        length: 2,
-                        initialIndex: state.activeTab,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildPriceSection(state),
-                              _buildDetailsSection(state),
-                              const SizedBox(height: 32),
-                              _buildStoreSection(state),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                _buildBottomAction(state),
-              ],
             ),
-          ),
+            _buildBottomAction(state, scale),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPriceSection(AddPriceState state) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: Column(
-          children: [
-            const Text(
-              'ÜRÜN FİYATI',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _brown500,
-                letterSpacing: 1,
-              ),
+  Widget _buildPriceSection(AddPriceState state, double scale) {
+    final amountFont = (64 * scale).clamp(38.0, 62.0);
+    final currencyFont = (40 * scale).clamp(24.0, 36.0);
+
+    return Center(
+      child: Column(
+        children: [
+          Text(
+            'ÜRÜN FİYATI',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13 * scale,
+              fontWeight: FontWeight.w600,
+              color: _brown500,
+              letterSpacing: 1,
             ),
-            const SizedBox(height: 8),
-            Row(
+          ),
+          SizedBox(height: 8 * scale),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 10 * scale),
                   child: Text(
                     '₺',
                     style: TextStyle(
                       fontFamily: 'DM Sans',
-                      fontSize: 40,
+                      fontSize: currencyFont,
                       fontWeight: FontWeight.w700,
                       color: _brown500,
                     ),
                   ),
                 ),
                 SizedBox(
-                  width: 200,
+                  width: 220 * scale,
                   child: TextField(
                     controller: _priceController,
                     onChanged: ref.read(addPriceProvider.notifier).setPrice,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'DM Sans',
-                      fontSize: 64,
+                      fontSize: amountFont,
                       fontWeight: FontWeight.w700,
                       color: _brown900,
                       letterSpacing: -2,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                     textAlign: TextAlign.center,
                     decoration: const InputDecoration(
@@ -172,27 +175,28 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDetailsSection(AddPriceState state) {
+  Widget _buildDetailsSection(AddPriceState state, AddPriceNotifier notifier, double scale) {
     return Column(
       children: [
         _InputBox(
+          scale: scale,
           child: Row(
             children: [
-              const Icon(Icons.qr_code_scanner_rounded, size: 24, color: _brown900),
-              const SizedBox(width: 12),
+              Icon(Icons.qr_code_scanner_rounded, size: 24 * scale, color: _brown900),
+              SizedBox(width: 10 * scale),
               Expanded(
                 child: TextField(
                   controller: _productController,
-                  onChanged: ref.read(addPriceProvider.notifier).setProductName,
-                  style: const TextStyle(
+                  onChanged: notifier.setProductName,
+                  style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 15,
+                    fontSize: 15 * scale,
                     fontWeight: FontWeight.w500,
                     color: _brown900,
                   ),
@@ -205,38 +209,37 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               IconButton(
                 onPressed: _scanBarcode,
-                icon: const Icon(Icons.center_focus_strong, color: _brown500),
+                icon: Icon(Icons.center_focus_strong, color: _brown500, size: 22 * scale),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 12 * scale),
         _InputBox(
+          scale: scale,
           child: Row(
             children: [
-              const Icon(Icons.category_outlined, size: 24, color: _brown500),
-              const SizedBox(width: 12),
+              Icon(Icons.category_outlined, size: 24 * scale, color: _brown500),
+              SizedBox(width: 10 * scale),
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: state.selectedCategory,
                   isExpanded: true,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _brown500),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: _brown500, size: 20 * scale),
                   decoration: const InputDecoration(border: InputBorder.none),
-                  hint: const Text(
+                  hint: Text(
                     'Kategori Seçin',
                     style: TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 15,
+                      fontSize: 15 * scale,
                       fontWeight: FontWeight.w500,
                       color: _brown500,
                     ),
                   ),
                   items: _categories
-                      .map(
-                        (category) => DropdownMenuItem(value: category, child: Text(category)),
-                      )
+                      .map((category) => DropdownMenuItem(value: category, child: Text(category)))
                       .toList(),
-                  onChanged: ref.read(addPriceProvider.notifier).setCategory,
+                  onChanged: notifier.setCategory,
                 ),
               ),
             ],
@@ -246,26 +249,25 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     );
   }
 
-  Widget _buildStoreSection(AddPriceState state) {
-    final notifier = ref.read(addPriceProvider.notifier);
+  Widget _buildStoreSection(AddPriceState state, AddPriceNotifier notifier, double scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Nerede Gördün?',
           style: TextStyle(
             fontFamily: 'Poppins',
-            fontSize: 18,
+            fontSize: 18 * scale,
             fontWeight: FontWeight.w600,
             color: _brown900,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 12 * scale),
         Container(
-          padding: const EdgeInsets.all(4),
+          padding: EdgeInsets.all(4 * scale),
           decoration: BoxDecoration(color: _cream200, borderRadius: BorderRadius.circular(12)),
           child: TabBar(
-            onTap: notifier.setActiveTab,
+            controller: _tabController,
             indicator: BoxDecoration(
               color: _amber600,
               borderRadius: BorderRadius.circular(10),
@@ -280,20 +282,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             indicatorSize: TabBarIndicatorSize.tab,
             labelColor: Colors.white,
             unselectedLabelColor: _brown700,
-            labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Inter'),
-            tabs: const [
-              Tab(icon: Icon(Icons.location_on_outlined, size: 18), text: 'Yakınımda'),
-              Tab(icon: Icon(Icons.language_rounded, size: 18), text: 'Online'),
+            labelStyle: TextStyle(fontSize: 14 * scale, fontWeight: FontWeight.w600, fontFamily: 'Inter'),
+            tabs: [
+              Tab(icon: Icon(Icons.location_on_outlined, size: 18 * scale), text: 'Yakınımda'),
+              Tab(icon: Icon(Icons.language_rounded, size: 18 * scale), text: 'Online'),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 12 * scale),
         _InputBox(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          scale: scale,
+          padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
           child: Row(
             children: [
-              const Icon(Icons.search, size: 20, color: _brown500),
-              const SizedBox(width: 12),
+              Icon(Icons.search, size: 20 * scale, color: _brown500),
+              SizedBox(width: 10 * scale),
               Expanded(
                 child: TextField(
                   controller: _searchController,
@@ -308,52 +311,94 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: state.visibleStores.length,
-          itemBuilder: (context, index) {
-            final store = state.visibleStores[index];
-            final selected = state.selectedStore?.id == store.id;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _StoreCard(
+        SizedBox(height: 12 * scale),
+        if (state.isStoresLoading)
+          const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+        else if (state.storesError != null)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(14 * scale),
+            decoration: BoxDecoration(
+              color: _cream200,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _amber400),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mağazalar yüklenemedi.',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: _brown900,
+                  ),
+                ),
+                SizedBox(height: 6 * scale),
+                Text(
+                  state.storesError!,
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 12 * scale, color: _brown500),
+                ),
+                SizedBox(height: 10 * scale),
+                TextButton(onPressed: notifier.loadStores, child: const Text('Tekrar Dene')),
+              ],
+            ),
+          )
+        else if (state.visibleStores.isEmpty)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 22 * scale),
+            child: Center(
+              child: Text(
+                'Aramanıza uygun mağaza bulunamadı.',
+                style: TextStyle(fontFamily: 'Inter', fontSize: 14 * scale, color: _brown500),
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: state.visibleStores.length,
+            separatorBuilder: (_, __) => SizedBox(height: 10 * scale),
+            itemBuilder: (context, index) {
+              final store = state.visibleStores[index];
+              final selected = state.selectedStore?.id == store.id;
+              return _StoreCard(
                 store: store,
                 selected: selected,
+                scale: scale,
                 onTap: () => notifier.setSelectedStore(store),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildBottomAction(AddPriceState state) {
+  Widget _buildBottomAction(AddPriceState state, double scale) {
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(20 * scale, 20 * scale, 20 * scale, 20 * scale + MediaQuery.of(context).padding.bottom),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
             colors: [_cream100, _cream100, Colors.transparent],
-            stops: [0, .85, 1],
+            stops: [0, .84, 1],
           ),
         ),
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: state.isLoading ? null : _submit,
+            onPressed: state.isLoading || state.isStoresLoading ? null : _submit,
             style: ElevatedButton.styleFrom(
               backgroundColor: _amber600,
               elevation: 0,
-              shadowColor: const Color.fromRGBO(200, 149, 108, 0.3),
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(16 * scale),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             child: state.isLoading
@@ -362,20 +407,20 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     width: 22,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Fiyatı Kaydet',
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 16,
+                          fontSize: 16 * scale,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      SizedBox(width: 8 * scale),
+                      Icon(Icons.send_rounded, color: Colors.white, size: 18 * scale),
                     ],
                   ),
           ),
@@ -388,9 +433,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
     if (barcode != null && mounted) {
       ref.read(addPriceProvider.notifier).setBarcode(barcode);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Barkod okundu: $barcode')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Barkod okundu: $barcode')));
     }
   }
 
@@ -402,9 +445,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       await ref.read(addPriceProvider.notifier).submitPrice(userId: userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fiyat başarıyla kaydedildi. +10 puan hesabına eklendi!'),
-        ),
+        const SnackBar(content: Text('Fiyat başarıyla kaydedildi. +10 puan hesabına eklendi!')),
       );
     } catch (_) {}
   }
@@ -472,65 +513,68 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onInfoPressed});
+  const _Header({required this.onInfoPressed, required this.scale});
 
   final VoidCallback onInfoPressed;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
-      child: Row(
-        children: [
-          _IconBtn(icon: Icons.arrow_back_rounded, onTap: () => Navigator.maybePop(context)),
-          const Expanded(
+    return Row(
+      children: [
+        _IconBtn(icon: Icons.arrow_back_rounded, onTap: () => Navigator.maybePop(context), scale: scale),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
             child: Text(
               'Fiyat Ekle',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 20,
+                fontSize: 20 * scale,
                 fontWeight: FontWeight.w600,
                 color: _AddPriceScreenState._brown900,
               ),
             ),
           ),
-          _IconBtn(icon: Icons.info_outline_rounded, onTap: onInfoPressed),
-        ],
-      ),
+        ),
+        _IconBtn(icon: Icons.info_outline_rounded, onTap: onInfoPressed, scale: scale),
+      ],
     );
   }
 }
 
 class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onTap});
+  const _IconBtn({required this.icon, required this.onTap, required this.scale});
 
   final IconData icon;
   final VoidCallback onTap;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 44,
-      height: 44,
+      width: 44 * scale,
+      height: 44 * scale,
       child: IconButton(
         onPressed: onTap,
-        icon: Icon(icon, size: 24, color: _AddPriceScreenState._brown900),
+        icon: Icon(icon, size: 24 * scale, color: _AddPriceScreenState._brown900),
       ),
     );
   }
 }
 
 class _InputBox extends StatelessWidget {
-  const _InputBox({required this.child, this.padding = const EdgeInsets.all(16)});
+  const _InputBox({required this.child, required this.scale, this.padding});
 
   final Widget child;
-  final EdgeInsetsGeometry padding;
+  final double scale;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: padding,
+      padding: padding ?? EdgeInsets.all(14 * scale),
       decoration: BoxDecoration(
         color: _AddPriceScreenState._cream200,
         borderRadius: BorderRadius.circular(16),
@@ -542,11 +586,12 @@ class _InputBox extends StatelessWidget {
 }
 
 class _StoreCard extends StatelessWidget {
-  const _StoreCard({required this.store, required this.selected, required this.onTap});
+  const _StoreCard({required this.store, required this.selected, required this.onTap, required this.scale});
 
   final Store store;
   final bool selected;
   final VoidCallback onTap;
+  final double scale;
 
   Color _storeColor() {
     switch (store.id) {
@@ -579,7 +624,7 @@ class _StoreCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12 * scale),
         decoration: BoxDecoration(
           color: selected ? _AddPriceScreenState._cream100 : _AddPriceScreenState._cream200,
           borderRadius: BorderRadius.circular(16),
@@ -591,44 +636,47 @@ class _StoreCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 48 * scale,
+              height: 48 * scale,
               decoration: BoxDecoration(
                 color: _storeColor(),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(
-                  store.logoUrl,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: _logoTextColor(),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    store.logoUrl,
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 20 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: _logoTextColor(),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 12 * scale),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     store.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 15,
+                      fontSize: 15 * scale,
                       fontWeight: FontWeight.w600,
                       color: _AddPriceScreenState._brown900,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2 * scale),
                   Text(
                     store.type == 'online'
                         ? (store.subtitle ?? '')
                         : '${store.distanceMeters}m • ${store.subtitle ?? ''}',
-                    style: const TextStyle(fontSize: 13, color: _AddPriceScreenState._brown500),
+                    style: TextStyle(fontSize: 13 * scale, color: _AddPriceScreenState._brown500),
                   ),
                 ],
               ),
@@ -639,9 +687,9 @@ class _StoreCard extends StatelessWidget {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: selected ? 1 : 0,
-                child: const Icon(
+                child: Icon(
                   Icons.check_circle,
-                  size: 24,
+                  size: 24 * scale,
                   color: _AddPriceScreenState._amber600,
                 ),
               ),
