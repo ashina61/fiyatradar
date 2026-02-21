@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/category_model.dart';
 import '../models/price_model.dart';
@@ -7,6 +8,7 @@ import '../models/product_model.dart';
 import '../models/store.dart';
 import '../models/store_model.dart';
 import '../services/firestore_service.dart';
+import '../services/location_service.dart';
 import 'product_provider.dart';
 
 class AddPriceState {
@@ -103,22 +105,30 @@ class AddPriceState {
 
   List<Store> get visibleStores {
     final source = isNearbyMode ? nearbyStores : onlineStores;
-    if (searchQuery.trim().isEmpty) return source;
-    final q = searchQuery.toLowerCase();
-    return source.where((s) => s.name.toLowerCase().contains(q)).toList(growable: false);
+    final filtered = searchQuery.trim().isEmpty
+        ? source
+        : source
+            .where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase()))
+            .toList(growable: false);
+    return filtered.take(5).toList(growable: false);
   }
 }
 
 final addPriceProvider = StateNotifierProvider<AddPriceNotifier, AddPriceState>((ref) {
-  return AddPriceNotifier(ref.read(firestoreServiceProvider));
+  return AddPriceNotifier(
+    ref.read(firestoreServiceProvider),
+    LocationService(),
+  );
 });
 
 class AddPriceNotifier extends StateNotifier<AddPriceState> {
-  AddPriceNotifier(this._firestore) : super(const AddPriceState()) {
+  AddPriceNotifier(this._firestore, this._locationService)
+      : super(const AddPriceState()) {
     loadStoresAndCategories();
   }
 
   final FirestoreService _firestore;
+  final LocationService _locationService;
 
   Future<void> loadStoresAndCategories() async {
     state = state.copyWith(isStoresLoading: true, clearStoresError: true);
@@ -128,10 +138,17 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
+      final userPosition = await _locationService.getCurrentPosition();
 
-      final nearby = stores.where((s) => s.status == StoreStatus.active && !s.isOnline).map(_mapStore).toList(growable: false)
+      final nearby = stores
+          .where((s) => s.status == StoreStatus.active && !s.isOnline)
+          .map((store) => _mapStore(store, userPosition))
+          .toList(growable: false)
         ..sort((a, b) => a.name.compareTo(b.name));
-      final online = stores.where((s) => s.status == StoreStatus.active && s.isOnline).map(_mapStore).toList(growable: false)
+      final online = stores
+          .where((s) => s.status == StoreStatus.active && s.isOnline)
+          .map((store) => _mapStore(store, userPosition))
+          .toList(growable: false)
         ..sort((a, b) => a.name.compareTo(b.name));
 
       if (categories.isNotEmpty) {
@@ -160,8 +177,17 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     }
   }
 
-  Store _mapStore(StoreModel model) {
-    final distanceMeters = (model.lat == 0 || model.lng == 0) ? 0 : 1;
+  Store _mapStore(StoreModel model, Position? userPosition) {
+    final hasCoordinates = model.lat != 0 && model.lng != 0;
+    final distanceMeters = hasCoordinates && userPosition != null
+        ? Geolocator.distanceBetween(
+            userPosition.latitude,
+            userPosition.longitude,
+            model.lat,
+            model.lng,
+          ).round()
+        : 0;
+
     return Store(
       id: model.id,
       name: model.displayName,
@@ -187,7 +213,13 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         selectedStoreId: store.id,
         selectedStoreName: store.name,
       );
-  void setBarcode(String? value) => state = state.copyWith(barcode: value);
+  void setBarcode(String? value) {
+    final barcode = value?.trim();
+    state = state.copyWith(
+      barcode: barcode,
+      productName: barcode ?? '',
+    );
+  }
 
   Future<ProductModel?> _resolveProductByNameOrBarcode() async {
     final byBarcode = state.barcode?.trim() ?? '';
@@ -232,7 +264,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       final payload = PriceModel(
         id: '',
         productId: product.id,
-        productName: product.name,
+        productName: state.productName.trim(),
         barcode: state.barcode,
         userId: userId,
         createdByUid: userId,
