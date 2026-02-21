@@ -480,7 +480,6 @@ class FirestoreService {
   }
 
   Future<List<ProductModel>> searchProductsByPrefix(
-    Future<List<ProductModel>> searchProductsByPrefix(
     String query, {
     int limit = 5,
   }) async {
