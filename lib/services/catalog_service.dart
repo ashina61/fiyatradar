@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 import '../models/comment_model.dart';
 import '../models/price_model.dart';
@@ -128,12 +130,12 @@ class CatalogService {
       final uri = Uri.parse(
         'https://world.openfoodfacts.org/api/v2/product/$barcode.json',
       );
-      final response = await http.get(uri, headers: const {
+      final response = await _getBytes(uri, headers: const {
         'User-Agent': 'FiyatRadar/1.0 (image-fallback)',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) return;
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       final productData = body['product'] as Map<String, dynamic>?;
       final imageFront = (productData?['image_front_url'] ?? '').toString();
       if (imageFront.isEmpty) return;
@@ -151,4 +153,27 @@ class CatalogService {
       _offFetchInFlight.remove(product.id);
     }
   }
+
+  Future<_HttpBytesResponse> _getBytes(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(uri);
+      headers?.forEach(request.headers.set);
+      final response = await request.close();
+      final bodyBytes = await consolidateHttpClientResponseBytes(response);
+      return _HttpBytesResponse(response.statusCode, bodyBytes);
+    } finally {
+      client.close(force: true);
+    }
+  }
+}
+
+class _HttpBytesResponse {
+  const _HttpBytesResponse(this.statusCode, this.bodyBytes);
+
+  final int statusCode;
+  final Uint8List bodyBytes;
 }
