@@ -60,7 +60,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     _heroFloatController =
         AnimationController(vsync: this, duration: const Duration(seconds: 4))
           ..repeat(reverse: true);
-    _heroFloat = Tween<double>(begin: 0, end: -10).animate(
+    _heroFloat = Tween<double>(begin: 0, end: -15).animate(
       CurvedAnimation(parent: _heroFloatController, curve: Curves.easeInOut),
     );
     _chartPulseController = AnimationController(
@@ -137,19 +137,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                               ),
                               Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(24, 30, 24, 116),
+                                    const EdgeInsets.fromLTRB(20, 20, 20, 116),
                                 child: Column(
                                   children: [
                                     _buildHeader(state.data!),
-                                    const SizedBox(height: 30),
+                                    const SizedBox(height: 32),
                                     _buildPriceCard(state.data!, state.isSubmittingVote),
-                                    const SizedBox(height: 28),
+                                    const SizedBox(height: 32),
                                     _buildQuickStats(state.data!),
-                                    const SizedBox(height: 28),
+                                    const SizedBox(height: 32),
                                     _buildChart(state.history),
-                                    const SizedBox(height: 28),
+                                    const SizedBox(height: 32),
                                     _buildCommunityHub(state.data!, notifier, state.isSubmittingVote),
-                                    const SizedBox(height: 28),
+                                    const SizedBox(height: 32),
                                     _buildComments(state, notifier),
                                   ],
                                 ),
@@ -401,84 +401,104 @@ class BestPriceCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          begin: Alignment(-0.5, -0.5),
-          end: Alignment(1, 1),
-          colors: [_brown900, _brown700, _brown500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_brown900, _brown700],
         ),
         boxShadow: [
           BoxShadow(
-            color: _amber600.withOpacity(0.28),
-            blurRadius: 32,
-            spreadRadius: -8,
-            offset: const Offset(0, 16),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400)),
-          const SizedBox(height: 16),
-          Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
-          const SizedBox(height: 8),
-          Text(
-            '$priceText₺',
-            style: GoogleFonts.dmSans(
-              fontSize: 42,
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+          Positioned(
+            top: -36,
+            right: -36,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withOpacity(0.2),
+                    blurRadius: 80,
+                    spreadRadius: 10,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
-          _VipContributorChip(bestPrice: p),
-          const SizedBox(height: 18),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () async {
-                  final service = ref.read(productDetailApiServiceProvider);
-                  final coords = await service.resolveStoreCoordinates(p);
-                  if (coords == null) return;
-                  
-                  // Google Maps Resmi Yönlendirmesi
-                  final uri = Uri.parse(
-                    'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
-                  );
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _amber600,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text('Mağazaya Git', style: TextStyle(color: Colors.white)),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 16, color: Colors.white),
-                    ],
-                  ),
+              Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400)),
+              const SizedBox(height: 16),
+              Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
+              const SizedBox(height: 8),
+              Text(
+                '$priceText₺',
+                style: GoogleFonts.dmSans(
+                  fontSize: 48,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () async {
-                  final user = ref.read(authStateProvider).valueOrNull;
-                  if (user == null) return;
-                  await ref.read(firestoreServiceProvider).reportPrice(
-                    priceId: p.id,
-                    userId: user.uid,
-                    reason: 'Ürün detay fiyat raporu',
-                    contextId: data.id,
-                  );
-                },
-                icon: const Icon(Icons.flag_outlined, color: Colors.white),
+              const SizedBox(height: 20),
+              _VipContributorChip(bestPrice: p),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final service = ref.read(productDetailApiServiceProvider);
+                      final coords = await service.resolveStoreCoordinates(p);
+                      if (coords == null) return;
+
+                      final uri = Uri.parse(
+                        'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
+                      );
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _amber600,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Text('Mağazaya Git', style: TextStyle(color: Colors.white)),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward, size: 16, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      final user = ref.read(authStateProvider).valueOrNull;
+                      if (user == null) return;
+                      await ref.read(firestoreServiceProvider).reportPrice(
+                        priceId: p.id,
+                        userId: user.uid,
+                        reason: 'Ürün detay fiyat raporu',
+                        contextId: data.id,
+                      );
+                    },
+                    icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                  ),
+                ],
               ),
             ],
           ),
@@ -598,13 +618,20 @@ class QuickStatsRow extends StatelessWidget {
         {bool highlighted = false, Color? valueColor}) {
       return Expanded(
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: highlighted ? const Color(0xFFFFF8E1) : _cream200,
             borderRadius: BorderRadius.circular(20),
             border: highlighted
                 ? Border.all(color: const Color(0xFFFFC107))
                 : Border.all(color: Colors.transparent),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -666,14 +693,20 @@ class PriceHistoryPanel extends StatelessWidget {
 
     final minPrice = history.map((e) => e.price).reduce(math.min);
     final maxPrice = history.map((e) => e.price).reduce(math.max);
-    
-    // Grafiğin alt ve üst sınırlarına nefes alma payı bırakıyoruz
     final chartMinY = (minPrice * 0.8).floorToDouble();
     final chartMaxY = (maxPrice * 1.2).ceilToDouble();
 
-    final spots = history.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.price);
-    }).toList();
+    final firstReportedAt = history.first.reportedAt;
+    final normalizedSpots = history
+        .map(
+          (point) => FlSpot(
+            point.reportedAt.difference(firstReportedAt).inHours / 24,
+            point.price,
+          ),
+        )
+        .toList();
+    final maxX = normalizedSpots.isEmpty ? 1.0 : normalizedSpots.last.x;
+    final todaySpot = normalizedSpots.isEmpty ? null : normalizedSpots.last;
 
     return _PremiumPanel(
       child: Column(
@@ -682,104 +715,151 @@ class PriceHistoryPanel extends StatelessWidget {
           _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
           const SizedBox(height: 24),
           SizedBox(
-            height: 180, // Grafiğin nefes alması için yüksekliği artırıldı
-            child: LineChart(
-              LineChartData(
-                minX: 0,
-                maxX: (history.length <= 1) ? 1.0 : (history.length - 1).toDouble(),
-                minY: chartMinY,
-                maxY: chartMaxY,
-                showingTooltipIndicators: spots.isEmpty ? [] : [
-                  ShowingTooltipIndicators([
-                    LineBarSpot(
-                      LineChartBarData(spots: spots), 
-                      0, 
-                      spots.last
-                    )
-                  ])
-                ],
-                lineTouchData: LineTouchData(
-                  enabled: false, 
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => const Color(0xFF5D4037), 
-                    tooltipRoundedRadius: 8,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) => LineTooltipItem(
-                        '${spot.y.toStringAsFixed(0)}₺',
-                        GoogleFonts.dmSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                      )).toList();
-                    },
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
-                  getDrawingHorizontalLine: (_) => FlLine(color: const Color(0xFFF5EDE4), strokeWidth: 1), 
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 22,
-                      interval: 1, 
-                      getTitlesWidget: (value, meta) {
-                        if (value % 1 != 0) return const SizedBox.shrink();
-                        final index = value.toInt();
-                        if (index < 0 || index >= history.length) return const SizedBox.shrink();
-                        
-                        // Sadece ilk, orta ve son noktada etiket göster
-                        if (index != 0 && index != history.length - 1 && index != (history.length / 2).floor()) {
-                          return const SizedBox.shrink();
-                        }
-                        
-                        final label = index == history.length - 1 ? 'Bugün' : history[index].dateLabel;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    curveSmoothness: 0.35, 
-                    color: const Color(0xFFC8956C), 
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFFC8956C).withOpacity(0.3),
-                          const Color(0xFFC8956C).withOpacity(0.0),
-                        ],
+            height: 180,
+            child: Stack(
+              children: [
+                LineChart(
+                  LineChartData(
+                    minX: 0,
+                    maxX: maxX == 0 ? 1.0 : maxX,
+                    minY: chartMinY,
+                    maxY: chartMaxY,
+                    showingTooltipIndicators: normalizedSpots.isEmpty
+                        ? []
+                        : [
+                            ShowingTooltipIndicators([
+                              LineBarSpot(
+                                LineChartBarData(spots: normalizedSpots),
+                                0,
+                                normalizedSpots.last,
+                              ),
+                            ]),
+                          ],
+                    lineTouchData: LineTouchData(
+                      enabled: false,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => const Color(0xFF5D4037),
+                        tooltipRoundedRadius: 8,
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots
+                              .map(
+                                (spot) => LineTooltipItem(
+                                  '${spot.y.toStringAsFixed(0)}₺',
+                                  GoogleFonts.dmSans(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                              .toList();
+                        },
                       ),
                     ),
-                    dotData: FlDotData(
+                    gridData: FlGridData(
                       show: true,
-                      checkToShowDot: (spot, barData) => spot.x == barData.spots.last.x,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 6,
-                          color: const Color(0xFFC8956C),
-                          strokeWidth: 3,
-                          strokeColor: Colors.white,
-                        );
-                      },
+                      drawVerticalLine: false,
+                      horizontalInterval:
+                          ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
+                      getDrawingHorizontalLine: (_) =>
+                          FlLine(color: const Color(0xFFF5EDE4), strokeWidth: 1),
                     ),
+                    borderData: FlBorderData(show: false),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 22,
+                          interval: maxX <= 0 ? 1 : maxX / 2,
+                          getTitlesWidget: (value, meta) {
+                            final midLabel = history[(history.length / 2).floor()].dateLabel;
+                            final labels = <double, String>{
+                              0: history.first.dateLabel,
+                              maxX / 2: midLabel,
+                              maxX: 'Bugün',
+                            };
+                            String? label;
+                            for (final entry in labels.entries) {
+                              if ((value - entry.key).abs() < 0.5) {
+                                label = entry.value;
+                                break;
+                              }
+                            }
+                            if (label == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                label,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: const Color(0xFF8D6E63),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: normalizedSpots,
+                        isCurved: true,
+                        curveSmoothness: 0.35,
+                        color: const Color(0xFFC8956C),
+                        barWidth: 4,
+                        isStrokeCapRound: true,
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              const Color(0xFFC8956C).withOpacity(0.3),
+                              const Color(0xFFC8956C).withOpacity(0),
+                            ],
+                          ),
+                        ),
+                        dotData: const FlDotData(show: false),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                if (todaySpot != null)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final safeMaxX = maxX <= 0 ? 1.0 : maxX;
+                      final safeRangeY = (chartMaxY - chartMinY) == 0
+                          ? 1.0
+                          : (chartMaxY - chartMinY);
+                      final dx =
+                          ((todaySpot.x / safeMaxX) * constraints.maxWidth).clamp(0.0, constraints.maxWidth);
+                      final dy = (((chartMaxY - todaySpot.y) / safeRangeY) * constraints.maxHeight)
+                          .clamp(0.0, constraints.maxHeight);
+
+                      return Positioned(
+                        left: dx - 8,
+                        top: dy - 8,
+                        child: ScaleTransition(
+                          scale: pulseAnimation,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: _amber600,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
             ),
           ),
         ],
@@ -1277,15 +1357,15 @@ class _PremiumPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(26),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-              color: _brown900.withOpacity(0.03),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 20,
-              offset: const Offset(0, 4)),
+              offset: const Offset(0, 10)),
         ],
       ),
       child: child,
@@ -1325,10 +1405,10 @@ class _GlassIconButtonState extends State<GlassIconButton> {
               height: 44,
               width: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: Colors.white.withOpacity(0.5), width: 0.5),
+                    color: Colors.white24, width: 0.5),
                 boxShadow: [
                   BoxShadow(
                       color: Colors.black.withOpacity(0.05),
