@@ -1324,7 +1324,7 @@ class _StoreCard extends StatelessWidget {
 
   String _formatDistance(int? meters) {
     if (meters == null) return '—';
-    if (meters < 1000) return '${meters} m';
+    if (meters < 1000) return '${meters}m';
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 

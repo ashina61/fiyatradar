@@ -1,5 +1,5 @@
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 
 import 'firebase_init_provider.dart';
 import '../models/price_model.dart';
@@ -495,17 +495,53 @@ class ExploreController extends StateNotifier<ExploreState> {
   double? _distanceFromUser(LocationData? locationData, StoreModel? store, PriceModel price) {
     if (locationData == null) return null;
 
-    final lat = store?.lat ?? price.geoPoint?.latitude;
-    final lng = store?.lng ?? price.geoPoint?.longitude;
-    if (lat == null || lng == null || lat == 0 || lng == 0) return null;
+    final userLat = locationData.geoPoint.latitude;
+    final userLng = locationData.geoPoint.longitude;
 
-    return Geolocator.distanceBetween(
-      locationData.geoPoint.latitude,
-      locationData.geoPoint.longitude,
-      lat,
-      lng,
+    final storeLat = store?.lat;
+    final storeLng = store?.lng;
+    final hasStoreCoordinates =
+        storeLat != null && storeLng != null && storeLat != 0 && storeLng != 0;
+
+    final lat = hasStoreCoordinates ? storeLat : price.geoPoint?.latitude;
+    final lng = hasStoreCoordinates ? storeLng : price.geoPoint?.longitude;
+    if (lat == null || lng == null || lat == 0 || lng == 0) {
+      debugPrint(
+        'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=(null) meters=null',
+      );
+      return null;
+    }
+
+    final meters = _haversineMeters(userLat, userLng, lat, lng);
+    debugPrint(
+      'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=($lat,$lng) meters=${meters.toStringAsFixed(2)}',
     );
+    return meters;
   }
+
+  double _haversineMeters(
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(endLatitude - startLatitude);
+    final dLng = _degToRad(endLongitude - startLongitude);
+    final startLatRad = _degToRad(startLatitude);
+    final endLatRad = _degToRad(endLatitude);
+
+    final a =
+        (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+        (math.cos(startLatRad) *
+            math.cos(endLatRad) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2));
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double degrees) => degrees * (math.pi / 180);
 }
 
 bool _matchesCategoryFilter(List<String> productCategories, String selectedCategory) {

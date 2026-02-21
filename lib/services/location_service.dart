@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LocationService {
@@ -92,7 +94,7 @@ class LocationService {
     required double endLatitude,
     required double endLongitude,
   }) {
-    return Geolocator.distanceBetween(
+    return haversineMeters(
       startLatitude,
       startLongitude,
       endLatitude,
@@ -100,9 +102,33 @@ class LocationService {
     );
   }
 
+  double haversineMeters(
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(endLatitude - startLatitude);
+    final dLng = _degToRad(endLongitude - startLongitude);
+    final startLatRad = _degToRad(startLatitude);
+    final endLatRad = _degToRad(endLatitude);
+
+    final a =
+        (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+        (math.cos(startLatRad) *
+            math.cos(endLatRad) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2));
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double degrees) => degrees * (math.pi / 180);
+
   String formatDistance(double meters) {
     if (meters < 1000) {
-      return '${meters.round()} m';
+      return '${meters.round()}m';
     }
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
