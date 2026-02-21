@@ -480,6 +480,7 @@ class FirestoreService {
   }
 
   Future<List<ProductModel>> searchProductsByPrefix(
+    Future<List<ProductModel>> searchProductsByPrefix(
     String query, {
     int limit = 5,
   }) async {
@@ -487,36 +488,44 @@ class FirestoreService {
     if (trimmed.isEmpty) return const [];
 
     try {
-      final queryLower = trimmed.toLowerCase();
-      debugPrint(
-        '[FirestoreService.searchProductsByPrefix] Firestore query => collection=products, where=[nameLower >= $queryLower, nameLower <= ${queryLower}\uf8ff], orderBy=[nameLower asc], limit=5',
-      );
-      final snapshot = await _productsRef
-          .orderBy('nameLower')
-          .startAt([queryLower])
-          .endAt(['$queryLower\uf8ff'])
-          .limit(5)
+      // Baş harfi büyüt (Veritabanındaki orijinal ismi yakalamak için)
+      final capitalizedQuery = trimmed.isNotEmpty 
+          ? '${trimmed[0].toUpperCase()}${trimmed.substring(1).toLowerCase()}' 
+          : trimmed;
+
+      // nameLower uydurmasını sildik, gerçek 'name' ile arıyoruz
+      var snapshot = await _productsRef
+          .orderBy('name')
+          .startAt([capitalizedQuery])
+          .endAt(['$capitalizedQuery\uf8ff'])
+          .limit(limit)
           .get();
 
-      final products = snapshot.docs
+      var products = snapshot.docs
           .map((doc) => ProductModel.fromFirestore(doc))
-          .where((product) => product.name.trim().isNotEmpty)
-          .toList(growable: false);
+          .toList();
 
-      debugPrint(
-        'PRODUCT_QUERY q=$queryLower results=${products.length} collection=products field=nameLower',
-      );
+      // Eğer büyük harfle bulamazsa, küçük harfle de şansını denesin
+      if (products.isEmpty) {
+        final fallbackSnapshot = await _productsRef
+            .orderBy('name')
+            .startAt([trimmed])
+            .endAt(['$trimmed\uf8ff'])
+            .limit(limit)
+            .get();
+            
+        products.addAll(fallbackSnapshot.docs
+            .map((doc) => ProductModel.fromFirestore(doc))
+            .toList());
+      }
 
-      return products.take(limit).toList(growable: false);
-    } catch (e, st) {
+      return products.take(limit).toList();
+    } catch (e) {
       debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[FirestoreService.searchProductsByPrefix] STACK',
-      );
-      rethrow;
+      return const []; 
     }
   }
+
 
   Future<ProductModel?> getProduct(String productId) async {
     final doc = await _productsRef.doc(productId).get();
