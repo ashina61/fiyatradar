@@ -740,21 +740,40 @@ class PriceHistoryPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TOPLULUK MERKEZİ (Güven Barı ve Doğrulama Butonları)
+// TOPLULUK MERKEZİ (Güven Barı ve Doğrulama Butonları - KESİN ÇÖZÜM)
 // ═══════════════════════════════════════════════════════════════════
 class CommunityPanel extends ConsumerStatefulWidget {
   const CommunityPanel({super.key, required this.data, required this.notifier, required this.isVoting});
-  final ProductDetailResponse data; final ProductDetailNotifier notifier; final bool isVoting;
+  final ProductDetailResponse data; 
+  final ProductDetailNotifier notifier; 
+  final bool isVoting;
   @override
   ConsumerState<CommunityPanel> createState() => _CommunityPanelState();
 }
 
 class _CommunityPanelState extends ConsumerState<CommunityPanel> {
-  bool _sending = false; bool? _localVote;
+  bool _sending = false;
 
   Future<void> _submitVote(bool isApproved) async {
-    setState(() { _sending = true; _localVote = isApproved; });
+    final user = ref.read(authStateProvider).valueOrNull;
+    
+    // KONTROL 1: Kullanıcı kendi girdiği fiyata oy veriyorsa engelle ve uyar!
+    if (user != null && widget.data.bestPrice.userId == user.uid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kendi girdiğiniz fiyata oy veremezsiniz!'),
+          backgroundColor: Color(0xFFC62828), // Kırmızı hata rengi
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return; // İşlemi durdur, veritabanını yorma
+    }
+
+    setState(() { _sending = true; });
+    
+    // Veritabanına oyu gönder, Provider otomatik olarak load() yapıp yeni sayıları çekecek
     await widget.notifier.votePrice(priceId: widget.data.bestPrice.id, isApproved: isApproved);
+    
     if (!mounted) return;
     setState(() { _sending = false; });
   }
@@ -767,33 +786,33 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
     return StreamBuilder<String?>(
       stream: voteStream,
       builder: (context, snapshot) {
+        // Kullanıcının daha önce oy verip vermediğini kontrol ediyoruz (butonun rengini yakmak için)
         final remoteVote = snapshot.data == 'yes' ? true : snapshot.data == 'no' ? false : null;
-        final effectiveVote = _localVote ?? remoteVote;
 
-        var appC = widget.data.trust.approveCount;
-        var rejC = widget.data.trust.rejectCount;
-        if (effectiveVote == true) appC += 1; else if (effectiveVote == false) rejC += 1;
+        // VERİTABANINDAN GELEN %100 GERÇEK SAYILAR (Sahte eklemeler kaldırıldı)
+        final appC = widget.data.trust.approveCount;
+        final rejC = widget.data.trust.rejectCount;
         final total = appC + rejC;
         final score = total == 0 ? 0 : ((appC / total) * 100).round();
 
         return Container(
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: _brown900.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))]),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))]),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Topluluk Merkezi', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: _brown900)),
+                  Text('Topluluk Merkezi', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: _successBg, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
                     child: Row(
                       children: [
-                        const Icon(Icons.verified_user_rounded, size: 14, color: _success),
+                        const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF2E7D32)),
                         const SizedBox(width: 4),
-                        Text('%$score Güvenilir', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: _success)),
+                        Text('%$score Güvenilir', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF2E7D32))),
                       ],
                     ),
                   ),
@@ -802,22 +821,22 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
               const SizedBox(height: 16),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: score / 100, minHeight: 8, backgroundColor: _cream300, color: _success),
+                child: LinearProgressIndicator(value: score / 100, minHeight: 8, backgroundColor: const Color(0xFFEDE0D4), color: const Color(0xFF2E7D32)),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
                     child: _TrustBtn(
-                      label: 'Doğrula ($appC)', icon: Icons.thumb_up_alt_outlined, color: _success, bg: _successBg,
-                      isActive: effectiveVote == true, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(true),
+                      label: 'Doğrula ($appC)', icon: Icons.thumb_up_alt_outlined, color: const Color(0xFF2E7D32), bg: const Color(0xFFE8F5E9),
+                      isActive: remoteVote == true, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(true),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _TrustBtn(
-                      label: 'Yanlış ($rejC)', icon: Icons.thumb_down_alt_outlined, color: _danger, bg: _dangerBg,
-                      isActive: effectiveVote == false, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(false),
+                      label: 'Yanlış ($rejC)', icon: Icons.thumb_down_alt_outlined, color: const Color(0xFFC62828), bg: const Color(0xFFFFEBEE),
+                      isActive: remoteVote == false, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(false),
                     ),
                   ),
                 ],
@@ -845,7 +864,13 @@ class _TrustBtn extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: color),
+            if (isActive) ...[
+              // Seçiliyse içi dolu ikon göster
+              Icon(icon == Icons.thumb_up_alt_outlined ? Icons.thumb_up_rounded : Icons.thumb_down_rounded, size: 18, color: color),
+            ] else ...[
+              // Seçili değilse çizgili ikon
+              Icon(icon, size: 18, color: color),
+            ],
             const SizedBox(width: 8),
             Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
           ],
