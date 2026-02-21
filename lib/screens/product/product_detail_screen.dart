@@ -97,7 +97,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   }
 
   Future<void> _shareProduct(ProductDetailResponse data) async {
-    await Share.share('${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}');
+    await Share.share(
+      "${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}",
+    );
   }
 
   @override
