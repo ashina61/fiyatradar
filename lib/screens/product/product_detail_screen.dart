@@ -79,7 +79,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     super.dispose();
   }
 
-
   Future<void> _openAddPrice() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -191,7 +190,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       productId: widget.productId,
     );
   }
-
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -298,10 +296,10 @@ class HeaderBlock extends StatelessWidget {
               (cat) => _Badge(label: cat, bg: _cream300, fg: _brown700),
             ),
             if (_isTrending)
-              _Badge(
+              const _Badge(
                 label: 'Trend',
-                bg: const Color(0xFFFFF3E0),
-                fg: const Color(0xFFEF6C00),
+                bg: Color(0xFFFFF3E0),
+                fg: Color(0xFFEF6C00),
                 icon: Icons.local_fire_department,
               ),
           ],
@@ -445,6 +443,8 @@ class BestPriceCard extends ConsumerWidget {
                   final service = ref.read(productDetailApiServiceProvider);
                   final coords = await service.resolveStoreCoordinates(p);
                   if (coords == null) return;
+                  
+                  // Google Maps Resmi Yönlendirmesi
                   final uri = Uri.parse(
                     'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
                   );
@@ -570,11 +570,11 @@ class _VipContributorChip extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.diamond, size: 18),
+              const Icon(Icons.diamond, size: 18, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 displayName,
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700),
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ],
           ),
@@ -582,135 +582,6 @@ class _VipContributorChip extends ConsumerWidget {
       ),
     );
   }
-}
-
-// ──── Pulsing green dot ────
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500))
-      ..repeat();
-    _scale = Tween<double>(begin: 1, end: 2.5).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 12,
-      height: 12,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          FadeTransition(
-            opacity: Tween<double>(begin: 0.6, end: 0).animate(_ctrl),
-            child: ScaleTransition(
-              scale: _scale,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _success,
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: _success,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──── Tier styling helper ────
-class _TierStyle {
-  const _TierStyle({
-    required this.icon,
-    required this.iconColor,
-    required this.bgColor,
-    required this.borderColor,
-    required this.nameGradient,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color bgColor;
-  final Color borderColor;
-  final List<Color> nameGradient;
-}
-
-_TierStyle _parseTier(String tier) {
-  final t = tier.toLowerCase();
-  if (t.contains('elmas') || t.contains('diamond')) {
-    return _TierStyle(
-      icon: Icons.diamond,
-      iconColor: const Color(0xFF00f2fe),
-      bgColor: const Color(0xFF00f2fe).withOpacity(0.1),
-      borderColor: const Color(0xFF4facfe).withOpacity(0.3),
-      nameGradient: const [Color(0xFFe0f7fa), Color(0xFF00f2fe)],
-    );
-  }
-  if (t.contains('altın') || t.contains('gold')) {
-    return _TierStyle(
-      icon: Icons.workspace_premium,
-      iconColor: const Color(0xFFFFC107),
-      bgColor: const Color(0xFFFFC107).withOpacity(0.1),
-      borderColor: const Color(0xFFFFC107).withOpacity(0.3),
-      nameGradient: const [Color(0xFFFFF8E1), Color(0xFFFFC107)],
-    );
-  }
-  if (t.contains('gümüş') || t.contains('silver')) {
-    return _TierStyle(
-      icon: Icons.workspace_premium,
-      iconColor: const Color(0xFF8D99AE),
-      bgColor: const Color(0xFF8D99AE).withOpacity(0.1),
-      borderColor: const Color(0xFF8D99AE).withOpacity(0.3),
-      nameGradient: const [Color(0xFFE0E0E0), Color(0xFF8D99AE)],
-    );
-  }
-  // default = bronze / new
-  return _TierStyle(
-    icon: Icons.shield_outlined,
-    iconColor: const Color(0xFF8D5A3A),
-    bgColor: const Color(0xFF8D5A3A).withOpacity(0.1),
-    borderColor: const Color(0xFF8D5A3A).withOpacity(0.3),
-    nameGradient: const [Color(0xFFD7CCC8), Color(0xFF8D5A3A)],
-  );
-}
-
-
-String _tierNamePrefix(String tier) {
-  final value = tier.toLowerCase();
-  if (value.contains('elmas') || value.contains('diamond')) return '💎';
-  return '';
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -770,11 +641,10 @@ class QuickStatsRow extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PRICE HISTORY (fl_chart)
+// PRICE HISTORY (fl_chart) - SENIOR FIX
 // ═══════════════════════════════════════════════════════════════════
 class PriceHistoryPanel extends StatelessWidget {
-  const PriceHistoryPanel(
-      {super.key, required this.history, required this.pulseAnimation});
+  const PriceHistoryPanel({super.key, required this.history, required this.pulseAnimation});
 
   final List<PriceHistoryPoint> history;
   final Animation<double> pulseAnimation;
@@ -788,243 +658,134 @@ class PriceHistoryPanel extends StatelessWidget {
           children: [
             _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
             const SizedBox(height: 18),
-            Text('Fiyat geçmişi bulunamadı.',
-                style: GoogleFonts.inter(color: _brown500)),
+            Text('Fiyat geçmişi bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF8D6E63))),
           ],
         ),
       );
     }
 
-    final values = history.map((e) => e.price).toList();
-    final min = values.reduce(math.min);
-    final max = values.reduce(math.max);
-    final spread = (max - min).abs() < 1 ? 1.0 : (max - min);
-    final spots = history.asMap().entries.map((entry) {
-      final scaled = 30 + ((entry.value.price - min) / spread) * 60;
-      return FlSpot(entry.key.toDouble(), scaled);
-    }).toList(growable: false);
+    final minPrice = history.map((e) => e.price).reduce(math.min);
+    final maxPrice = history.map((e) => e.price).reduce(math.max);
+    
+    // Grafiğin alt ve üst sınırlarına nefes alma payı bırakıyoruz
+    final chartMinY = (minPrice * 0.8).floorToDouble();
+    final chartMaxY = (maxPrice * 1.2).ceilToDouble();
 
-    final latestSpot = spots.last;
-    const chartMinY = 25.0;
-    const chartMaxY = 95.0;
-    final normalizedY = (latestSpot.y - chartMinY) / (chartMaxY - chartMinY);
-
-    final midIndex = history.length > 2 ? (history.length / 2).floor() : 0;
-    final shownBottomIndexes = {
-      0,
-      midIndex,
-      history.length - 1,
-    };
+    final spots = history.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), e.value.price);
+    }).toList();
 
     return _PremiumPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
-          const SizedBox(height: 18),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 154,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                const leftReserved = 36.0;
-                const rightReserved = 16.0;
-                final chartWidth = constraints.maxWidth - leftReserved - rightReserved;
-                final xRatio = history.length <= 1 ? 1.0 : latestSpot.x / (history.length - 1);
-                final bubbleLeft = leftReserved + (chartWidth * xRatio) - 36;
-                final bubbleTop = (1 - normalizedY) * 114;
-
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    LineChart(
-                      LineChartData(
-                        minX: 0,
-                        maxX: (history.length - 1).toDouble(),
-                        minY: chartMinY,
-                        maxY: chartMaxY,
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: 30,
-                          getDrawingHorizontalLine: (value) => FlLine(
-                            color: _cream200,
-                            strokeWidth: 1,
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: leftReserved,
-                              interval: 35,
-                              getTitlesWidget: (value, _) {
-                                if ((value - 25).abs() < 0.1) {
-                                  return Text('${min.toStringAsFixed(0)}₺',
-                                      style: GoogleFonts.dmSans(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: _brown500));
-                                }
-                                if ((value - 60).abs() < 0.1) {
-                                  return Text(
-                                      '${((max + min) / 2).toStringAsFixed(0)}₺',
-                                      style: GoogleFonts.dmSans(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: _brown500));
-                                }
-                                if ((value - 95).abs() < 0.1) {
-                                  return Text('${max.toStringAsFixed(0)}₺',
-                                      style: GoogleFonts.dmSans(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: _brown500));
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              interval: math.max(1, (history.length / 2).floor()).toDouble(),
-                              getTitlesWidget: (value, _) {
-                                final i = value.toInt();
-                                if (i < 0 || i >= history.length || !shownBottomIndexes.contains(i)) {
-                                  return const SizedBox.shrink();
-                                }
-                                final label = i == history.length - 1 ? 'Bugün' : history[i].dateLabel;
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(label,
-                                      style: GoogleFonts.inter(
-                                          fontSize: 11, color: _brown500)),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: spots,
-                            isCurved: true,
-                            isStrokeCapRound: true,
-                            barWidth: 4,
-                            color: _amber600,
-                            belowBarData: BarAreaData(
-                              show: true,
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  _amber600.withOpacity(0.38),
-                                  _amber600.withOpacity(0),
-                                ],
-                              ),
-                            ),
-                            dotData: FlDotData(
-                              show: true,
-                              checkToShowDot: (spot, _) =>
-                                  (spot.x - latestSpot.x).abs() < 0.01,
-                              getDotPainter: (spot, percent, barData, index) {
-                                return FlDotCirclePainter(
-                                  radius: 5.5,
-                                  color: _amber600,
-                                  strokeWidth: 2,
-                                  strokeColor: Colors.white,
-                                );
-                              },
-                            ),
-                          ),
+            height: 180, // Grafiğin nefes alması için yüksekliği artırıldı
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: (history.length <= 1) ? 1.0 : (history.length - 1).toDouble(),
+                minY: chartMinY,
+                maxY: chartMaxY,
+                showingTooltipIndicators: spots.isEmpty ? [] : [
+                  ShowingTooltipIndicators([
+                    LineBarSpot(
+                      LineChartBarData(spots: spots), 
+                      0, 
+                      spots.last
+                    )
+                  ])
+                ],
+                lineTouchData: LineTouchData(
+                  enabled: false, 
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => const Color(0xFF5D4037), 
+                    tooltipRoundedRadius: 8,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) => LineTooltipItem(
+                        '${spot.y.toStringAsFixed(0)}₺',
+                        GoogleFonts.dmSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      )).toList();
+                    },
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
+                  getDrawingHorizontalLine: (_) => FlLine(color: const Color(0xFFF5EDE4), strokeWidth: 1), 
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      interval: 1, 
+                      getTitlesWidget: (value, meta) {
+                        if (value % 1 != 0) return const SizedBox.shrink();
+                        final index = value.toInt();
+                        if (index < 0 || index >= history.length) return const SizedBox.shrink();
+                        
+                        // Sadece ilk, orta ve son noktada etiket göster
+                        if (index != 0 && index != history.length - 1 && index != (history.length / 2).floor()) {
+                          return const SizedBox.shrink();
+                        }
+                        
+                        final label = index == history.length - 1 ? 'Bugün' : history[index].dateLabel;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.35, 
+                    color: const Color(0xFFC8956C), 
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFFC8956C).withOpacity(0.3),
+                          const Color(0xFFC8956C).withOpacity(0.0),
                         ],
                       ),
                     ),
-                    Positioned(
-                      left: bubbleLeft.clamp(0, constraints.maxWidth - 72),
-                      top: bubbleTop.clamp(4, 108),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _brown900,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${history.last.price.toStringAsFixed(0)}₺',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          CustomPaint(
-                            size: const Size(8, 4),
-                            painter: _TrianglePainter(_brown900),
-                          ),
-                          const SizedBox(height: 2),
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              ScaleTransition(
-                                scale: pulseAnimation,
-                                child: Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _amber600.withOpacity(0.25),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _amber600,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    dotData: FlDotData(
+                      show: true,
+                      checkToShowDot: (spot, barData) => spot.x == barData.spots.last.x,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 6,
+                          color: const Color(0xFFC8956C),
+                          strokeWidth: 3,
+                          strokeColor: Colors.white,
+                        );
+                      },
                     ),
-                  ],
-                );
-              },
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class _TrianglePainter extends CustomPainter {
-  _TrianglePainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1335,7 +1096,7 @@ class CommentsPanel extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 18,
                 backgroundColor: _cream200,
                 child: Icon(Icons.person, color: _brown500, size: 20),
@@ -1438,7 +1199,6 @@ class CommentsPanel extends StatelessWidget {
     return _amber600;
   }
 }
-
 
 class _CommentReportButton extends ConsumerWidget {
   const _CommentReportButton({required this.commentId, required this.productId});
