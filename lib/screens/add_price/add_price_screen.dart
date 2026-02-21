@@ -14,7 +14,9 @@ import '../../widgets/premium_pressable.dart';
 import '../../widgets/staggered_fade_slide.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
-  const AddPriceScreen({super.key});
+  const AddPriceScreen({super.key, this.initialProductId});
+
+  final String? initialProductId;
 
   @override
   ConsumerState<AddPriceScreen> createState() => _AddPriceScreenState();
@@ -63,6 +65,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pid = widget.initialProductId?.trim() ?? '';
+      if (pid.isEmpty) return;
+      ref.read(addPriceProvider.notifier).initializeForProduct(pid);
+    });
   }
 
   @override

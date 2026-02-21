@@ -390,6 +390,15 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     );
   }
 
+
+
+  Future<void> initializeForProduct(String productId) async {
+    final normalizedId = productId.trim();
+    if (normalizedId.isEmpty) return;
+    final product = await _firestore.getProduct(normalizedId);
+    if (product == null) return;
+    selectProductSuggestion(product, barcode: product.barcode);
+  }
   Future<bool> applyScannedBarcode(String barcode) async {
     final normalizedBarcode = barcode.trim();
     if (normalizedBarcode.isEmpty) return false;
