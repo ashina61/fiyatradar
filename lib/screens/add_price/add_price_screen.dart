@@ -336,64 +336,59 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
           const SizedBox(height: 16),
           // Price input
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '\u20BA',
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '\u20BA',
+                style: TextStyle(
+                  fontFamily: 'DM Sans',
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _priceController,
+                  focusNode: _priceFocus,
+                  onChanged: ref.read(addPriceProvider.notifier).setPrice,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
+                  ],
                   style: TextStyle(
                     fontFamily: 'DM Sans',
-                    fontSize: 36,
+                    fontSize: 56,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textTertiary,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -2,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                ),
-                const SizedBox(width: 4),
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    controller: _priceController,
-                    focusNode: _priceFocus,
-                    onChanged: ref.read(addPriceProvider.notifier).setPrice,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
-                    ],
-                    style: TextStyle(
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent,
+                    filled: false,
+                    hintText: '0,00',
+                    hintStyle: TextStyle(
                       fontFamily: 'DM Sans',
                       fontSize: 56,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: AppColors.outline,
                       letterSpacing: -2,
-                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      fillColor: Colors.transparent,
-                      filled: false,
-                      hintText: '0,00',
-                      hintStyle: TextStyle(
-                        fontFamily: 'DM Sans',
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.outline,
-                        letterSpacing: -2,
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
-                    ),
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
