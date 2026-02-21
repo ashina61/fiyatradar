@@ -486,24 +486,36 @@ class FirestoreService {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const [];
 
-    final queryLower = trimmed.toLowerCase();
-    final snapshot = await _productsRef
-        .orderBy('nameLower')
-        .startAt([queryLower])
-        .endAt(['$queryLower\uf8ff'])
-        .limit(5)
-        .get();
+    try {
+      final queryLower = trimmed.toLowerCase();
+      debugPrint(
+        '[FirestoreService.searchProductsByPrefix] Firestore query => collection=products, where=[nameLower >= $queryLower, nameLower <= ${queryLower}\uf8ff], orderBy=[nameLower asc], limit=5',
+      );
+      final snapshot = await _productsRef
+          .orderBy('nameLower')
+          .startAt([queryLower])
+          .endAt(['$queryLower\uf8ff'])
+          .limit(5)
+          .get();
 
-    final products = snapshot.docs
-        .map((doc) => ProductModel.fromFirestore(doc))
-        .where((product) => product.name.trim().isNotEmpty)
-        .toList(growable: false);
+      final products = snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .where((product) => product.name.trim().isNotEmpty)
+          .toList(growable: false);
 
-    debugPrint(
-      'PRODUCT_QUERY q=$queryLower results=${products.length} collection=products field=nameLower',
-    );
+      debugPrint(
+        'PRODUCT_QUERY q=$queryLower results=${products.length} collection=products field=nameLower',
+      );
 
-    return products.take(limit).toList(growable: false);
+      return products.take(limit).toList(growable: false);
+    } catch (e, st) {
+      debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[FirestoreService.searchProductsByPrefix] STACK',
+      );
+      rethrow;
+    }
   }
 
   Future<ProductModel?> getProduct(String productId) async {
@@ -1273,19 +1285,31 @@ class FirestoreService {
   }
 
   Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
-    final priceSnap = await _pricesRef.doc(priceId).get();
-    final data = priceSnap.data() ?? const <String, dynamic>{};
-    final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
-    if (ownerUid.isEmpty) {
-      return const PriceVoteResult(PriceVoteStatus.ignored);
-    }
+    try {
+      debugPrint(
+        '[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
+      );
+      final priceSnap = await _pricesRef.doc(priceId).get();
+      final data = priceSnap.data() ?? const <String, dynamic>{};
+      final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
+      if (ownerUid.isEmpty) {
+        return const PriceVoteResult(PriceVoteStatus.ignored);
+      }
 
-    return voteOnPrice(
-      priceId: priceId,
-      priceOwnerUid: ownerUid,
-      vote: isVerified ? 1 : -1,
-      voterUid: voterId,
-    );
+      return voteOnPrice(
+        priceId: priceId,
+        priceOwnerUid: ownerUid,
+        vote: isVerified ? 1 : -1,
+        voterUid: voterId,
+      );
+    } catch (e, st) {
+      debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[FirestoreService.verifyPrice] STACK',
+      );
+      rethrow;
+    }
   }
 
   Future<bool> hasUserVotedPrice(String priceId, String userId) async {

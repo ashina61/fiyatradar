@@ -178,8 +178,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       locationMessage: null,
     );
     try {
-      debugPrint('[AddPrice] Firestore query: categories');
-      debugPrint('[AddPrice] Firestore query: stores');
+      debugPrint('[AddPrice.loadStoresAndCategories] Firestore query => collection=categories, where=[], orderBy=[]');
+      debugPrint('[AddPrice.loadStoresAndCategories] Firestore query => collection=stores, where=[], orderBy=[]');
 
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
@@ -220,7 +220,12 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         locationMessage: locationMessage,
         clearStoresError: true,
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AddPrice.loadStoresAndCategories] ERROR: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[AddPrice.loadStoresAndCategories] STACK',
+      );
       state = state.copyWith(
         isStoresLoading: false,
         storesError: e.toString(),
