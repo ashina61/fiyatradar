@@ -490,18 +490,27 @@ class FirestoreService {
 
     try {
       snapshot = await _productsRef
-          .orderBy('nameLower')
+          .orderBy('productNameLower')
           .startAt([queryLower])
           .endAt(['$queryLower\uf8ff'])
           .limit(limit)
           .get();
     } catch (_) {
-      snapshot = await _productsRef
-          .orderBy('name')
-          .startAt([trimmed])
-          .endAt(['$trimmed\uf8ff'])
-          .limit(limit)
-          .get();
+      try {
+        snapshot = await _productsRef
+            .orderBy('nameLower')
+            .startAt([queryLower])
+            .endAt(['$queryLower\uf8ff'])
+            .limit(limit)
+            .get();
+      } catch (_) {
+        snapshot = await _productsRef
+            .orderBy('name')
+            .startAt([trimmed])
+            .endAt(['$trimmed\uf8ff'])
+            .limit(limit)
+            .get();
+      }
     }
 
     final products = snapshot.docs

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,7 @@ class AddPriceState {
     this.onlineStores = const [],
     this.isStoresLoading = false,
     this.storesError,
+    this.locationMessage,
     this.isLoading = false,
     this.error,
   });
@@ -55,6 +57,7 @@ class AddPriceState {
   final List<Store> onlineStores;
   final bool isStoresLoading;
   final String? storesError;
+  final String? locationMessage;
   final bool isLoading;
   final String? error;
 
@@ -82,6 +85,7 @@ class AddPriceState {
     bool? isStoresLoading,
     String? storesError,
     bool clearStoresError = false,
+    String? locationMessage,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -113,6 +117,7 @@ class AddPriceState {
       onlineStores: onlineStores ?? this.onlineStores,
       isStoresLoading: isStoresLoading ?? this.isStoresLoading,
       storesError: clearStoresError ? null : (storesError ?? this.storesError),
+      locationMessage: locationMessage ?? this.locationMessage,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
     );
@@ -127,7 +132,17 @@ class AddPriceState {
         : source
             .where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase()))
             .toList(growable: false);
-    return filtered.take(5).toList(growable: false);
+    final ordered = isNearbyMode
+        ? [...filtered]..sort((a, b) {
+            final ad = a.distanceMeters;
+            final bd = b.distanceMeters;
+            if (ad != null && bd != null) return ad.compareTo(bd);
+            if (ad != null) return -1;
+            if (bd != null) return 1;
+            return 0;
+          })
+        : filtered;
+    return ordered.take(5).toList(growable: false);
   }
 }
 
@@ -147,6 +162,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   final FirestoreService _firestore;
   final LocationService _locationService;
   Timer? _productSearchDebounce;
+  LocationData? _cachedLocationData;
 
   @override
   void dispose() {
@@ -155,14 +171,25 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   }
 
   Future<void> loadStoresAndCategories() async {
-    state = state.copyWith(isStoresLoading: true, clearStoresError: true);
+    state = state.copyWith(
+      isStoresLoading: true,
+      clearStoresError: true,
+      locationMessage: null,
+    );
     try {
       debugPrint('[AddPrice] Firestore query: categories');
       debugPrint('[AddPrice] Firestore query: stores');
 
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
-      final userPosition = await _locationService.getCurrentPosition();
+      _cachedLocationData ??= await _locationService.getLocationData();
+      final userPosition = _cachedLocationData?.position;
+      final userLat = userPosition?.latitude;
+      final userLng = userPosition?.longitude;
+      debugPrint('USER_LOCATION: ${userLat != null && userLng != null ? '$userLat,$userLng' : 'null'}');
+      final locationMessage = userPosition == null
+          ? 'Konum izni olmadan mesafe hesaplanamiyor.'
+          : null;
 
       final nearby = stores
           .where((s) => s.status == StoreStatus.active && !s.isOnline)
@@ -189,6 +216,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         nearbyStores: nearby,
         onlineStores: online,
         isStoresLoading: false,
+        locationMessage: locationMessage,
         clearStoresError: true,
       );
     } catch (e) {
@@ -203,14 +231,18 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
   Store _mapStore(StoreModel model, Position? userPosition) {
     final hasCoordinates = model.lat != 0 && model.lng != 0;
-    final distanceMeters = hasCoordinates && userPosition != null
-        ? Geolocator.distanceBetween(
+    final lat = hasCoordinates ? model.lat : null;
+    final lng = hasCoordinates ? model.lng : null;
+    debugPrint('STORE_LOC: ${model.id} ${lat != null && lng != null ? '$lat,$lng' : 'null'}');
+    final distanceMeters = lat != null && lng != null && userPosition != null
+        ? _haversineMeters(
             userPosition.latitude,
             userPosition.longitude,
-            model.lat,
-            model.lng,
+            lat,
+            lng,
           ).round()
-        : 0;
+        : null;
+    debugPrint('DISTANCE: ${model.id} ${distanceMeters ?? 'null'}');
 
     return Store(
       id: model.id,
@@ -224,6 +256,26 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     );
   }
 
+  double _haversineMeters(
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(endLatitude - startLatitude);
+    final dLng = _degToRad(endLongitude - startLongitude);
+    final a =
+        (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+        math.cos(_degToRad(startLatitude)) *
+            math.cos(_degToRad(endLatitude)) *
+            (math.sin(dLng / 2) * math.sin(dLng / 2));
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double deg) => deg * (math.pi / 180);
+
   void setPrice(String value) => state = state.copyWith(price: value);
   void onProductInputChanged(String value) {
     _productSearchDebounce?.cancel();
@@ -233,6 +285,9 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     final shouldClearSelection =
         wasSelected && normalizedInput.toLowerCase() != state.productName.trim().toLowerCase();
 
+    if (shouldClearSelection) {
+      debugPrint('CATEGORY_LOCKED: false');
+    }
     state = state.copyWith(
       productName: value,
       productSuggestions: const [],
@@ -242,6 +297,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     );
 
     if (normalizedInput.isEmpty) {
+      debugPrint('CATEGORY_LOCKED: false');
       state = state.copyWith(
         clearSelectedProduct: true,
         lockedCategoryByProduct: false,
@@ -256,9 +312,11 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
         final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 5);
+        debugPrint('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
         state = state.copyWith(productSuggestions: results);
       } catch (_) {
+        debugPrint('PRODUCT_QUERY: $normalizedInput -> 0 results');
         state = state.copyWith(productSuggestions: const []);
       }
     });
@@ -271,6 +329,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
   void selectProductSuggestion(ProductModel product, {String? barcode}) {
     final resolvedCategory = _resolveCategoryForProduct(product);
+    debugPrint('PRODUCT_SELECTED: ${product.id} ${product.name} category=${resolvedCategory?.id ?? 'null'}');
+    debugPrint('CATEGORY_LOCKED: ${resolvedCategory != null}');
     state = state.copyWith(
       productName: product.name,
       barcode: barcode ?? product.barcode,
@@ -391,6 +451,9 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         id: '',
         productId: product.id,
         productName: state.productName.trim(),
+        selectedProductId: state.selectedProductId,
+        selectedCategoryId: state.selectedCategoryId,
+        selectedStoreId: state.selectedStoreId,
         barcode: state.barcode,
         userId: userId,
         createdByUid: userId,
