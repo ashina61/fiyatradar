@@ -9,6 +9,20 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/product_detail_api_model.dart';
 import '../../providers/product_detail_provider.dart';
 
+// ──── Design tokens (matching reference CSS) ────
+const _brown900 = Color(0xFF5D4037);
+const _brown700 = Color(0xFF795548);
+const _brown500 = Color(0xFF8D6E63);
+const _amber600 = Color(0xFFC8956C);
+const _amber400 = Color(0xFFD4A574);
+const _cream100 = Color(0xFFFFF8F0);
+const _cream200 = Color(0xFFF5EDE4);
+const _cream300 = Color(0xFFEDE0D4);
+const _success = Color(0xFF2E7D32);
+const _successBg = Color(0xFFE8F5E9);
+const _danger = Color(0xFFC62828);
+const _dangerBg = Color(0xFFFFEBEE);
+
 class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({
     super.key,
@@ -22,13 +36,12 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   final String? highlightedPriceId;
 
   @override
-  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  ConsumerState<ProductDetailScreen> createState() =>
+      _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     with TickerProviderStateMixin {
-  static const _creamBg = Color(0xFFFFF8F0);
-
   late final AnimationController _heroFloatController;
   late final AnimationController _chartPulseController;
   late final Animation<double> _heroFloat;
@@ -38,14 +51,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   @override
   void initState() {
     super.initState();
-    _heroFloatController = AnimationController(vsync: this, duration: const Duration(seconds: 4))
-      ..repeat(reverse: true);
+    _heroFloatController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 4))
+          ..repeat(reverse: true);
     _heroFloat = Tween<double>(begin: 0, end: -10).animate(
       CurvedAnimation(parent: _heroFloatController, curve: Curves.easeInOut),
     );
-    _chartPulseController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
-          ..repeat(reverse: true);
+    _chartPulseController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat(reverse: true);
     _chartPulse = Tween<double>(begin: 1, end: 1.45).animate(
       CurvedAnimation(parent: _chartPulseController, curve: Curves.easeInOut),
     );
@@ -62,10 +76,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
-    final notifier = ref.read(productDetailProvider(widget.productId).notifier);
+    final notifier =
+        ref.read(productDetailProvider(widget.productId).notifier);
 
     return Scaffold(
-      backgroundColor: _creamBg,
+      backgroundColor: _cream100,
       floatingActionButton: PressableFab(onPressed: () {}),
       body: SafeArea(
         child: Center(
@@ -73,7 +88,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
             constraints: const BoxConstraints(maxWidth: 414),
             child: Container(
               decoration: BoxDecoration(
-                color: _creamBg,
+                color: _cream100,
                 borderRadius: BorderRadius.circular(40),
                 border: Border.all(color: Colors.white, width: 8),
               ),
@@ -91,12 +106,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                                 onBack: () => Navigator.of(context).pop(),
                               ),
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 24, 20, 100),
                                 child: Column(
                                   children: [
                                     HeaderBlock(data: state.data!),
                                     const SizedBox(height: 24),
-                                    BestPriceCard(data: state.data!, isVoting: state.isSubmittingVote),
+                                    BestPriceCard(
+                                        data: state.data!,
+                                        isVoting: state.isSubmittingVote),
                                     const SizedBox(height: 24),
                                     QuickStatsRow(stats: state.data!.stats),
                                     const SizedBox(height: 24),
@@ -130,6 +148,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// HERO SECTION
+// ═══════════════════════════════════════════════════════════════════
 class HeroSection extends StatelessWidget {
   const HeroSection({
     super.key,
@@ -148,7 +169,7 @@ class HeroSection extends StatelessWidget {
       height: 340,
       decoration: const BoxDecoration(
         gradient: RadialGradient(
-          colors: [Colors.white, Color(0xFFF5EDE4)],
+          colors: [Colors.white, _cream200],
           center: Alignment(0, 0.2),
           radius: 1,
         ),
@@ -166,7 +187,8 @@ class HeroSection extends StatelessWidget {
                 GlassIconButton(icon: Icons.arrow_back, onTap: onBack),
                 Row(
                   children: [
-                    GlassIconButton(icon: Icons.favorite_border, onTap: () {}),
+                    GlassIconButton(
+                        icon: Icons.favorite_border, onTap: () {}),
                     const SizedBox(width: 12),
                     GlassIconButton(icon: Icons.share, onTap: () {}),
                   ],
@@ -191,7 +213,8 @@ class HeroSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Image.network(data.imageUrl, height: 220, fit: BoxFit.contain),
+                child: Image.network(data.imageUrl,
+                    height: 220, fit: BoxFit.contain),
               ),
             ),
           ),
@@ -201,32 +224,126 @@ class HeroSection extends StatelessWidget {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// HEADER BLOCK – badges, title, meta
+// ═══════════════════════════════════════════════════════════════════
 class HeaderBlock extends StatelessWidget {
   const HeaderBlock({super.key, required this.data});
 
   final ProductDetailResponse data;
+
+  bool get _isTrending =>
+      data.priceEntryCount >= 10 || data.viewCount >= 100;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Badges ──
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...data.categories.map(
+              (cat) => _Badge(label: cat, bg: _cream300, fg: _brown700),
+            ),
+            if (_isTrending)
+              _Badge(
+                label: 'Trend',
+                bg: const Color(0xFFFFF3E0),
+                fg: const Color(0xFFEF6C00),
+                icon: Icons.local_fire_department,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ── Title ──
         Text(
           data.title,
-          style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w700, color: const Color(0xFF5D4037)),
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: _brown900,
+            height: 1.3,
+          ),
         ),
-        const SizedBox(height: 10),
-        Text(
-          '👁 ${data.viewCount} görüntüleme • 🏷 ${data.priceEntryCount} fiyat girişi',
-          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF8D6E63)),
+        const SizedBox(height: 8),
+
+        // ── Meta row ──
+        Row(
+          children: [
+            const Icon(Icons.visibility_outlined, size: 16, color: _brown500),
+            const SizedBox(width: 4),
+            Text(
+              '${data.viewCount} Görüntüleme',
+              style: GoogleFonts.inter(fontSize: 13, color: _brown500),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('•',
+                  style: GoogleFonts.inter(
+                      fontSize: 18, color: _brown500, height: 1)),
+            ),
+            const Icon(Icons.sell_outlined, size: 16, color: _brown500),
+            const SizedBox(width: 4),
+            Text(
+              '${data.priceEntryCount} Fiyat Girişi',
+              style: GoogleFonts.inter(fontSize: 13, color: _brown500),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
+class _Badge extends StatelessWidget {
+  const _Badge({
+    required this.label,
+    required this.bg,
+    required this.fg,
+    this.icon,
+  });
+
+  final String label;
+  final Color bg;
+  final Color fg;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: GoogleFonts.inter(
+                fontSize: 12, fontWeight: FontWeight.w600, color: fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BEST PRICE CARD
+// ═══════════════════════════════════════════════════════════════════
 class BestPriceCard extends StatelessWidget {
-  const BestPriceCard({super.key, required this.data, required this.isVoting});
+  const BestPriceCard(
+      {super.key, required this.data, required this.isVoting});
 
   final ProductDetailResponse data;
   final bool isVoting;
@@ -235,19 +352,29 @@ class BestPriceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = data.bestPrice;
     final priceText = p.price.toStringAsFixed(0);
+    final tier = _parseTier(p.userTier);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(colors: [Color(0xFF5D4037), Color(0xFF795548)]),
+        gradient: const LinearGradient(
+          begin: Alignment(-0.4, -0.4),
+          end: Alignment(1, 1),
+          colors: [_brown900, _brown700],
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 40, offset: const Offset(0, 20)),
+          BoxShadow(
+              color: _brown900.withOpacity(0.25),
+              blurRadius: 40,
+              offset: const Offset(0, 20)),
         ],
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // ── Glow ──
           Positioned(
             top: -50,
             right: -50,
@@ -256,87 +383,217 @@ class BestPriceCard extends StatelessWidget {
               height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.amber.withOpacity(0.25),
-                boxShadow: const [BoxShadow(blurRadius: 20, color: Colors.amber)],
+                gradient: RadialGradient(
+                  colors: [
+                    _amber600.withOpacity(0.5),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
+
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Header row ──
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFFC107)),
-                      color: Colors.white.withOpacity(0.08),
+                      color: Colors.white.withOpacity(0.15),
+                      border:
+                          Border.all(color: _amber600.withOpacity(0.3)),
                     ),
                     child: Text(
-                      'Best price',
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFFFC107)),
-                    ),
-                  ),
-                  Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: Text(
-                        p.store.isNotEmpty ? p.store[0].toUpperCase() : '?',
-                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+                      '👑 En İyi Fiyat',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _amber400,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(p.store, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const _PulsingDot(),
+                      const SizedBox(width: 6),
+                      Text(
+                        p.createdAtLabel,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.7)),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              RichText(
-                text: TextSpan(
-                  text: priceText,
-                  style: GoogleFonts.dmSans(fontSize: 48, fontWeight: FontWeight.w700, color: Colors.white),
-                  children: [
-                    TextSpan(
-                      text: ' ₺',
-                      style: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.w700, color: const Color(0xFFFFC107)),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () async {
-                    if (p.storeUrl.isEmpty) return;
-                    await launchUrl(Uri.parse(p.storeUrl), mode: LaunchMode.externalApplication);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFC8956C),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Mağazaya git',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+
+              // ── Price row: store info + price ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: Text(
+                            p.store.isNotEmpty
+                                ? p.store[0].toUpperCase()
+                                : '?',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: _storeLogoColor(p.store),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        p.store,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  RichText(
+                    text: TextSpan(
+                      text: priceText,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '₺',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: _amber400,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // ── Footer: user tier + go store ──
+              Container(
+                padding: const EdgeInsets.only(top: 16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.white10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // User trust
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ekleyen:',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: Colors.white60,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: tier.bgColor,
+                            border: Border.all(color: tier.borderColor),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(tier.icon,
+                                  size: 16, color: tier.iconColor),
+                              const SizedBox(width: 6),
+                              ShaderMask(
+                                shaderCallback: (bounds) => LinearGradient(
+                                  colors: tier.nameGradient,
+                                ).createShader(bounds),
+                                child: Text(
+                                  p.userName.isNotEmpty
+                                      ? p.userName
+                                      : 'Anonim',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Go store button
+                    GestureDetector(
+                      onTap: () async {
+                        if (p.storeUrl.isEmpty) return;
+                        await launchUrl(Uri.parse(p.storeUrl),
+                            mode: LaunchMode.externalApplication);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _amber600,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Mağazaya Git',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.arrow_forward,
+                                size: 16, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -345,8 +602,149 @@ class BestPriceCard extends StatelessWidget {
       ),
     );
   }
+
+  static Color _storeLogoColor(String storeName) {
+    final name = storeName.toLowerCase();
+    if (name.contains('a101') || name.contains('a-101')) {
+      return const Color(0xFF00B1E7);
+    }
+    if (name.contains('bim')) return const Color(0xFFE31E24);
+    if (name.contains('şok') || name.contains('sok')) {
+      return const Color(0xFFFFD700);
+    }
+    if (name.contains('migros')) return const Color(0xFFFF6900);
+    if (name.contains('carrefour') || name.contains('carrefoursa')) {
+      return const Color(0xFF004F9F);
+    }
+    return _amber600;
+  }
 }
 
+// ──── Pulsing green dot ────
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot();
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat();
+    _scale = Tween<double>(begin: 1, end: 2.5).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 12,
+      height: 12,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.6, end: 0).animate(_ctrl),
+            child: ScaleTransition(
+              scale: _scale,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _success,
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: _success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ──── Tier styling helper ────
+class _TierStyle {
+  const _TierStyle({
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    required this.borderColor,
+    required this.nameGradient,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
+  final Color borderColor;
+  final List<Color> nameGradient;
+}
+
+_TierStyle _parseTier(String tier) {
+  final t = tier.toLowerCase();
+  if (t.contains('elmas') || t.contains('diamond')) {
+    return _TierStyle(
+      icon: Icons.diamond,
+      iconColor: const Color(0xFF00f2fe),
+      bgColor: const Color(0xFF00f2fe).withOpacity(0.1),
+      borderColor: const Color(0xFF4facfe).withOpacity(0.3),
+      nameGradient: const [Color(0xFFe0f7fa), Color(0xFF00f2fe)],
+    );
+  }
+  if (t.contains('altın') || t.contains('gold')) {
+    return _TierStyle(
+      icon: Icons.workspace_premium,
+      iconColor: const Color(0xFFFFC107),
+      bgColor: const Color(0xFFFFC107).withOpacity(0.1),
+      borderColor: const Color(0xFFFFC107).withOpacity(0.3),
+      nameGradient: const [Color(0xFFFFF8E1), Color(0xFFFFC107)],
+    );
+  }
+  if (t.contains('gümüş') || t.contains('silver')) {
+    return _TierStyle(
+      icon: Icons.workspace_premium,
+      iconColor: const Color(0xFF8D99AE),
+      bgColor: const Color(0xFF8D99AE).withOpacity(0.1),
+      borderColor: const Color(0xFF8D99AE).withOpacity(0.3),
+      nameGradient: const [Color(0xFFE0E0E0), Color(0xFF8D99AE)],
+    );
+  }
+  // default = bronze / new
+  return _TierStyle(
+    icon: Icons.shield_outlined,
+    iconColor: const Color(0xFF8D5A3A),
+    bgColor: const Color(0xFF8D5A3A).withOpacity(0.1),
+    borderColor: const Color(0xFF8D5A3A).withOpacity(0.3),
+    nameGradient: const [Color(0xFFD7CCC8), Color(0xFF8D5A3A)],
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUICK STATS
+// ═══════════════════════════════════════════════════════════════════
 class QuickStatsRow extends StatelessWidget {
   const QuickStatsRow({super.key, required this.stats});
 
@@ -354,20 +752,32 @@ class QuickStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget card(String title, String value, {bool highlighted = false}) {
+    Widget card(String title, String value,
+        {bool highlighted = false, Color? valueColor}) {
       return Expanded(
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: highlighted ? const Color(0xFFFFF8E1) : Colors.white,
+            color: highlighted ? const Color(0xFFFFF8E1) : _cream200,
             borderRadius: BorderRadius.circular(20),
-            border: highlighted ? Border.all(color: const Color(0xFFFFC107)) : null,
+            border: highlighted
+                ? Border.all(color: const Color(0xFFFFC107))
+                : Border.all(color: Colors.transparent),
           ),
           child: Column(
             children: [
-              Text(title, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8D6E63))),
-              const SizedBox(height: 6),
-              Text(value, style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF5D4037))),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: _brown500,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text(value,
+                  style: GoogleFonts.dmSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: valueColor ?? _brown900)),
             ],
           ),
         ),
@@ -376,18 +786,24 @@ class QuickStatsRow extends StatelessWidget {
 
     return Row(
       children: [
-        card('En düşük', '${stats.lowest.toStringAsFixed(0)}₺', highlighted: true),
+        card('En Düşük Fiyat', '${stats.lowest.toStringAsFixed(0)}₺',
+            highlighted: true, valueColor: _success),
         const SizedBox(width: 12),
-        card('Ortalama', '${stats.average.toStringAsFixed(0)}₺'),
+        card('Ortalama',
+            '${stats.average.toStringAsFixed(2).replaceAll('.', ',')}₺'),
         const SizedBox(width: 12),
-        card('En yüksek', '${stats.highest.toStringAsFixed(0)}₺'),
+        card('En Yüksek', '${stats.highest.toStringAsFixed(0)}₺'),
       ],
     );
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// PRICE HISTORY (fl_chart)
+// ═══════════════════════════════════════════════════════════════════
 class PriceHistoryPanel extends StatelessWidget {
-  const PriceHistoryPanel({super.key, required this.history, required this.pulseAnimation});
+  const PriceHistoryPanel(
+      {super.key, required this.history, required this.pulseAnimation});
 
   final List<PriceHistoryPoint> history;
   final Animation<double> pulseAnimation;
@@ -395,7 +811,17 @@ class PriceHistoryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (history.isEmpty) {
-      return _PremiumPanel(child: Text('Fiyat geçmişi bulunamadı.', style: GoogleFonts.inter()));
+      return _PremiumPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
+            const SizedBox(height: 14),
+            Text('Fiyat geçmişi bulunamadı.',
+                style: GoogleFonts.inter(color: _brown500)),
+          ],
+        ),
+      );
     }
 
     final values = history.map((e) => e.price).toList();
@@ -411,7 +837,7 @@ class PriceHistoryPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Fiyat Geçmişi', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+          _sectionHeader('Fiyat Geçmişi', subtitle: 'Son 30 gün'),
           const SizedBox(height: 14),
           SizedBox(
             height: 140,
@@ -422,20 +848,40 @@ class PriceHistoryPanel extends StatelessWidget {
                   LineChartData(
                     minY: 25,
                     maxY: 95,
-                    gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 30),
+                    gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: 30,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                              color: _cream200,
+                              strokeWidth: 1,
+                            )),
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 24,
+                          reservedSize: 36,
                           interval: 30,
                           getTitlesWidget: (value, _) {
-                            if (value > 80) return Text('90', style: GoogleFonts.inter(fontSize: 11));
-                            if (value > 50) return Text('60', style: GoogleFonts.inter(fontSize: 11));
-                            return Text('30', style: GoogleFonts.inter(fontSize: 11));
+                            String label;
+                            if (value > 80) {
+                              label = '${max.toStringAsFixed(0)}₺';
+                            } else if (value > 50) {
+                              label =
+                                  '${((max + min) / 2).toStringAsFixed(0)}₺';
+                            } else {
+                              label = '${min.toStringAsFixed(0)}₺';
+                            }
+                            return Text(label,
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _brown500));
                           },
                         ),
                       ),
@@ -445,13 +891,31 @@ class PriceHistoryPanel extends StatelessWidget {
                           getTitlesWidget: (value, _) {
                             final i = value.toInt();
                             if (i == 0 && history.isNotEmpty) {
-                              return Text(history.first.dateLabel, style: GoogleFonts.inter(fontSize: 11));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(history.first.dateLabel,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11, color: _brown500)),
+                              );
                             }
-                            if (i == (history.length / 2).floor() && history.length > 2) {
-                              return Text(history[(history.length / 2).floor()].dateLabel, style: GoogleFonts.inter(fontSize: 11));
+                            if (i == (history.length / 2).floor() &&
+                                history.length > 2) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                    history[(history.length / 2).floor()]
+                                        .dateLabel,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11, color: _brown500)),
+                              );
                             }
                             if (i == history.length - 1) {
-                              return Text('Bugün', style: GoogleFonts.inter(fontSize: 11));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text('Bugün',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11, color: _brown500)),
+                              );
                             }
                             return const SizedBox.shrink();
                           },
@@ -464,13 +928,16 @@ class PriceHistoryPanel extends StatelessWidget {
                         isCurved: true,
                         isStrokeCapRound: true,
                         barWidth: 4,
-                        gradient: const LinearGradient(colors: [Color(0xFFC8956C), Color(0xFF795548)]),
+                        color: _amber600,
                         belowBarData: BarAreaData(
                           show: true,
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [const Color(0xFFC8956C).withOpacity(0.35), Colors.transparent],
+                            colors: [
+                              _amber600.withOpacity(0.4),
+                              _amber600.withOpacity(0),
+                            ],
                           ),
                         ),
                         dotData: const FlDotData(show: false),
@@ -478,38 +945,56 @@ class PriceHistoryPanel extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Current price dot + tag
                 Positioned(
                   right: 0,
                   top: 40,
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFF5D4037), borderRadius: BorderRadius.circular(8)),
-                        child: Text('${history.last.price.toStringAsFixed(0)}₺', style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _brown900,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${history.last.price.toStringAsFixed(0)}₺',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 6),
+                      // Small arrow
+                      CustomPaint(
+                        size: const Size(8, 4),
+                        painter: _TrianglePainter(_brown900),
+                      ),
+                      const SizedBox(height: 2),
                       Stack(
                         alignment: Alignment.center,
                         children: [
                           ScaleTransition(
                             scale: pulseAnimation,
                             child: Container(
-                              width: 16,
-                              height: 16,
+                              width: 20,
+                              height: 20,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFFC8956C).withOpacity(0.25),
+                                color: _amber600.withOpacity(0.25),
                               ),
                             ),
                           ),
                           Container(
-                            width: 10,
-                            height: 10,
+                            width: 12,
+                            height: 12,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFC8956C),
-                              border: Border.all(color: Colors.white, width: 2),
+                              color: _amber600,
+                              border:
+                                  Border.all(color: Colors.white, width: 2),
                             ),
                           ),
                         ],
@@ -526,6 +1011,28 @@ class PriceHistoryPanel extends StatelessWidget {
   }
 }
 
+class _TrianglePainter extends CustomPainter {
+  _TrianglePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMUNITY PANEL (trust / vote)
+// ═══════════════════════════════════════════════════════════════════
 class CommunityPanel extends StatelessWidget {
   const CommunityPanel({
     super.key,
@@ -544,59 +1051,82 @@ class CommunityPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Community', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text('Topluluk Merkezi',
+                  style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _brown900)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(999)),
-                child: Text('%${data.trust.scorePercent} güven', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _successBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.verified_user,
+                        size: 14, color: _success),
+                    const SizedBox(width: 4),
+                    Text(
+                      '%${data.trust.scorePercent} Güvenilir',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _success,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // ── Trust bar ──
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: data.trust.scorePercent / 100,
               minHeight: 8,
-              backgroundColor: const Color(0xFFEDE0D4),
-              color: const Color(0xFF66BB6A),
+              backgroundColor: _cream300,
+              color: _success,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // ── Vote buttons ──
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
+                child: _TrustButton(
+                  label: 'Doğrula (${data.trust.approveCount})',
+                  icon: Icons.thumb_up_outlined,
+                  color: _success,
+                  bgColor: _successBg,
                   onPressed: isVoting
                       ? null
-                      : () => notifier.votePrice(priceId: data.bestPrice.id, isApproved: true),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(12),
-                    backgroundColor: const Color(0xFFE8F5E9),
-                    foregroundColor: const Color(0xFF2E7D32),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text('Approve (${data.trust.approveCount})', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      : () => notifier.votePrice(
+                          priceId: data.bestPrice.id, isApproved: true),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
+                child: _TrustButton(
+                  label: 'Yanlış (${data.trust.rejectCount})',
+                  icon: Icons.thumb_down_outlined,
+                  color: _danger,
+                  bgColor: _dangerBg,
+                  opacity: 0.7,
                   onPressed: isVoting
                       ? null
-                      : () => notifier.votePrice(priceId: data.bestPrice.id, isApproved: false),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(12),
-                    backgroundColor: const Color(0xFFFFEBEE),
-                    foregroundColor: const Color(0xFFC62828),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text('Reject (${data.trust.rejectCount})', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      : () => notifier.votePrice(
+                          priceId: data.bestPrice.id, isApproved: false),
                 ),
               ),
             ],
@@ -607,6 +1137,60 @@ class CommunityPanel extends StatelessWidget {
   }
 }
 
+class _TrustButton extends StatelessWidget {
+  const _TrustButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.onPressed,
+    this.opacity = 1.0,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  final VoidCallback? onPressed;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: opacity,
+      child: Material(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMENTS PANEL
+// ═══════════════════════════════════════════════════════════════════
 class CommentsPanel extends StatelessWidget {
   const CommentsPanel({
     super.key,
@@ -621,101 +1205,184 @@ class CommentsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final comments = state.data!.comments.take(2).toList();
+    final allComments = state.data!.comments;
+    final comments = allComments.take(2).toList();
 
     return _PremiumPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Yorumlar', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 14),
+          // ── Section header ──
+          _sectionHeader('Son Yorumlar',
+              subtitle: '${allComments.length} Yorum'),
+          const SizedBox(height: 16),
+
+          // ── Comment cards ──
           ...comments.map(
             (c) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
                     radius: 18,
                     backgroundColor: _hexColor(c.avatarBgHex),
-                    child: Text(c.author.isNotEmpty ? c.author[0] : '?', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      c.author.isNotEmpty ? c.author[0] : '?',
+                      style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF5EDE4),
+                        color: _cream200,
                         borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(0),
                           topRight: Radius.circular(16),
                           bottomLeft: Radius.circular(16),
                           bottomRight: Radius.circular(16),
                         ),
                       ),
-                      child: Text(c.text, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF5D4037))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                c.author,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _brown900,
+                                ),
+                              ),
+                              Text(
+                                c.timeAgo,
+                                style: GoogleFonts.inter(
+                                    fontSize: 11, color: _brown500),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            c.text,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: _brown700,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+
+          // ── Comment input ──
           const SizedBox(height: 8),
-          Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5EDE4),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 14),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      isCollapsed: true,
-                      hintText: 'Yorum ekle...',
-                      hintStyle: GoogleFonts.inter(fontSize: 13),
-                      border: InputBorder.none,
-                    ),
-                    style: GoogleFonts.inter(fontSize: 13),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: _cream200,
+                child: Icon(Icons.person, color: _brown500, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: _cream300),
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: SizedBox(
-                    height: 36,
-                    width: 36,
-                    child: ElevatedButton(
-                      onPressed: state.isSubmittingComment
-                          ? null
-                          : () async {
-                              final text = controller.text.trim();
-                              if (text.isEmpty) return;
-                              final ok = await notifier.postComment(text);
-                              if (ok) controller.clear();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        backgroundColor: const Color(0xFFC8956C),
-                        foregroundColor: Colors.white,
-                        shape: const CircleBorder(),
-                        elevation: 0,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            isCollapsed: true,
+                            hintText: 'Bir yorum yaz...',
+                            hintStyle: GoogleFonts.inter(
+                                fontSize: 13, color: _brown500),
+                            border: InputBorder.none,
+                          ),
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: _brown900),
+                        ),
                       ),
-                      child: state.isSubmittingComment
-                          ? const SizedBox(
-                              height: 14,
-                              width: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.send, size: 16),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: SizedBox(
+                          height: 36,
+                          width: 36,
+                          child: ElevatedButton(
+                            onPressed: state.isSubmittingComment
+                                ? null
+                                : () async {
+                                    final text =
+                                        controller.text.trim();
+                                    if (text.isEmpty) return;
+                                    final ok = await notifier
+                                        .postComment(text);
+                                    if (ok) controller.clear();
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              backgroundColor: _amber600,
+                              foregroundColor: Colors.white,
+                              shape: const CircleBorder(),
+                              elevation: 0,
+                            ),
+                            child: state.isSubmittingComment
+                                ? const SizedBox(
+                                    height: 14,
+                                    width: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Icon(Icons.send, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+
+          // ── View all button ──
+          if (allComments.length > 2) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  // TODO: navigate to all comments
+                },
+                child: Text(
+                  'Tüm Yorumları Gör',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _brown500,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -724,8 +1391,28 @@ class CommentsPanel extends StatelessWidget {
   static Color _hexColor(String hex) {
     final clean = hex.replaceFirst('#', '');
     if (clean.length == 6) return Color(int.parse('FF$clean', radix: 16));
-    return const Color(0xFFC8956C);
+    return _amber600;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED WIDGETS
+// ═══════════════════════════════════════════════════════════════════
+
+Widget _sectionHeader(String title, {String? subtitle}) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(title,
+          style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _brown900)),
+      if (subtitle != null)
+        Text(subtitle,
+            style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
+    ],
+  );
 }
 
 class _PremiumPanel extends StatelessWidget {
@@ -741,7 +1428,12 @@ class _PremiumPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: _brown900.withOpacity(0.03),
+              blurRadius: 20,
+              offset: const Offset(0, 4)),
+        ],
       ),
       child: child,
     );
@@ -749,7 +1441,8 @@ class _PremiumPanel extends StatelessWidget {
 }
 
 class GlassIconButton extends StatefulWidget {
-  const GlassIconButton({super.key, required this.icon, required this.onTap});
+  const GlassIconButton(
+      {super.key, required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -781,10 +1474,16 @@ class _GlassIconButtonState extends State<GlassIconButton> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.6),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.5),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))],
+                border: Border.all(
+                    color: Colors.white.withOpacity(0.5), width: 0.5),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4)),
+                ],
               ),
-              child: Icon(widget.icon, color: const Color(0xFF5D4037)),
+              child: Icon(widget.icon, color: _brown900),
             ),
           ),
         ),
@@ -821,12 +1520,15 @@ class _PressableFabState extends State<PressableFab> {
           width: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _pressed ? const Color(0xFFB17A56) : const Color(0xFFC8956C),
+            color: _pressed ? const Color(0xFFB17A56) : _amber600,
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 24, offset: const Offset(0, 12)),
+              BoxShadow(
+                  color: _amber600.withOpacity(0.5),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12)),
             ],
           ),
-          child: const Icon(Icons.add, color: Colors.white, size: 30),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
         ),
       ),
     );

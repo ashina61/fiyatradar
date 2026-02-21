@@ -16,6 +16,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
     match /priceReports/{priceId} {
       allow read: if true;
       allow create: if signedIn();
@@ -23,6 +30,16 @@ service cloud.firestore {
         isAdmin() ||
         resource.data.createdByUid == request.auth.uid
       );
+    }
+
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update: if signedIn() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid
+      );
+      allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /points_events/{eventId} {
