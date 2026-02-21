@@ -47,6 +47,7 @@ class ProductDetailResponse {
 class BestPrice {
   BestPrice({
     required this.id,
+    required this.userId,
     required this.price,
     required this.store,
     required this.userName,
@@ -57,9 +58,11 @@ class BestPrice {
     required this.storeLocation,
     required this.upVotes,
     required this.downVotes,
+    required this.userTrustScore,
   });
 
   final String id;
+  final String userId;
   final double price;
   final String store;
   final String userName;
@@ -70,10 +73,12 @@ class BestPrice {
   final String storeLocation;
   final int upVotes;
   final int downVotes;
+  final int userTrustScore;
 
   factory BestPrice.fromJson(Map<String, dynamic> json) {
     return BestPrice(
       id: (json['id'] ?? '').toString(),
+      userId: (json['userId'] ?? '').toString(),
       price: (json['price'] as num?)?.toDouble() ?? 0,
       store: (json['store'] ?? '').toString(),
       userName: (json['userName'] ?? '').toString(),
@@ -84,6 +89,7 @@ class BestPrice {
       storeLocation: (json['storeLocation'] ?? '').toString(),
       upVotes: (json['upVotes'] as num?)?.toInt() ?? 0,
       downVotes: (json['downVotes'] as num?)?.toInt() ?? 0,
+      userTrustScore: (json['userTrustScore'] as num?)?.toInt() ?? 0,
     );
   }
 }
