@@ -438,7 +438,7 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// VIP ÇİPİ (Seviyeye Göre Renklenen Kod)
+// VIP ÇİPİ VE TIKLANABİLİR PROFİL MODALI
 // ═══════════════════════════════════════════════════════════════════
 class _DynamicVipChip extends StatelessWidget {
   const _DynamicVipChip({required this.bestPrice});
@@ -475,24 +475,87 @@ class _DynamicVipChip extends StatelessWidget {
 
     final displayName = bestPrice.userName.isNotEmpty ? bestPrice.userName : 'Anonim';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: bgGrad),
-        border: Border.all(color: borderC),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: iconC),
-          const SizedBox(width: 6),
-          ShaderMask(
-            blendMode: BlendMode.srcIn,
-            shaderCallback: (bounds) => LinearGradient(colors: textGrad).createShader(bounds),
-            child: Text(displayName, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+        onTap: () {
+          // Tıklanınca açılan Cam Efektli Modal
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) => ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.5))),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 48, color: iconC),
+                      const SizedBox(height: 16),
+                      Text(
+                        displayName,
+                        style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF5D4037)),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: bgGrad),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: borderC),
+                        ),
+                        child: Text(
+                          'Seviye: ${bestPrice.userTier}',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: textGrad.last),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.verified_user_rounded, color: Color(0xFF2E7D32)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Güven Puanı: %${bestPrice.userTrustScore}',
+                            style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: bgGrad),
+            border: Border.all(color: borderC),
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: iconC),
+              const SizedBox(width: 6),
+              ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) => LinearGradient(colors: textGrad).createShader(bounds),
+                child: Text(displayName, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -545,7 +608,7 @@ class QuickStatsRow extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// FİYAT GEÇMİŞİ GRAFİĞİ (fl_chart Kusursuz CSS Uyarlaması)
+// TAM FONKSİYONLU FİYAT GEÇMİŞİ GRAFİĞİ (fl_chart Dokunmatik Açık)
 // ═══════════════════════════════════════════════════════════════════
 class PriceHistoryPanel extends StatelessWidget {
   const PriceHistoryPanel({super.key, required this.history, required this.pulseAnimation});
@@ -566,31 +629,55 @@ class PriceHistoryPanel extends StatelessWidget {
       title: 'Fiyat Geçmişi', subtitle: 'Son 30 gün',
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 160,
+            height: 180, // Parmağınla dokunabilmen için alanı biraz büyüttüm
             child: LineChart(
               LineChartData(
                 minX: 0, maxX: (history.length <= 1) ? 1.0 : (history.length - 1).toDouble(),
                 minY: chartMinY, maxY: chartMaxY,
-                showingTooltipIndicators: spots.isEmpty ? [] : [
-                  ShowingTooltipIndicators([LineBarSpot(LineChartBarData(spots: spots), 0, spots.last)])
-                ],
+                
+                // İŞTE BURASI! Dokunmatik özellikleri açtığımız yer
                 lineTouchData: LineTouchData(
-                  enabled: false,
+                  enabled: true, // Artık tam fonksiyonlu!
+                  touchSpotThreshold: 20, // Parmağı daha rahat algılasın
+                  getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                    return spotIndexes.map((index) {
+                      return TouchedSpotIndicatorData(
+                        const FlLine(color: Color(0xFFC8956C), strokeWidth: 2, dashArray: [4, 4]),
+                        FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) => 
+                            FlDotCirclePainter(radius: 6, color: Colors.white, strokeWidth: 3, strokeColor: const Color(0xFFC8956C)),
+                        ),
+                      );
+                    }).toList();
+                  },
                   touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => _brown900,
-                    tooltipRoundedRadius: 8,
-                    tooltipMargin: 8,
+                    getTooltipColor: (_) => const Color(0xFF5D4037), // Koyu kahverengi tooltip
+                    tooltipRoundedRadius: 12,
+                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) => LineTooltipItem('${spot.y.toStringAsFixed(0)}₺', GoogleFonts.dmSans(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))).toList();
+                      return touchedSpots.map((spot) {
+                        final dateStr = history[spot.spotIndex].dateLabel;
+                        return LineTooltipItem(
+                          '${spot.y.toStringAsFixed(2).replaceAll('.', ',')}₺\n',
+                          GoogleFonts.dmSans(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: dateStr, 
+                              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)
+                            ),
+                          ],
+                        );
+                      }).toList();
                     },
                   ),
                 ),
                 gridData: FlGridData(
                   show: true, drawVerticalLine: false,
                   horizontalInterval: ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
-                  getDrawingHorizontalLine: (_) => const FlLine(color: _cream200, strokeWidth: 1, dashArray: [5, 5]),
+                  getDrawingHorizontalLine: (_) => const FlLine(color: Color(0xFFF5EDE4), strokeWidth: 1, dashArray: [5, 5]),
                 ),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -602,7 +689,7 @@ class PriceHistoryPanel extends StatelessWidget {
                       reservedSize: 36,
                       getTitlesWidget: (value, meta) {
                         if (value == chartMaxY || value == chartMinY || value == (chartMaxY + chartMinY)/2) {
-                          return Text('${value.toInt()}₺', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _brown500));
+                          return Text('${value.toInt()}₺', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF8D6E63)));
                         }
                         return const SizedBox.shrink();
                       },
@@ -617,9 +704,10 @@ class PriceHistoryPanel extends StatelessWidget {
                         if (value % 1 != 0) return const SizedBox.shrink();
                         final index = value.toInt();
                         if (index < 0 || index >= history.length) return const SizedBox.shrink();
+                        // Karmaşıklığı önlemek için sadece baş, orta ve son tarihi göster
                         if (index != 0 && index != history.length - 1 && index != (history.length / 2).floor()) return const SizedBox.shrink();
                         final label = index == history.length - 1 ? 'Bugün' : history[index].dateLabel;
-                        return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: _brown500)));
+                        return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))));
                       },
                     ),
                   ),
@@ -628,16 +716,16 @@ class PriceHistoryPanel extends StatelessWidget {
                   LineChartBarData(
                     spots: spots,
                     isCurved: true, curveSmoothness: 0.35,
-                    color: _amber600, barWidth: 4,
+                    color: const Color(0xFFC8956C), barWidth: 4,
                     belowBarData: BarAreaData(
                       show: true,
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [_amber600.withOpacity(0.4), _amber600.withOpacity(0.0)]),
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [const Color(0xFFC8956C).withOpacity(0.4), const Color(0xFFC8956C).withOpacity(0.0)]),
                     ),
                     dotData: FlDotData(
                       show: true,
                       checkToShowDot: (spot, barData) => spot.x == barData.spots.last.x,
                       getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(radius: 6, color: _amber600, strokeWidth: 2, strokeColor: Colors.white);
+                        return FlDotCirclePainter(radius: 6, color: const Color(0xFFC8956C), strokeWidth: 2, strokeColor: Colors.white);
                       },
                     ),
                   ),
