@@ -99,7 +99,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   }
 
   Future<void> _shareProduct(ProductDetailResponse data) async {
-    await Share.share('${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}');
+    await Share.share("${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}");
   }
 
   @override
@@ -566,7 +566,7 @@ class _VipContributorChip extends ConsumerWidget {
         ),
         child: ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(colors: vipGradient).createShader(bounds),
+          shaderCallback: (bounds) => LinearGradient(colors: vipGradient).createShader(bounds),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
