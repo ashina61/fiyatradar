@@ -32,8 +32,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   late final Animation<double> _headerFade;
   late final AnimationController _priceGlowController;
 
-  static const _categories = ['Gıda', 'Kişisel Bakım', 'Temizlik', 'Teknoloji'];
-
   static const _categoryIcons = <String, IconData>{
     'Gıda': Icons.restaurant_rounded,
     'Kişisel Bakım': Icons.spa_rounded,
@@ -257,16 +255,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.stars_rounded, color: AppColors.accent, size: 17),
-                  SizedBox(width: 5),
-                  Text(
-                    '+10',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: AppColors.accentDark,
-                    ),
-                  ),
+                  Icon(Icons.info_outline_rounded, color: AppColors.accent, size: 17),
                 ],
               ),
             ),
@@ -521,9 +510,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: _categories.map((category) {
-            final isSelected = state.selectedCategory == category;
-            final icon = _categoryIcons[category] ?? Icons.label_rounded;
+          children: state.categories.map((category) {
+            final isSelected = state.selectedCategoryId == category.id;
+            final icon = _categoryIcons[category.title] ?? Icons.label_rounded;
             return PremiumPressable(
               borderRadius: BorderRadius.circular(14),
               onTap: () => notifier.setCategory(category),
@@ -571,7 +560,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      category,
+                      category.title,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -819,7 +808,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           const SizedBox(height: 12),
           PremiumPressable(
             borderRadius: BorderRadius.circular(10),
-            onTap: notifier.loadStores,
+            onTap: notifier.loadStoresAndCategories,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
@@ -874,10 +863,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   // ─── Bottom Action ───────────────────────────────────────────
   Widget _buildBottomAction(
       AddPriceState state, ThemeData theme, double bottomSafe) {
-    final isReady = state.price.isNotEmpty &&
-        state.productName.isNotEmpty &&
-        state.selectedCategory != null &&
-        state.selectedStore != null;
+    final isReady = state.price.trim().isNotEmpty &&
+        state.productName.trim().isNotEmpty &&
+        state.selectedCategoryId != null &&
+        state.selectedStoreId != null;
 
     return Positioned(
       left: 0,
@@ -983,7 +972,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
 
   Future<void> _submit() async {
     final user = ref.read(authStateProvider).value;
-    final userId = user?.uid ?? 'guest-user';
+    final userId = user?.uid;
+    if (userId == null || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiyat gonderebilmek icin giris yapmalisin.')),
+      );
+      return;
+    }
 
     try {
       await ref.read(addPriceProvider.notifier).submitPrice(userId: userId);
@@ -1303,7 +1298,7 @@ class _StoreCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (store.type != 'online') ...[
+                      if (store.type != 'online' && store.distanceMeters > 0) ...[
                         Icon(Icons.near_me_rounded,
                             size: 12, color: AppColors.textTertiary),
                         const SizedBox(width: 4),
