@@ -1,5 +1,5 @@
 class PriceReport {
-  const PriceReport({
+  PriceReport({
     required this.productName,
     required this.category,
     required this.price,
