@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// import 'firebase_options.dart'; // Bu satırı kaldırdık, artık JSON dosyasını okuyacak.
+import 'firebase_options.dart';
 
 import 'utils/theme.dart';
 import 'providers/theme_provider.dart';
@@ -42,15 +42,21 @@ void main() async {
 
   // Initialize Firebase
   try {
-    // DEĞİŞİKLİK BURADA:
-    // Parantez içini boş bıraktık. Böylece Android otomatik olarak
-    // 'android/app/google-services.json' dosyasındaki ayarları kullanacak.
-    await Firebase.initializeApp();
+    final app = await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     firebaseInitialized = true;
-    debugPrint('Firebase başarıyla başlatıldı! 🚀');
+    debugPrint('Firebase başarıyla başlatıldı! app=${app.name}');
   } catch (e) {
-    debugPrint('Firebase başlatılamadı, hata: $e');
-    firebaseInitialized = false;
+    debugPrint('Firebase initializeApp(options) başarısız: $e');
+    try {
+      final fallbackApp = await Firebase.initializeApp();
+      firebaseInitialized = true;
+      debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
+    } catch (inner) {
+      debugPrint('Firebase başlatılamadı, hata: $inner');
+      firebaseInitialized = false;
+    }
   }
 
   // Load saved preferences

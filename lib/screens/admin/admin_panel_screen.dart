@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -256,15 +255,13 @@ class _OpenFoodFactsService {
     final uri = Uri.parse('https://world.openfoodfacts.org/api/v2/product/$normalized.json');
 
     try {
-      final response = await http
-          .get(
-            uri,
-            headers: const {
-              'User-Agent': 'FiyatRadar/1.0 (admin-panel)',
-              'Accept': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 7));
+      final response = await _getJson(
+        uri,
+        headers: const {
+          'User-Agent': 'FiyatRadar/1.0 (admin-panel)',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 7));
 
       if (response.statusCode != 200) {
         _cache[normalized] = null;
@@ -301,6 +298,29 @@ class _OpenFoodFactsService {
       return null;
     }
   }
+
+  Future<_HttpStringResponse> _getJson(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(uri);
+      headers?.forEach(request.headers.set);
+      final response = await request.close();
+      final body = await utf8.decoder.bind(response).join();
+      return _HttpStringResponse(response.statusCode, body);
+    } finally {
+      client.close(force: true);
+    }
+  }
+}
+
+class _HttpStringResponse {
+  const _HttpStringResponse(this.statusCode, this.body);
+
+  final int statusCode;
+  final String body;
 }
 
 class _ProductManagementTab extends ConsumerWidget {
