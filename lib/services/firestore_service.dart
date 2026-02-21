@@ -486,37 +486,21 @@ class FirestoreService {
     if (trimmed.isEmpty) return const [];
 
     final queryLower = trimmed.toLowerCase();
-    QuerySnapshot<Map<String, dynamic>> snapshot;
-
-    try {
-      snapshot = await _productsRef
-          .orderBy('productNameLower')
-          .startAt([queryLower])
-          .endAt(['$queryLower\uf8ff'])
-          .limit(limit)
-          .get();
-    } catch (_) {
-      try {
-        snapshot = await _productsRef
-            .orderBy('nameLower')
-            .startAt([queryLower])
-            .endAt(['$queryLower\uf8ff'])
-            .limit(limit)
-            .get();
-      } catch (_) {
-        snapshot = await _productsRef
-            .orderBy('name')
-            .startAt([trimmed])
-            .endAt(['$trimmed\uf8ff'])
-            .limit(limit)
-            .get();
-      }
-    }
+    final snapshot = await _productsRef
+        .orderBy('nameLower')
+        .startAt([queryLower])
+        .endAt(['$queryLower\uf8ff'])
+        .limit(5)
+        .get();
 
     final products = snapshot.docs
         .map((doc) => ProductModel.fromFirestore(doc))
         .where((product) => product.name.trim().isNotEmpty)
         .toList(growable: false);
+
+    debugPrint(
+      'PRODUCT_QUERY q=$queryLower results=${products.length} collection=products field=nameLower',
+    );
 
     return products.take(limit).toList(growable: false);
   }
