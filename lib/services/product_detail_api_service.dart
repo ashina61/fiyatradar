@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../models/comment_model.dart';
@@ -29,70 +30,100 @@ class ProductDetailApiService {
       _firestore.collection('comments');
 
   Future<ProductDetailResponse> fetchProductDetails(String productId) async {
-    final productDoc = await _productsRef.doc(productId).get();
-    if (!productDoc.exists) {
-      throw Exception('Ürün bulunamadı.');
+    try {
+      debugPrint(
+        '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=products, where=[documentId == $productId], orderBy=[]',
+      );
+      final productDoc = await _productsRef.doc(productId).get();
+      if (!productDoc.exists) {
+        throw Exception('Ürün bulunamadı.');
+      }
+
+      final product = ProductModel.fromFirestore(productDoc);
+
+      debugPrint(
+        '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=priceReports, where=[productId == $productId, status == active], orderBy=[]',
+      );
+      final pricesSnapshot = await _pricesRef
+          .where('productId', isEqualTo: productId)
+          .where('status', isEqualTo: 'active')
+          .get();
+      final prices = pricesSnapshot.docs.map(PriceModel.fromFirestore).toList();
+      prices.sort((a, b) => a.price.compareTo(b.price));
+
+      debugPrint(
+        '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=comments, where=[productId == $productId], orderBy=[]',
+      );
+      final commentsSnapshot = await _commentsRef
+          .where('productId', isEqualTo: productId)
+          .get();
+      final comments = commentsSnapshot.docs
+          .map(CommentModel.fromFirestore)
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      final bestPriceModel = prices.isNotEmpty ? prices.first : null;
+      final stats = _buildStats(prices);
+      final trust = _buildTrust(prices);
+
+      return ProductDetailResponse(
+        id: product.id,
+        title: product.name,
+        imageUrl: product.effectiveImage ?? '',
+        categories: product.categories,
+        viewCount: product.viewCount,
+        priceEntryCount: prices.length,
+        bestPrice: _toBestPrice(bestPriceModel),
+        stats: stats,
+        trust: trust,
+        comments: comments.map(_toProductComment).toList(growable: false),
+      );
+    } catch (e, st) {
+      debugPrint('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[ProductDetailApiService.fetchProductDetails] STACK',
+      );
+      rethrow;
     }
-
-    final product = ProductModel.fromFirestore(productDoc);
-
-    final pricesSnapshot = await _pricesRef
-        .where('productId', isEqualTo: productId)
-        .where('status', isEqualTo: 'active')
-        .get();
-    final prices = pricesSnapshot.docs.map(PriceModel.fromFirestore).toList();
-    prices.sort((a, b) => a.price.compareTo(b.price));
-
-    final commentsSnapshot = await _commentsRef
-        .where('productId', isEqualTo: productId)
-        .get();
-    final comments = commentsSnapshot.docs
-        .map(CommentModel.fromFirestore)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    final bestPriceModel = prices.isNotEmpty ? prices.first : null;
-    final stats = _buildStats(prices);
-    final trust = _buildTrust(prices);
-
-    return ProductDetailResponse(
-      id: product.id,
-      title: product.name,
-      imageUrl: product.effectiveImage ?? '',
-      categories: product.categories,
-      viewCount: product.viewCount,
-      priceEntryCount: prices.length,
-      bestPrice: _toBestPrice(bestPriceModel),
-      stats: stats,
-      trust: trust,
-      comments: comments.map(_toProductComment).toList(growable: false),
-    );
   }
 
   Future<List<PriceHistoryPoint>> fetchPriceHistory(String productId) async {
-    final now = DateTime.now();
-    final since = now.subtract(const Duration(days: 30));
+    try {
+      final now = DateTime.now();
+      final since = now.subtract(const Duration(days: 30));
 
-    final snapshot = await _pricesRef
-        .where('productId', isEqualTo: productId)
-        .where('status', isEqualTo: 'active')
-        .where('reportedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
-        .get();
+      debugPrint(
+        '[ProductDetailApiService.fetchPriceHistory] Firestore query => collection=priceReports, where=[productId == $productId, status == active, reportedAt >= ${Timestamp.fromDate(since)}], orderBy=[]',
+      );
+      final snapshot = await _pricesRef
+          .where('productId', isEqualTo: productId)
+          .where('status', isEqualTo: 'active')
+          .where('reportedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
+          .get();
 
-    final points = snapshot.docs
-        .map(PriceModel.fromFirestore)
-        .toList()
-      ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
+      final points = snapshot.docs
+          .map(PriceModel.fromFirestore)
+          .toList()
+        ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
 
-    final formatter = DateFormat('dd MMM', 'tr_TR');
-    return points
-        .map(
-          (price) => PriceHistoryPoint(
-            dateLabel: formatter.format(price.reportedAt),
-            price: price.price,
-          ),
-        )
-        .toList(growable: false);
+      final formatter = DateFormat('dd MMM', 'tr_TR');
+      return points
+          .map(
+            (price) => PriceHistoryPoint(
+              dateLabel: formatter.format(price.reportedAt),
+              price: price.price,
+            ),
+          )
+          .toList(growable: false);
+    } catch (e, st) {
+      debugPrint('[ProductDetailApiService.fetchPriceHistory] ERROR: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[ProductDetailApiService.fetchPriceHistory] STACK',
+      );
+      rethrow;
+    }
   }
 
   Future<void> postComment(String productId, String text) async {
