@@ -3,11 +3,15 @@ import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/product_detail_api_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
+import '../../providers/product_provider.dart';
+import '../add_price/add_price_screen.dart';
 
 // ──── Design tokens (matching reference CSS) ────
 const _brown900 = Color(0xFF5D4037);
@@ -73,6 +77,29 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     super.dispose();
   }
 
+
+  Future<void> _openAddPrice() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddPriceScreen(initialProductId: widget.productId),
+      ),
+    );
+  }
+
+  Future<void> _toggleFavorite(ProductDetailResponse data) async {
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user == null) return;
+    await ref.read(firestoreServiceProvider).toggleFavorite(
+      uid: user.uid,
+      productId: data.id,
+      payload: {'productName': data.title, 'imageUrl': data.imageUrl},
+    );
+  }
+
+  Future<void> _shareProduct(ProductDetailResponse data) async {
+    await Share.share('${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
@@ -81,7 +108,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
 
     return Scaffold(
       backgroundColor: _cream100,
-      floatingActionButton: PressableFab(onPressed: () {}),
+      floatingActionButton: PressableFab(onPressed: _openAddPrice),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -104,6 +131,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                                 data: state.data!,
                                 floatAnimation: _heroFloat,
                                 onBack: () => Navigator.of(context).pop(),
+                                onToggleFavorite: () => _toggleFavorite(state.data!),
+                                onShare: () => _shareProduct(state.data!),
                               ),
                               Padding(
                                 padding:
@@ -113,8 +142,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                                     HeaderBlock(data: state.data!),
                                     const SizedBox(height: 24),
                                     BestPriceCard(
-                                        data: state.data!,
-                                        isVoting: state.isSubmittingVote),
+                                      data: state.data!,
+                                      isVoting: state.isSubmittingVote,
+                                    ),
                                     const SizedBox(height: 24),
                                     QuickStatsRow(stats: state.data!.stats),
                                     const SizedBox(height: 24),
@@ -133,6 +163,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                                       state: state,
                                       notifier: notifier,
                                       controller: _commentController,
+                                      productId: widget.productId,
                                     ),
                                   ],
                                 ),
@@ -157,11 +188,15 @@ class HeroSection extends StatelessWidget {
     required this.data,
     required this.floatAnimation,
     required this.onBack,
+    required this.onToggleFavorite,
+    required this.onShare,
   });
 
   final ProductDetailResponse data;
   final Animation<double> floatAnimation;
   final VoidCallback onBack;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -187,10 +222,9 @@ class HeroSection extends StatelessWidget {
                 GlassIconButton(icon: Icons.arrow_back, onTap: onBack),
                 Row(
                   children: [
-                    GlassIconButton(
-                        icon: Icons.favorite_border, onTap: () {}),
+                    GlassIconButton(icon: Icons.favorite_border, onTap: onToggleFavorite),
                     const SizedBox(width: 12),
-                    GlassIconButton(icon: Icons.share, onTap: () {}),
+                    GlassIconButton(icon: Icons.share, onTap: onShare),
                   ],
                 ),
               ],
@@ -341,15 +375,14 @@ class _Badge extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 // BEST PRICE CARD
 // ═══════════════════════════════════════════════════════════════════
-class BestPriceCard extends StatelessWidget {
-  const BestPriceCard(
-      {super.key, required this.data, required this.isVoting});
+class BestPriceCard extends ConsumerWidget {
+  const BestPriceCard({super.key, required this.data, required this.isVoting});
 
   final ProductDetailResponse data;
   final bool isVoting;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = data.bestPrice;
     final priceText = p.price.toStringAsFixed(0);
     final tier = _parseTier(p.userTier);
@@ -364,259 +397,80 @@ class BestPriceCard extends StatelessWidget {
           end: Alignment(1, 1),
           colors: [_brown900, _brown700],
         ),
-        boxShadow: [
-          BoxShadow(
-              color: _brown900.withOpacity(0.25),
-              blurRadius: 40,
-              offset: const Offset(0, 20)),
-        ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Glow ──
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    _amber600.withOpacity(0.5),
-                    Colors.transparent,
-                  ],
+          Text('👑 En İyi Fiyat', style: GoogleFonts.inter(color: _amber400)),
+          const SizedBox(height: 12),
+          Text(p.store, style: GoogleFonts.inter(color: Colors.white70)),
+          const SizedBox(height: 4),
+          Text('$priceText₺', style: GoogleFonts.dmSans(fontSize: 40, color: Colors.white, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: tier.bgColor,
+              border: Border.all(color: tier.borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(tier.icon, size: 16, color: tier.iconColor),
+                const SizedBox(width: 6),
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(colors: tier.nameGradient).createShader(bounds),
+                  child: Text(
+                    '${_tierNamePrefix(p.userTier)} ${p.userName.isNotEmpty ? p.userName : 'Anonim'}',
+                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 14),
+          Row(
             children: [
-              // ── Header row ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white.withOpacity(0.15),
-                      border:
-                          Border.all(color: _amber600.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      '👑 En İyi Fiyat',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _amber400,
-                      ),
-                    ),
-                  ),
-                  Row(
+              GestureDetector(
+                onTap: () async {
+                  final service = ref.read(productDetailApiServiceProvider);
+                  final coords = await service.resolveStoreCoordinates(p);
+                  if (coords == null) return;
+                  final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: _amber600, borderRadius: BorderRadius.circular(12)),
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const _PulsingDot(),
-                      const SizedBox(width: 6),
-                      Text(
-                        p.createdAtLabel,
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.7)),
-                      ),
+                    children: const [
+                      Text('Mağazaya Git', style: TextStyle(color: Colors.white)),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward, size: 16, color: Colors.white),
                     ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ── Price row: store info + price ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: Text(
-                            p.store.isNotEmpty
-                                ? p.store[0].toUpperCase()
-                                : '?',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: _storeLogoColor(p.store),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        p.store,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  RichText(
-                    text: TextSpan(
-                      text: priceText,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4)),
-                        ],
-                      ),
-                      children: [
-                        TextSpan(
-                          text: '₺',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: _amber400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── Footer: user tier + go store ──
-              Container(
-                padding: const EdgeInsets.only(top: 16),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Colors.white10),
-                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // User trust
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ekleyen:',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: Colors.white60,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: tier.bgColor,
-                            border: Border.all(color: tier.borderColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(tier.icon,
-                                  size: 16, color: tier.iconColor),
-                              const SizedBox(width: 6),
-                              ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  colors: tier.nameGradient,
-                                ).createShader(bounds),
-                                child: Text(
-                                  p.userName.isNotEmpty
-                                      ? p.userName
-                                      : 'Anonim',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Go store button
-                    GestureDetector(
-                      onTap: () async {
-                        if (p.storeUrl.isEmpty) return;
-                        await launchUrl(Uri.parse(p.storeUrl),
-                            mode: LaunchMode.externalApplication);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _amber600,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Mağazaya Git',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.arrow_forward,
-                                size: 16, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              ),
+              IconButton(
+                onPressed: () async {
+                  final user = ref.read(authStateProvider).valueOrNull;
+                  if (user == null) return;
+                  await ref.read(firestoreServiceProvider).reportPrice(
+                    priceId: p.id,
+                    userId: user.uid,
+                    reason: 'Ürün detay fiyat raporu',
+                    contextId: data.id,
+                  );
+                },
+                icon: const Icon(Icons.flag_outlined, color: Colors.white),
               ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  static Color _storeLogoColor(String storeName) {
-    final name = storeName.toLowerCase();
-    if (name.contains('a101') || name.contains('a-101')) {
-      return const Color(0xFF00B1E7);
-    }
-    if (name.contains('bim')) return const Color(0xFFE31E24);
-    if (name.contains('şok') || name.contains('sok')) {
-      return const Color(0xFFFFD700);
-    }
-    if (name.contains('migros')) return const Color(0xFFFF6900);
-    if (name.contains('carrefour') || name.contains('carrefoursa')) {
-      return const Color(0xFF004F9F);
-    }
-    return _amber600;
   }
 }
 
@@ -742,6 +596,13 @@ _TierStyle _parseTier(String tier) {
   );
 }
 
+
+String _tierNamePrefix(String tier) {
+  final value = tier.toLowerCase();
+  if (value.contains('elmas') || value.contains('diamond')) return '💎';
+  return '';
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // QUICK STATS
 // ═══════════════════════════════════════════════════════════════════
@@ -832,6 +693,8 @@ class PriceHistoryPanel extends StatelessWidget {
       final scaled = 30 + ((e.value.price - min) / spread) * 60;
       return FlSpot(e.key.toDouble(), scaled);
     }).toList();
+    final latestScaledY = spots.isEmpty ? 30.0 : spots.last.y;
+    final latestTop = (95 - latestScaledY) / (95 - 25) * 130;
 
     return _PremiumPanel(
       child: Column(
@@ -948,7 +811,7 @@ class PriceHistoryPanel extends StatelessWidget {
                 // Current price dot + tag
                 Positioned(
                   right: 0,
-                  top: 40,
+                  top: latestTop.clamp(4, 104),
                   child: Column(
                     children: [
                       Container(
@@ -1197,11 +1060,13 @@ class CommentsPanel extends StatelessWidget {
     required this.state,
     required this.notifier,
     required this.controller,
+    required this.productId,
   });
 
   final ProductDetailState state;
   final ProductDetailNotifier notifier;
   final TextEditingController controller;
+  final String productId;
 
   @override
   Widget build(BuildContext context) {
@@ -1262,10 +1127,16 @@ class CommentsPanel extends StatelessWidget {
                                   color: _brown900,
                                 ),
                               ),
-                              Text(
-                                c.timeAgo,
-                                style: GoogleFonts.inter(
-                                    fontSize: 11, color: _brown500),
+                              Row(
+                                children: [
+                                  Text(
+                                    c.timeAgo,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11, color: _brown500),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _CommentReportButton(commentId: c.id, productId: productId),
+                                ],
                               ),
                             ],
                           ),
@@ -1370,10 +1241,10 @@ class CommentsPanel extends StatelessWidget {
             Center(
               child: TextButton(
                 onPressed: () {
-                  // TODO: navigate to all comments
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => AllCommentsScreen(comments: allComments)));
                 },
                 child: Text(
-                  'Tüm Yorumları Gör',
+                  'Tüm yorumları gör',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1392,6 +1263,55 @@ class CommentsPanel extends StatelessWidget {
     final clean = hex.replaceFirst('#', '');
     if (clean.length == 6) return Color(int.parse('FF$clean', radix: 16));
     return _amber600;
+  }
+}
+
+
+class _CommentReportButton extends ConsumerWidget {
+  const _CommentReportButton({required this.commentId, required this.productId});
+
+  final String commentId;
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () async {
+        final user = ref.read(authStateProvider).valueOrNull;
+        if (user == null) return;
+        await ref.read(firestoreServiceProvider).reportComment(
+          commentId: commentId,
+          userId: user.uid,
+          reason: 'Ürün detay yorum raporu',
+          contextId: productId,
+        );
+      },
+      child: const Icon(Icons.flag_outlined, size: 15, color: _brown500),
+    );
+  }
+}
+
+class AllCommentsScreen extends StatelessWidget {
+  const AllCommentsScreen({super.key, required this.comments});
+
+  final List<ProductComment> comments;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tüm yorumlar')),
+      body: ListView.builder(
+        itemCount: comments.length,
+        itemBuilder: (context, index) {
+          final c = comments[index];
+          return ListTile(
+            title: Text(c.author),
+            subtitle: Text(c.text),
+            trailing: Text(c.timeAgo),
+          );
+        },
+      ),
+    );
   }
 }
 

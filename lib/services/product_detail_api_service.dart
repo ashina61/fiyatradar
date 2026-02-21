@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 
 import '../models/comment_model.dart';
@@ -28,6 +29,8 @@ class ProductDetailApiService {
       _firestore.collection('priceReports');
   CollectionReference<Map<String, dynamic>> get _commentsRef =>
       _firestore.collection('comments');
+  CollectionReference<Map<String, dynamic>> get _storesRef =>
+      _firestore.collection('stores');
 
   Future<ProductDetailResponse> fetchProductDetails(String productId) async {
     try {
@@ -101,10 +104,27 @@ class ProductDetailApiService {
           .where('status', isEqualTo: 'active')
           .get();
 
-      final points = snapshot.docs
+      final prices = snapshot.docs
           .map(PriceModel.fromFirestore)
           .where((price) => !price.reportedAt.isBefore(since))
           .toList()
+        ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
+
+      final uniqueById = <String, PriceModel>{};
+      for (final price in prices) {
+        uniqueById[price.id] = price;
+      }
+      final dedupeMap = <String, PriceModel>{};
+      for (final price in uniqueById.values) {
+        final key = price.dedupeKey?.trim().isNotEmpty == true
+            ? price.dedupeKey!.trim()
+            : '${price.productId}|${price.branchStoreId}|${price.price.toStringAsFixed(2)}|${DateFormat('yyyy-MM-dd').format(price.reportedAt)}';
+        final existing = dedupeMap[key];
+        if (existing == null || price.reportedAt.isAfter(existing.reportedAt)) {
+          dedupeMap[key] = price;
+        }
+      }
+      final points = dedupeMap.values.toList()
         ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
 
       final formatter = DateFormat('dd MMM', 'tr_TR');
@@ -174,10 +194,15 @@ class ProductDetailApiService {
         userTier: 'Yeni',
         createdAtLabel: '-',
         storeUrl: '',
+        storeId: '',
+        storeLocation: '',
         upVotes: 0,
         downVotes: 0,
       );
     }
+
+    final storeId = (price.selectedStoreId ?? price.branchStoreId).trim();
+    final storeLocation = (price.storeLocation ?? '').trim();
 
     return BestPrice(
       id: price.id,
@@ -186,7 +211,9 @@ class ProductDetailApiService {
       userName: (price.userName ?? 'Anonim').trim().isEmpty ? 'Anonim' : price.userName!,
       userTier: (price.addedByLevelSnapshot ?? price.createdByBadgeSnapshot ?? 'Topluluk').toString(),
       createdAtLabel: _formatTimeAgo(price.reportedAt),
-      storeUrl: '',
+      storeUrl: storeLocation,
+      storeId: storeId,
+      storeLocation: storeLocation,
       upVotes: price.upVotes,
       downVotes: price.downVotes,
     );
@@ -213,6 +240,57 @@ class ProductDetailApiService {
       approveCount: approveCount,
       rejectCount: rejectCount,
     );
+  }
+
+
+  Future<LatLng?> resolveStoreCoordinates(BestPrice bestPrice) async {
+    final direct = _parseCoordinatesFromText(bestPrice.storeLocation);
+    if (direct != null) return direct;
+
+    if (bestPrice.storeId.isNotEmpty) {
+      final storeDoc = await _storesRef.doc(bestPrice.storeId).get();
+      if (storeDoc.exists) {
+        final data = storeDoc.data() ?? const <String, dynamic>{};
+        final parsed = _parseCoordinatesFromDynamic(data);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  LatLng? _parseCoordinatesFromDynamic(Map<String, dynamic> data) {
+    final lat = _toDouble(data['lat'] ?? data['latitude']);
+    final lng = _toDouble(data['lng'] ?? data['longitude'] ?? data['lon']);
+    if (lat != null && lng != null) return LatLng(lat, lng);
+
+    final geo = data['geoPoint'] ?? data['location'] ?? data['coordinates'] ?? data['geo'];
+    if (geo is GeoPoint) return LatLng(geo.latitude, geo.longitude);
+    if (geo is Map) {
+      final map = Map<String, dynamic>.from(geo);
+      final mapLat = _toDouble(map['lat'] ?? map['latitude']);
+      final mapLng = _toDouble(map['lng'] ?? map['longitude'] ?? map['lon']);
+      if (mapLat != null && mapLng != null) return LatLng(mapLat, mapLng);
+    }
+    if (geo is String) return _parseCoordinatesFromText(geo);
+    return null;
+  }
+
+  LatLng? _parseCoordinatesFromText(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return null;
+    final matches = RegExp(r'-?\d+(?:[\.,]\d+)?').allMatches(text).map((m) => m.group(0) ?? '').toList();
+    if (matches.length < 2) return null;
+    final lat = _toDouble(matches[0]);
+    final lng = _toDouble(matches[1]);
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.replaceAll(',', '.').trim());
+    return null;
   }
 
   ProductComment _toProductComment(CommentModel comment) {

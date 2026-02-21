@@ -53,6 +53,8 @@ class BestPrice {
     required this.userTier,
     required this.createdAtLabel,
     required this.storeUrl,
+    required this.storeId,
+    required this.storeLocation,
     required this.upVotes,
     required this.downVotes,
   });
@@ -64,6 +66,8 @@ class BestPrice {
   final String userTier;
   final String createdAtLabel;
   final String storeUrl;
+  final String storeId;
+  final String storeLocation;
   final int upVotes;
   final int downVotes;
 
@@ -76,6 +80,8 @@ class BestPrice {
       userTier: (json['userTier'] ?? 'Elmas VIP').toString(),
       createdAtLabel: (json['createdAtLabel'] ?? '').toString(),
       storeUrl: (json['storeUrl'] ?? '').toString(),
+      storeId: (json['storeId'] ?? '').toString(),
+      storeLocation: (json['storeLocation'] ?? '').toString(),
       upVotes: (json['upVotes'] as num?)?.toInt() ?? 0,
       downVotes: (json['downVotes'] as num?)?.toInt() ?? 0,
     );
