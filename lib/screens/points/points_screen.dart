@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/theme.dart';
@@ -134,23 +135,46 @@ class _PremiumTabBar extends StatelessWidget {
 
 // ---------- Overview Tab ----------
 
-class _OverviewTab extends StatelessWidget {
+class _OverviewTab extends StatefulWidget {
   const _OverviewTab({required this.state});
   final PointsState state;
 
   @override
+  State<_OverviewTab> createState() => _OverviewTabState();
+}
+
+class _OverviewTabState extends State<_OverviewTab> {
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      setState(() => _scrollOffset = _scrollController.offset);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(
         children: [
-          _PrestigeScoreCard(state: state),
+          _PrestigeScoreCard(state: widget.state, scrollOffset: _scrollOffset),
           const SizedBox(height: 20),
-          _StatsRow(state: state),
+          _StatsRow(state: widget.state),
           const SizedBox(height: 20),
-          _LevelProgressCard(state: state),
+          _LevelProgressCard(state: widget.state, scrollOffset: _scrollOffset),
           const SizedBox(height: 20),
-          _DailyGoalsSection(tasks: state.dailyGoals),
+          _DailyGoalsSection(tasks: widget.state.dailyGoals),
         ],
       ),
     );
@@ -204,14 +228,19 @@ class _ActivitiesTab extends StatelessWidget {
 // ---------- Prestige Score Card ----------
 
 class _PrestigeScoreCard extends StatelessWidget {
-  const _PrestigeScoreCard({required this.state});
+  const _PrestigeScoreCard({required this.state, required this.scrollOffset});
   final PointsState state;
+  final double scrollOffset;
 
   @override
   Widget build(BuildContext context) {
     final level = LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints);
 
-    return Container(
+    final visual = LevelStyle.visualFromLabel(level.label, fallbackTotalPoints: state.totalPoints);
+    final eliteParallax = (scrollOffset * 0.08).clamp(-16.0, 16.0);
+    return Transform.translate(
+      offset: Offset(0, visual.isElite ? eliteParallax : 0),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -254,24 +283,26 @@ class _PrestigeScoreCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Circular score
-          _AnimatedScoreRing(state: state, level: level),
+          _AnimatedScoreRing(state: state, level: level, scrollOffset: scrollOffset),
           const SizedBox(height: 20),
           UserIdentityRenderer(
             userProfile: UserIdentityProfile(userName: state.currentLevelName, level: level),
             fontSize: 14,
+            scrollOffset: scrollOffset,
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
 // ---------- Animated Score Ring ----------
 
 class _AnimatedScoreRing extends StatefulWidget {
-  const _AnimatedScoreRing({required this.state, required this.level});
+  const _AnimatedScoreRing({required this.state, required this.level, required this.scrollOffset});
   final PointsState state;
   final UserLevel level;
+  final double scrollOffset;
 
   @override
   State<_AnimatedScoreRing> createState() => _AnimatedScoreRingState();
@@ -336,7 +367,10 @@ class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTicke
     final ringGlowOpacity = !_isElite ? 0.0 : (_isRadarEfsanesi ? (0.06 + (0.06 * breathe)) : (0.04 + (0.04 * breathe)));
     final ringGlowScale = !_isElite ? 1.0 : (_isRadarEfsanesi ? (1 + (0.03 * breathe)) : (1 + (0.015 * breathe)));
 
-    return SizedBox(
+    final ringShift = _isElite ? (widget.scrollOffset * 0.10).clamp(-14.0, 14.0) : 0.0;
+    return Transform.translate(
+      offset: Offset(0, ringShift),
+      child: SizedBox(
       width: 200,
       height: 200,
       child: Stack(
@@ -449,7 +483,7 @@ class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTicke
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -626,29 +660,51 @@ class _StatCard extends StatelessWidget {
 
 // ---------- Level Progress Card ----------
 
-class _LevelProgressCard extends StatelessWidget {
-  const _LevelProgressCard({required this.state});
+class _LevelProgressCard extends StatefulWidget {
+  const _LevelProgressCard({required this.state, required this.scrollOffset});
   final PointsState state;
+  final double scrollOffset;
 
-  static const Map<String, Color> _levelColors = {
-    'Gözlemci': Color(0xFFD4C4B7),
-    'Avcı': Color(0xFFE67E22),
-    'Tasarrufçu': Color(0xFF95A5A6),
-    'Market Ustası': Color(0xFFF1C40F),
-    'Fiyat Lordu': Color(0xFF9B59B6),
-    'Radar Efsanesi': Color(0xFF00E5FF),
-  };
+  @override
+  State<_LevelProgressCard> createState() => _LevelProgressCardState();
+}
 
-  Color _levelColor(String label) => _levelColors[label] ?? const Color(0xFFD4C4B7);
+class _LevelProgressCardState extends State<_LevelProgressCard> with TickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final AnimationController _levelUpController;
+  late final AnimationController _sweepController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+    _levelUpController = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
+    _sweepController = AnimationController(vsync: this, duration: const Duration(seconds: 8));
+    _pulseController.forward(from: 0);
+    _levelUpController.forward(from: 0);
+    WidgetsBinding.instance.addPostFrameCallback((_) => HapticFeedback.lightImpact());
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _levelUpController.dispose();
+    _sweepController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final level = LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints);
     final currentLevelIndex = LevelConfig.levels.indexWhere((item) => item.label == level.label).clamp(0, LevelConfig.levels.length - 1);
     final currentLevelConfig = LevelConfig.levels[currentLevelIndex];
     final nextLevelConfig = currentLevelIndex < LevelConfig.levels.length - 1 ? LevelConfig.levels[currentLevelIndex + 1] : null;
 
-    final levelColor = _levelColor(level.label);
+    final elite = EliteLevelEngine.parseLevelLabel(level.label);
+    final visual = LevelStyle.fromLevel(elite);
+    final isElite = visual.isElite;
+
     final nextLevelPoints = nextLevelConfig?.minPoints ?? state.totalPoints;
     final nextLevelTrust = nextLevelConfig?.minTrustGate ?? state.requiredMinTrust;
     final currentLevelMinPoints = currentLevelConfig.minPoints;
@@ -661,91 +717,83 @@ class _LevelProgressCard extends StatelessWidget {
         : (state.trustScore / nextLevelTrust.clamp(1, 100)).clamp(0.0, 1.0);
 
     final pointsRemaining = nextLevelConfig == null ? 0 : (nextLevelPoints - state.totalPoints).clamp(0, nextLevelPoints);
-    final trustRemaining = nextLevelConfig == null ? 0 : (nextLevelTrust - state.trustScore).clamp(0, nextLevelTrust);
+    final trustLine = nextLevelTrust == 0 ? 'Gerekli Güven ✓' : 'Güven %${state.trustScore} • Gerekli Güven 🔒';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2B201A),
-            Color(0xFF1F1712),
-          ],
-        ),
-        border: Border.all(color: const Color(0xFF5D4A3D).withOpacity(0.65)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.20),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _GlassLevelBadge(levelName: level.label, levelColor: levelColor),
-          const SizedBox(height: 18),
-          _ProgressMetric(
-            label: 'Puan İlerlemesi',
-            primaryText: '${state.totalPoints} / ${nextLevelConfig == null ? '∞' : nextLevelPoints} Puan',
-            helperText: nextLevelConfig == null ? 'Maksimum seviyedesin' : 'Sonraki seviyeye +$pointsRemaining Puan',
-            progress: pointsProgress,
-            progressColor: levelColor,
-          ),
-          const SizedBox(height: 14),
-          _ProgressMetric(
-            label: 'Güven Skoru',
-            primaryText: '%${state.trustScore} / %$nextLevelTrust Güven',
-            helperText: nextLevelConfig == null ? 'Maksimum seviyedesin' : 'Hedefe +%$trustRemaining Güven Skoru',
-            progress: trustProgress,
-            progressColor: levelColor.withOpacity(0.92),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    if (isElite && !_sweepController.isAnimating) {
+      _sweepController.repeat();
+    } else if (!isElite && _sweepController.isAnimating) {
+      _sweepController.stop();
+      _sweepController.value = 0;
+    }
 
-class _GlassLevelBadge extends StatelessWidget {
-  const _GlassLevelBadge({required this.levelName, required this.levelColor});
+    final heroShift = isElite ? (widget.scrollOffset * 0.08).clamp(-18.0, 18.0) : 0.0;
 
-  final String levelName;
-  final Color levelColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.09),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: levelColor.withOpacity(0.9), width: 1.3),
-        boxShadow: [
-          BoxShadow(
-            color: levelColor.withOpacity(0.32),
-            blurRadius: 14,
-            spreadRadius: 0.4,
-          ),
-        ],
-      ),
-      child: Text(
-        levelName,
-        style: TextStyle(
-          color: levelColor,
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.1,
-          shadows: [
-            Shadow(
-              color: levelColor.withOpacity(0.65),
-              blurRadius: 12,
+    return Transform.translate(
+      offset: Offset(0, heroShift),
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, child) {
+          final pulse = 1 + (0.02 * math.sin(_pulseController.value * math.pi));
+          return Transform.scale(scale: pulse, child: child);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFF8EF), Color(0xFFF6EAD8)],
             ),
-          ],
+            border: Border.all(color: const Color(0xFFE8D5B8).withOpacity(0.7)),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF7A4D2A).withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 10)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FadeTransition(
+                opacity: CurvedAnimation(parent: _levelUpController, curve: Curves.easeOut),
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.9, end: 1.0).animate(CurvedAnimation(parent: _levelUpController, curve: Curves.easeOutBack)),
+                  child: Row(
+                    children: [
+                      Text(level.label, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF3A2416), fontSize: 14)),
+                      const Spacer(),
+                      Text(nextLevelConfig?.label ?? 'Maksimum', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5D4037), fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ProgressMetric(
+                label: 'İlerleme',
+                primaryText: '%${(pointsProgress * 100).toStringAsFixed(0)}',
+                helperText: nextLevelConfig == null ? 'Maksimum seviyedesin' : '${nextLevelConfig.label} için +$pointsRemaining puan kaldı',
+                progress: pointsProgress,
+                progressColor: visual.accentColor,
+                sweepController: _sweepController,
+                isElite: isElite,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                trustLine,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF5D4037)).copyWith(color: const Color(0xFF5D4037).withOpacity(0.70)),
+              ),
+              if (nextLevelConfig != null) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: trustProgress,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(99),
+                  backgroundColor: visual.accentColor.withOpacity(0.20),
+                  valueColor: AlwaysStoppedAnimation(visual.accentColor.withOpacity(0.85)),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -759,6 +807,8 @@ class _ProgressMetric extends StatelessWidget {
     required this.helperText,
     required this.progress,
     required this.progressColor,
+    required this.sweepController,
+    required this.isElite,
   });
 
   final String label;
@@ -766,48 +816,67 @@ class _ProgressMetric extends StatelessWidget {
   final String helperText;
   final double progress;
   final Color progressColor;
+  final AnimationController sweepController;
+  final bool isElite;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFE8D8CB),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          primaryText,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFDCCABD),
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5D4037)).copyWith(color: const Color(0xFF5D4037).withOpacity(0.55))),
+        const SizedBox(height: 4),
+        Text(primaryText, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF2F1D13)).copyWith(color: const Color(0xFF2F1D13).withOpacity(0.90))),
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            minHeight: 10,
-            backgroundColor: const Color(0xFF4A3B32),
-            valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          child: SizedBox(
+            height: 12,
+            child: Stack(
+              children: [
+                Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: progressColor.withOpacity(0.20)))),
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progress.clamp(0.0, 1.0),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [progressColor.withOpacity(0.85), Color.lerp(progressColor, const Color(0xFFFFE1BD), 0.2)!.withOpacity(0.85)]),
+                    ),
+                  ),
+                ),
+                if (isElite)
+                  AnimatedBuilder(
+                    animation: sweepController,
+                    builder: (context, _) {
+                      final x = -0.15 + (1.30 * sweepController.value);
+                      return FractionallySizedBox(
+                        widthFactor: progress.clamp(0.0, 1.0),
+                        alignment: Alignment.centerLeft,
+                        child: Transform.translate(
+                          offset: Offset(MediaQuery.of(context).size.width * x * 0.5, 0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.12,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.white.withOpacity(0), Colors.white.withOpacity(0.1), Colors.white.withOpacity(0)],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          helperText,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFEAD7C9),
-          ),
-        ),
+        Text(helperText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF3A2416)).copyWith(color: const Color(0xFF3A2416).withOpacity(0.90))),
       ],
     );
   }
