@@ -279,7 +279,7 @@ class _Badge extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 2. ANA FİYAT KARTI (Adem Bayram Sığma Sorunu Çözüldü + Rapor Butonu)
+// 1. ANA FİYAT KARTI (Minimalist: Buton Yok, Navigasyon Ok Var)
 // ═══════════════════════════════════════════════════════════════════
 class BestPriceCard extends ConsumerStatefulWidget {
   const BestPriceCard({super.key, required this.data, required this.isVoting});
@@ -302,9 +302,8 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
             onPressed: () {
-              // TODO: Backend'e raporlama kodunu buraya bağla
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiyat raporlandı. İncelenecek!')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiyat raporlandı.')));
             },
             child: const Text('Raporla', style: TextStyle(color: Colors.white)),
           ),
@@ -322,14 +321,14 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: const Color(0xFF5D4037), // Kahverengi Premium Arka Plan
+        color: const Color(0xFF5D4037),
         boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Üst Kısım: "Son Fiyat" ve Tarih
+          // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -348,98 +347,92 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF4CAF50))),
-                  const SizedBox(width: 6),
-                  Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
+              Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           
-          // Orta Kısım: Mağaza Logosu ve Dev Fiyat
+          // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                    alignment: Alignment.center,
-                    child: Text(p.store.isNotEmpty ? p.store[0].toUpperCase() : 'M', style: GoogleFonts.poppins(color: const Color(0xFF00B1E7), fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(p.store, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
-                ],
+              // Mağaza ismine tıklayınca navigasyon açılsın
+              GestureDetector(
+                onTap: () async {
+                  final service = ref.read(productDetailApiServiceProvider);
+                  final coords = await service.resolveStoreCoordinates(p);
+                  if (coords == null) return;
+                  final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                      alignment: Alignment.center,
+                      child: Text(p.store.isNotEmpty ? p.store[0].toUpperCase() : 'M', style: GoogleFonts.poppins(color: const Color(0xFF00B1E7), fontWeight: FontWeight.bold, fontSize: 18)),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(p.store, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(Icons.navigation_rounded, color: Color(0xFFFFD54F), size: 12),
+                            const SizedBox(width: 4),
+                            Text('Yol Tarifi Al', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              // Dev Fiyat
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(priceText, style: GoogleFonts.dmSans(fontSize: 48, color: Colors.white, fontWeight: FontWeight.bold, height: 1)),
-                  Text('₺', style: GoogleFonts.dmSans(fontSize: 24, color: Colors.white70, fontWeight: FontWeight.bold)),
+                  Text(priceText, style: GoogleFonts.dmSans(fontSize: 44, color: Colors.white, fontWeight: FontWeight.bold, height: 1)),
+                  Text('₺', style: GoogleFonts.dmSans(fontSize: 22, color: Colors.white54, fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Alt Kısım: Ekleyen Kişi (Esnek Yapı) ve Butonlar
+          // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Adem Bayram gibi uzun isimleri koruyan Expanded yapı
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('EKLEYEN:', style: GoogleFonts.inter(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     const SizedBox(height: 6),
-                    _DynamicVipChip(bestPrice: p), // Gerçek Modal'ı açan Çip
+                    // Veritabanından canlı veri çeken VIP Çipi
+                    _DynamicVipChip(userId: p.userId, fallbackName: p.userName),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              // Sağ Taraf: Raporlama ve Mağazaya Git
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: _reportPrice,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.outlined_flag_rounded, color: Colors.white70, size: 20),
-                    ),
+              // En sağ köşeye zarifçe itilmiş raporlama ikonu
+              GestureDetector(
+                onTap: _reportPrice,
+                child: Opacity(
+                  opacity: 0.5,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () async {
-                      final service = ref.read(productDetailApiServiceProvider);
-                      final coords = await service.resolveStoreCoordinates(p);
-                      if (coords == null) return;
-                      final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(color: const Color(0xFFC8956C), borderRadius: BorderRadius.circular(14)),
-                      child: Row(
-                        children: [
-                          Text('Mağazaya Git', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -450,123 +443,81 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// VIP ÇİPİ VE TIKLANABİLİR PROFİL MODALI
+// 2. VIP ÇİPİ (İsmi Veritabanından Canlı Çeker, Taşmayı Engeller)
 // ═══════════════════════════════════════════════════════════════════
 class _DynamicVipChip extends StatelessWidget {
-  const _DynamicVipChip({required this.bestPrice});
-  final BestPrice bestPrice;
+  const _DynamicVipChip({required this.userId, required this.fallbackName});
+  final String userId;
+  final String fallbackName;
 
   @override
   Widget build(BuildContext context) {
-    final t = bestPrice.userTier.toLowerCase();
-    Color iconC = const Color(0xFFCD7F32); // Default Bronz/Standart
-    List<Color> bgGrad = [const Color(0xFFCD7F32).withOpacity(0.1), const Color(0xFF8D6E63).withOpacity(0.1)];
-    Color borderC = const Color(0xFF8D6E63).withOpacity(0.3);
-    List<Color> textGrad = [const Color(0xFFEFEBE9), const Color(0xFFCD7F32)];
-    IconData icon = Icons.shield_rounded;
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        String realName = fallbackName;
+        String tier = 'Standart';
+        int trust = 50;
 
-    if (t.contains('elmas') || t.contains('diamond')) {
-      iconC = const Color(0xFF00F2FE);
-      bgGrad = [const Color(0xFF00F2FE).withOpacity(0.1), const Color(0xFF4FACFE).withOpacity(0.1)];
-      borderC = const Color(0xFF4FACFE).withOpacity(0.3);
-      textGrad = [const Color(0xFFE0F7FA), const Color(0xFF00F2FE)];
-      icon = Icons.diamond_rounded;
-    } else if (t.contains('altın') || t.contains('gold')) {
-      iconC = const Color(0xFFFFD700);
-      bgGrad = [const Color(0xFFFFD700).withOpacity(0.1), const Color(0xFFFFA000).withOpacity(0.1)];
-      borderC = const Color(0xFFFFA000).withOpacity(0.3);
-      textGrad = [const Color(0xFFFFF8E1), const Color(0xFFFFD700)];
-      icon = Icons.emoji_events_rounded;
-    } else if (t.contains('gümüş') || t.contains('silver')) {
-      iconC = const Color(0xFFC0C0C0);
-      bgGrad = [const Color(0xFFC0C0C0).withOpacity(0.1), const Color(0xFF9E9E9E).withOpacity(0.1)];
-      borderC = const Color(0xFF9E9E9E).withOpacity(0.3);
-      textGrad = [const Color(0xFFF5F5F5), const Color(0xFFC0C0C0)];
-      icon = Icons.military_tech_rounded;
-    }
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          realName = data['name'] ?? data['displayName'] ?? fallbackName;
+          tier = data['eliteLevel'] ?? 'Standart';
+          trust = (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+        }
 
-    final displayName = bestPrice.userName.isNotEmpty ? bestPrice.userName : 'Anonim';
+        final t = tier.toLowerCase();
+        Color iconC = const Color(0xFFCD7F32);
+        IconData icon = Icons.shield_rounded;
+        
+        if (t.contains('elmas')) {
+          iconC = const Color(0xFF00F2FE);
+          icon = Icons.diamond_rounded;
+        } else if (t.contains('altın')) {
+          iconC = const Color(0xFFFFD700);
+          icon = Icons.emoji_events_rounded;
+        }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          // Tıklanınca açılan Cam Efektli Modal
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.5))),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 48, color: iconC),
-                      const SizedBox(height: 16),
-                      Text(
-                        displayName,
-                        style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF5D4037)),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: bgGrad),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: borderC),
-                        ),
-                        child: Text(
-                          'Seviye: ${bestPrice.userTier}',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: textGrad.last),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.verified_user_rounded, color: Color(0xFF2E7D32)),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Güven Puanı: %${bestPrice.userTrustScore}',
-                            style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: bgGrad),
-            border: Border.all(color: borderC),
-            borderRadius: BorderRadius.circular(12),
-          ),
+        return InkWell(
+          onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16, color: iconC),
               const SizedBox(width: 6),
-              ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) => LinearGradient(colors: textGrad).createShader(bounds),
-                child: Text(displayName, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+              Flexible(
+                child: Text(
+                  realName,
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showUserModal(context, name, tier, trust, icon, iconC) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: iconC),
+            const SizedBox(height: 16),
+            Text(name, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Seviye: $tier', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 20),
+            Text('Güven Puanı: %$trust', style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
