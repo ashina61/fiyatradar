@@ -287,6 +287,7 @@ class _PremiumProfileHeader extends StatelessWidget {
                       ],
                     ],
                   ),
+                  ),
                   if (data.username.trim().isNotEmpty && data.displayName != data.username.trim()) ...[
                     const SizedBox(height: 2),
                     Text(
