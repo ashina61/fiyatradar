@@ -57,6 +57,7 @@ class EliteLevelResult {
     required this.finalLevel,
     required this.requiredMinTrust,
     required this.isTrustGated,
+    required this.nextPointsLevel,
   });
 
   final EliteLevel pointsLevel;
@@ -64,6 +65,7 @@ class EliteLevelResult {
   final EliteLevel finalLevel;
   final int requiredMinTrust;
   final bool isTrustGated;
+  final EliteLevel nextPointsLevel;
 }
 
 class EliteLevelEngine {
@@ -112,9 +114,11 @@ class EliteLevelEngine {
     final pointsIndex = _levels.indexWhere((item) => _fromKey(item.levelKey) == pointsLevel);
     final trustIndex = _levels.indexWhere((item) => _fromKey(item.levelKey) == trustLevel);
     final finalIndex = pointsIndex < trustIndex ? pointsIndex : trustIndex;
-    final requiredMinTrust = _levels[pointsIndex].minTrustGate;
+    final nextPointsIndex = (pointsIndex + 1).clamp(0, _levels.length - 1).toInt();
+    final nextPointsLevel = _fromKey(_levels[nextPointsIndex].levelKey);
+    final requiredMinTrust = _levels[nextPointsIndex].minTrustGate;
     final effectiveTrust = totalVotes < minVotesForTrust ? 0 : trustPercent;
-    final isTrustGated = effectiveTrust < requiredMinTrust;
+    final isTrustGated = pointsIndex < (_levels.length - 1) && (effectiveTrust < requiredMinTrust);
 
     return EliteLevelResult(
       pointsLevel: pointsLevel,
@@ -122,6 +126,7 @@ class EliteLevelEngine {
       finalLevel: _fromKey(_levels[finalIndex].levelKey),
       requiredMinTrust: requiredMinTrust,
       isTrustGated: isTrustGated,
+      nextPointsLevel: nextPointsLevel,
     );
   }
 

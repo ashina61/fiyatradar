@@ -71,6 +71,7 @@ class PointsController {
             isTrustGated: summary.isTrustGated,
             finalLevelLabel: summary.finalLevelLabel,
             trustLabel: summary.trustLabel,
+            nextLevelName: summary.nextLevelName,
           );
         });
       });

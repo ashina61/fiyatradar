@@ -36,6 +36,7 @@ class PointsState {
     required this.isTrustGated,
     required this.finalLevelLabel,
     required this.trustLabel,
+    required this.nextLevelName,
   });
 
   final int totalPoints;
@@ -53,6 +54,7 @@ class PointsState {
   final bool isTrustGated;
   final String finalLevelLabel;
   final String trustLabel;
+  final String nextLevelName;
 
   static const PointsState placeholder = PointsState(
     totalPoints: 200,
@@ -113,6 +115,7 @@ class PointsState {
     isTrustGated: true,
     finalLevelLabel: 'Avcı',
     trustLabel: 'Gelişen Güven',
+    nextLevelName: 'Avcı',
   );
 }
 

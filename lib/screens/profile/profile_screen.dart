@@ -12,7 +12,7 @@ import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
 import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
-import '../../utils/level_style.dart';
+import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
@@ -20,6 +20,7 @@ import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../../widgets/user_level_badge_pill.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
 
@@ -136,7 +137,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'photoURL': '',
         'verified': false,
         'trustScore': 0,
-        'levelName': 'Standart',
+        'levelName': 'Gözlemci',
         'monthlySavings': '₺0',
         'topMarket': 'Henuz yok',
         'totalPoints': 0,
@@ -250,7 +251,7 @@ class _PremiumProfileHeader extends StatelessWidget {
                   const SizedBox(height: 14),
                   // Name
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: Colors.white38),
@@ -260,7 +261,12 @@ class _PremiumProfileHeader extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.diamond_rounded, color: Color(0xFF1EF0FF), size: 22),
+                        UserLevelBadgePill(
+                          userProfile: UserLevelBadgeProfile(
+                            userName: shownUsername,
+                            level: levelFromLabel(data.levelName),
+                          ),
+                        ),
                         const SizedBox(width: 10),
                         Flexible(
                           child: Text(
@@ -275,19 +281,19 @@ class _PremiumProfileHeader extends StatelessWidget {
                             ),
                           ),
                         ),
-                      if (isAdmin) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
+                        if (isAdmin) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
                           ),
-                          child: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
                   ),
                   if (data.username.trim().isNotEmpty && data.displayName != data.username.trim()) ...[
                     const SizedBox(height: 2),
