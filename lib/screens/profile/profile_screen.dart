@@ -504,7 +504,7 @@ class _PointsAndLevelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = LevelStyle.fromLevelLabel(levelName, fallbackTotalPoints: totalPoints);
+    final level = levelFromLabel(levelName);
 
     return Row(
       children: [
