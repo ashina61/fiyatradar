@@ -703,7 +703,7 @@ class PriceHistoryPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TOPLULUK MERKEZİ (Güven Barı ve Doğrulama Butonları - KESİN ÇÖZÜM)
+// TOPLULUK MERKEZİ (Oy Verdikten Sonra Kilitlenen Versiyon)
 // ═══════════════════════════════════════════════════════════════════
 class CommunityPanel extends ConsumerStatefulWidget {
   const CommunityPanel({super.key, required this.data, required this.notifier, required this.isVoting});
@@ -720,25 +720,28 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
   Future<void> _submitVote(bool isApproved) async {
     final user = ref.read(authStateProvider).valueOrNull;
     
-    // KONTROL 1: Kullanıcı kendi girdiği fiyata oy veriyorsa engelle ve uyar!
+    // KONTROL 1: Kendi fiyatına oy veremez
     if (user != null && widget.data.bestPrice.userId == user.uid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kendi girdiğiniz fiyata oy veremezsiniz!'),
-          backgroundColor: Color(0xFFC62828), // Kırmızı hata rengi
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return; // İşlemi durdur, veritabanını yorma
+      _showSnack('Kendi girdiğiniz fiyata oy veremezsiniz!', isError: true);
+      return;
     }
 
     setState(() { _sending = true; });
-    
-    // Veritabanına oyu gönder, Provider otomatik olarak load() yapıp yeni sayıları çekecek
     await widget.notifier.votePrice(priceId: widget.data.bestPrice.id, isApproved: isApproved);
     
     if (!mounted) return;
     setState(() { _sending = false; });
+    _showSnack('Oyunuz başarıyla kaydedildi ve kilitlendi.');
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -749,10 +752,10 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
     return StreamBuilder<String?>(
       stream: voteStream,
       builder: (context, snapshot) {
-        // Kullanıcının daha önce oy verip vermediğini kontrol ediyoruz (butonun rengini yakmak için)
-        final remoteVote = snapshot.data == 'yes' ? true : snapshot.data == 'no' ? false : null;
+        // snapshot.data: 'yes', 'no' veya null gelir.
+        final String? voteValue = snapshot.data;
+        final bool hasVoted = voteValue != null; // Kullanıcı oy vermiş mi?
 
-        // VERİTABANINDAN GELEN %100 GERÇEK SAYILAR (Sahte eklemeler kaldırıldı)
         final appC = widget.data.trust.approveCount;
         final rejC = widget.data.trust.rejectCount;
         final total = appC + rejC;
@@ -760,7 +763,11 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
 
         return Container(
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))]),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFEDE0D4)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -768,42 +775,53 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Topluluk Merkezi', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF2E7D32)),
-                        const SizedBox(width: 4),
-                        Text('%$score Güvenilir', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF2E7D32))),
-                      ],
-                    ),
-                  ),
+                  _TrustBadge(score: score),
                 ],
               ),
               const SizedBox(height: 16),
+              // Güven Barı
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: score / 100, minHeight: 8, backgroundColor: const Color(0xFFEDE0D4), color: const Color(0xFF2E7D32)),
+                child: LinearProgressIndicator(value: score / 100, minHeight: 8, backgroundColor: const Color(0xFFF5EDE4), color: const Color(0xFF2E7D32)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              
+              // Butonlar
               Row(
                 children: [
                   Expanded(
                     child: _TrustBtn(
-                      label: 'Doğrula ($appC)', icon: Icons.thumb_up_alt_outlined, color: const Color(0xFF2E7D32), bg: const Color(0xFFE8F5E9),
-                      isActive: remoteVote == true, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(true),
+                      label: 'Doğrula ($appC)', 
+                      icon: Icons.thumb_up_rounded, 
+                      color: const Color(0xFF2E7D32),
+                      isActive: voteValue == 'yes',
+                      // EĞER OY VERDİYSE VEYA YÜKLENİYORSA ONPRESSED NULL OLUR (KİLİTLENİR)
+                      onPressed: (hasVoted || _sending || widget.isVoting) ? null : () => _submitVote(true),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _TrustBtn(
-                      label: 'Yanlış ($rejC)', icon: Icons.thumb_down_alt_outlined, color: const Color(0xFFC62828), bg: const Color(0xFFFFEBEE),
-                      isActive: remoteVote == false, onPressed: (_sending || widget.isVoting) ? null : () => _submitVote(false),
+                      label: 'Yanlış ($rejC)', 
+                      icon: Icons.thumb_down_rounded, 
+                      color: const Color(0xFFC62828),
+                      isActive: voteValue == 'no',
+                      // EĞER OY VERDİYSE VEYA YÜKLENİYORSA ONPRESSED NULL OLUR (KİLİTLENİR)
+                      onPressed: (hasVoted || _sending || widget.isVoting) ? null : () => _submitVote(false),
                     ),
                   ),
                 ],
               ),
+              if (hasVoted)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Center(
+                    child: Text(
+                      '🔒 Oyunuz kilitlendi, değiştirilemez.',
+                      style: GoogleFonts.inter(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -813,31 +831,55 @@ class _CommunityPanelState extends ConsumerState<CommunityPanel> {
 }
 
 class _TrustBtn extends StatelessWidget {
-  const _TrustBtn({required this.label, required this.icon, required this.color, required this.bg, required this.isActive, required this.onPressed});
-  final String label; final IconData icon; final Color color, bg; final bool isActive; final VoidCallback? onPressed;
+  const _TrustBtn({required this.label, required this.icon, required this.color, required this.isActive, required this.onPressed});
+  final String label; final IconData icon; final Color color; final bool isActive; final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: isActive ? color.withOpacity(0.2) : bg, borderRadius: BorderRadius.circular(14), border: Border.all(color: isActive ? color : Colors.transparent)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isActive) ...[
-              // Seçiliyse içi dolu ikon göster
-              Icon(icon == Icons.thumb_up_alt_outlined ? Icons.thumb_up_rounded : Icons.thumb_down_rounded, size: 18, color: color),
-            ] else ...[
-              // Seçili değilse çizgili ikon
-              Icon(icon, size: 18, color: color),
+    // Kullanıcı oy verdiyse butonlar daha soluk veya seçili görünür
+    final bool isLocked = onPressed == null && !isActive;
+
+    return Opacity(
+      opacity: isLocked ? 0.4 : 1.0,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? color : color.withOpacity(0.05), 
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isActive ? color : color.withOpacity(0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isActive ? Colors.white : color),
+              const SizedBox(width: 8),
+              Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: isActive ? Colors.white : color)),
             ],
-            const SizedBox(width: 8),
-            Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _TrustBadge extends StatelessWidget {
+  const _TrustBadge({required this.score});
+  final int score;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF2E7D32)),
+          const SizedBox(width: 4),
+          Text('%$score Güvenilir', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32))),
+        ],
       ),
     );
   }
