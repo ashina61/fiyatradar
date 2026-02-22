@@ -1937,6 +1937,44 @@ class FirestoreService {
     }
   }
 
+  Future<void> setUserBanStatusByAdmin({
+    required String userId,
+    required bool isBanned,
+    String? reason,
+    String? adminUid,
+  }) async {
+    await _usersRef.doc(userId).set({
+      'isBanned': isBanned,
+      'banReason': isBanned ? (reason ?? 'Admin işlemi') : FieldValue.delete(),
+      'bannedAt': isBanned ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      'bannedByUid': isBanned ? (adminUid ?? '') : FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> deleteUserByAdmin(String userId) async {
+    await _usersRef.doc(userId).delete();
+  }
+
+  Future<void> registerProductShare({
+    required String productId,
+    String? uid,
+    Map<String, dynamic>? payload,
+  }) async {
+    final shareRef = _firestore.collection('product_shares').doc();
+    await shareRef.set({
+      'productId': productId,
+      'uid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      ...?payload,
+    });
+
+    await _productsRef.doc(productId).set({
+      'shareCount': FieldValue.increment(1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   // =========================================================================
   // SEARCH HISTORY
   // =========================================================================

@@ -13,6 +13,7 @@ import '../../models/product_detail_api_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/level_system.dart';
 import '../../widgets/level_badge.dart';
@@ -86,6 +87,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   }
 
   Future<void> _shareProduct(ProductDetailResponse data) async {
+    final user = ref.read(authStateProvider).valueOrNull;
+    await ref.read(firestoreServiceProvider).registerProductShare(
+      productId: data.id,
+      uid: user?.uid,
+      payload: {'title': data.title},
+    );
     await Share.share("${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}");
   }
 
@@ -93,6 +100,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
     final notifier = ref.read(productDetailProvider(widget.productId).notifier);
+    final currentUser = ref.watch(authStateProvider).valueOrNull;
+    final favoriteStream = currentUser == null
+        ? const Stream<bool>.empty()
+        : ref.watch(firestoreServiceProvider).isFavoriteStream(
+              uid: currentUser.uid,
+              productId: widget.productId,
+            );
 
     return Scaffold(
       backgroundColor: const Color(0xFFD1D5DB), // CSS body bg
@@ -119,7 +133,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                           physics: const BouncingScrollPhysics(),
                           child: Column(
                             children: [
-                              HeroSection(data: state.data!, floatAnimation: _heroFloat, onBack: () => Navigator.of(context).pop(), onToggleFavorite: () => _toggleFavorite(state.data!), onShare: () => _shareProduct(state.data!)),
+                              HeroSection(
+                                data: state.data!,
+                                floatAnimation: _heroFloat,
+                                favoriteStream: favoriteStream,
+                                onBack: () => Navigator.of(context).pop(),
+                                onToggleFavorite: () => _toggleFavorite(state.data!),
+                                onShare: () => _shareProduct(state.data!),
+                              ),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 100), // .content-body padding
                                 child: Column(
@@ -153,9 +174,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
 // 1. HERO SECTION (Zıplayan Ürün ve Aktif Butonlar)
 // ═══════════════════════════════════════════════════════════════════
 class HeroSection extends StatelessWidget {
-  const HeroSection({super.key, required this.data, required this.floatAnimation, required this.onBack, required this.onToggleFavorite, required this.onShare});
+  const HeroSection({super.key, required this.data, required this.floatAnimation, required this.favoriteStream, required this.onBack, required this.onToggleFavorite, required this.onShare});
   final ProductDetailResponse data;
   final Animation<double> floatAnimation;
+  final Stream<bool> favoriteStream;
   final VoidCallback onBack, onToggleFavorite, onShare;
 
   @override
@@ -178,7 +200,17 @@ class HeroSection extends StatelessWidget {
                 GlassIconButton(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
                 Row(
                   children: [
-                    GlassIconButton(icon: Icons.favorite_border_rounded, onTap: onToggleFavorite),
+                    StreamBuilder<bool>(
+                      stream: favoriteStream,
+                      builder: (context, snapshot) {
+                        final isFavorite = snapshot.data ?? false;
+                        return GlassIconButton(
+                          icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          iconColor: isFavorite ? const Color(0xFFE53935) : _brown900,
+                          onTap: onToggleFavorite,
+                        );
+                      },
+                    ),
                     const SizedBox(width: 12),
                     GlassIconButton(icon: Icons.share_rounded, onTap: onShare),
                   ],
@@ -202,11 +234,22 @@ class HeroSection extends StatelessWidget {
                       animation: floatAnimation,
                       builder: (_, child) => Transform.translate(offset: Offset(0, floatAnimation.value), child: child),
                       child: Container(
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFFFFF), Color(0xFFF4E6D8)],
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white, width: 2),
                           boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 20))]
                         ),
                         // Ürün fotoğrafı
-                        child: Image.network(data.imageUrl, height: 180, fit: BoxFit.contain),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.network(data.imageUrl, height: 180, fit: BoxFit.contain),
+                        ),
                       ),
                     ),
                   );
@@ -267,13 +310,21 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [bg.withOpacity(0.95), const Color(0xFF8A5A4A)],
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withOpacity(0.4)),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
-          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1EF0FF))),
         ],
       ),
     );
@@ -311,6 +362,39 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _deletePriceByAdmin() async {
+    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
+    if (currentUser?.isAdmin != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fiyatı sil'),
+        content: const Text('Bu fiyat girdisini silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(firestoreServiceProvider).softDeletePrice(
+      priceId: widget.data.bestPrice.id,
+      deletedByUid: currentUser!.uid,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fiyat girdisi silindi.')),
     );
   }
 
@@ -426,15 +510,36 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
                 ),
               ),
               // En sağ köşeye zarifçe itilmiş raporlama ikonu
-              GestureDetector(
-                onTap: _reportPrice,
-                child: Opacity(
-                  opacity: 0.5,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
+                      if (!isAdmin) return const SizedBox.shrink();
+                      return GestureDetector(
+                        onTap: _deletePriceByAdmin,
+                        child: Opacity(
+                          opacity: 0.8,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
+                  GestureDetector(
+                    onTap: _reportPrice,
+                    child: Opacity(
+                      opacity: 0.5,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1150,8 +1255,8 @@ class _PremiumSection extends StatelessWidget {
 }
 
 class GlassIconButton extends StatelessWidget {
-  const GlassIconButton({super.key, required this.icon, required this.onTap});
-  final IconData icon; final VoidCallback onTap;
+  const GlassIconButton({super.key, required this.icon, required this.onTap, this.iconColor});
+  final IconData icon; final VoidCallback onTap; final Color? iconColor;
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -1163,7 +1268,7 @@ class GlassIconButton extends StatelessWidget {
           child: Container(
             height: 44, width: 44,
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.6), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.5))),
-            child: Icon(icon, color: _brown900),
+            child: Icon(icon, color: iconColor ?? _brown900),
           ),
         ),
       ),

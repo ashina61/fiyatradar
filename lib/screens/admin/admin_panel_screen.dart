@@ -3346,6 +3346,52 @@ class _UserManagementTab extends ConsumerWidget {
                         icon: const Icon(Icons.edit_outlined),
                         onPressed: () => _showEditUserDialogGlobal(context, ref, user),
                       ),
+                      IconButton(
+                        tooltip: user.isBanned ? 'Ban kaldır' : 'Kullanıcıyı banla',
+                        icon: Icon(user.isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
+                            color: user.isBanned ? Colors.green : Colors.redAccent),
+                        onPressed: () async {
+                          final adminUid = FirebaseAuth.instance.currentUser?.uid;
+                          await ref.read(firestoreServiceProvider).setUserBanStatusByAdmin(
+                            userId: user.uid,
+                            isBanned: !user.isBanned,
+                            reason: user.isBanned ? null : 'Admin panel işlemi',
+                            adminUid: adminUid,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(user.isBanned ? '${user.name} banı kaldırıldı' : '${user.name} banlandı'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Üyeliği sil',
+                        icon: const Icon(Icons.person_remove_alt_1_rounded, color: Colors.red),
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Üyeliği sil'),
+                              content: Text('${user.name} kullanıcısını tamamen silmek istiyor musunuz?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true) return;
+                          await ref.read(firestoreServiceProvider).deleteUserByAdmin(user.uid);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${user.name} silindi'), behavior: SnackBarBehavior.floating),
+                            );
+                          }
+                        },
+                      ),
                       Switch(
                         value: user.isAdmin,
                         activeColor: AppColors.primary,
