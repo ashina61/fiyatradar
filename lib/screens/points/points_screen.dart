@@ -5,6 +5,9 @@ import '../../utils/theme.dart';
 import '../../widgets/leaderboard_section.dart';
 import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
+import '../../widgets/level_badge.dart';
+import '../../utils/level_system.dart';
+
 
 class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
