@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -293,58 +294,105 @@ class _PrestigeScoreCard extends StatelessWidget {
 
 // ---------- Animated Score Ring ----------
 
-class _AnimatedScoreRing extends StatelessWidget {
+class _AnimatedScoreRing extends StatefulWidget {
   const _AnimatedScoreRing({required this.state, required this.level});
   final PointsState state;
   final UserLevel level;
 
   @override
+  State<_AnimatedScoreRing> createState() => _AnimatedScoreRingState();
+}
+
+class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTickerProviderStateMixin {
+  late final AnimationController _sweepController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sweepController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    );
+    if (widget.state.trustScore >= 60) {
+      _sweepController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedScoreRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldAnimate = widget.state.trustScore >= 60;
+    if (shouldAnimate && !_sweepController.isAnimating) {
+      _sweepController.repeat(reverse: true);
+    } else if (!shouldAnimate && _sweepController.isAnimating) {
+      _sweepController.stop();
+      _sweepController.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _sweepController.dispose();
+    super.dispose();
+  }
+
+  List<Color> _ringSweepColors(List<Color> source) {
+    if (source.length >= 4) return source;
+    if (source.length == 3) {
+      return [source[0], Color.lerp(source[0], source[1], 0.5)!, source[1], source[2]];
+    }
+    if (source.length == 2) {
+      return [
+        source[0],
+        Color.lerp(source[0], source[1], 0.35)!,
+        Color.lerp(source[0], source[1], 0.7)!,
+        source[1],
+      ];
+    }
+    return const [Color(0xFFD0B38F), Color(0xFFE6CEAE), Color(0xFFB88A56), Color(0xFFD0B38F)];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sweepColors = _ringSweepColors(widget.level.gradient);
+    final showGlow = widget.state.trustScore >= 80;
+
     return SizedBox(
       width: 200,
       height: 200,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Background ring
-          SizedBox(
-            width: 200,
-            height: 200,
-            child: CircularProgressIndicator(
-              value: 1.0,
-              strokeWidth: 12,
-              strokeCap: StrokeCap.round,
-              backgroundColor: Colors.transparent,
-              color: AppColors.outline.withOpacity(0.4),
-            ),
-          ),
-          // Progress ring
-          SizedBox(
-            width: 200,
-            height: 200,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: state.levelProgressPercent),
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return ShaderMask(
-                  shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
-                    EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
-                    state.trustScore.toDouble(),
-                    locked: state.isTrustGated,
-                  ).createShader(rect),
-                  child: CircularProgressIndicator(
-                    value: value,
-                    strokeWidth: 12,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.transparent,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _sweepController,
+              builder: (context, _) {
+                final rotationOffset = widget.state.trustScore >= 60 ? math.sin(_sweepController.value * math.pi * 2) * 0.06 : 0.0;
+                return CustomPaint(
+                  painter: _PremiumRingPainter(
+                    progress: widget.state.levelProgressPercent,
+                    sweepColors: sweepColors,
+                    rotationOffset: rotationOffset,
+                    showGlow: showGlow,
                   ),
                 );
               },
             ),
           ),
-          // Inner circle with score
+          if (widget.state.isTrustGated)
+            Positioned(
+              right: 16,
+              top: 16,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.84),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2C7AA)),
+                ),
+                child: const Icon(Icons.lock_rounded, size: 13, color: Color(0xFF7B5B46)),
+              ),
+            ),
           Container(
             width: 160,
             height: 160,
@@ -363,7 +411,7 @@ class _AnimatedScoreRing extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TweenAnimationBuilder<int>(
-                  tween: IntTween(begin: 0, end: state.totalPoints),
+                  tween: IntTween(begin: 0, end: widget.state.totalPoints),
                   duration: const Duration(milliseconds: 1200),
                   curve: Curves.easeOutCubic,
                   builder: (context, value, _) {
@@ -381,14 +429,14 @@ class _AnimatedScoreRing extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  level.label,
+                  widget.level.label,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
-                if (state.isTrustGated)
+                if (widget.state.isTrustGated)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Icon(Icons.lock_rounded, size: 15, color: AppColors.textTertiary),
@@ -407,6 +455,71 @@ class _AnimatedScoreRing extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _PremiumRingPainter extends CustomPainter {
+  const _PremiumRingPainter({
+    required this.progress,
+    required this.sweepColors,
+    required this.rotationOffset,
+    required this.showGlow,
+  });
+
+  final double progress;
+  final List<Color> sweepColors;
+  final double rotationOffset;
+  final bool showGlow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = 12.0;
+    final center = size.center(Offset.zero);
+    final radius = (size.width / 2) - (strokeWidth / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final clampedProgress = progress.clamp(0.0, 1.0);
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFC6A989).withOpacity(0.22);
+
+    canvas.drawCircle(center, radius, trackPaint);
+
+    final gradient = SweepGradient(
+      colors: sweepColors,
+      stops: const [0.0, 0.32, 0.68, 1.0],
+      transform: GradientRotation((-math.pi / 2) + rotationOffset),
+    );
+
+    final progressPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..shader = gradient.createShader(rect);
+
+    if (showGlow && clampedProgress > 0) {
+      final glowPath = Path()
+        ..addArc(rect, -math.pi / 2, (math.pi * 2) * clampedProgress);
+      final glowPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth + 1
+        ..strokeCap = StrokeCap.round
+        ..color = sweepColors.last.withOpacity(0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawPath(glowPath, glowPaint);
+    }
+
+    canvas.drawArc(rect, -math.pi / 2, (math.pi * 2) * clampedProgress, false, progressPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PremiumRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.rotationOffset != rotationOffset ||
+        oldDelegate.showGlow != showGlow ||
+        oldDelegate.sweepColors != sweepColors;
   }
 }
 
