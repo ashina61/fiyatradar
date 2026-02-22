@@ -21,6 +21,7 @@ import '../notifications/notifications_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
+import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -247,23 +248,32 @@ class _PremiumProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   // Name
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          shownUsername,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.3,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white38),
+                      color: Colors.white.withOpacity(0.08),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.diamond_rounded, color: Color(0xFF1EF0FF), size: 22),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            shownUsername,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1EF0FF),
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
-                      ),
                       if (isAdmin) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -561,7 +571,7 @@ class _PointsAndLevelRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              gradient: LinearGradient(colors: level.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.outline.withOpacity(0.6)),
               boxShadow: [
@@ -592,7 +602,7 @@ class _PointsAndLevelRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: level.badgeForeground,
+                    color: Colors.white,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -1389,6 +1399,14 @@ class AboutScreen extends StatelessWidget {
             icon: Icons.description_outlined,
             title: 'Kullanim Sartlari',
             onTap: () => launchUrl(Uri.parse('https://fiyatradar.app/terms')),
+          ),
+          const SizedBox(height: 8),
+          _SettingsTile(
+            icon: Icons.auto_awesome_rounded,
+            title: 'Guncellemeler',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()),
+            ),
           ),
           const SizedBox(height: 16),
           Container(

@@ -7,6 +7,12 @@ class UpdateHistoryScreen extends StatelessWidget {
 
   static const updates = <Map<String, String>>[
     {
+      'version': 'v1.6.0',
+      'date': '2026 Q1',
+      'title': 'Neon Prestige Deneyimi',
+      'notes': 'Seviye göstergeleri çok renkli premium stile taşındı, kullanıcı adı çipleri iyileştirildi ve puan aktiviteleri canlı backend akışına bağlandı.',
+    },
+    {
       'version': 'v1.5.0',
       'date': '2025 Q2',
       'title': 'Premium Profil Deneyimi',
@@ -47,39 +53,44 @@ class UpdateHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Güncelleme Geçmişi')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Güncellemeler')),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: [
-          ...updates.map(
-            (item) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Theme.of(context).colorScheme.surface,
-                border: Border.all(color: const Color(0xFFDCE7F8)),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1D4ED8).withOpacity(0.06),
-                    blurRadius: 14,
-                    offset: const Offset(0, 7),
+        children: updates
+            .map(
+              (item) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF8EF), Color(0xFFF8EDDB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
+                  border: Border.all(color: const Color(0xFFE8D5B8)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1D4ED8).withOpacity(0.06),
+                      blurRadius: 14,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item['title']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text('${item['version']} • ${item['date']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Text(item['notes']!, style: const TextStyle(height: 1.35)),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item['title']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text('${item['version']} • ${item['date']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: 8),
-                  Text(item['notes']!, style: const TextStyle(height: 1.35)),
-                ],
-              ),
-            ),
-          ),
-        ],
+            )
+            .toList(),
       ),
     );
   }

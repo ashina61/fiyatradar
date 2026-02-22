@@ -42,6 +42,24 @@ class DailyGoalsData {
   final int commentTarget;
 }
 
+
+
+class PointsActivityData {
+  const PointsActivityData({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.points,
+    required this.createdAt,
+  });
+
+  final String type;
+  final String title;
+  final String subtitle;
+  final int points;
+  final DateTime createdAt;
+}
+
 class PointsRepository {
   PointsRepository({FirebaseFirestore? firestore, PointsService? pointsService})
       : _firestore = firestore ?? FirebaseFirestore.instance,
@@ -92,6 +110,44 @@ class PointsRepository {
       );
     });
   }
+
+
+
+  Stream<List<PointsActivityData>> streamActivities(String uid) {
+    return _pointsService.streamActivity(uid).map((items) {
+      return items.map((item) {
+        final type = item.type;
+        final map = _activityPresentation(type, item.meta);
+        return PointsActivityData(
+          type: type,
+          title: map.$1,
+          subtitle: map.$2,
+          points: item.points,
+          createdAt: item.createdAt,
+        );
+      }).toList();
+    });
+  }
+
+  (String, String) _activityPresentation(String type, Map<String, dynamic> meta) {
+    final market = (meta['marketName'] ?? meta['market'] ?? '').toString();
+    final product = (meta['productName'] ?? meta['productTitle'] ?? '').toString();
+    final pair = [market, product].where((e) => e.trim().isNotEmpty).join(' • ');
+
+    switch (type) {
+      case 'price_entry':
+        return ('Fiyat bildirimi', pair.isEmpty ? 'Yeni fiyat eklendi' : pair);
+      case 'price_verify':
+        return ('Fiyat doğrulaması', pair.isEmpty ? 'Topluluk doğrulaması' : pair);
+      case 'comment':
+        return ('Yorum katkısı', pair.isEmpty ? 'Ürün yorumu paylaşıldı' : pair);
+      case 'photo_bonus':
+        return ('Foto bonusu', pair.isEmpty ? 'Fotoğraflı katkı' : pair);
+      default:
+        return ('Puan etkinliği', pair.isEmpty ? 'Topluluk katkısı' : pair);
+    }
+  }
+
 
   Stream<List<DailyTask>> streamLeaderboardStub() {
     return const Stream<List<DailyTask>>.empty();
