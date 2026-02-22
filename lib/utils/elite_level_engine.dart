@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-const int minVotesForTrust = 10;
+import 'level_config.dart';
 
-enum EliteLevel { standart, bronz, gumus, altin, elmas }
+const int minVotesForTrust = LevelConfig.minVotesForTrust;
+
+enum EliteLevel { gozlemci, avci, tasarrufcu, marketUstasi, fiyatLordu, radarEfsanesi }
 
 enum TrustScoreStatus { enoughData, veriAz }
 
@@ -48,36 +50,83 @@ class TrustScoreSummary {
   final TrustScoreStatus status;
 }
 
+class EliteLevelResult {
+  const EliteLevelResult({
+    required this.pointsLevel,
+    required this.trustLevel,
+    required this.finalLevel,
+    required this.requiredMinTrust,
+    required this.isTrustGated,
+  });
+
+  final EliteLevel pointsLevel;
+  final EliteLevel trustLevel;
+  final EliteLevel finalLevel;
+  final int requiredMinTrust;
+  final bool isTrustGated;
+}
+
 class EliteLevelEngine {
   const EliteLevelEngine._();
 
-  static const Map<EliteLevel, int> _rank = {
-    EliteLevel.standart: 1,
-    EliteLevel.bronz: 2,
-    EliteLevel.gumus: 3,
-    EliteLevel.altin: 4,
-    EliteLevel.elmas: 5,
+  static const Map<EliteLevel, String> _levelKeys = {
+    EliteLevel.gozlemci: 'gozlemci',
+    EliteLevel.avci: 'avci',
+    EliteLevel.tasarrufcu: 'tasarrufcu',
+    EliteLevel.marketUstasi: 'marketUstasi',
+    EliteLevel.fiyatLordu: 'fiyatLordu',
+    EliteLevel.radarEfsanesi: 'radarEfsanesi',
   };
 
+  static EliteLevel _fromKey(String key) {
+    return _levelKeys.entries.firstWhere((e) => e.value == key, orElse: () => _levelKeys.entries.first).key;
+  }
+
+  static List<LevelConfigItem> get _levels => LevelConfig.levels;
+
   static EliteLevel getPointsLevel(int totalPoints) {
-    if (totalPoints >= 5000) return EliteLevel.elmas;
-    if (totalPoints >= 2000) return EliteLevel.gumus;
-    if (totalPoints >= 500) return EliteLevel.bronz;
-    return EliteLevel.standart;
+    EliteLevel current = _fromKey(_levels.first.levelKey);
+    for (final item in _levels) {
+      if (totalPoints >= item.minPoints) {
+        current = _fromKey(item.levelKey);
+      }
+    }
+    return current;
   }
 
   static EliteLevel getTrustLevel(int trustPercent, int totalVotes) {
-    if (totalVotes < minVotesForTrust || trustPercent < 40) return EliteLevel.standart;
-    if (trustPercent >= 80) return EliteLevel.elmas;
-    if (trustPercent >= 60) return EliteLevel.altin;
-    if (trustPercent >= 40) return EliteLevel.bronz;
-    return EliteLevel.standart;
+    final eligibleTrust = totalVotes < minVotesForTrust ? 0 : trustPercent.clamp(0, 100);
+    EliteLevel current = _fromKey(_levels.first.levelKey);
+    for (final item in _levels) {
+      final threshold = LevelConfig.trustThresholds[item.levelKey] ?? 0;
+      if (eligibleTrust >= threshold) {
+        current = _fromKey(item.levelKey);
+      }
+    }
+    return current;
+  }
+
+  static EliteLevelResult evaluate({required int totalPoints, required int trustPercent, required int totalVotes}) {
+    final pointsLevel = getPointsLevel(totalPoints);
+    final trustLevel = getTrustLevel(trustPercent, totalVotes);
+    final pointsIndex = _levels.indexWhere((item) => _fromKey(item.levelKey) == pointsLevel);
+    final trustIndex = _levels.indexWhere((item) => _fromKey(item.levelKey) == trustLevel);
+    final finalIndex = pointsIndex < trustIndex ? pointsIndex : trustIndex;
+    final requiredMinTrust = _levels[pointsIndex].minTrustGate;
+    final effectiveTrust = totalVotes < minVotesForTrust ? 0 : trustPercent;
+    final isTrustGated = effectiveTrust < requiredMinTrust;
+
+    return EliteLevelResult(
+      pointsLevel: pointsLevel,
+      trustLevel: trustLevel,
+      finalLevel: _fromKey(_levels[finalIndex].levelKey),
+      requiredMinTrust: requiredMinTrust,
+      isTrustGated: isTrustGated,
+    );
   }
 
   static EliteLevel getFinalLevel(int totalPoints, int trustPercent, int totalVotes) {
-    final pointsLevel = getPointsLevel(totalPoints);
-    final trustLevel = getTrustLevel(trustPercent, totalVotes);
-    return _rank[pointsLevel]! <= _rank[trustLevel]! ? pointsLevel : trustLevel;
+    return evaluate(totalPoints: totalPoints, trustPercent: trustPercent, totalVotes: totalVotes).finalLevel;
   }
 
   static TrustScoreSummary calculateTrust({required int verifiedTotal, required int wrongTotal}) {
@@ -93,97 +142,66 @@ class EliteLevelEngine {
     );
   }
 
-  static EliteLevelStyle getLevelStyle(EliteLevel level) {
-    switch (level) {
-      case EliteLevel.standart:
-        return const EliteLevelStyle(
-          level: EliteLevel.standart,
-          label: 'Standart',
-          emoji: '🛡️',
-          icon: Icons.shield_outlined,
-          gradient: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
-          borderColor: Color(0xFFD1D5DB),
-          textColor: Color(0xFF374151),
-          badgeBackground: Color(0xFFF4F5F6),
-          badgeForeground: Color(0xFF4B5563),
-          badgeBorder: Color(0xFFD5D9DE),
-        );
-      case EliteLevel.bronz:
-        return const EliteLevelStyle(
-          level: EliteLevel.bronz,
-          label: 'Bronz',
-          emoji: '🥉',
-          icon: Icons.workspace_premium_rounded,
-          gradient: [Color(0xFFC48A62), Color(0xFF8D5A3A)],
-          borderColor: Color(0xFF8D5A3A),
-          textColor: Color(0xFFFFFFFF),
-          badgeBackground: Color(0xFFF7EBE2),
-          badgeForeground: Color(0xFF8D5A3A),
-          badgeBorder: Color(0xFFD5B39B),
-        );
-      case EliteLevel.gumus:
-        return const EliteLevelStyle(
-          level: EliteLevel.gumus,
-          label: 'Gümüş',
-          emoji: '🥈',
-          icon: Icons.workspace_premium_rounded,
-          gradient: [Color(0xFFE5E7EB), Color(0xFF9CA3AF)],
-          borderColor: Color(0xFF9CA3AF),
-          textColor: Color(0xFF111827),
-          badgeBackground: Color(0xFFF1F5F9),
-          badgeForeground: Color(0xFF60748B),
-          badgeBorder: Color(0xFFC8D1DE),
-        );
-      case EliteLevel.altin:
-        return const EliteLevelStyle(
-          level: EliteLevel.altin,
-          label: 'Altın',
-          emoji: '🥇',
-          icon: Icons.workspace_premium_rounded,
-          gradient: [Color(0xFFFFE7A3), Color(0xFFE1B12C)],
-          borderColor: Color(0xFFC9A227),
-          textColor: Color(0xFF5F4500),
-          badgeBackground: Color(0xFFFFF7D6),
-          badgeForeground: Color(0xFF876300),
-          badgeBorder: Color(0xFFE3C46A),
-        );
-      case EliteLevel.elmas:
-        return const EliteLevelStyle(
-          level: EliteLevel.elmas,
-          label: 'Elmas',
-          emoji: '💎',
-          icon: Icons.diamond_rounded,
-          gradient: [Color(0xFFE8F4FF), Color(0xFFB7DFFF)],
-          borderColor: Color(0xFF7DB9E8),
-          textColor: Color(0xFF144B78),
-          badgeBackground: Color(0xFFE9F4FF),
-          badgeForeground: Color(0xFF1C6FB2),
-          badgeBorder: Color(0xFF8EC4EB),
-        );
-    }
+  static Gradient getLevelGradient(EliteLevel level, double trustScore, {bool locked = false}) {
+    final style = getLevelStyle(level);
+    final t = (trustScore.clamp(0, 100) / 100).toDouble();
+    final adjusted = style.gradient.map((color) {
+      final hsl = HSLColor.fromColor(color);
+      final shifted = hsl
+          .withSaturation((hsl.saturation + (0.12 * t)).clamp(0.0, 1.0))
+          .withLightness((hsl.lightness + (0.10 * t)).clamp(0.0, 1.0));
+      return Color.lerp(shifted.toColor(), const Color(0xFFFFBF7A), 0.06 * t)!;
+    }).toList();
+
+    return LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: locked ? adjusted.map((c) => c.withOpacity(0.55)).toList() : adjusted,
+    );
   }
 
-  static EliteLevel parseLevelLabel(String? raw, {EliteLevel fallback = EliteLevel.standart}) {
+  static EliteLevelStyle getLevelStyle(EliteLevel level) {
+    final item = _levels.firstWhere((it) => _fromKey(it.levelKey) == level);
+    final isDark = level == EliteLevel.marketUstasi || level == EliteLevel.fiyatLordu;
+    final border = Color.lerp(item.gradient.first, item.gradient.last, 0.55)!;
+    return EliteLevelStyle(
+      level: level,
+      label: item.label,
+      emoji: item.emoji,
+      icon: item.icon,
+      gradient: item.gradient,
+      borderColor: border,
+      textColor: isDark ? Colors.white : const Color(0xFF5D4037),
+      badgeBackground: item.gradient.last.withOpacity(0.35),
+      badgeForeground: const Color(0xFF5D4037),
+      badgeBorder: border,
+    );
+  }
+
+  static int minTrustForLevel(EliteLevel level) {
+    return LevelConfig.trustThresholds[_levelKeys[level]] ?? 0;
+  }
+
+  static EliteLevel parseLevelLabel(String? raw, {EliteLevel fallback = EliteLevel.gozlemci}) {
     final normalized = (raw ?? '').trim().toLowerCase();
+    for (final item in _levels) {
+      if (item.label.toLowerCase() == normalized) return _fromKey(item.levelKey);
+    }
     switch (normalized) {
+      case 'standart':
+      case 'standard':
       case 'bronz':
-      case 'bronze':
-        return EliteLevel.bronz;
+        return EliteLevel.gozlemci;
       case 'gümüş':
       case 'gumus':
-      case 'silver':
-        return EliteLevel.gumus;
+        return EliteLevel.avci;
       case 'altın':
       case 'altin':
       case 'gold':
-        return EliteLevel.altin;
+        return EliteLevel.tasarrufcu;
       case 'elmas':
       case 'diamond':
-        return EliteLevel.elmas;
-      case 'standart':
-      case 'yeni':
-      case 'standard':
-        return EliteLevel.standart;
+        return EliteLevel.radarEfsanesi;
       default:
         return fallback;
     }

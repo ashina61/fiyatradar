@@ -16,35 +16,35 @@ class TrustTierInfo {
 
 TrustTierInfo trustTierFromScore(int score) {
   final normalized = score.clamp(0, 100);
-  if (normalized <= 20) {
+  if (normalized < 20) {
     return const TrustTierInfo(
-      label: 'Bronz',
-      emoji: '🥉',
+      label: 'Temkinli Güven',
+      emoji: '🛡️',
       icon: Icons.shield_outlined,
-      color: Color(0xFF8D5A3A),
+      color: Color(0xFF8D6E63),
     );
   }
-  if (normalized <= 40) {
+  if (normalized < 40) {
     return const TrustTierInfo(
-      label: 'Gümüş',
-      emoji: '🥈',
-      icon: Icons.workspace_premium_rounded,
-      color: Color(0xFF8D99AE),
+      label: 'Gelişen Güven',
+      emoji: '🔰',
+      icon: Icons.security_rounded,
+      color: Color(0xFF9E7B60),
     );
   }
-  if (normalized <= 70) {
+  if (normalized < 80) {
     return const TrustTierInfo(
-      label: 'Altın',
-      emoji: '🥇',
-      icon: Icons.workspace_premium_rounded,
-      color: Color(0xFFC9A227),
+      label: 'Güvenilir Radar',
+      emoji: '✅',
+      icon: Icons.verified_user_rounded,
+      color: Color(0xFF7A5A46),
     );
   }
 
   return const TrustTierInfo(
-    label: 'Elmas',
-    emoji: '💎',
-    icon: Icons.diamond_rounded,
-    color: Color(0xFF4D72D9),
+    label: 'Elite Güven',
+    emoji: '👑',
+    icon: Icons.workspace_premium_rounded,
+    color: Color(0xFF5D4037),
   );
 }

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../../../services/points_service.dart';
+import '../../../utils/elite_level_engine.dart';
+import '../../../utils/trust_tier.dart';
 import '../models/points_models.dart';
 
 class PointsSummaryData {
@@ -13,6 +15,12 @@ class PointsSummaryData {
     required this.nextLevelTarget,
     required this.pointsToNextLevel,
     required this.levelProgress,
+    required this.trustScore,
+    required this.trustTotalVotes,
+    required this.requiredMinTrust,
+    required this.isTrustGated,
+    required this.finalLevelLabel,
+    required this.trustLabel,
   });
 
   final int totalPoints;
@@ -22,6 +30,12 @@ class PointsSummaryData {
   final int nextLevelTarget;
   final int pointsToNextLevel;
   final double levelProgress;
+  final int trustScore;
+  final int trustTotalVotes;
+  final int requiredMinTrust;
+  final bool isTrustGated;
+  final String finalLevelLabel;
+  final String trustLabel;
 }
 
 class DailyGoalsData {
@@ -77,6 +91,14 @@ class PointsRepository {
       final pointsThisWeek = profile.weeklyPoints;
       final streakDays = profile.streakDays;
       final levelName = profile.level;
+      final trustScore = ((profile.trustScore as num?)?.toInt() ?? 0).clamp(0, 100);
+      final trustTotalVotes = (profile.trustTotalVotes as num?)?.toInt() ?? 0;
+      final levelEval = EliteLevelEngine.evaluate(
+        totalPoints: totalPoints,
+        trustPercent: trustScore,
+        totalVotes: trustTotalVotes,
+      );
+      final trustTier = trustTierFromScore(trustScore);
 
       final nextLevelTarget = profile.nextLevel?.minPoints ?? (totalPoints + profile.remainingForNextLevel);
       final pointsToNextLevel = profile.remainingForNextLevel;
@@ -90,6 +112,12 @@ class PointsRepository {
         nextLevelTarget: nextLevelTarget,
         pointsToNextLevel: pointsToNextLevel,
         levelProgress: levelProgress,
+        trustScore: trustScore,
+        trustTotalVotes: trustTotalVotes,
+        requiredMinTrust: levelEval.requiredMinTrust,
+        isTrustGated: levelEval.isTrustGated,
+        finalLevelLabel: EliteLevelEngine.getLevelStyle(levelEval.finalLevel).label,
+        trustLabel: trustTier.label,
       );
     });
   }

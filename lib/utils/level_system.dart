@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'elite_level_engine.dart';
+import 'level_config.dart';
 
 class UserLevel {
   const UserLevel({
@@ -57,67 +58,34 @@ class UserLevel {
 }
 
 const Map<String, Color> levelColorMap = {
-  'Standart': Color(0xFF6B7280),
-  'Bronz': Color(0xFF8D5A3A),
-  'Gümüş': Color(0xFF6B7280),
-  'Altın': Color(0xFFC9A227),
-  'Elmas': Color(0xFF1C6FB2),
+  'Gözlemci': Color(0xFF8D6E63),
+  'Avcı': Color(0xFF9C6A3B),
+  'Tasarrufçu': Color(0xFF8B5E3C),
+  'Market Ustası': Color(0xFF6D4C41),
+  'Fiyat Lordu': Color(0xFF5D4037),
+  'Radar Efsanesi': Color(0xFFA67C52),
 };
 
 final List<UserLevel> kUserLevels = [
-  UserLevel.fromEliteStyle(
-    EliteLevelEngine.getLevelStyle(EliteLevel.standart),
-    minPoints: 0,
-    maxPoints: 500,
-  ),
-  UserLevel.fromEliteStyle(
-    EliteLevelEngine.getLevelStyle(EliteLevel.bronz),
-    minPoints: 500,
-    maxPoints: 2000,
-  ),
-  UserLevel.fromEliteStyle(
-    EliteLevelEngine.getLevelStyle(EliteLevel.gumus),
-    minPoints: 2000,
-    maxPoints: 5000,
-  ),
-  UserLevel.fromEliteStyle(
-    EliteLevelEngine.getLevelStyle(EliteLevel.elmas),
-    minPoints: 5000,
-  ),
+  for (var i = 0; i < LevelConfig.levels.length; i++)
+    UserLevel.fromEliteStyle(
+      EliteLevelEngine.getLevelStyle(EliteLevelEngine.parseLevelLabel(LevelConfig.levels[i].label)),
+      minPoints: LevelConfig.levels[i].minPoints,
+      maxPoints: i == LevelConfig.levels.length - 1 ? null : LevelConfig.levels[i + 1].minPoints,
+    ),
 ];
 
 UserLevel levelBuilder(int totalPoints) {
   final level = EliteLevelEngine.getPointsLevel(totalPoints);
-  switch (level) {
-    case EliteLevel.standart:
-      return kUserLevels[0];
-    case EliteLevel.bronz:
-      return kUserLevels[1];
-    case EliteLevel.gumus:
-      return kUserLevels[2];
-    case EliteLevel.altin:
-      return UserLevel.fromEliteStyle(
-        EliteLevelEngine.getLevelStyle(EliteLevel.altin),
-        minPoints: 2000,
-        maxPoints: 5000,
-      );
-    case EliteLevel.elmas:
-      return kUserLevels[3];
-  }
+  return UserLevel.fromEliteStyle(EliteLevelEngine.getLevelStyle(level), minPoints: 0);
 }
 
-/// ✅ Label'dan level çekme (UI tarafında “ELMAS / Elmas / elmas” hepsini çözer)
 UserLevel levelFromLabel(String name) {
   final normalized = name.trim().toLowerCase();
-
-  // 1) Önce mevcut listeden label eşleşmesi (min/max korunsun)
   final direct = kUserLevels.where((l) => l.label.trim().toLowerCase() == normalized);
   if (direct.isNotEmpty) return direct.first;
 
-  // 2) Elite engine parse ile (altın gibi listede olmayanları da yakalar)
   final elite = EliteLevelEngine.parseLevelLabel(name);
   final style = EliteLevelEngine.getLevelStyle(elite);
-
-  // minPoints burada sadece UI için; engine seviyeyi zaten doğru parse etti
   return UserLevel.fromEliteStyle(style, minPoints: 0);
 }
