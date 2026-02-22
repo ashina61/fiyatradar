@@ -16,7 +16,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/level_system.dart';
-import '../../widgets/user_level_badge_pill.dart';
+import '../../widgets/user_identity_renderer.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -618,36 +618,12 @@ class _DynamicVipChip extends StatelessWidget {
 
         return InkWell(
           onTap: () => _showUserModal(context, realName, tier, trust, lvl),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFE7D6C8)),
+          child: UserIdentityRenderer(
+            userProfile: UserIdentityProfile(
+              userName: realName,
+              level: lvl,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                UserLevelBadgePill(
-                  userProfile: UserLevelBadgeProfile(
-                    userName: realName,
-                    level: lvl,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    realName,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF5D4037),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            fontSize: 14,
           ),
         );
       },

@@ -8,7 +8,7 @@ import '../providers/leaderboard_provider.dart';
 import '../utils/cities_tr.dart';
 import '../utils/level_style.dart';
 import '../utils/theme.dart';
-import 'level_badge.dart';
+import 'user_identity_renderer.dart';
 
 class LeaderboardSection extends ConsumerWidget {
   const LeaderboardSection({
@@ -356,15 +356,9 @@ class _PodiumCard extends StatelessWidget {
                 : null,
           ),
           const SizedBox(height: 8),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              fontSize: 13,
-            ),
+          UserIdentityRenderer(
+            userProfile: UserIdentityProfile(userName: item.name, level: level),
+            fontSize: 13,
           ),
           const SizedBox(height: 6),
           Container(
@@ -397,7 +391,6 @@ class _PodiumCard extends StatelessWidget {
             runSpacing: 6,
             alignment: WrapAlignment.center,
             children: [
-              LevelBadge(level: level, compact: true, withEmoji: false, uppercase: false),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
@@ -469,15 +462,9 @@ class _LeaderboardRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              item.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                fontSize: 13,
-              ),
+            child: UserIdentityRenderer(
+              userProfile: UserIdentityProfile(userName: item.name, level: level),
+              fontSize: 13,
             ),
           ),
           Flexible(
@@ -486,7 +473,6 @@ class _LeaderboardRow extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: [
-                LevelBadge(level: level, compact: true, withEmoji: false, uppercase: false),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(

@@ -53,7 +53,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'photoUrl': '',
           'trustScore': 0,
           'verified': false,
-          'levelName': 'Elmas seviyesi',
+          'levelName': 'Gözlemci',
           'notificationPrefs': {
             'priceAlerts': true,
             'badgeAlerts': true,

@@ -20,7 +20,7 @@ import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-import '../../widgets/user_level_badge_pill.dart';
+import '../../widgets/user_identity_renderer.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
 
@@ -250,50 +250,31 @@ class _PremiumProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   // Name
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white38),
-                      color: Colors.white.withOpacity(0.08),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        UserLevelBadgePill(
-                          userProfile: UserLevelBadgeProfile(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: UserIdentityRenderer(
+                          userProfile: UserIdentityProfile(
                             userName: shownUsername,
                             level: levelFromLabel(data.levelName),
                           ),
+                          fontSize: 22,
                         ),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(
-                            shownUsername,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1EF0FF),
-                              letterSpacing: -0.3,
-                            ),
+                      ),
+                      if (isAdmin) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
                           ),
+                          child: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
                         ),
-                        if (isAdmin) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                   if (data.username.trim().isNotEmpty && data.displayName != data.username.trim()) ...[
                     const SizedBox(height: 2),
