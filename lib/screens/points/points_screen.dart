@@ -224,7 +224,7 @@ class _PrestigeScoreCard extends StatelessWidget {
           const SizedBox(height: 20),
           // Level badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(14),
@@ -237,30 +237,11 @@ class _PrestigeScoreCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0E6D8),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    level.icon,
-                    color: level.badgeForeground,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                LevelBadge(
-                  level: level,
-                  compact: true,
-                  withEmoji: true,
-                  uppercase: true,
-                ),
-              ],
+            child: LevelFancyText(
+              level: level,
+              fontSize: 14,
+              withEmoji: true,
+              uppercase: true,
             ),
           ),
         ],
