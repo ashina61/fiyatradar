@@ -464,10 +464,11 @@ class _DynamicVipChip extends StatelessWidget {
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = data['eliteLevel'] ?? 'Standart';final lvl = levelFromLabel(tier);
+          tier = data['eliteLevel'] ?? 'Standart';
           trust = (data['reliabilityScore'] as num?)?.toInt() ?? 50;
         }
 
+        final lvl = levelFromLabel(tier);
         final t = tier.toLowerCase();
         Color iconC = const Color(0xFFCD7F32);
         IconData icon = Icons.shield_rounded;
@@ -481,34 +482,35 @@ class _DynamicVipChip extends StatelessWidget {
         }
 
         return InkWell(
-  onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
-  child: Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      // ✅ yeni: seviye badge (emoji + efektli yazı)
-      LevelBadge(
-        level: lvl,
-        compact: true,
-        withEmoji: true,
-        uppercase: true,
-      ),
-      const SizedBox(width: 8),
-
-      Flexible(
-        child: Text(
-          realName,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LevelBadge(
+                level: lvl,
+                compact: true,
+                withEmoji: true,
+                uppercase: true,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  realName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    ],
-  ),
-);
+        );
+      },
+    );
+  }
 
   void _showUserModal(context, name, tier, trust, icon, iconC) {
     showModalBottomSheet(
