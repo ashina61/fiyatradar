@@ -152,13 +152,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
     final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
+    final backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
       username: (data['username'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
-      levelName: EliteLevelEngine.getLevelStyle(finalLevel).label,
+      levelName: backendLevelName.isNotEmpty ? backendLevelName : EliteLevelEngine.getLevelStyle(finalLevel).label,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
     );

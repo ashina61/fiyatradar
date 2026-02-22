@@ -257,17 +257,17 @@ class _PrestigeScoreCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF9B6A58), Color(0xFF8A5A4A)],
+                colors: [Color(0xFF9B6A58), Color(0xFF835446)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white30),
+              border: Border.all(color: Colors.white38),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -319,17 +319,12 @@ class _AnimatedScoreRing extends StatelessWidget {
               duration: const Duration(milliseconds: 1200),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
-                return ShaderMask(
-                  shaderCallback: (rect) => const SweepGradient(
-                    colors: [Color(0xFF1EC8FF), Color(0xFF5D8BFF), Color(0xFF8B5CF6), Color(0xFF1EC8FF)],
-                  ).createShader(rect),
-                  child: CircularProgressIndicator(
-                    value: value,
-                    strokeWidth: 12,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.transparent,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+                return CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 12,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.transparent,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                 );
               },
             ),

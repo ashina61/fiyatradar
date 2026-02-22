@@ -16,6 +16,8 @@ class UserModel {
   final int validations;
   final int inviteCount;
   final bool isAdmin;
+  final bool isBanned;
+  final String? banReason;
   final String? role;
   final List<String> savedProducts;
   final double reliabilityScore;
@@ -45,6 +47,8 @@ class UserModel {
     this.validations = 0,
     this.inviteCount = 0,
     this.isAdmin = false,
+    this.isBanned = false,
+    this.banReason,
     this.role,
     this.savedProducts = const [],
     this.reliabilityScore = 0.0,
@@ -78,6 +82,8 @@ class UserModel {
       validations: data['validations'] ?? 0,
       inviteCount: data['inviteCount'] ?? 0,
       isAdmin: data['isAdmin'] ?? false,
+      isBanned: data['isBanned'] ?? false,
+      banReason: data['banReason']?.toString(),
       role: data['role'],
       savedProducts: List<String>.from(data['savedProducts'] ?? []),
       reliabilityScore: (data['reliabilityScore'] ?? 0.0).toDouble(),
@@ -109,6 +115,8 @@ class UserModel {
       'validations': validations,
       'inviteCount': inviteCount,
       'isAdmin': isAdmin,
+      'isBanned': isBanned,
+      'banReason': banReason,
       'role': role,
       'savedProducts': savedProducts,
       'reliabilityScore': reliabilityScore,
@@ -140,6 +148,8 @@ class UserModel {
     int? validations,
     int? inviteCount,
     bool? isAdmin,
+    bool? isBanned,
+    String? banReason,
     String? role,
     List<String>? savedProducts,
     double? reliabilityScore,
@@ -169,6 +179,8 @@ class UserModel {
       validations: validations ?? this.validations,
       inviteCount: inviteCount ?? this.inviteCount,
       isAdmin: isAdmin ?? this.isAdmin,
+      isBanned: isBanned ?? this.isBanned,
+      banReason: banReason ?? this.banReason,
       role: role ?? this.role,
       savedProducts: savedProducts ?? this.savedProducts,
       reliabilityScore: reliabilityScore ?? this.reliabilityScore,
