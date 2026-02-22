@@ -14,6 +14,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
 import '../add_price/add_price_screen.dart';
+import '../../utils/level_system.dart';
+import '../../widgets/level_badge.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
