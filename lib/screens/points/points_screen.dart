@@ -6,7 +6,7 @@ import '../../utils/theme.dart';
 import '../../widgets/leaderboard_section.dart';
 import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
-import '../../widgets/level_badge.dart';
+import '../../widgets/user_identity_renderer.dart';
 import '../../utils/level_system.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../utils/level_style.dart';
@@ -255,36 +255,9 @@ class _PrestigeScoreCard extends StatelessWidget {
           // Circular score
           _AnimatedScoreRing(state: state, level: level),
           const SizedBox(height: 20),
-          // Level badge (premium style, level-aware)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: EliteLevelEngine.getLevelGradient(
-                EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
-                state.trustScore.toDouble(),
-                locked: state.isTrustGated,
-              ),
-              border: Border.all(color: level.borderColor.withOpacity(0.82)),
-              boxShadow: [
-                BoxShadow(
-                  color: level.badgeBorder.withOpacity(0.26),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-                BoxShadow(
-                  color: Colors.white.withOpacity(0.16),
-                  blurRadius: 2,
-                  offset: const Offset(0, -1),
-                ),
-              ],
-            ),
-            child: LevelFancyText(
-              level: level,
-              fontSize: 14,
-              withEmoji: true,
-              uppercase: true,
-            ),
+          UserIdentityRenderer(
+            userProfile: UserIdentityProfile(userName: state.currentLevelName, level: level),
+            fontSize: 14,
           ),
         ],
       ),
@@ -306,14 +279,17 @@ class _AnimatedScoreRing extends StatefulWidget {
 class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTickerProviderStateMixin {
   late final AnimationController _sweepController;
 
+  bool get _isElite => widget.level.label == 'Fiyat Lordu' || widget.level.label == 'Radar Efsanesi';
+  bool get _isRadarEfsanesi => widget.level.label == 'Radar Efsanesi';
+
   @override
   void initState() {
     super.initState();
     _sweepController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: Duration(seconds: _isRadarEfsanesi ? 10 : 8),
     );
-    if (widget.state.trustScore >= 60) {
+    if (_isElite) {
       _sweepController.repeat(reverse: true);
     }
   }
@@ -321,7 +297,7 @@ class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTicke
   @override
   void didUpdateWidget(covariant _AnimatedScoreRing oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final shouldAnimate = widget.state.trustScore >= 60;
+    final shouldAnimate = _isElite;
     if (shouldAnimate && !_sweepController.isAnimating) {
       _sweepController.repeat(reverse: true);
     } else if (!shouldAnimate && _sweepController.isAnimating) {
@@ -355,7 +331,9 @@ class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTicke
   @override
   Widget build(BuildContext context) {
     final sweepColors = _ringSweepColors(widget.level.gradient);
-    final showGlow = widget.state.trustScore >= 80;
+    final breathe = (math.sin(_sweepController.value * math.pi * 2) + 1) / 2;
+    final ringGlowOpacity = !_isElite ? 0.0 : (_isRadarEfsanesi ? (0.06 + (0.06 * breathe)) : (0.04 + (0.04 * breathe)));
+    final ringGlowScale = !_isElite ? 1.0 : (_isRadarEfsanesi ? (1 + (0.03 * breathe)) : (1 + (0.015 * breathe)));
 
     return SizedBox(
       width: 200,
@@ -367,18 +345,34 @@ class _AnimatedScoreRingState extends State<_AnimatedScoreRing> with SingleTicke
             child: AnimatedBuilder(
               animation: _sweepController,
               builder: (context, _) {
-                final rotationOffset = widget.state.trustScore >= 60 ? math.sin(_sweepController.value * math.pi * 2) * 0.06 : 0.0;
                 return CustomPaint(
                   painter: _PremiumRingPainter(
                     progress: widget.state.levelProgressPercent,
                     sweepColors: sweepColors,
-                    rotationOffset: rotationOffset,
-                    showGlow: showGlow,
+                    showGlow: ringGlowOpacity,
                   ),
                 );
               },
             ),
           ),
+          if (_isElite)
+            Transform.scale(
+              scale: ringGlowScale,
+              child: Container(
+                width: 168,
+                height: 168,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFB28758).withOpacity(ringGlowOpacity),
+                      blurRadius: 28,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (widget.state.isTrustGated)
             Positioned(
               right: 16,
@@ -462,14 +456,12 @@ class _PremiumRingPainter extends CustomPainter {
   const _PremiumRingPainter({
     required this.progress,
     required this.sweepColors,
-    required this.rotationOffset,
     required this.showGlow,
   });
 
   final double progress;
   final List<Color> sweepColors;
-  final double rotationOffset;
-  final bool showGlow;
+  final double showGlow;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -490,7 +482,7 @@ class _PremiumRingPainter extends CustomPainter {
     final gradient = SweepGradient(
       colors: sweepColors,
       stops: const [0.0, 0.32, 0.68, 1.0],
-      transform: GradientRotation((-math.pi / 2) + rotationOffset),
+      transform: const GradientRotation(-math.pi / 2),
     );
 
     final progressPaint = Paint()
@@ -499,14 +491,14 @@ class _PremiumRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..shader = gradient.createShader(rect);
 
-    if (showGlow && clampedProgress > 0) {
+    if (showGlow > 0 && clampedProgress > 0) {
       final glowPath = Path()
         ..addArc(rect, -math.pi / 2, (math.pi * 2) * clampedProgress);
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth + 1
         ..strokeCap = StrokeCap.round
-        ..color = sweepColors.last.withOpacity(0.18)
+        ..color = const Color(0xFFB28758).withOpacity(showGlow)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
       canvas.drawPath(glowPath, glowPaint);
     }
@@ -517,7 +509,6 @@ class _PremiumRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PremiumRingPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.rotationOffset != rotationOffset ||
         oldDelegate.showGlow != showGlow ||
         oldDelegate.sweepColors != sweepColors;
   }
@@ -634,12 +625,47 @@ class _StatCard extends StatelessWidget {
 
 // ---------- Level Progress Card ----------
 
-class _LevelProgressCard extends StatelessWidget {
+class _LevelProgressCard extends StatefulWidget {
   const _LevelProgressCard({required this.state});
   final PointsState state;
 
   @override
+  State<_LevelProgressCard> createState() => _LevelProgressCardState();
+}
+
+class _LevelProgressCardState extends State<_LevelProgressCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _sweepController;
+
+  bool get _isElite => widget.state.finalLevelLabel == 'Fiyat Lordu' || widget.state.finalLevelLabel == 'Radar Efsanesi';
+
+  @override
+  void initState() {
+    super.initState();
+    _sweepController = AnimationController(vsync: this, duration: const Duration(seconds: 8));
+    if (_isElite) _sweepController.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LevelProgressCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isElite && !_sweepController.isAnimating) {
+      _sweepController.repeat();
+    } else if (!_isElite && _sweepController.isAnimating) {
+      _sweepController.stop();
+      _sweepController.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _sweepController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final level = LevelStyle.fromLevelLabel(widget.state.finalLevelLabel, fallbackTotalPoints: widget.state.totalPoints);
+    final requiredTrustText = widget.state.requiredMinTrust == 0 ? 'Gerekli Güven ✓' : 'Gerekli Güven %${widget.state.requiredMinTrust}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -647,226 +673,96 @@ class _LevelProgressCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.outline.withOpacity(0.6)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final maxChipWidth = constraints.maxWidth * 0.55;
-              final compact = constraints.maxWidth < 360;
-              final minTrustText = state.requiredMinTrust == 0
-                  ? 'Gerekli Güven ✓'
-                  : state.isTrustGated
-                      ? 'Gerekli Güven %${state.requiredMinTrust} 🔒'
-                      : 'Gerekli Güven %${state.requiredMinTrust} ✓';
-              final trustNowText = (state.isTrustGated && state.requiredMinTrust > 0) ? '(Şu an %${state.trustScore})' : null;
-              final showRequirementChip = state.requiredMinTrust > 0 || state.isTrustGated;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 20),
-                        SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Seviye İlerleme',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
+          Row(
+            children: [
+              Expanded(
+                child: UserIdentityRenderer(
+                  userProfile: UserIdentityProfile(userName: level.label, level: level),
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                '${(widget.state.levelProgressPercent * 100).toInt()}%',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: widget.state.levelProgressPercent),
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  height: 10,
+                  child: Stack(
+                    children: [
+                      Container(color: AppColors.surfaceVariant),
+                      FractionallySizedBox(
+                        widthFactor: value,
+                        alignment: Alignment.centerLeft,
+                        child: ShaderMask(
+                          shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
+                            EliteLevelEngine.parseLevelLabel(widget.state.finalLevelLabel),
+                            widget.state.trustScore.toDouble(),
+                            locked: widget.state.isTrustGated,
+                          ).createShader(rect),
+                          child: Container(color: Colors.white),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      alignment: WrapAlignment.end,
-                      children: [
-                        if (showRequirementChip)
-                          ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxChipWidth),
-                            child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
-                              ),
-                            ),
-                              child: Wrap(
-                                runSpacing: 1,
-                                children: [
-                                Text(
-                                  minTrustText,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
-                                  ),
-                                ),
-                                if (trustNowText != null)
-                                  Text(
-                                    compact ? trustNowText : ' $trustNowText',
-                                    maxLines: compact ? 1 : 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF8A5A3B),
+                      ),
+                      if (_isElite && value > 0)
+                        AnimatedBuilder(
+                          animation: _sweepController,
+                          builder: (context, _) {
+                            final sweepWidth = 0.12;
+                            final left = (value + sweepWidth) * _sweepController.value - sweepWidth;
+                            return FractionallySizedBox(
+                              widthFactor: value,
+                              alignment: Alignment.centerLeft,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionalTranslation(
+                                  translation: Offset(left / value.clamp(0.001, 1), 0),
+                                  child: FractionallySizedBox(
+                                    widthFactor: sweepWidth,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.transparent,
+                                            Colors.white.withOpacity(0.10),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                              ],
-                            ),
-                          ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${(state.levelProgressPercent * 100).toInt()}%',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          // Progress bar
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              if (state.trustScore >= 80 && !state.isTrustGated)
-                Container(
-                  height: 14,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFC8956C).withOpacity(0.25),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
                     ],
                   ),
                 ),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: state.levelProgressPercent),
-                  duration: const Duration(milliseconds: 1000),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, _) {
-                    return ShaderMask(
-                      shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
-                        EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
-                        state.trustScore.toDouble(),
-                        locked: state.isTrustGated,
-                      ).createShader(rect),
-                      child: LinearProgressIndicator(
-                        minHeight: 10,
-                        value: value,
-                        backgroundColor: AppColors.surfaceVariant,
-                        valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              if (state.isTrustGated)
-                Positioned.fill(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.78),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Icon(Icons.lock_rounded, size: 14, color: Color(0xFF7B5B46)),
-                    ),
-                  ),
-                ),
-            ],
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    LevelBadge(
-                      level: LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints),
-                      compact: true,
-                      withEmoji: false,
-                      uppercase: false,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
-                      ),
-                      child: Text(
-                        '${state.trustLabel} %${state.trustScore}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${state.nextLevelName} için ${state.pointsRemainingToNextLevel} puan kaldı',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textTertiary,
-                ),
-              ),
-            ],
+          const SizedBox(height: 10),
+          Text(
+            'Gelişen Güven %${widget.state.trustScore}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            requiredTrustText,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textTertiary),
           ),
         ],
       ),
