@@ -52,20 +52,17 @@ class PointsRepository {
 
   Stream<PointsSummaryData> streamPointsSummary(String uid) {
     final summaryRef = _firestore.collection('users').doc(uid).collection('points_summary').doc('current');
-    return summaryRef.snapshots().asyncMap((summaryDoc) async {
+    return summaryRef.snapshots().asyncMap((_) async {
       final profile = await _pointsService.streamUserProfile(uid).first;
-      final summaryData = summaryDoc.data() ?? const <String, dynamic>{};
+      // Puan ekranı tek kaynaktan (points system) beslensin.
+      final totalPoints = profile.totalPoints;
+      final pointsThisWeek = profile.weeklyPoints;
+      final streakDays = profile.streakDays;
+      final levelName = profile.level;
 
-      final totalPoints = (summaryData['totalPoints'] as num?)?.toInt() ?? profile.totalPoints;
-      final pointsThisWeek = (summaryData['pointsThisWeek'] as num?)?.toInt() ?? profile.weeklyPoints;
-      final streakDays = (summaryData['streakDays'] as num?)?.toInt() ?? profile.streakDays;
-      final levelName = (summaryData['levelName'] ?? summaryData['level'] ?? profile.level).toString();
-
-      final nextLevelTarget = (summaryData['nextLevelTarget'] as num?)?.toInt() ??
-          (profile.nextLevel?.minPoints ?? (totalPoints + profile.remainingForNextLevel));
-      final pointsToNextLevel =
-          (summaryData['pointsToNextLevel'] as num?)?.toInt() ?? profile.remainingForNextLevel;
-      final levelProgress = ((summaryData['levelProgress'] as num?)?.toDouble() ?? profile.progress).clamp(0.0, 1.0);
+      final nextLevelTarget = profile.nextLevel?.minPoints ?? (totalPoints + profile.remainingForNextLevel);
+      final pointsToNextLevel = profile.remainingForNextLevel;
+      final levelProgress = profile.progress.clamp(0.0, 1.0);
 
       return PointsSummaryData(
         totalPoints: totalPoints,
@@ -80,17 +77,18 @@ class PointsRepository {
   }
 
   Stream<DailyGoalsData> streamDailyGoals(String uid, DateTime date) {
-    final dayKey = DateFormat('yyyy-MM-dd').format(date);
-    final goalsRef = _firestore.collection('users').doc(uid).collection('daily_goals').doc(dayKey);
+    final dayKey = DateFormat('yyyyMMdd').format(date);
+    final goalsRef = _firestore.collection('users').doc(uid).collection('points_daily').doc(dayKey);
     return goalsRef.snapshots().map((doc) {
       final data = doc.data() ?? const <String, dynamic>{};
+      final counts = Map<String, dynamic>.from(data['counts'] as Map? ?? const {});
       return DailyGoalsData(
-        reportPriceDone: (data['reportPriceDone'] as num?)?.toInt() ?? 0,
-        verifyPriceDone: (data['verifyPriceDone'] as num?)?.toInt() ?? 0,
-        commentDone: (data['commentDone'] as num?)?.toInt() ?? 0,
-        reportPriceTarget: (data['reportPriceTarget'] as num?)?.toInt() ?? 2,
-        verifyPriceTarget: (data['verifyPriceTarget'] as num?)?.toInt() ?? 5,
-        commentTarget: (data['commentTarget'] as num?)?.toInt() ?? 1,
+        reportPriceDone: (counts['price_entry'] as num?)?.toInt() ?? 0,
+        verifyPriceDone: (counts['price_verify'] as num?)?.toInt() ?? 0,
+        commentDone: (counts['comment'] as num?)?.toInt() ?? 0,
+        reportPriceTarget: 2,
+        verifyPriceTarget: 5,
+        commentTarget: 1,
       );
     });
   }

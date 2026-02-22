@@ -464,7 +464,7 @@ class _DynamicVipChip extends StatelessWidget {
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = data['eliteLevel'] ?? 'Standart';
+          tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Standart').toString();
           trust = (data['reliabilityScore'] as num?)?.toInt() ?? 50;
         }
 
@@ -472,12 +472,28 @@ class _DynamicVipChip extends StatelessWidget {
 
         return InkWell(
           onTap: () => _showUserModal(context, realName, tier, trust, lvl),
-          child: LevelFancyText(
-            level: lvl,
-            text: '${lvl.emoji} $realName',
-            fontSize: 15,
-            withEmoji: false,
-            uppercase: false,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(lvl.icon, color: lvl.badgeForeground, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  realName,
+                  style: GoogleFonts.poppins(
+                    color: lvl.badgeForeground,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
