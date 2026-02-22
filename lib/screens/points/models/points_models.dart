@@ -18,6 +18,68 @@ class PointsSummary {
   final double progress;
 }
 
+@immutable
+class PointsState {
+  const PointsState({
+    required this.totalPoints,
+    required this.currentLevelName,
+    required this.pointsThisWeek,
+    required this.nextLevelTargetPoints,
+    required this.streakDays,
+    required this.levelProgressPercent,
+    required this.pointsRemainingToNextLevel,
+    required this.dailyGoals,
+  });
+
+  final int totalPoints;
+  final String currentLevelName;
+  final int pointsThisWeek;
+  final int nextLevelTargetPoints;
+  final int streakDays;
+  final double levelProgressPercent;
+  final int pointsRemainingToNextLevel;
+  final List<DailyTask> dailyGoals;
+
+  static const PointsState placeholder = PointsState(
+    totalPoints: 200,
+    currentLevelName: 'Standart',
+    pointsThisWeek: 47,
+    nextLevelTargetPoints: 300,
+    streakDays: 3,
+    levelProgressPercent: 0.38,
+    pointsRemainingToNextLevel: 300,
+    dailyGoals: [
+      DailyTask(
+        title: 'Fiyat Bildir',
+        description: '2 fiyat bildirimi yap',
+        reward: 20,
+        current: 1,
+        target: 2,
+        icon: Icons.sell_rounded,
+        iconBackground: Color(0xFFFFE7D1),
+      ),
+      DailyTask(
+        title: 'Doğrula',
+        description: '5 fiyatı doğrula',
+        reward: 10,
+        current: 3,
+        target: 5,
+        icon: Icons.verified_rounded,
+        iconBackground: Color(0xFFDFF3FF),
+      ),
+      DailyTask(
+        title: 'Yorum Yap',
+        description: '1 ürüne yorum bırak',
+        reward: 5,
+        current: 0,
+        target: 1,
+        icon: Icons.chat_bubble_rounded,
+        iconBackground: Color(0xFFEAE7FF),
+      ),
+    ],
+  );
+}
+
 class DailyTask {
   const DailyTask({
     required this.title,
@@ -54,72 +116,4 @@ class LevelItem {
   final String name;
   final int requiredPoints;
   final LevelStatus status;
-}
-
-class PointsMockData {
-  const PointsMockData({required this.summary, required this.dailyTasks, required this.rewards, required this.levels});
-
-  final PointsSummary summary;
-  final List<DailyTask> dailyTasks;
-  final List<RewardItem> rewards;
-  final List<LevelItem> levels;
-
-  factory PointsMockData.build() {
-    return const PointsMockData(
-      summary: PointsSummary(
-        totalPoints: 200,
-        level: 2,
-        levelName: 'Standart',
-        nextLevelRemaining: 300,
-        progress: 0.38,
-      ),
-      dailyTasks: [
-        DailyTask(
-          title: 'Fiyat Bildir',
-          description: '2 fiyat bildirimi yap',
-          reward: 20,
-          current: 1,
-          target: 2,
-          icon: Icons.sell_rounded,
-          iconBackground: Color(0xFFFFE7D1),
-        ),
-        DailyTask(
-          title: 'Doğrula',
-          description: '5 fiyatı doğrula',
-          reward: 10,
-          current: 3,
-          target: 5,
-          icon: Icons.verified_rounded,
-          iconBackground: Color(0xFFDFF3FF),
-        ),
-        DailyTask(
-          title: 'Yorum Yap',
-          description: '1 ürüne yorum bırak',
-          reward: 5,
-          current: 0,
-          target: 1,
-          icon: Icons.chat_bubble_rounded,
-          iconBackground: Color(0xFFEAE7FF),
-        ),
-      ],
-      rewards: [
-        RewardItem(title: 'Aylık Çekiliş', subtitle: '500 puan ile katıl', cost: 500),
-        RewardItem(title: 'Hediye Kartı', subtitle: '1000 puan ile kazan', cost: 1000),
-        RewardItem(title: 'VIP Rozet', subtitle: '2000 puan ile özel rozet', cost: 2000),
-        RewardItem(title: 'Market İndirimi', subtitle: '3000 puan ile %5 indirim', cost: 3000),
-      ],
-      levels: [
-        LevelItem(name: 'Başlangıç', requiredPoints: 0, status: LevelStatus.achieved),
-        LevelItem(name: 'Keşifçi', requiredPoints: 200, status: LevelStatus.achieved),
-        LevelItem(name: 'Katkıcı', requiredPoints: 400, status: LevelStatus.current),
-        LevelItem(name: 'Uzman', requiredPoints: 600, status: LevelStatus.locked),
-        LevelItem(name: 'Usta', requiredPoints: 800, status: LevelStatus.locked),
-        LevelItem(name: 'Efsane', requiredPoints: 1000, status: LevelStatus.locked),
-        LevelItem(name: 'Lider', requiredPoints: 1400, status: LevelStatus.locked),
-        LevelItem(name: 'Şampiyon', requiredPoints: 1800, status: LevelStatus.locked),
-        LevelItem(name: 'Efsanevi', requiredPoints: 2400, status: LevelStatus.locked),
-        LevelItem(name: 'Titan', requiredPoints: 3200, status: LevelStatus.locked),
-      ],
-    );
-  }
 }

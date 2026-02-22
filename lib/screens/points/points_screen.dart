@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/theme.dart';
 import '../../widgets/leaderboard_section.dart';
+import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
 
 class PointsScreen extends ConsumerStatefulWidget {
@@ -31,7 +32,8 @@ class _PointsScreenState extends ConsumerState<PointsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final data = PointsMockData.build();
+    final pointsAsync = ref.watch(pointsStateProvider);
+    final state = pointsAsync.valueOrNull ?? PointsState.placeholder;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -59,7 +61,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _OverviewTab(data: data),
+                _OverviewTab(state: state),
                 const _LeaderboardTab(),
               ],
             ),
@@ -124,8 +126,8 @@ class _PremiumTabBar extends StatelessWidget {
 // ---------- Overview Tab ----------
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.data});
-  final PointsMockData data;
+  const _OverviewTab({required this.state});
+  final PointsState state;
 
   @override
   Widget build(BuildContext context) {
@@ -133,13 +135,13 @@ class _OverviewTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(
         children: [
-          _PrestigeScoreCard(summary: data.summary),
+          _PrestigeScoreCard(state: state),
           const SizedBox(height: 20),
-          _StatsRow(summary: data.summary),
+          _StatsRow(state: state),
           const SizedBox(height: 20),
-          _LevelProgressCard(summary: data.summary),
+          _LevelProgressCard(state: state),
           const SizedBox(height: 20),
-          _DailyGoalsSection(tasks: data.dailyTasks),
+          _DailyGoalsSection(tasks: state.dailyGoals),
         ],
       ),
     );
@@ -165,8 +167,8 @@ class _LeaderboardTab extends StatelessWidget {
 // ---------- Prestige Score Card ----------
 
 class _PrestigeScoreCard extends StatelessWidget {
-  const _PrestigeScoreCard({required this.summary});
-  final PointsSummary summary;
+  const _PrestigeScoreCard({required this.state});
+  final PointsState state;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +215,7 @@ class _PrestigeScoreCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Circular score
-          _AnimatedScoreRing(summary: summary),
+          _AnimatedScoreRing(state: state),
           const SizedBox(height: 20),
           // Level badge
           Container(
@@ -244,7 +246,7 @@ class _PrestigeScoreCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  summary.levelName.toUpperCase(),
+                  state.currentLevelName.toUpperCase(),
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
@@ -264,8 +266,8 @@ class _PrestigeScoreCard extends StatelessWidget {
 // ---------- Animated Score Ring ----------
 
 class _AnimatedScoreRing extends StatelessWidget {
-  const _AnimatedScoreRing({required this.summary});
-  final PointsSummary summary;
+  const _AnimatedScoreRing({required this.state});
+  final PointsState state;
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +294,7 @@ class _AnimatedScoreRing extends StatelessWidget {
             width: 200,
             height: 200,
             child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: summary.progress),
+              tween: Tween(begin: 0, end: state.levelProgressPercent),
               duration: const Duration(milliseconds: 1200),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
@@ -325,7 +327,7 @@ class _AnimatedScoreRing extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TweenAnimationBuilder<int>(
-                  tween: IntTween(begin: 0, end: summary.totalPoints),
+                  tween: IntTween(begin: 0, end: state.totalPoints),
                   duration: const Duration(milliseconds: 1200),
                   curve: Curves.easeOutCubic,
                   builder: (context, value, _) {
@@ -362,8 +364,8 @@ class _AnimatedScoreRing extends StatelessWidget {
 // ---------- Stats Row ----------
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.summary});
-  final PointsSummary summary;
+  const _StatsRow({required this.state});
+  final PointsState state;
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +376,7 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.trending_up_rounded,
             iconColor: AppColors.success,
             label: 'Bu Hafta',
-            value: '+47',
+            value: '+${state.pointsThisWeek}',
           ),
         ),
         const SizedBox(width: 12),
@@ -383,7 +385,7 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.flag_rounded,
             iconColor: AppColors.primary,
             label: 'Sonraki Seviye',
-            value: '${summary.nextLevelRemaining}',
+            value: '${state.nextLevelTargetPoints}',
           ),
         ),
         const SizedBox(width: 12),
@@ -392,7 +394,7 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.local_fire_department_rounded,
             iconColor: const Color(0xFFE67E22),
             label: 'Seri',
-            value: '3 gun',
+            value: '${state.streakDays} gun',
           ),
         ),
       ],
@@ -471,8 +473,8 @@ class _StatCard extends StatelessWidget {
 // ---------- Level Progress Card ----------
 
 class _LevelProgressCard extends StatelessWidget {
-  const _LevelProgressCard({required this.summary});
-  final PointsSummary summary;
+  const _LevelProgressCard({required this.state});
+  final PointsState state;
 
   @override
   Widget build(BuildContext context) {
@@ -514,7 +516,7 @@ class _LevelProgressCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${(summary.progress * 100).toInt()}%',
+                  '${(state.levelProgressPercent * 100).toInt()}%',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -529,7 +531,7 @@ class _LevelProgressCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: summary.progress),
+              tween: Tween(begin: 0, end: state.levelProgressPercent),
               duration: const Duration(milliseconds: 1000),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
@@ -547,7 +549,7 @@ class _LevelProgressCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                summary.levelName,
+                state.currentLevelName,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -555,7 +557,7 @@ class _LevelProgressCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${summary.nextLevelRemaining} puan kaldi',
+                '${state.pointsRemainingToNextLevel} puan kaldi',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
