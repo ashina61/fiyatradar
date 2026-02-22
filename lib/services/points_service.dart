@@ -588,10 +588,15 @@ class PointsService {
         txn.set(activityRef, activityPayload);
         txn.set(userActivityRef, activityPayload);
 
+        final standardizedLevel = _standardizeTierName(currentLevel.title);
         txn.set(userRef, {
           'totalPoints': FieldValue.increment(awardedDelta),
           'pointsTotal': FieldValue.increment(awardedDelta),
-          'level': currentLevel.title,
+          'points': FieldValue.increment(awardedDelta),
+          'level': standardizedLevel,
+          'levelName': standardizedLevel,
+          'tierName': standardizedLevel,
+          'eliteLevel': standardizedLevel,
           'weeklyPoints': newWeeklyPoints,
           'weeklyResetKey': activeWeekKey,
           'weeklyPointsWeekKey': activeWeekKey,
@@ -741,6 +746,7 @@ class PointsService {
       'level': standardizedTier,
       'levelName': standardizedTier,
       'tierName': standardizedTier,
+      'eliteLevel': standardizedTier,
       'weeklyPoints': weeklyPoints,
       'weeklyResetKey': _weekKey(DateTime.now()),
       'weeklyPointsWeekKey': _weekKey(DateTime.now()),
