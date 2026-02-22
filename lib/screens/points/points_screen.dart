@@ -9,6 +9,7 @@ import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
 import '../../widgets/user_identity_renderer.dart';
 import '../../utils/level_style.dart';
+import '../../utils/level_system.dart';
 
 
 class PointsScreen extends ConsumerStatefulWidget {
@@ -743,7 +744,7 @@ class _LevelProgressCardState extends State<_LevelProgressCard> {
               child: Transform.rotate(
                 angle: -15 * math.pi / 180,
                 child: Icon(
-                  visual.icon,
+                  level.icon,
                   size: 200,
                   color: const Color(0xFF4A3623).withOpacity(0.03),
                 ),
