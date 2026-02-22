@@ -662,10 +662,13 @@ class _LevelProgressCard extends StatelessWidget {
             builder: (context, constraints) {
               final maxChipWidth = constraints.maxWidth * 0.55;
               final compact = constraints.maxWidth < 360;
-              final minTrustText = state.isTrustGated
-                  ? 'Min Trust %${state.requiredMinTrust} 🔒'
-                  : 'Min Trust %${state.requiredMinTrust} ✓';
-              final trustNowText = state.isTrustGated ? '(Şu an %${state.trustScore})' : null;
+              final minTrustText = state.requiredMinTrust == 0
+                  ? 'Gerekli Güven ✓'
+                  : state.isTrustGated
+                      ? 'Gerekli Güven %${state.requiredMinTrust} 🔒'
+                      : 'Gerekli Güven %${state.requiredMinTrust} ✓';
+              final trustNowText = (state.isTrustGated && state.requiredMinTrust > 0) ? '(Şu an %${state.trustScore})' : null;
+              final showRequirementChip = state.requiredMinTrust > 0 || state.isTrustGated;
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,9 +701,10 @@ class _LevelProgressCard extends StatelessWidget {
                       runSpacing: 6,
                       alignment: WrapAlignment.end,
                       children: [
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: maxChipWidth),
-                          child: Container(
+                        if (showRequirementChip)
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: maxChipWidth),
+                            child: Container(
                             padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 4),
                             decoration: BoxDecoration(
                               color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
@@ -709,9 +713,9 @@ class _LevelProgressCard extends StatelessWidget {
                                 color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
                               ),
                             ),
-                            child: Wrap(
-                              runSpacing: 1,
-                              children: [
+                              child: Wrap(
+                                runSpacing: 1,
+                                children: [
                                 Text(
                                   minTrustText,
                                   maxLines: 1,
@@ -855,7 +859,7 @@ class _LevelProgressCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '${state.pointsRemainingToNextLevel} puan kaldi',
+                '${state.nextLevelName} için ${state.pointsRemainingToNextLevel} puan kaldı',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

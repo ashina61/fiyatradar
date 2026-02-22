@@ -21,6 +21,7 @@ class PointsSummaryData {
     required this.isTrustGated,
     required this.finalLevelLabel,
     required this.trustLabel,
+    required this.nextLevelName,
   });
 
   final int totalPoints;
@@ -36,6 +37,7 @@ class PointsSummaryData {
   final bool isTrustGated;
   final String finalLevelLabel;
   final String trustLabel;
+  final String nextLevelName;
 }
 
 class DailyGoalsData {
@@ -118,6 +120,7 @@ class PointsRepository {
         isTrustGated: levelEval.isTrustGated,
         finalLevelLabel: EliteLevelEngine.getLevelStyle(levelEval.finalLevel).label,
         trustLabel: trustTier.label,
+        nextLevelName: EliteLevelEngine.getLevelStyle(levelEval.nextPointsLevel).label,
       );
     });
   }

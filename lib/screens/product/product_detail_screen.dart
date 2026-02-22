@@ -16,7 +16,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/level_system.dart';
-import '../../widgets/level_badge.dart';
+import '../../widgets/user_level_badge_pill.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -604,13 +604,13 @@ class _DynamicVipChip extends StatelessWidget {
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
         String realName = fallbackName;
-        String tier = 'Standart';
+        String tier = 'Gözlemci';
         int trust = 50;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Standart').toString();
+          tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Gözlemci').toString();
           trust = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
         }
 
@@ -619,27 +619,31 @@ class _DynamicVipChip extends StatelessWidget {
         return InkWell(
           onTap: () => _showUserModal(context, realName, tier, trust, lvl),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF9B6A58), Color(0xFF835446)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white30),
+              border: Border.all(color: const Color(0xFFE7D6C8)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.diamond_rounded, color: Color(0xFF1EF0FF), size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  realName,
-                  style: GoogleFonts.poppins(
-                    color: const Color(0xFF1EF0FF),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                UserLevelBadgePill(
+                  userProfile: UserLevelBadgeProfile(
+                    userName: realName,
+                    level: lvl,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    realName,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF5D4037),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
