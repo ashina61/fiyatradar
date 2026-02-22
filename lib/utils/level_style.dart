@@ -8,8 +8,12 @@ class LevelStyle {
 
   static UserLevel fromTotalPoints(int totalPoints) => levelBuilder(totalPoints);
 
-  static UserLevel fromEliteLevel(EliteLevel level) {
+  static UserLevel fromLevel(EliteLevel level) {
     return UserLevel.fromEliteStyle(EliteLevelEngine.getLevelStyle(level), minPoints: 0);
+  }
+
+  static UserLevel fromEliteLevel(EliteLevel level) {
+    return fromLevel(level);
   }
 
   static UserLevel fromFinalLevel({required int totalPoints, required int trustPercent, required int totalVotes}) {
@@ -29,4 +33,10 @@ class LevelStyle {
   static Color colorForLabel(String? levelLabel, {int? fallbackTotalPoints}) {
     return fromLevelLabel(levelLabel, fallbackTotalPoints: fallbackTotalPoints).badgeForeground;
   }
+
+  static Color readableTextColorForGradient(List<Color> colors) {
+    final surface = Color.lerp(colors.first, colors.last, 0.5) ?? colors.first;
+    return surface.computeLuminance() > 0.48 ? Colors.black87 : Colors.white;
+  }
+
 }
