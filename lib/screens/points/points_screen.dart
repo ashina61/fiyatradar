@@ -252,22 +252,27 @@ class _PrestigeScoreCard extends StatelessWidget {
           // Circular score
           _AnimatedScoreRing(state: state),
           const SizedBox(height: 20),
-          // Level badge
+          // Level badge (premium style, level-aware)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF9B6A58), Color(0xFF835446)],
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                colors: level.gradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white38),
+              border: Border.all(color: level.borderColor.withOpacity(0.82)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  color: level.badgeBorder.withOpacity(0.26),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.16),
+                  blurRadius: 2,
+                  offset: const Offset(0, -1),
                 ),
               ],
             ),
