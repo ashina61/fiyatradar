@@ -23,7 +23,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
   }
 
@@ -66,6 +66,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen>
               children: [
                 _OverviewTab(state: state),
                 const _LeaderboardTab(),
+                _ActivitiesTab(state: state),
               ],
             ),
           ),
@@ -120,6 +121,7 @@ class _PremiumTabBar extends StatelessWidget {
         tabs: const [
           Tab(text: 'Genel Bakis'),
           Tab(text: 'Zirvedekiler'),
+          Tab(text: 'Aktivitiler'),
         ],
       ),
     );
@@ -163,6 +165,34 @@ class _LeaderboardTab extends StatelessWidget {
       child: const LeaderboardSection(
         outerPadding: EdgeInsets.zero,
       ),
+    );
+  }
+}
+
+class _ActivitiesTab extends StatelessWidget {
+  const _ActivitiesTab({required this.state});
+
+  final PointsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.activities.isEmpty) {
+      return const Center(
+        child: Text(
+          'Henüz puan aktivitesi yok',
+          style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textTertiary),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      itemCount: state.activities.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final activity = state.activities[index];
+        return _ActivityCard(activity: activity);
+      },
     );
   }
 }
@@ -226,9 +256,13 @@ class _PrestigeScoreCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.outline),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF9B6A58), Color(0xFF8A5A4A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white30),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.03),
@@ -285,12 +319,17 @@ class _AnimatedScoreRing extends StatelessWidget {
               duration: const Duration(milliseconds: 1200),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
-                return CircularProgressIndicator(
-                  value: value,
-                  strokeWidth: 12,
-                  strokeCap: StrokeCap.round,
-                  backgroundColor: Colors.transparent,
-                  color: AppColors.primary,
+                return ShaderMask(
+                  shaderCallback: (rect) => const SweepGradient(
+                    colors: [Color(0xFF1EC8FF), Color(0xFF5D8BFF), Color(0xFF8B5CF6), Color(0xFF1EC8FF)],
+                  ).createShader(rect),
+                  child: CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 12,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
                 );
               },
             ),
@@ -522,11 +561,16 @@ class _LevelProgressCard extends StatelessWidget {
               duration: const Duration(milliseconds: 1000),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  minHeight: 10,
-                  value: value,
-                  backgroundColor: AppColors.surfaceVariant,
-                  valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                return ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    colors: [Color(0xFF1EC8FF), Color(0xFF5D8BFF), Color(0xFF8B5CF6)],
+                  ).createShader(rect),
+                  child: LinearProgressIndicator(
+                    minHeight: 10,
+                    value: value,
+                    backgroundColor: AppColors.surfaceVariant,
+                    valueColor: const AlwaysStoppedAnimation(Colors.white),
+                  ),
                 );
               },
             ),
@@ -725,6 +769,66 @@ class _DailyGoalCard extends StatelessWidget {
                   color: AppColors.textTertiary,
                 ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({required this.activity});
+
+  final PointsActivity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, iconColor) = switch (activity.type) {
+      'price_entry' => (Icons.sell_rounded, const Color(0xFFCC7A00)),
+      'price_verify' => (Icons.verified_rounded, const Color(0xFF1565C0)),
+      'comment' => (Icons.chat_bubble_rounded, const Color(0xFF5E35B1)),
+      'photo_bonus' => (Icons.camera_alt_rounded, const Color(0xFF00897B)),
+      _ => (Icons.stars_rounded, AppColors.primary),
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(activity.title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(activity.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('+${activity.points}', style: TextStyle(fontWeight: FontWeight.w800, color: iconColor)),
+              const SizedBox(height: 2),
+              Text(activity.createdAt, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
             ],
           ),
         ],

@@ -465,7 +465,7 @@ class _DynamicVipChip extends StatelessWidget {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = data['name'] ?? data['displayName'] ?? fallbackName;
           tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Standart').toString();
-          trust = (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+          trust = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
         }
 
         final lvl = levelFromLabel(tier);
@@ -473,11 +473,15 @@ class _DynamicVipChip extends StatelessWidget {
         return InkWell(
           onTap: () => _showUserModal(context, realName, tier, trust, lvl),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white24),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF9B6A58), Color(0xFF835446)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white30),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -487,7 +491,7 @@ class _DynamicVipChip extends StatelessWidget {
                 Text(
                   realName,
                   style: GoogleFonts.poppins(
-                    color: lvl.badgeForeground,
+                    color: const Color(0xFF1EF0FF),
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                   ),

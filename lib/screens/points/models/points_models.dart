@@ -29,6 +29,7 @@ class PointsState {
     required this.levelProgressPercent,
     required this.pointsRemainingToNextLevel,
     required this.dailyGoals,
+    required this.activities,
   });
 
   final int totalPoints;
@@ -39,6 +40,7 @@ class PointsState {
   final double levelProgressPercent;
   final int pointsRemainingToNextLevel;
   final List<DailyTask> dailyGoals;
+  final List<PointsActivity> activities;
 
   static const PointsState placeholder = PointsState(
     totalPoints: 200,
@@ -77,7 +79,39 @@ class PointsState {
         iconBackground: Color(0xFFEAE7FF),
       ),
     ],
+    activities: [
+      PointsActivity(
+        type: 'price_entry',
+        title: 'Fiyat bildirimi',
+        subtitle: 'Migros • iPhone 15',
+        points: 5,
+        createdAt: 'Bugün',
+      ),
+      PointsActivity(
+        type: 'price_verify',
+        title: 'Fiyat doğrulaması',
+        subtitle: 'CarrefourSA • Süt 1L',
+        points: 2,
+        createdAt: 'Dün',
+      ),
+    ],
   );
+}
+
+class PointsActivity {
+  const PointsActivity({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.points,
+    required this.createdAt,
+  });
+
+  final String type;
+  final String title;
+  final String subtitle;
+  final int points;
+  final String createdAt;
 }
 
 class DailyTask {
