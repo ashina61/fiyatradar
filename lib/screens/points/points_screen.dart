@@ -8,6 +8,7 @@ import 'models/points_models.dart';
 import '../../widgets/level_badge.dart';
 import '../../utils/level_system.dart';
 import '../../utils/elite_level_engine.dart';
+import '../../utils/level_style.dart';
 
 
 class PointsScreen extends ConsumerStatefulWidget {
@@ -206,7 +207,7 @@ class _PrestigeScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = levelFromLabel(state.finalLevelLabel);
+    final level = LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints);
 
     return Container(
       width: double.infinity,
@@ -381,10 +382,10 @@ class _AnimatedScoreRing extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   level.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
                 if (state.isTrustGated)
@@ -544,56 +545,89 @@ class _LevelProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Seviye Ilerleme',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final maxChipWidth = constraints.maxWidth * 0.55;
+              final compact = constraints.maxWidth < 360;
+              final minTrustText = state.isTrustGated
+                  ? 'Min Trust %${state.requiredMinTrust} 🔒 (Şu an %${state.trustScore})'
+                  : 'Min Trust %${state.requiredMinTrust} ✓';
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 20),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Seviye İlerleme',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Text(
-                  state.isTrustGated
-                      ? 'Min Trust %${state.requiredMinTrust} 🔒 (Şu an %${state.trustScore})'
-                      : 'Min Trust %${state.requiredMinTrust} ✓',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxChipWidth),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
+                              ),
+                            ),
+                            child: Text(
+                              minTrustText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${(state.levelProgressPercent * 100).toInt()}%',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${(state.levelProgressPercent * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           // Progress bar
@@ -641,9 +675,19 @@ class _LevelProgressCard extends StatelessWidget {
                 ),
               ),
               if (state.isTrustGated)
-                const Positioned(
-                  right: 6,
-                  child: Icon(Icons.lock_rounded, size: 14, color: Color(0xFF7B5B46)),
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.78),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Icon(Icons.lock_rounded, size: 14, color: Color(0xFF7B5B46)),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -651,14 +695,38 @@ class _LevelProgressCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${state.finalLevelLabel} · ${state.trustLabel} %${state.trustScore}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
+              Flexible(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    LevelBadge(
+                      level: LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints),
+                      compact: true,
+                      withEmoji: false,
+                      uppercase: false,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+                      ),
+                      child: Text(
+                        '${state.trustLabel} %${state.trustScore}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${state.pointsRemainingToNextLevel} puan kaldi',
                 style: const TextStyle(

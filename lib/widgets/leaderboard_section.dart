@@ -392,7 +392,30 @@ class _PodiumCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          LevelBadge(level: level, compact: true),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: [
+              LevelBadge(level: level, compact: true, withEmoji: false, uppercase: false),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+                ),
+                child: Text(
+                  'Trust %${item.trustScorePercent}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -457,7 +480,32 @@ class _LeaderboardRow extends StatelessWidget {
               ),
             ),
           ),
-          LevelBadge(level: level, compact: true),
+          Flexible(
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                LevelBadge(level: level, compact: true, withEmoji: false, uppercase: false),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+                  ),
+                  child: Text(
+                    'T %${item.trustScorePercent}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(width: 8),
           Text(
             '+$score',
