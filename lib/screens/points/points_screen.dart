@@ -169,6 +169,35 @@ class _LeaderboardTab extends StatelessWidget {
 
 // ---------- Prestige Score Card ----------
 
+// ... _PrestigeScoreCard build içinde, Row'un başına ekle:
+final level = levelFromLabel(state.currentLevelName);
+
+...
+
+child: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0E6D8),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(level.icon, color: level.badgeForeground, size: 18),
+    ),
+    const SizedBox(width: 10),
+
+    // ✅ efektli seviye yazısı: 💎 ELMAS vs
+    LevelBadge(
+      level: level,
+      compact: true,
+      withEmoji: true,
+      uppercase: true,
+    ),
+  ],
+),
+
 class _PrestigeScoreCard extends StatelessWidget {
   const _PrestigeScoreCard({required this.state});
   final PointsState state;
