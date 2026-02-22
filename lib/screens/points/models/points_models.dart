@@ -30,6 +30,12 @@ class PointsState {
     required this.pointsRemainingToNextLevel,
     required this.dailyGoals,
     required this.activities,
+    required this.trustScore,
+    required this.trustTotalVotes,
+    required this.requiredMinTrust,
+    required this.isTrustGated,
+    required this.finalLevelLabel,
+    required this.trustLabel,
   });
 
   final int totalPoints;
@@ -41,10 +47,16 @@ class PointsState {
   final int pointsRemainingToNextLevel;
   final List<DailyTask> dailyGoals;
   final List<PointsActivity> activities;
+  final int trustScore;
+  final int trustTotalVotes;
+  final int requiredMinTrust;
+  final bool isTrustGated;
+  final String finalLevelLabel;
+  final String trustLabel;
 
   static const PointsState placeholder = PointsState(
     totalPoints: 200,
-    currentLevelName: 'Standart',
+    currentLevelName: 'Gözlemci',
     pointsThisWeek: 47,
     nextLevelTargetPoints: 300,
     streakDays: 3,
@@ -95,6 +107,12 @@ class PointsState {
         createdAt: 'Dün',
       ),
     ],
+    trustScore: 27,
+    trustTotalVotes: 6,
+    requiredMinTrust: 40,
+    isTrustGated: true,
+    finalLevelLabel: 'Avcı',
+    trustLabel: 'Gelişen Güven',
   );
 }
 

@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../utils/elite_level_engine.dart';
+import '../utils/level_config.dart';
+
 class PointsRule {
   const PointsRule({
     required this.id,
@@ -67,6 +70,7 @@ class UserPointsProfile {
     required this.level,
     required this.streakDays,
     required this.trustScore,
+    required this.trustTotalVotes,
     required this.weeklyPoints,
     required this.monthlyPoints,
     required this.levels,
@@ -77,6 +81,7 @@ class UserPointsProfile {
   final String level;
   final int streakDays;
   final int trustScore;
+  final int trustTotalVotes;
   final int weeklyPoints;
   final int monthlyPoints;
   final List<PointsLevel> levels;
@@ -291,14 +296,19 @@ class PointsService {
       ],
     }, SetOptions(merge: true));
 
-    await _firestore.collection('points_levels').doc('default').set({
-      'levels': [
-        {'id': 'standard', 'title': 'Standart', 'minPoints': 0, 'maxPointsOrNull': 499, 'colorKey': 'standard'},
-        {'id': 'silver', 'title': 'Gümüş', 'minPoints': 500, 'maxPointsOrNull': 1499, 'colorKey': 'silver'},
-        {'id': 'gold', 'title': 'Altın', 'minPoints': 1500, 'maxPointsOrNull': 3999, 'colorKey': 'gold'},
-        {'id': 'diamond', 'title': 'Elmas', 'minPoints': 4000, 'maxPointsOrNull': null, 'colorKey': 'diamond'},
-      ],
-    }, SetOptions(merge: true));
+    final seededLevels = <Map<String, dynamic>>[];
+    for (var i = 0; i < LevelConfig.levels.length; i++) {
+      final item = LevelConfig.levels[i];
+      final maxPoints = i == LevelConfig.levels.length - 1 ? null : LevelConfig.levels[i + 1].minPoints - 1;
+      seededLevels.add({
+        'id': item.levelKey,
+        'title': item.label,
+        'minPoints': item.minPoints,
+        'maxPointsOrNull': maxPoints,
+        'colorKey': item.levelKey,
+      });
+    }
+    await _firestore.collection('points_levels').doc('default').set({'levels': seededLevels}, SetOptions(merge: true));
 
     final badgeCol = _firestore.collection('badges').doc('default').collection('badges');
     final batch = _firestore.batch();
@@ -347,13 +357,21 @@ class PointsService {
       final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
       final weeklyPoints = (data['weeklyPoints'] as num?)?.toInt() ?? 0;
       final monthlyPoints = (data['monthlyPoints'] as num?)?.toInt() ?? 0;
-      final level = _standardizeTierName((await _levelForPoints(totalPoints))?.title ?? 'Standart');
+      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+      final trustUpTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
+      final trustDownTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
+      final trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (trustUpTotal + trustDownTotal);
+      final trustScorePercent = ((data['trustScorePercent'] as num?)?.toDouble() ?? (data['reliabilityScore'] as num?)?.toDouble() ?? ((data['trustScore'] as num?)?.toDouble() ?? 0) * 100)
+          .round()
+          .clamp(0, 100);
+      final level = _standardizeTierName((await _levelForPoints(totalPoints))?.title ?? 'Gözlemci');
       return UserPointsProfile(
         uid: uid,
         totalPoints: totalPoints,
         level: level,
         streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
-        trustScore: (data['trustScore'] as num?)?.toInt() ?? 0,
+        trustScore: trustScorePercent,
+        trustTotalVotes: trustTotalVotes,
         weeklyPoints: weeklyPoints,
         monthlyPoints: monthlyPoints,
         levels: levels,
@@ -470,7 +488,7 @@ class PointsService {
               uid: doc.id,
               displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
               photoUrl: (data['photoUrl'] ?? '').toString(),
-              level: (data['level'] ?? data['levelName'] ?? 'Standart').toString(),
+              level: _standardizeTierName((data['level'] ?? data['levelName'] ?? 'Gözlemci').toString()),
               weeklyPoints: weeklyPoints,
               totalPoints: (data['totalPoints'] as num?)?.toInt() ?? 0,
             );
@@ -727,7 +745,7 @@ class PointsService {
     final isAdmin = (userData['isAdmin'] as bool?) ?? role == 'admin';
 
     final level = await _levelForPoints(totalPoints);
-    final standardizedTier = _standardizeTierName(level?.title ?? 'Standart');
+    final standardizedTier = _standardizeTierName(level?.title ?? 'Gözlemci');
     final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
     final activityDocs = activitySnap.docs;
     final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
@@ -785,26 +803,8 @@ class PointsService {
 
 
   String _standardizeTierName(String rawTier) {
-    final normalized = rawTier.trim().toLowerCase();
-    switch (normalized) {
-      case 'diamond':
-      case 'elmas seviyesi':
-      case 'elmas':
-        return 'Elmas';
-      case 'gold':
-      case 'altın':
-      case 'altin':
-        return 'Altın';
-      case 'silver':
-      case 'gümüş':
-      case 'gumus':
-        return 'Gümüş';
-      case 'bronze':
-      case 'bronz':
-        return 'Bronz';
-      default:
-        return 'Standart';
-    }
+    final parsed = EliteLevelEngine.parseLevelLabel(rawTier);
+    return EliteLevelEngine.getLevelStyle(parsed).label;
   }
 
   String _dateKey(DateTime date) {

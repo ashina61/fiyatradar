@@ -65,6 +65,12 @@ class PointsController {
               ),
             ],
             activities: formattedActivities,
+            trustScore: summary.trustScore,
+            trustTotalVotes: summary.trustTotalVotes,
+            requiredMinTrust: summary.requiredMinTrust,
+            isTrustGated: summary.isTrustGated,
+            finalLevelLabel: summary.finalLevelLabel,
+            trustLabel: summary.trustLabel,
           );
         });
       });

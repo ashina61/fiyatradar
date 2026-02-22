@@ -7,6 +7,7 @@ import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
 import '../../widgets/level_badge.dart';
 import '../../utils/level_system.dart';
+import '../../utils/elite_level_engine.dart';
 
 
 class PointsScreen extends ConsumerStatefulWidget {
@@ -205,7 +206,7 @@ class _PrestigeScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = levelFromLabel(state.currentLevelName);
+    final level = levelFromLabel(state.finalLevelLabel);
 
     return Container(
       width: double.infinity,
@@ -250,17 +251,17 @@ class _PrestigeScoreCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Circular score
-          _AnimatedScoreRing(state: state),
+          _AnimatedScoreRing(state: state, level: level),
           const SizedBox(height: 20),
           // Level badge (premium style, level-aware)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(999),
-              gradient: LinearGradient(
-                colors: level.gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              gradient: EliteLevelEngine.getLevelGradient(
+                EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
+                state.trustScore.toDouble(),
+                locked: state.isTrustGated,
               ),
               border: Border.all(color: level.borderColor.withOpacity(0.82)),
               boxShadow: [
@@ -292,8 +293,9 @@ class _PrestigeScoreCard extends StatelessWidget {
 // ---------- Animated Score Ring ----------
 
 class _AnimatedScoreRing extends StatelessWidget {
-  const _AnimatedScoreRing({required this.state});
+  const _AnimatedScoreRing({required this.state, required this.level});
   final PointsState state;
+  final UserLevel level;
 
   @override
   Widget build(BuildContext context) {
@@ -324,12 +326,19 @@ class _AnimatedScoreRing extends StatelessWidget {
               duration: const Duration(milliseconds: 1200),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) {
-                return CircularProgressIndicator(
-                  value: value,
-                  strokeWidth: 12,
-                  strokeCap: StrokeCap.round,
-                  backgroundColor: Colors.transparent,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                return ShaderMask(
+                  shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
+                    EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
+                    state.trustScore.toDouble(),
+                    locked: state.isTrustGated,
+                  ).createShader(rect),
+                  child: CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 12,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
                 );
               },
             ),
@@ -370,6 +379,19 @@ class _AnimatedScoreRing extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 4),
+                Text(
+                  level.label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (state.isTrustGated)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(Icons.lock_rounded, size: 15, color: AppColors.textTertiary),
+                  ),
                 const Text(
                   'Toplam Puan',
                   style: TextStyle(
@@ -538,6 +560,27 @@ class _LevelProgressCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
+                  color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
+                  ),
+                ),
+                child: Text(
+                  state.isTrustGated
+                      ? 'Min Trust %${state.requiredMinTrust} 🔒 (Şu an %${state.trustScore})'
+                      : 'Min Trust %${state.requiredMinTrust} ✓',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -554,33 +597,62 @@ class _LevelProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: state.levelProgressPercent),
-              duration: const Duration(milliseconds: 1000),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return ShaderMask(
-                  shaderCallback: (rect) => const LinearGradient(
-                    colors: [Color(0xFF1EC8FF), Color(0xFF5D8BFF), Color(0xFF8B5CF6)],
-                  ).createShader(rect),
-                  child: LinearProgressIndicator(
-                    minHeight: 10,
-                    value: value,
-                    backgroundColor: AppColors.surfaceVariant,
-                    valueColor: const AlwaysStoppedAnimation(Colors.white),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              if (state.trustScore >= 80 && !state.isTrustGated)
+                Container(
+                  height: 14,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFC8956C).withOpacity(0.25),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              Opacity(
+                opacity: state.isTrustGated ? 0.6 : 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: state.levelProgressPercent),
+                    duration: const Duration(milliseconds: 1000),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return ShaderMask(
+                        shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
+                          EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
+                          state.trustScore.toDouble(),
+                          locked: state.isTrustGated,
+                        ).createShader(rect),
+                        child: LinearProgressIndicator(
+                          minHeight: 10,
+                          value: value,
+                          backgroundColor: AppColors.surfaceVariant,
+                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              if (state.isTrustGated)
+                const Positioned(
+                  right: 6,
+                  child: Icon(Icons.lock_rounded, size: 14, color: Color(0xFF7B5B46)),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                state.currentLevelName,
+                '${state.finalLevelLabel} · ${state.trustLabel} %${state.trustScore}',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
