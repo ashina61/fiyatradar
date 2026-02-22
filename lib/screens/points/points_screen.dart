@@ -550,8 +550,9 @@ class _LevelProgressCard extends StatelessWidget {
               final maxChipWidth = constraints.maxWidth * 0.55;
               final compact = constraints.maxWidth < 360;
               final minTrustText = state.isTrustGated
-                  ? 'Min Trust %${state.requiredMinTrust} 🔒 (Şu an %${state.trustScore})'
+                  ? 'Min Trust %${state.requiredMinTrust} 🔒'
                   : 'Min Trust %${state.requiredMinTrust} ✓';
+              final trustNowText = state.isTrustGated ? '(Şu an %${state.trustScore})' : null;
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,7 +588,7 @@ class _LevelProgressCard extends StatelessWidget {
                         ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: maxChipWidth),
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 4),
+                            padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 4),
                             decoration: BoxDecoration(
                               color: state.isTrustGated ? const Color(0xFFFFF3E8) : const Color(0xFFEAF7EE),
                               borderRadius: BorderRadius.circular(8),
@@ -595,20 +596,36 @@ class _LevelProgressCard extends StatelessWidget {
                                 color: state.isTrustGated ? const Color(0xFFE1B28A) : const Color(0xFF9BC9A9),
                               ),
                             ),
-                            child: Text(
-                              minTrustText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
-                              ),
+                            child: Wrap(
+                              runSpacing: 1,
+                              children: [
+                                Text(
+                                  minTrustText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: state.isTrustGated ? const Color(0xFF8A5A3B) : const Color(0xFF2F6B44),
+                                  ),
+                                ),
+                                if (trustNowText != null)
+                                  Text(
+                                    compact ? trustNowText : ' $trustNowText',
+                                    maxLines: compact ? 1 : 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF8A5A3B),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 4),
+                          padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8),
@@ -648,30 +665,27 @@ class _LevelProgressCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              Opacity(
-                opacity: state.isTrustGated ? 0.6 : 1,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: state.levelProgressPercent),
-                    duration: const Duration(milliseconds: 1000),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return ShaderMask(
-                        shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
-                          EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
-                          state.trustScore.toDouble(),
-                          locked: state.isTrustGated,
-                        ).createShader(rect),
-                        child: LinearProgressIndicator(
-                          minHeight: 10,
-                          value: value,
-                          backgroundColor: AppColors.surfaceVariant,
-                          valueColor: const AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      );
-                    },
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: state.levelProgressPercent),
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    return ShaderMask(
+                      shaderCallback: (rect) => EliteLevelEngine.getLevelGradient(
+                        EliteLevelEngine.parseLevelLabel(state.finalLevelLabel),
+                        state.trustScore.toDouble(),
+                        locked: state.isTrustGated,
+                      ).createShader(rect),
+                      child: LinearProgressIndicator(
+                        minHeight: 10,
+                        value: value,
+                        backgroundColor: AppColors.surfaceVariant,
+                        valueColor: const AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    );
+                  },
                 ),
               ),
               if (state.isTrustGated)

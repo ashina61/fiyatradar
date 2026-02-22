@@ -34,19 +34,9 @@ class LevelStyle {
     return fromLevelLabel(levelLabel, fallbackTotalPoints: fallbackTotalPoints).badgeForeground;
   }
 
-  static Color readableTextColorForGradient(List<Color> gradient) {
-    final surface = Color.lerp(gradient.first, gradient.last, 0.5) ?? gradient.first;
-    final whiteContrast = _contrastRatio(surface, Colors.white);
-    final blackContrast = _contrastRatio(surface, Colors.black87);
-    final winner = whiteContrast >= blackContrast ? Colors.white : Colors.black87;
-    return winner.withOpacity(0.92);
+  static Color readableTextColorForGradient(List<Color> colors) {
+    final surface = Color.lerp(colors.first, colors.last, 0.5) ?? colors.first;
+    return surface.computeLuminance() > 0.48 ? Colors.black87 : Colors.white;
   }
 
-  static double _contrastRatio(Color a, Color b) {
-    final first = a.computeLuminance();
-    final second = b.computeLuminance();
-    final maxL = first > second ? first : second;
-    final minL = first > second ? second : first;
-    return (maxL + 0.05) / (minL + 0.05);
-  }
 }
