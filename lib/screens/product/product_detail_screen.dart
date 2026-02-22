@@ -312,19 +312,15 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [bg.withOpacity(0.95), const Color(0xFF8A5A4A)],
-        ),
+        color: bg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        border: Border.all(color: Colors.white.withOpacity(0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
-          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1EF0FF))),
+          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
         ],
       ),
     );
@@ -342,7 +338,26 @@ class BestPriceCard extends ConsumerStatefulWidget {
   ConsumerState<BestPriceCard> createState() => _BestPriceCardState();
 }
 
-class _BestPriceCardState extends ConsumerState<BestPriceCard> {
+class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _timePulseController;
+  late final Animation<double> _timePulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _timePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _timePulse = CurvedAnimation(parent: _timePulseController, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _timePulseController.dispose();
+    super.dispose();
+  }
+
   // Fiyatı Raporlama Dialogu
   void _reportPrice() {
     showDialog(
@@ -433,7 +448,33 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> {
                   ],
                 ),
               ),
-              Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+              Row(
+                children: [
+                  AnimatedBuilder(
+                    animation: _timePulse,
+                    builder: (context, _) {
+                      final glow = 0.45 + (_timePulse.value * 0.55);
+                      return Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF35D04F),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF35D04F).withOpacity(glow),
+                              blurRadius: 10 + (_timePulse.value * 6),
+                              spreadRadius: 1 + (_timePulse.value * 2),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -591,7 +632,7 @@ class _DynamicVipChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(lvl.icon, color: lvl.badgeForeground, size: 20),
+                const Icon(Icons.diamond_rounded, color: Color(0xFF1EF0FF), size: 20),
                 const SizedBox(width: 10),
                 Text(
                   realName,
