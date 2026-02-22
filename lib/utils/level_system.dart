@@ -35,7 +35,11 @@ class UserLevel {
     return totalPoints < maxPoints!;
   }
 
-  factory UserLevel.fromEliteStyle(EliteLevelStyle style, {required int minPoints, int? maxPoints}) {
+  factory UserLevel.fromEliteStyle(
+    EliteLevelStyle style, {
+    required int minPoints,
+    int? maxPoints,
+  }) {
     return UserLevel(
       label: style.label,
       icon: style.icon,
@@ -92,13 +96,28 @@ UserLevel levelBuilder(int totalPoints) {
     case EliteLevel.gumus:
       return kUserLevels[2];
     case EliteLevel.altin:
-      return UserLevel.fromEliteStyle(EliteLevelEngine.getLevelStyle(EliteLevel.altin), minPoints: 2000, maxPoints: 5000);
+      return UserLevel.fromEliteStyle(
+        EliteLevelEngine.getLevelStyle(EliteLevel.altin),
+        minPoints: 2000,
+        maxPoints: 5000,
+      );
     case EliteLevel.elmas:
       return kUserLevels[3];
   }
 }
 
+/// ✅ Label'dan level çekme (UI tarafında “ELMAS / Elmas / elmas” hepsini çözer)
 UserLevel levelFromLabel(String name) {
+  final normalized = name.trim().toLowerCase();
+
+  // 1) Önce mevcut listeden label eşleşmesi (min/max korunsun)
+  final direct = kUserLevels.where((l) => l.label.trim().toLowerCase() == normalized);
+  if (direct.isNotEmpty) return direct.first;
+
+  // 2) Elite engine parse ile (altın gibi listede olmayanları da yakalar)
   final elite = EliteLevelEngine.parseLevelLabel(name);
-  return UserLevel.fromEliteStyle(EliteLevelEngine.getLevelStyle(elite), minPoints: 0);
+  final style = EliteLevelEngine.getLevelStyle(elite);
+
+  // minPoints burada sadece UI için; engine seviyeyi zaten doğru parse etti
+  return UserLevel.fromEliteStyle(style, minPoints: 0);
 }
