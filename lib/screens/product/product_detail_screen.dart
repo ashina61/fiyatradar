@@ -481,26 +481,34 @@ class _DynamicVipChip extends StatelessWidget {
         }
 
         return InkWell(
-          onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: iconC),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  realName,
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+  onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // ✅ yeni: seviye badge (emoji + efektli yazı)
+      LevelBadge(
+        level: lvl,
+        compact: true,
+        withEmoji: true,
+        uppercase: true,
+      ),
+      const SizedBox(width: 8),
+
+      Flexible(
+        child: Text(
+          realName,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-        );
-      },
-    );
-  }
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ],
+  ),
+);
 
   void _showUserModal(context, name, tier, trust, icon, iconC) {
     showModalBottomSheet(
