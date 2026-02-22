@@ -464,7 +464,7 @@ class _DynamicVipChip extends StatelessWidget {
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = data['eliteLevel'] ?? 'Standart';
+          tier = data['eliteLevel'] ?? 'Standart';final lvl = levelFromLabel(tier);
           trust = (data['reliabilityScore'] as num?)?.toInt() ?? 50;
         }
 
