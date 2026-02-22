@@ -1,17 +1,14 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/theme.dart';
 import '../../widgets/leaderboard_section.dart';
+import '../../widgets/level_badge.dart';
 import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
 import '../../widgets/user_identity_renderer.dart';
-import '../../utils/level_system.dart';
-import '../../utils/elite_level_engine.dart';
 import '../../utils/level_style.dart';
-import '../../utils/level_config.dart';
 
 
 class PointsScreen extends ConsumerStatefulWidget {
@@ -669,220 +666,358 @@ class _LevelProgressCard extends StatefulWidget {
   State<_LevelProgressCard> createState() => _LevelProgressCardState();
 }
 
-class _LevelProgressCardState extends State<_LevelProgressCard> with TickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final AnimationController _levelUpController;
-  late final AnimationController _sweepController;
+class _LevelProgressCardState extends State<_LevelProgressCard> {
+  bool _animateFill = false;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
-    _levelUpController = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
-    _sweepController = AnimationController(vsync: this, duration: const Duration(seconds: 8));
-    _pulseController.forward(from: 0);
-    _levelUpController.forward(from: 0);
-    WidgetsBinding.instance.addPostFrameCallback((_) => HapticFeedback.lightImpact());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _animateFill = true);
+      }
+    });
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _levelUpController.dispose();
-    _sweepController.dispose();
-    super.dispose();
+  String _formatScore(int value) {
+    final text = value.toString();
+    final chars = text.split('').reversed.toList();
+    final buffer = StringBuffer();
+    for (var i = 0; i < chars.length; i++) {
+      if (i > 0 && i % 3 == 0) buffer.write('.');
+      buffer.write(chars[i]);
+    }
+    return buffer.toString().split('').reversed.join();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
     final level = LevelStyle.fromLevelLabel(state.finalLevelLabel, fallbackTotalPoints: state.totalPoints);
-    final currentLevelIndex = LevelConfig.levels.indexWhere((item) => item.label == level.label).clamp(0, LevelConfig.levels.length - 1);
-    final currentLevelConfig = LevelConfig.levels[currentLevelIndex];
-    final nextLevelConfig = currentLevelIndex < LevelConfig.levels.length - 1 ? LevelConfig.levels[currentLevelIndex + 1] : null;
+    final visual = LevelStyle.visualFromLabel(level.label, fallbackTotalPoints: state.totalPoints);
 
-    final elite = EliteLevelEngine.parseLevelLabel(level.label);
-    final visual = LevelStyle.fromLevel(elite);
-    final isElite = visual.isElite;
-
-    final nextLevelPoints = nextLevelConfig?.minPoints ?? state.totalPoints;
-    final nextLevelTrust = nextLevelConfig?.minTrustGate ?? state.requiredMinTrust;
-    final currentLevelMinPoints = currentLevelConfig.minPoints;
-    final levelPointRange = (nextLevelPoints - currentLevelMinPoints).clamp(1, 1 << 31);
-    final currentPointsWithinLevel = (state.totalPoints - currentLevelMinPoints).clamp(0, levelPointRange);
-    final pointsProgress = nextLevelConfig == null ? 1.0 : currentPointsWithinLevel / levelPointRange;
-
-    final trustProgress = nextLevelConfig == null
+    final scoreProgress = state.nextLevelTargetPoints <= 0
         ? 1.0
-        : (state.trustScore / nextLevelTrust.clamp(1, 100)).clamp(0.0, 1.0);
+        : (state.totalPoints / state.nextLevelTargetPoints).clamp(0.0, 1.0);
+    final trustProgress = state.requiredMinTrust <= 0
+        ? 1.0
+        : (state.trustScore / state.requiredMinTrust).clamp(0.0, 1.0);
 
-    final pointsRemaining = nextLevelConfig == null ? 0 : (nextLevelPoints - state.totalPoints).clamp(0, nextLevelPoints);
-    final trustLine = nextLevelTrust == 0 ? 'Gerekli Güven ✓' : 'Güven %${state.trustScore} • Gerekli Güven 🔒';
+    final pointsToNext = math.max(0, state.nextLevelTargetPoints - state.totalPoints);
+    final trustToNext = math.max(0, state.requiredMinTrust - state.trustScore);
 
-    if (isElite && !_sweepController.isAnimating) {
-      _sweepController.repeat();
-    } else if (!isElite && _sweepController.isAnimating) {
-      _sweepController.stop();
-      _sweepController.value = 0;
-    }
-
-    final heroShift = isElite ? (widget.scrollOffset * 0.08).clamp(-18.0, 18.0) : 0.0;
+    final heroShift = (widget.scrollOffset * 0.05).clamp(-10.0, 10.0);
 
     return Transform.translate(
       offset: Offset(0, heroShift),
-      child: AnimatedBuilder(
-        animation: _pulseController,
-        builder: (context, child) {
-          final pulse = 1 + (0.02 * math.sin(_pulseController.value * math.pi));
-          return Transform.scale(scale: pulse, child: child);
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFF8EF), Color(0xFFF6EAD8)],
-            ),
-            border: Border.all(color: const Color(0xFFE8D5B8).withOpacity(0.7)),
-            boxShadow: [
-              BoxShadow(color: const Color(0xFF7A4D2A).withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 10)),
-            ],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(26),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8F5F1)],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FadeTransition(
-                opacity: CurvedAnimation(parent: _levelUpController, curve: Curves.easeOut),
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.9, end: 1.0).animate(CurvedAnimation(parent: _levelUpController, curve: Curves.easeOutBack)),
-                  child: Row(
-                    children: [
-                      Text(level.label, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF3A2416), fontSize: 14)),
-                      const Spacer(),
-                      Text(nextLevelConfig?.label ?? 'Maksimum', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5D4037), fontSize: 13)),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFB8A99A).withOpacity(0.38),
+              blurRadius: 40,
+              offset: const Offset(18, 18),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.85),
+              blurRadius: 30,
+              offset: const Offset(-10, -10),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              right: -24,
+              bottom: -34,
+              child: Transform.rotate(
+                angle: -15 * math.pi / 180,
+                child: Icon(
+                  visual.icon,
+                  size: 200,
+                  color: const Color(0xFF4A3623).withOpacity(0.03),
+                ),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: LevelBadge(
+                          level: level,
+                          withEmoji: false,
+                          uppercase: false,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text(
+                          'Toplam Puan',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                            color: Color(0xFFA69587),
+                          ),
+                        ),
+                        Text(
+                          _formatScore(state.totalPoints),
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF4A3623),
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                _NeumorphProgressGroup(
+                  title: 'Seviye İlerlemesi',
+                  leftValue: _formatScore(state.totalPoints),
+                  rightValue: _formatScore(state.nextLevelTargetPoints),
+                  progress: _animateFill ? scoreProgress : 0,
+                  fillGradient: LinearGradient(
+                    colors: [
+                      visual.accentColor.withOpacity(0.75),
+                      visual.accentColor,
                     ],
                   ),
+                  fillShadowColor: visual.accentColor.withOpacity(0.45),
+                  hintText: 'Sonraki seviyeye +${_formatScore(pointsToNext)} Puan',
+                  badgeText: state.nextLevelName.toUpperCase(),
+                  badgeIcon: Icons.north_east,
                 ),
-              ),
-              const SizedBox(height: 14),
-              _ProgressMetric(
-                label: 'İlerleme',
-                primaryText: '%${(pointsProgress * 100).toStringAsFixed(0)}',
-                helperText: nextLevelConfig == null ? 'Maksimum seviyedesin' : '${nextLevelConfig.label} için +$pointsRemaining puan kaldı',
-                progress: pointsProgress,
-                progressColor: visual.accentColor,
-                sweepController: _sweepController,
-                isElite: isElite,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                trustLine,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF5D4037)).copyWith(color: const Color(0xFF5D4037).withOpacity(0.70)),
-              ),
-              if (nextLevelConfig != null) ...[
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: trustProgress,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(99),
-                  backgroundColor: visual.accentColor.withOpacity(0.20),
-                  valueColor: AlwaysStoppedAnimation(visual.accentColor.withOpacity(0.85)),
+                const SizedBox(height: 22),
+                _NeumorphProgressGroup(
+                  title: 'Güven Skoru',
+                  leftValue: '%${state.trustScore}',
+                  rightValue: 'Min %${state.requiredMinTrust}',
+                  progress: _animateFill ? trustProgress : 0,
+                  fillGradient: state.isTrustGated
+                      ? const LinearGradient(colors: [Color(0xFFC62828), Color(0xFFEF5350)])
+                      : const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)]),
+                  fillShadowColor: state.isTrustGated
+                      ? const Color(0xFFEF5350).withOpacity(0.45)
+                      : const Color(0xFF66BB6A).withOpacity(0.42),
+                  hintText: trustToNext == 0
+                      ? 'Bu seviye için güven şartı sağlandı'
+                      : 'Güven şartı için +$trustToNext puan daha gerekli',
+                  hintColor: trustToNext == 0 ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                  badgeText: state.isTrustGated ? 'GATED' : 'OK',
+                  badgeIcon: state.isTrustGated ? Icons.lock : Icons.verified,
                 ),
               ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ProgressMetric extends StatelessWidget {
-  const _ProgressMetric({
-    required this.label,
-    required this.primaryText,
-    required this.helperText,
+class _NeumorphProgressGroup extends StatelessWidget {
+  const _NeumorphProgressGroup({
+    required this.title,
+    required this.leftValue,
+    required this.rightValue,
     required this.progress,
-    required this.progressColor,
-    required this.sweepController,
-    required this.isElite,
+    required this.fillGradient,
+    required this.fillShadowColor,
+    required this.hintText,
+    required this.badgeText,
+    required this.badgeIcon,
+    this.hintColor = const Color(0xFF8C7A6B),
   });
 
-  final String label;
-  final String primaryText;
-  final String helperText;
+  final String title;
+  final String leftValue;
+  final String rightValue;
   final double progress;
-  final Color progressColor;
-  final AnimationController sweepController;
-  final bool isElite;
+  final LinearGradient fillGradient;
+  final Color fillShadowColor;
+  final String hintText;
+  final String badgeText;
+  final IconData badgeIcon;
+  final Color hintColor;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5D4037)).copyWith(color: const Color(0xFF5D4037).withOpacity(0.55))),
-        const SizedBox(height: 4),
-        Text(primaryText, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF2F1D13)).copyWith(color: const Color(0xFF2F1D13).withOpacity(0.90))),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: SizedBox(
-            height: 12,
-            child: Stack(
-              children: [
-                Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: progressColor.withOpacity(0.20)))),
-                FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: progress.clamp(0.0, 1.0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [progressColor.withOpacity(0.85), Color.lerp(progressColor, const Color(0xFFFFE1BD), 0.2)!.withOpacity(0.85)]),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF4A3623),
+              ),
+            ),
+            RichText(
+              text: TextSpan(
+                text: leftValue,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF4A3623),
+                ),
+                children: [
+                  TextSpan(
+                    text: ' / $rightValue',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFA69587),
                     ),
                   ),
-                ),
-                if (isElite)
-                  AnimatedBuilder(
-                    animation: sweepController,
-                    builder: (context, _) {
-                      final x = -0.15 + (1.30 * sweepController.value);
-                      return FractionallySizedBox(
-                        widthFactor: progress.clamp(0.0, 1.0),
-                        alignment: Alignment.centerLeft,
-                        child: Transform.translate(
-                          offset: Offset(MediaQuery.of(context).size.width * x * 0.5, 0),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.12,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Colors.white.withOpacity(0), Colors.white.withOpacity(0.1), Colors.white.withOpacity(0)],
-                                  ),
-                                ),
-                              ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 16,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEBE5DF),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8C7A6B).withOpacity(0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: Colors.white.withOpacity(0.72),
+                blurRadius: 4,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.06),
+                              Colors.transparent,
+                              Colors.white.withOpacity(0.36),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 1400),
+                        curve: Curves.easeOutCubic,
+                        width: constraints.maxWidth * progress.clamp(0.0, 1.0),
+                        decoration: BoxDecoration(
+                          gradient: fillGradient,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(color: fillShadowColor, blurRadius: 14, offset: const Offset(0, 3)),
+                          ],
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.white.withOpacity(0.7), blurRadius: 8),
+                              ],
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-              ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(helperText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF3A2416)).copyWith(color: const Color(0xFF3A2416).withOpacity(0.90))),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                hintText,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: hintColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFA69587).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(badgeIcon, size: 13, color: const Color(0xFFA69587)),
+                  const SizedBox(width: 4),
+                  Text(
+                    badgeText,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFA69587),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 }
-
-// ---------- Daily Goals Section ----------
 
 class _DailyGoalsSection extends StatelessWidget {
   const _DailyGoalsSection({required this.tasks});
