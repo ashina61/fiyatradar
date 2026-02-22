@@ -469,50 +469,22 @@ class _DynamicVipChip extends StatelessWidget {
         }
 
         final lvl = levelFromLabel(tier);
-        final t = tier.toLowerCase();
-        Color iconC = const Color(0xFFCD7F32);
-        IconData icon = Icons.shield_rounded;
-        
-        if (t.contains('elmas')) {
-          iconC = const Color(0xFF00F2FE);
-          icon = Icons.diamond_rounded;
-        } else if (t.contains('altın')) {
-          iconC = const Color(0xFFFFD700);
-          icon = Icons.emoji_events_rounded;
-        }
 
         return InkWell(
-          onTap: () => _showUserModal(context, realName, tier, trust, icon, iconC),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LevelBadge(
-                level: lvl,
-                compact: true,
-                withEmoji: true,
-                uppercase: true,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  realName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          onTap: () => _showUserModal(context, realName, tier, trust, lvl),
+          child: LevelFancyText(
+            level: lvl,
+            text: '${lvl.emoji} $realName',
+            fontSize: 15,
+            withEmoji: false,
+            uppercase: false,
           ),
         );
       },
     );
   }
 
-  void _showUserModal(context, name, tier, trust, icon, iconC) {
+  void _showUserModal(BuildContext context, String name, String tier, int trust, UserLevel level) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -522,7 +494,7 @@ class _DynamicVipChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: iconC),
+            Icon(level.icon, size: 48, color: level.badgeForeground),
             const SizedBox(height: 16),
             Text(name, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold)),
             Text('Seviye: $tier', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),

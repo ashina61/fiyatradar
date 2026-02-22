@@ -35,7 +35,7 @@ class LevelBadge extends StatelessWidget {
         children: [
           Icon(level.icon, size: compact ? 12 : 15, color: level.textColor),
           SizedBox(width: compact ? 4 : 6),
-          _LevelFancyText(
+          LevelFancyText(
             level: level,
             fontSize: fontSize,
             withEmoji: withEmoji,
@@ -47,23 +47,25 @@ class LevelBadge extends StatelessWidget {
   }
 }
 
-class _LevelFancyText extends StatelessWidget {
-  const _LevelFancyText({
+class LevelFancyText extends StatelessWidget {
+  const LevelFancyText({
     required this.level,
     required this.fontSize,
     required this.withEmoji,
     required this.uppercase,
+    this.text,
   });
 
   final UserLevel level;
   final double fontSize;
   final bool withEmoji;
   final bool uppercase;
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
-    var text = withEmoji ? '${level.emoji} ${level.label}' : level.label;
-    if (uppercase) text = text.toUpperCase();
+    var renderedText = text ?? (withEmoji ? '${level.emoji} ${level.label}' : level.label);
+    if (uppercase) renderedText = renderedText.toUpperCase();
 
     final baseStyle = TextStyle(
       fontSize: fontSize,
@@ -80,7 +82,7 @@ class _LevelFancyText extends StatelessWidget {
 
     // 1) Outline layer
     final outline = Text(
-      text,
+      renderedText,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: baseStyle.copyWith(foreground: outlinePaint),
@@ -88,7 +90,7 @@ class _LevelFancyText extends StatelessWidget {
 
     // 2) Glow layer
     final glow = Text(
-      text,
+      renderedText,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: baseStyle.copyWith(
@@ -115,7 +117,7 @@ class _LevelFancyText extends StatelessWidget {
         end: Alignment.bottomRight,
       ).createShader(bounds),
       child: Text(
-        text,
+        renderedText,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: baseStyle,
