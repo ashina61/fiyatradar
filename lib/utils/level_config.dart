@@ -47,7 +47,7 @@ class LevelConfig {
     LevelConfigItem(
       levelKey: 'tasarrufcu',
       label: 'Tasarrufçu',
-      minPoints: 1500,
+      minPoints: 2000,
       minTrustGate: 40,
       gradient: [Color(0xFFC8956C), Color(0xFFF5EDE4)],
       icon: Icons.savings_rounded,
@@ -56,7 +56,7 @@ class LevelConfig {
     LevelConfigItem(
       levelKey: 'marketUstasi',
       label: 'Market Ustası',
-      minPoints: 3000,
+      minPoints: 5000,
       minTrustGate: 55,
       gradient: [Color(0xFF8D6E63), Color(0xFFE7C9A9)],
       icon: Icons.storefront_rounded,
@@ -65,7 +65,7 @@ class LevelConfig {
     LevelConfigItem(
       levelKey: 'fiyatLordu',
       label: 'Fiyat Lordu',
-      minPoints: 5000,
+      minPoints: 10000,
       minTrustGate: 70,
       gradient: [Color(0xFF5D4037), Color(0xFFD4A574)],
       icon: Icons.workspace_premium_rounded,
@@ -74,7 +74,7 @@ class LevelConfig {
     LevelConfigItem(
       levelKey: 'radarEfsanesi',
       label: 'Radar Efsanesi',
-      minPoints: 8000,
+      minPoints: 20000,
       minTrustGate: 85,
       gradient: [Color(0xFFFFF1E0), Color(0xFFE7C9A9)],
       icon: Icons.auto_awesome_rounded,
