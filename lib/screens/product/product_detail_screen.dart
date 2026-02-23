@@ -424,22 +424,11 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         color: const Color(0xFF5D4037),
-        boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.22), blurRadius: 14, offset: const Offset(0, 8))],
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
@@ -466,7 +455,7 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                   AnimatedBuilder(
                     animation: _timePulse,
                     builder: (context, _) {
-                      final glow = 0.45 + (_timePulse.value * 0.55);
+                      final glow = 0.10 + (_timePulse.value * 0.12);
                       return Container(
                         width: 10,
                         height: 10,
@@ -476,8 +465,8 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFF35D04F).withOpacity(glow),
-                              blurRadius: 10 + (_timePulse.value * 6),
-                              spreadRadius: 1 + (_timePulse.value * 2),
+                              blurRadius: 2 + (_timePulse.value * 2),
+                              spreadRadius: 0,
                             ),
                           ],
                         ),
