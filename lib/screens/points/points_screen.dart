@@ -1,409 +1,599 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../utils/theme.dart';
-import '../../providers/auth_provider.dart';
-import '../../utils/elite_level_engine.dart';
-import '../../widgets/global_premium_badge.dart';
-import '../../widgets/leaderboard_section.dart';
-import '../../widgets/level_progress_card.dart';
-import 'controllers/points_controller.dart';
-import 'models/points_models.dart';
-
-class PointsScreen extends ConsumerStatefulWidget {
+class PointsScreen extends StatefulWidget {
   const PointsScreen({super.key});
 
   @override
-  ConsumerState<PointsScreen> createState() => _PointsScreenState();
+  State<PointsScreen> createState() => _PointsScreenState();
 }
 
-class _PointsScreenState extends ConsumerState<PointsScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _PointsScreenState extends State<PointsScreen> {
+  static const Color _bgCream = Color(0xFFFDFBF9);
+  static const Color _textDark = Color(0xFF3A2B24);
+  static const Color _textMuted = Color(0xFF8C7A6B);
+  static const Color _borderLight = Color(0xFFEBE1D7);
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() => setState(() {}));
-  }
+  int _selectedTab = 0;
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  final List<_LeaderboardUser> _podiumUsers = const [
+    _LeaderboardUser(rank: 2, name: 'Mert A.', points: '24.5K', emoji: '👱🏻‍♂️', level: 'Market Ustası'),
+    _LeaderboardUser(rank: 1, name: 'Elif S.', points: '32.8K', emoji: '😎', level: 'Radar Efsanesi', isVerified: true),
+    _LeaderboardUser(rank: 3, name: 'Can Y.', points: '21.2K', emoji: '👩🏻‍🦰', level: 'Fiyat Lordu'),
+  ];
+
+  final List<_LeaderboardUser> _leaderboardUsers = const [
+    _LeaderboardUser(rank: 4, name: 'Hasan T.', points: '19.1K', emoji: '🧔🏻‍♂️', level: 'Fiyat Lordu'),
+    _LeaderboardUser(rank: 5, name: 'Ayşe K.', points: '18.9K', emoji: '👩🏻‍🏫', level: 'Market Ustası'),
+    _LeaderboardUser(rank: 6, name: 'Adem K.', points: '18.5K', emoji: '👨🏻‍💻', level: 'Fiyat Lordu (Sen)', isCurrentUser: true, isVerified: true),
+    _LeaderboardUser(rank: 7, name: 'Deniz A.', points: '17.8K', emoji: '🧑🏻', level: 'Gözlemci'),
+    _LeaderboardUser(rank: 8, name: 'Bora M.', points: '17.1K', emoji: '👨🏼', level: 'Gözlemci'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final pointsAsync = ref.watch(pointsStateProvider);
-    final state = pointsAsync.valueOrNull ?? PointsState.placeholder;
-
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Puanlar',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-            color: AppColors.textPrimary,
-            letterSpacing: -0.3,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-            child: _PremiumTabBar(controller: _tabController),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _OverviewTab(state: state),
-                const _LeaderboardTab(),
-                _ActivitiesTab(state: state),
-              ],
+      backgroundColor: _bgCream,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: _buildSegmentedTabMenu(),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PremiumTabBar extends StatelessWidget {
-  const _PremiumTabBar({required this.controller});
-  final TabController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
-      ),
-      child: TabBar(
-        controller: controller,
-        indicator: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _selectedTab == 0 ? _buildOverviewTab() : _buildLeaderboardTab(),
+              ),
             ),
           ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.textTertiary,
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.2,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-        tabs: const [
-          Tab(text: 'Genel Bakis'),
-          Tab(text: 'Zirvedekiler'),
-          Tab(text: 'Aktivitiler'),
-        ],
       ),
     );
   }
-}
 
-class _OverviewTab extends ConsumerWidget {
-  const _OverviewTab({required this.state});
-  final PointsState state;
+  Widget _buildSegmentedTabMenu() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const padding = 6.0;
+        final tabWidth = (constraints.maxWidth - (padding * 2)) / 2;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userModel = ref.watch(userModelStreamProvider).valueOrNull;
-    final totalPoints = userModel?.points ?? state.totalPoints;
-    final trustPercent = userModel?.trustScorePercent ?? state.trustScore;
-    final totalVotes = userModel?.trustTotalVotes ?? 0;
-    final levelResult = EliteLevelEngine.evaluate(
-      totalPoints: totalPoints,
-      trustPercent: trustPercent,
-      totalVotes: totalVotes,
-    );
-    final levelStyle = EliteLevelEngine.getLevelStyle(levelResult.finalLevel);
-    final levelName = levelStyle.label;
-    final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-      child: Column(
-        children: [
-          GlobalPremiumBadge(
-            levelName: levelName,
-            levelColor: levelStyle.gradient.last,
-            showPulseAnimation: shouldPulse,
-            userName: userModel?.name,
-            showVerifiedIcon: true,
-            leadingIcon: levelStyle.icon,
+        return Container(
+          height: 56,
+          padding: const EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0EBE6),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(color: Color(0x12000000), blurRadius: 4, offset: Offset(0, 1)),
+            ],
           ),
-          const SizedBox(height: 20),
-          _StatsRow(state: state),
-          const SizedBox(height: 20),
-          LevelProgressCard(
-            currentLevelName: state.finalLevelLabel,
-            nextLevelName: state.nextLevelName,
-            currentScore: state.totalPoints,
-            targetScore: state.nextLevelTargetPoints,
-            currentTrustPercentage: state.trustScore.toDouble(),
-            targetTrustPercentage: state.requiredMinTrust.toDouble(),
-            isTrustGated: state.isTrustGated,
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                left: _selectedTab == 0 ? 0 : tabWidth,
+                top: 0,
+                bottom: 0,
+                width: tabWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4A3623).withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(child: _buildTabButton(0, 'Genel Bakış')),
+                  Expanded(child: _buildTabButton(1, 'Zirvedekiler')),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          _DailyGoalsSection(tasks: state.dailyGoals),
-        ],
-      ),
-    );
-  }
-}
-
-class _LeaderboardTab extends StatelessWidget {
-  const _LeaderboardTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-      child: const LeaderboardSection(
-        outerPadding: EdgeInsets.zero,
-      ),
-    );
-  }
-}
-
-class _ActivitiesTab extends StatelessWidget {
-  const _ActivitiesTab({required this.state});
-
-  final PointsState state;
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.activities.isEmpty) {
-      return const Center(
-        child: Text(
-          'Henüz puan aktivitesi yok',
-          style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textTertiary),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-      itemCount: state.activities.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final activity = state.activities[index];
-        return _ActivityCard(activity: activity);
+        );
       },
     );
   }
-}
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.state});
-  final PointsState state;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            icon: Icons.trending_up_rounded,
-            iconColor: AppColors.success,
-            label: 'Bu Hafta',
-            value: '+${state.pointsThisWeek}',
+  Widget _buildTabButton(int index, String title) {
+    final isActive = _selectedTab == index;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => setState(() => _selectedTab = index),
+      child: Center(
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isActive ? _textDark : _textMuted,
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.flag_rounded,
-            iconColor: AppColors.primary,
-            label: 'Sonraki Seviye',
-            value: '${state.nextLevelTargetPoints}',
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.local_fire_department_rounded,
-            iconColor: const Color(0xFFE67E22),
-            label: 'Seri',
-            value: '${state.streakDays} gun',
-          ),
-        ),
-      ],
+      ),
     );
   }
-}
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-  });
+  Widget _buildOverviewTab() {
+    return SingleChildScrollView(
+      key: const ValueKey('overview'),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusCard(),
+          const SizedBox(height: 14),
+          _buildStatsGrid(),
+          const SizedBox(height: 16),
+          _buildSectionTitle('Seviye Ayrıcalıkları'),
+          const SizedBox(height: 8),
+          _buildPrivilegesList(),
+          const SizedBox(height: 16),
+          _buildSectionTitle('Puan Kazan'),
+          const SizedBox(height: 8),
+          _buildPointTasks(),
+        ],
+      ),
+    );
+  }
 
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatusCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF4A3623).withOpacity(0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: _borderLight, width: 1.5),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.visibility_rounded, size: 18, color: Color(0xFF5A4A42)),
+                    SizedBox(width: 6),
+                    Text(
+                      'Gözlemci',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF5A4A42)),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('Toplam Puan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _PointsScreenState._textMuted)),
+                  SizedBox(height: 2),
+                  Text('15.000', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: _PointsScreenState._textDark, letterSpacing: -0.6)),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.3,
+          const SizedBox(height: 24),
+          _buildProgressSection(
+            title: 'Seviye İlerlemesi',
+            limit: '15.000 / 20.000',
+            fillColor: const Color(0xFF8B7365),
+            progress: 0.75,
+            description: 'Sonraki seviyeye +5.000 Puan',
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border.all(color: _borderLight, width: 1.5),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Text(
+                'SONRAKİ SEVİYE: RADAR EFSANESİ',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: _textMuted, letterSpacing: 0.4),
+              ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textTertiary,
+          const SizedBox(height: 20),
+          _buildProgressSection(
+            title: 'Güven Skoru',
+            limit: '%38 / Min %85',
+            fillColor: const Color(0xFFD32F2F),
+            progress: 0.38,
+            description: 'Sonraki seviye için minimum güven şartı sağlanmalı',
+            danger: true,
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                border: Border.all(color: const Color(0xFFFFCDD2), width: 1.5),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Text(
+                'GATED',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 0.5),
+              ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
-}
 
-class _DailyGoalsSection extends StatelessWidget {
-  const _DailyGoalsSection({required this.tasks});
-  final List<DailyTask> tasks;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildProgressSection({
+    required String title,
+    required String limit,
+    required Color fillColor,
+    required double progress,
+    required String description,
+    required Widget trailing,
+    bool danger = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text(
-              'Gunluk Hedefler',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.3,
-              ),
-            ),
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textDark)),
             const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primary),
-                  SizedBox(width: 6),
-                  Text(
-                    'Bugun',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            Text(limit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textMuted)),
           ],
         ),
-        const SizedBox(height: 14),
-        ...tasks.map((task) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _DailyGoalCard(task: task),
-            )),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: LinearProgressIndicator(
+            minHeight: 14,
+            value: progress,
+            backgroundColor: const Color(0xFFEAE6E1),
+            valueColor: AlwaysStoppedAnimation(fillColor),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                description,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                  color: danger ? const Color(0xFFD32F2F) : _textMuted,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            trailing,
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildStatsGrid() {
+    return Row(
+      children: const [
+        Expanded(child: _MiniStatCard(value: '+124', label: 'Bu Hafta', color: Color(0xFF00C853))),
+        SizedBox(width: 12),
+        Expanded(child: _MiniStatCard(value: '86', label: 'Onaylı Fiyat', color: _textDark)),
+        SizedBox(width: 12),
+        Expanded(child: _MiniStatCard(value: '12', label: 'Seri Gün', color: Color(0xFFFFB300))),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          color: _textMuted,
+          letterSpacing: 0.9,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivilegesList() {
+    return const Column(
+      children: [
+        _PrivilegeTile(
+          title: 'Temel Fiyat Bildirimi',
+          subtitle: 'Gözlemci (Mevcut Seviye)',
+          icon: Icons.sell_rounded,
+          unlocked: true,
+        ),
+        SizedBox(height: 8),
+        _PrivilegeTile(
+          title: 'Özel Favori Market Alarmları',
+          subtitle: 'Market Ustası Olunca Açılır',
+          icon: Icons.notifications_active_rounded,
+          unlocked: false,
+        ),
+        SizedBox(height: 8),
+        _PrivilegeTile(
+          title: 'Sınırsız Geçmiş Fiyat Analizi',
+          subtitle: 'Radar Efsanesi Olunca Açılır',
+          icon: Icons.history_rounded,
+          unlocked: false,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPointTasks() {
+    return const Column(
+      children: [
+        _PointTaskTile(title: 'Günün Fişini Tara', subtitle: '0/1 Tamamlandı', icon: Icons.qr_code_scanner_rounded, reward: '+100 P'),
+        SizedBox(height: 10),
+        _PointTaskTile(title: 'Yeni Market Ekle', subtitle: 'Limitsiz', icon: Icons.add_business_rounded, reward: '+50 P'),
+        SizedBox(height: 10),
+        _PointTaskTile(title: 'Arkadaş Davet Et', subtitle: 'Özel Referans Kodu', icon: Icons.group_add_rounded, reward: '+250 P'),
+      ],
+    );
+  }
+
+  Widget _buildLeaderboardTab() {
+    return SingleChildScrollView(
+      key: const ValueKey('leaderboard'),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPodium(),
+          const SizedBox(height: 10),
+          _buildLeaderboard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPodium() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 18, 8, 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _borderLight, style: BorderStyle.solid)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: _podiumUsers.map(_buildPodiumSlot).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPodiumSlot(_LeaderboardUser user) {
+    final bool isFirst = user.rank == 1;
+    final Color medalColor = switch (user.rank) {
+      1 => const Color(0xFFFFC107),
+      2 => const Color(0xFFB0BEC5),
+      _ => const Color(0xFFCD7F32),
+    };
+
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isFirst)
+            const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFC107), size: 30),
+          const SizedBox(height: 2),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              Container(
+                width: isFirst ? 84 : 64,
+                height: isFirst ? 84 : 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: medalColor, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: medalColor.withOpacity(isFirst ? 0.35 : 0.15),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Text(user.emoji, style: TextStyle(fontSize: isFirst ? 34 : 26)),
+              ),
+              Positioned(
+                bottom: -8,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: medalColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Text('${user.rank}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                user.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: isFirst ? 15 : 13,
+                  color: isFirst ? const Color(0xFFFFC107) : _textDark,
+                ),
+              ),
+              if (user.isVerified) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF1E88E5)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(user.points, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _textMuted)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderboard() {
+    return Column(
+      children: _leaderboardUsers
+          .map(
+            (user) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _LeaderboardRow(user: user),
+            ),
+          )
+          .toList(),
     );
   }
 }
 
-class _DailyGoalCard extends StatelessWidget {
-  const _DailyGoalCard({required this.task});
-  final DailyTask task;
+class _MiniStatCard extends StatelessWidget {
+  const _MiniStatCard({required this.value, required this.label, required this.color});
+
+  final String value;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final remaining = (task.target - task.current).clamp(0, task.target);
-    final isComplete = remaining == 0;
-
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
       decoration: BoxDecoration(
-        color: isComplete ? AppColors.success.withOpacity(0.04) : AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isComplete ? AppColors.success.withOpacity(0.3) : AppColors.outline.withOpacity(0.6),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF4A3623).withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 4),
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _PointsScreenState._textMuted, letterSpacing: 0.4),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivilegeTile extends StatelessWidget {
+  const _PrivilegeTile({required this.title, required this.subtitle, required this.icon, required this.unlocked});
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor = unlocked ? const Color(0xFF00C853) : const Color(0xFF9E9E9E);
+
+    return Opacity(
+      opacity: unlocked ? 1 : 0.7,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border(
+            left: BorderSide(color: unlocked ? const Color(0xFF00C853) : const Color(0xFFE0E0E0), width: 4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A3623).withOpacity(0.03),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: unlocked ? const Color(0xFFE8F5E9) : const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _PointsScreenState._textMuted)),
+                ],
+              ),
+            ),
+            Icon(unlocked ? Icons.check_circle_rounded : Icons.lock_rounded, color: iconColor),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PointTaskTile extends StatelessWidget {
+  const _PointTaskTile({required this.title, required this.subtitle, required this.icon, required this.reward});
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String reward;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4A3623).withOpacity(0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -412,82 +602,28 @@ class _DailyGoalCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
-              color: isComplete ? AppColors.success.withOpacity(0.1) : task.iconBackground,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isComplete ? Icons.check_rounded : task.icon,
-              size: 22,
-              color: isComplete ? AppColors.success : AppColors.primaryDark,
-            ),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: const Color(0xFFF8F4F0), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: const Color(0xFF3A2B24), size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  task.title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isComplete ? AppColors.success : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  task.description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textTertiary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    minHeight: 6,
-                    value: task.progress,
-                    backgroundColor: AppColors.surfaceVariant,
-                    valueColor: AlwaysStoppedAnimation(
-                      isComplete ? AppColors.success : AppColors.primary,
-                    ),
-                  ),
-                ),
+                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _PointsScreenState._textMuted)),
               ],
             ),
           ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '+${task.reward}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${task.current}/${task.target}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textTertiary,
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(50)),
+            child: Text(
+              reward,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF00A63E)),
+            ),
           ),
         ],
       ),
@@ -495,61 +631,111 @@ class _DailyGoalCard extends StatelessWidget {
   }
 }
 
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.activity});
+class _LeaderboardRow extends StatelessWidget {
+  const _LeaderboardRow({required this.user});
 
-  final PointsActivity activity;
+  final _LeaderboardUser user;
 
   @override
   Widget build(BuildContext context) {
-    final (icon, iconColor) = switch (activity.type) {
-      'price_entry' => (Icons.sell_rounded, const Color(0xFFCC7A00)),
-      'price_verify' => (Icons.verified_rounded, const Color(0xFF1565C0)),
-      'comment' => (Icons.chat_bubble_rounded, const Color(0xFF5E35B1)),
-      'photo_bonus' => (Icons.camera_alt_rounded, const Color(0xFF00897B)),
-      _ => (Icons.stars_rounded, AppColors.primary),
-    };
+    final isCurrent = user.isCurrentUser;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
+    Widget card = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+        color: isCurrent ? const Color(0x0DE040FB) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isCurrent ? const Color(0xFFE040FB) : Colors.transparent),
+        boxShadow: [
+          BoxShadow(
+            color: (isCurrent ? const Color(0xFFE040FB) : const Color(0xFF4A3623)).withOpacity(isCurrent ? 0.16 : 0.03),
+            blurRadius: isCurrent ? 20 : 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
+          SizedBox(
+            width: 24,
+            child: Text(
+              '${user.rank}',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isCurrent ? const Color(0xFFE040FB) : _PointsScreenState._textMuted),
             ),
-            child: Icon(icon, color: iconColor),
           ),
           const SizedBox(width: 12),
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: Color(0xFFF8F4F0), shape: BoxShape.circle),
+            child: Text(user.emoji, style: const TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(activity.title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        user.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark),
+                      ),
+                    ),
+                    if (user.isVerified) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF1E88E5)),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 2),
-                Text(activity.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                Text(
+                  user.level,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isCurrent ? const Color(0xFFE040FB) : _PointsScreenState._textMuted,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('+${activity.points}', style: TextStyle(fontWeight: FontWeight.w800, color: iconColor)),
-              const SizedBox(height: 2),
-              Text(activity.createdAt, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
-            ],
+          Text(
+            user.points,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFFE040FB)),
           ),
         ],
       ),
     );
+
+    if (isCurrent) {
+      card = Transform.scale(scale: 1.02, child: card);
+    }
+
+    return card;
   }
+}
+
+class _LeaderboardUser {
+  const _LeaderboardUser({
+    required this.rank,
+    required this.name,
+    required this.points,
+    required this.emoji,
+    required this.level,
+    this.isCurrentUser = false,
+    this.isVerified = false,
+  });
+
+  final int rank;
+  final String name;
+  final String points;
+  final String emoji;
+  final String level;
+  final bool isCurrentUser;
+  final bool isVerified;
 }
