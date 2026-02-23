@@ -68,44 +68,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               return RefreshIndicator(
                 color: const Color(0xFF955427),
                 onRefresh: () async => setState(() => _reloadKey++),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _BossHeroCard(
-                        data: data,
-                        onEdit: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-                          );
-                          if (mounted) setState(() => _reloadKey++);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _StatsRow(totalPoints: data.totalPoints),
-                      const SizedBox(height: 12),
-                      _QuickActionsGrid(uid: uid),
-                      const SizedBox(height: 16),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          'Hesap Yönetimi',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: Color(0xFF8C7A6B),
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Profil',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF3A2B24),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 20),
+                          _BossHeroCard(
+                            data: data,
+                            onEdit: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                              );
+                              if (mounted) setState(() => _reloadKey++);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _StatsRow(totalPoints: data.totalPoints),
+                          const SizedBox(height: 12),
+                          _QuickActionsGrid(uid: uid),
+                          const SizedBox(height: 16),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'Hesap Yönetimi',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                                color: Color(0xFF8C7A6B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _MenuSection(
+                            isAdmin: userModel?.isAdmin == true,
+                            onReload: () => setState(() => _reloadKey++),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      _MenuSection(
-                        isAdmin: userModel?.isAdmin == true,
-                        onReload: () => setState(() => _reloadKey++),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -165,7 +178,6 @@ class _BossHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shownUsername = data.username.trim().isEmpty ? data.displayName : data.username.trim();
     final level = EliteLevelEngine.parseLevelLabel(data.levelName);
     final levelStyle = EliteLevelEngine.getLevelStyle(level);
     final dynamicLevelColor = levelStyle.gradient.last;
@@ -190,32 +202,47 @@ class _BossHeroCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       child: Column(
         children: [
-          Row(
-            children: [
-              _Avatar(avatarUrl: data.photoUrl, displayName: data.displayName, size: 76),
-              const Spacer(),
-              IconButton(
-                onPressed: onEdit,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.18),
-                ),
-                icon: const Icon(Icons.edit_rounded, color: Colors.white),
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              onPressed: onEdit,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.18),
               ),
-            ],
+              icon: const Icon(Icons.edit_rounded, color: Colors.white),
+            ),
           ),
-          const SizedBox(height: 14),
+          Center(
+            child: Container(
+              width: 140,
+              height: 140,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: dynamicLevelColor.withOpacity(0.5),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: _Avatar(avatarUrl: data.photoUrl, displayName: data.displayName, size: 128),
+            ),
+          ),
+          const SizedBox(height: 18),
           GlobalPremiumBadge(
             levelName: data.levelName,
             levelColor: dynamicLevelColor,
             showPulseAnimation: data.levelName.trim().toLowerCase() == 'fiyat lordu' || data.levelName.trim().toLowerCase() == 'radar efsanesi',
-            userName: shownUsername,
-            leadingIcon: levelStyle.icon,
-            showVerifiedIcon: true,
+            userName: data.levelName,
+            leadingIcon: Icons.military_tech_rounded,
+            showVerifiedIcon: false,
           ),
-          if (shownUsername != data.displayName) ...[
+          if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              data.displayName,
+              '@${data.username.trim()}',
               style: TextStyle(color: Colors.white.withOpacity(0.74), fontWeight: FontWeight.w600),
             ),
           ],
