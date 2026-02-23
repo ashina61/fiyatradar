@@ -429,10 +429,10 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
-          Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
@@ -479,10 +479,10 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          
-          // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
-          Row(
+            const SizedBox(height: 20),
+
+            // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Mağaza ismine tıklayınca navigasyon açılsın
@@ -530,14 +530,14 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                 ],
               ),
             ],
-          ),
-          
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 20),
+            ),
 
-          // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
-          Row(
+            const SizedBox(height: 20),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 20),
+
+            // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -575,11 +575,9 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                 ],
               ),
             ],
-          ),
-        ],
-      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
