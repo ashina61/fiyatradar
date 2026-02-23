@@ -637,15 +637,17 @@ class _DynamicVipChip extends ConsumerWidget {
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
         String realName = fallbackName;
+        String backendLevelName = '';
         int totalPoints = 0;
-        int trustPercent = 50;
+        int trustPercent = 0;
         int totalVotes = 0;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = (data['name'] ?? data['displayName'] ?? fallbackName).toString();
+          backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
           totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
-          trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+          trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0;
           totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
         }
 
@@ -654,7 +656,11 @@ class _DynamicVipChip extends ConsumerWidget {
           trustPercent: trustPercent,
           totalVotes: totalVotes,
         );
-        final style = EliteLevelEngine.getLevelStyle(result.finalLevel);
+        final hasMeaningfulSignals = totalPoints > 0 || totalVotes >= minVotesForTrust;
+        final resolvedLevel = hasMeaningfulSignals
+            ? result.finalLevel
+            : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: result.finalLevel);
+        final style = EliteLevelEngine.getLevelStyle(resolvedLevel);
         final levelName = style.label;
         final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
 
