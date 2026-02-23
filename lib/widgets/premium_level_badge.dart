@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../utils/elite_level_engine.dart';
 
 class PremiumLevelBadge extends StatefulWidget {
   const PremiumLevelBadge({
@@ -21,54 +22,18 @@ class PremiumLevelBadge extends StatefulWidget {
 class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
   bool _animateForward = true;
 
+  EliteLevel get _eliteLevel => EliteLevelEngine.parseLevelLabel(widget.levelName);
+
   bool get _hasPulseAnimation =>
-      widget.levelName == 'Fiyat Lordu' || widget.levelName == 'Radar Efsanesi';
+      _eliteLevel == EliteLevel.fiyatLordu || _eliteLevel == EliteLevel.radarEfsanesi;
 
   ({Color levelColor, Color contentColor, IconData icon}) _resolveStyle() {
-    switch (widget.levelName) {
-      case 'Gözlemci':
-        return (
-          levelColor: const Color(0xFF8C7A6B),
-          contentColor: const Color(0xFF8C7A6B),
-          icon: Icons.visibility_rounded,
-        );
-      case 'Avcı':
-        return (
-          levelColor: const Color(0xFFF4511E),
-          contentColor: const Color(0xFFF4511E),
-          icon: Icons.my_location_rounded,
-        );
-      case 'Tasarrufçu':
-        return (
-          levelColor: const Color(0xFF1E88E5),
-          contentColor: const Color(0xFF1E88E5),
-          icon: Icons.savings_rounded,
-        );
-      case 'Market Ustası':
-        return (
-          levelColor: const Color(0xFFFFB300),
-          contentColor: const Color(0xFFFFB300),
-          icon: Icons.storefront_rounded,
-        );
-      case 'Fiyat Lordu':
-        return (
-          levelColor: const Color(0xFFE040FB),
-          contentColor: const Color(0xFFE040FB),
-          icon: Icons.military_tech_rounded,
-        );
-      case 'Radar Efsanesi':
-        return (
-          levelColor: const Color(0xFF00E5FF),
-          contentColor: const Color(0xFF0097A7),
-          icon: Icons.diamond_rounded,
-        );
-      default:
-        return (
-          levelColor: const Color(0xFF8C7A6B),
-          contentColor: const Color(0xFF8C7A6B),
-          icon: Icons.visibility_rounded,
-        );
-    }
+    final style = EliteLevelEngine.getLevelStyle(_eliteLevel);
+    return (
+      levelColor: style.badgeBorder,
+      contentColor: style.textColor,
+      icon: style.icon,
+    );
   }
 
   @override
