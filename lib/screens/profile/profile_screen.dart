@@ -12,7 +12,9 @@ import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
 import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
+import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
+import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -53,11 +55,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
         data: (userModel) {
-          return StreamBuilder<_ProfileData>(
+          return FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
-            stream: _profileDataStream(uid),
+            future: _loadProfile(uid),
             builder: (context, snapshot) {
-              if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
@@ -97,8 +99,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             const SizedBox(height: 16),
                             _PointsAndLevelRow(
                               totalPoints: data.totalPoints,
-                              calculatedLevelName: data.calculatedLevelName,
-                              userName: data.username.trim().isEmpty ? data.displayName : data.username.trim(),
+                              levelName: data.levelName,
                               onPointsTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => const PointsScreen()),
@@ -125,39 +126,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Stream<_ProfileData> _profileDataStream(String uid) {
+  Future<_ProfileData> _loadProfile(String uid) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    return userRef.snapshots().map((doc) {
-      final data = doc.data() ?? <String, dynamic>{};
-      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-      final totalPoints = (data['totalPoints'] as num?)?.toInt() ??
-          (data['pointsTotal'] as num?)?.toInt() ??
-          (data['points'] as num?)?.toInt() ??
-          0;
-      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ??
-              (data['reliabilityScore'] as num?)?.toInt() ??
-              (trustMap['trustPercent'] as num?)?.toInt() ??
-              0)
-          .clamp(0, 100);
-      final trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ??
-          (trustMap['totalVotes'] as num?)?.toInt() ??
-          0;
-      final calculatedLevel = EliteLevelEngine.evaluate(
-        totalPoints: totalPoints,
-        trustPercent: trustPercent,
-        totalVotes: trustTotalVotes,
-      );
+    final userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      await userRef.set({
+        'displayName': 'Kullanici',
+        'photoUrl': '',
+        'photoURL': '',
+        'verified': false,
+        'trustScore': 0,
+        'levelName': 'Gözlemci',
+        'monthlySavings': '₺0',
+        'topMarket': 'Henuz yok',
+        'totalPoints': 0,
+        'weeklyPoints': 0,
+        'streakDays': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
 
-      return _ProfileData(
-        displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
-        username: (data['username'] ?? '').toString(),
-        photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
-        totalPoints: totalPoints,
-        calculatedLevelName: EliteLevelEngine.getLevelStyle(calculatedLevel.finalLevel).label,
-        trustScore: trustPercent.toDouble(),
-        trustTotalVotes: trustTotalVotes,
-      );
-    });
+    final data = (await userRef.get()).data() ?? <String, dynamic>{};
+    final trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+    final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
+    final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
+    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
+    final backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
+
+    return _ProfileData(
+      displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
+      username: (data['username'] ?? '').toString(),
+      photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
+      totalPoints: totalPoints,
+      levelName: backendLevelName.isNotEmpty ? backendLevelName : EliteLevelEngine.getLevelStyle(finalLevel).label,
+      trustScore: trustPercent.toDouble(),
+      trustTotalVotes: trustTotalVotes,
+    );
   }
 }
 
@@ -243,7 +248,7 @@ class _PremiumProfileHeader extends StatelessWidget {
                   const SizedBox(height: 14),
                   // Name
                   PremiumLevelBadge(
-                    levelName: data.calculatedLevelName,
+                    levelName: data.levelName,
                     displayText: shownUsername,
                     showVerifiedIcon: true,
                   ),
@@ -446,18 +451,18 @@ class _TrustScoreCard extends StatelessWidget {
 class _PointsAndLevelRow extends StatelessWidget {
   const _PointsAndLevelRow({
     required this.totalPoints,
-    required this.calculatedLevelName,
-    required this.userName,
+    required this.levelName,
     required this.onPointsTap,
   });
 
   final int totalPoints;
-  final String calculatedLevelName;
-  final String userName;
+  final String levelName;
   final VoidCallback onPointsTap;
 
   @override
   Widget build(BuildContext context) {
+    final level = levelFromLabel(levelName);
+
     return Row(
       children: [
         // Points card
@@ -526,34 +531,56 @@ class _PointsAndLevelRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        // Level card (V7 Strategist white + neomorphic + glass)
+        // Level card
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.92),
+              gradient: LinearGradient(colors: level.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withOpacity(0.9)),
-              boxShadow: const [
+              border: Border.all(color: AppColors.outline.withOpacity(0.6)),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x1F9EABC8),
-                  blurRadius: 20,
-                  offset: Offset(8, 8),
-                ),
-                BoxShadow(
-                  color: Color(0xBFFFFFFF),
-                  blurRadius: 18,
-                  offset: Offset(-6, -6),
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: PremiumLevelBadge(
-                levelName: calculatedLevelName,
-                displayText: userName,
-                showVerifiedIcon: true,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: level.badgeBackground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(level.emoji, style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  level.label,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Seviye',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1455,7 +1482,7 @@ class _ProfileData {
     required this.displayName,
     required this.photoUrl,
     required this.username,
-    required this.calculatedLevelName,
+    required this.levelName,
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
@@ -1464,7 +1491,7 @@ class _ProfileData {
   final String displayName;
   final String photoUrl;
   final String username;
-  final String calculatedLevelName;
+  final String levelName;
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;

@@ -18,9 +18,8 @@ class PremiumLevelBadge extends StatefulWidget {
   State<PremiumLevelBadge> createState() => _PremiumLevelBadgeState();
 }
 
-class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
-    with SingleTickerProviderStateMixin {
-  AnimationController? _controller;
+class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
+  bool _animateForward = true;
 
   bool get _hasPulseAnimation =>
       widget.levelName == 'Fiyat Lordu' || widget.levelName == 'Radar Efsanesi';
@@ -73,47 +72,10 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
   }
 
   @override
-  void initState() {
-    super.initState();
-    _syncAnimationController();
-  }
-
-  @override
-  void didUpdateWidget(covariant PremiumLevelBadge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.levelName != widget.levelName) {
-      _syncAnimationController();
-    }
-  }
-
-  void _syncAnimationController() {
-    if (_hasPulseAnimation) {
-      _controller ??= AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 1200),
-      )..repeat(reverse: true);
-      if (!_controller!.isAnimating) {
-        _controller!.repeat(reverse: true);
-      }
-      return;
-    }
-
-    _controller?.stop();
-    _controller?.dispose();
-    _controller = null;
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final style = _resolveStyle();
 
-    if (!_hasPulseAnimation || _controller == null) {
+    if (!_hasPulseAnimation) {
       return _badge(
         levelColor: style.levelColor,
         contentColor: style.contentColor,
@@ -121,24 +83,18 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
       );
     }
 
-    return AnimatedBuilder(
-      animation: _controller!,
-      builder: (context, _) {
-        final t = Curves.easeInOut.transform(_controller!.value);
-        final isLegend = widget.levelName == 'Radar Efsanesi';
-        final pulseColor = isLegend
-            ? Color.lerp(
-                const Color(0xFF00E5FF).withOpacity(0.25),
-                const Color(0xFF64FFDA).withOpacity(0.65),
-                t,
-              )!
-            : Color.lerp(
-                const Color(0xFFE040FB).withOpacity(0.22),
-                const Color(0xFFBA68C8).withOpacity(0.58),
-                t,
-              )!;
-        final blur = isLegend ? (10 + (24 * t)) : (8 + (20 * t));
-        final spread = isLegend ? (0.6 + (2.8 * t)) : (0.4 + (2.2 * t));
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: _animateForward ? 0.0 : 1.0, end: _animateForward ? 1.0 : 0.0),
+      duration: Duration(milliseconds: widget.levelName == 'Radar Efsanesi' ? 2600 : 2100),
+      onEnd: () {
+        if (mounted) {
+          setState(() => _animateForward = !_animateForward);
+        }
+      },
+      curve: Curves.easeInOut,
+      builder: (context, t, _) {
+        final blur = 8 + ((24 - 8) * t);
+        final spread = 0.3 + ((2.2 - 0.3) * t);
 
         return _badge(
           levelColor: style.levelColor,
@@ -146,7 +102,7 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
           icon: style.icon,
           boxShadow: [
             BoxShadow(
-              color: pulseColor,
+              color: style.levelColor.withOpacity(0.24 + ((0.50 - 0.24) * t)),
               blurRadius: blur,
               spreadRadius: spread,
             ),
