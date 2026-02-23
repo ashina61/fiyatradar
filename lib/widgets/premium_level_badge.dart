@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 class PremiumLevelBadge extends StatefulWidget {
@@ -116,34 +118,40 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
     required IconData icon,
     List<BoxShadow>? boxShadow,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(50),
-        color: levelColor.withOpacity(0.12),
-        border: Border.all(color: levelColor.withOpacity(0.8), width: 1.5),
-        boxShadow: boxShadow,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: contentColor),
-          const SizedBox(width: 6),
-          Text(
-            widget.displayText?.trim().isNotEmpty == true
-                ? widget.displayText!.trim()
-                : widget.levelName,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: contentColor,
-            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(50),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(50),
+            color: Colors.white.withOpacity(0.85),
+            border: Border.all(color: levelColor, width: 1.5),
+            boxShadow: boxShadow,
           ),
-          if (widget.showVerifiedIcon) ...[
-            const SizedBox(width: 6),
-            Icon(Icons.verified_rounded, size: 14, color: contentColor),
-          ],
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: contentColor),
+              const SizedBox(width: 6),
+              Text(
+                widget.displayText?.trim().isNotEmpty == true
+                    ? widget.displayText!.trim()
+                    : widget.levelName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: contentColor,
+                ),
+              ),
+              if (widget.showVerifiedIcon) ...[
+                const SizedBox(width: 6),
+                Icon(Icons.verified_rounded, size: 14, color: contentColor),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
