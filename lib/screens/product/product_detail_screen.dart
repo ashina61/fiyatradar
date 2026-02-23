@@ -15,8 +15,8 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
-import '../../utils/level_system.dart';
-import '../../widgets/premium_level_badge.dart';
+import '../../utils/elite_level_engine.dart';
+import '../../widgets/global_premium_badge.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -593,41 +593,101 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
 // ═══════════════════════════════════════════════════════════════════
 // 2. VIP ÇİPİ (İsmi Veritabanından Canlı Çeker, Taşmayı Engeller)
 // ═══════════════════════════════════════════════════════════════════
-class _DynamicVipChip extends StatelessWidget {
+class _DynamicVipChip extends ConsumerWidget {
   const _DynamicVipChip({required this.userId, required this.fallbackName});
   final String userId;
   final String fallbackName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final currentUserModel = ref.watch(userModelStreamProvider).valueOrNull;
+
+    if (authUser != null && currentUserModel != null && authUser.uid == userId) {
+      final result = EliteLevelEngine.evaluate(
+        totalPoints: currentUserModel.points,
+        trustPercent: currentUserModel.trustScorePercent,
+        totalVotes: currentUserModel.trustTotalVotes,
+      );
+      final style = EliteLevelEngine.getLevelStyle(result.finalLevel);
+      final levelName = style.label;
+      final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
+
+      return InkWell(
+        onTap: () => _showUserModal(
+          context,
+          currentUserModel.name,
+          levelName,
+          currentUserModel.trustScorePercent,
+          style.icon,
+          style.badgeForeground,
+        ),
+        child: GlobalPremiumBadge(
+          levelName: levelName,
+          levelColor: style.gradient.last,
+          showPulseAnimation: shouldPulse,
+          userName: currentUserModel.name,
+          showVerifiedIcon: true,
+          leadingIcon: style.icon,
+        ),
+      );
+    }
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
         String realName = fallbackName;
-        String tier = 'Gözlemci';
-        int trust = 50;
+        int totalPoints = 0;
+        int trustPercent = 50;
+        int totalVotes = 0;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
-          realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Gözlemci').toString();
-          trust = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+          realName = (data['name'] ?? data['displayName'] ?? fallbackName).toString();
+          totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
+          trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+          totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
         }
 
-        final lvl = levelFromLabel(tier);
+        final result = EliteLevelEngine.evaluate(
+          totalPoints: totalPoints,
+          trustPercent: trustPercent,
+          totalVotes: totalVotes,
+        );
+        final style = EliteLevelEngine.getLevelStyle(result.finalLevel);
+        final levelName = style.label;
+        final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
 
         return InkWell(
-          onTap: () => _showUserModal(context, realName, tier, trust, lvl),
-          child: PremiumLevelBadge(
-            levelName: tier,
-            displayText: realName,
+          onTap: () => _showUserModal(
+            context,
+            realName,
+            levelName,
+            trustPercent,
+            style.icon,
+            style.badgeForeground,
+          ),
+          child: GlobalPremiumBadge(
+            levelName: levelName,
+            levelColor: style.gradient.last,
+            showPulseAnimation: shouldPulse,
+            userName: realName,
+            leadingIcon: style.icon,
+            showVerifiedIcon: true,
           ),
         );
       },
     );
   }
 
-  void _showUserModal(BuildContext context, String name, String tier, int trust, UserLevel level) {
+  void _showUserModal(
+    BuildContext context,
+    String name,
+    String levelName,
+    int trust,
+    IconData levelIcon,
+    Color iconColor,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -637,10 +697,10 @@ class _DynamicVipChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(level.icon, size: 48, color: level.badgeForeground),
+            Icon(levelIcon, size: 48, color: iconColor),
             const SizedBox(height: 16),
             Text(name, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold)),
-            Text('Seviye: $tier', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
+            Text('Seviye: $levelName', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
             const SizedBox(height: 20),
             Text('Güven Puanı: %$trust', style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
             const SizedBox(height: 20),

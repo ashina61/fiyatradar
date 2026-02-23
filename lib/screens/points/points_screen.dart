@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/theme.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/elite_level_engine.dart';
+import '../../widgets/global_premium_badge.dart';
 import '../../widgets/leaderboard_section.dart';
 import '../../widgets/level_progress_card.dart';
 import 'controllers/points_controller.dart';
@@ -124,16 +127,38 @@ class _PremiumTabBar extends StatelessWidget {
   }
 }
 
-class _OverviewTab extends StatelessWidget {
+class _OverviewTab extends ConsumerWidget {
   const _OverviewTab({required this.state});
   final PointsState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userModel = ref.watch(userModelStreamProvider).valueOrNull;
+    final totalPoints = userModel?.points ?? state.totalPoints;
+    final trustPercent = userModel?.trustScorePercent ?? state.trustScore;
+    final totalVotes = userModel?.trustTotalVotes ?? 0;
+    final levelResult = EliteLevelEngine.evaluate(
+      totalPoints: totalPoints,
+      trustPercent: trustPercent,
+      totalVotes: totalVotes,
+    );
+    final levelStyle = EliteLevelEngine.getLevelStyle(levelResult.finalLevel);
+    final levelName = levelStyle.label;
+    final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(
         children: [
+          GlobalPremiumBadge(
+            levelName: levelName,
+            levelColor: levelStyle.gradient.last,
+            showPulseAnimation: shouldPulse,
+            userName: userModel?.name,
+            showVerifiedIcon: true,
+            leadingIcon: levelStyle.icon,
+          ),
+          const SizedBox(height: 20),
           _StatsRow(state: state),
           const SizedBox(height: 20),
           LevelProgressCard(
