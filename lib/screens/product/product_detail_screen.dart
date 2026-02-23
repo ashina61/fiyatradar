@@ -16,7 +16,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/level_system.dart';
-import '../../widgets/user_identity_renderer.dart';
+import '../../widgets/premium_level_badge.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -618,12 +618,9 @@ class _DynamicVipChip extends StatelessWidget {
 
         return InkWell(
           onTap: () => _showUserModal(context, realName, tier, trust, lvl),
-          child: UserIdentityRenderer(
-            userProfile: UserIdentityProfile(
-              userName: realName,
-              level: lvl,
-            ),
-            fontSize: 14,
+          child: PremiumLevelBadge(
+            levelName: tier,
+            displayText: realName,
           ),
         );
       },
