@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../services/firestore_service.dart';
 import '../../models/product_model.dart';
 import '../../utils/formatters.dart';
 import '../../utils/constants.dart';
