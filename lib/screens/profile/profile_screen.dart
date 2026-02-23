@@ -20,7 +20,6 @@ import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
-import '../../widgets/global_premium_badge.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -183,9 +182,9 @@ class _BossHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = EliteLevelEngine.parseLevelLabel(data.levelName);
-    final levelStyle = EliteLevelEngine.getLevelStyle(level);
-    final dynamicLevelColor = levelStyle.gradient.last;
+    final dynamicLevelColor = EliteLevelEngine.getLevelStyle(
+      EliteLevelEngine.parseLevelLabel(data.levelName),
+    ).gradient.last;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
     return Container(
@@ -236,21 +235,44 @@ class _BossHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          GlobalPremiumBadge(
-            levelName: data.levelName,
-            levelColor: dynamicLevelColor,
-            showPulseAnimation: data.levelName.trim().toLowerCase() == 'fiyat lordu' || data.levelName.trim().toLowerCase() == 'radar efsanesi',
-            userName: data.levelName,
-            leadingIcon: Icons.military_tech_rounded,
-            showVerifiedIcon: false,
+          Text(
+            data.displayName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
           ),
           if (data.username.trim().isNotEmpty) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               '@${data.username.trim()}',
-              style: TextStyle(color: Colors.white.withOpacity(0.74), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.65),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
             ),
           ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white.withOpacity(0.26)),
+            ),
+            child: Text(
+              data.levelName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,

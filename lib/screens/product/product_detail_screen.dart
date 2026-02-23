@@ -17,6 +17,7 @@ import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../widgets/global_premium_badge.dart';
+import '../../widgets/contributor_chip.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -425,8 +426,20 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
         color: const Color(0xFF5D4037),
         boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
@@ -558,31 +571,24 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                     builder: (context, ref, _) {
                       final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
                       if (!isAdmin) return const SizedBox.shrink();
-                      return GestureDetector(
-                        onTap: _deletePriceByAdmin,
-                        child: Opacity(
-                          opacity: 0.8,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
-                          ),
-                        ),
+                      return IconButton(
+                        onPressed: _deletePriceByAdmin,
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
                       );
                     },
                   ),
-                  GestureDetector(
-                    onTap: _reportPrice,
-                    child: Opacity(
-                      opacity: 0.5,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
-                      ),
-                    ),
+                  IconButton(
+                    onPressed: _reportPrice,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
                   ),
                 ],
               ),
             ],
+          ),
+        ],
+      ),
           ),
         ],
       ),
@@ -611,7 +617,6 @@ class _DynamicVipChip extends ConsumerWidget {
       );
       final style = EliteLevelEngine.getLevelStyle(result.finalLevel);
       final levelName = style.label;
-      final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
 
       return InkWell(
         onTap: () => _showUserModal(
@@ -622,13 +627,10 @@ class _DynamicVipChip extends ConsumerWidget {
           style.icon,
           style.badgeForeground,
         ),
-        child: GlobalPremiumBadge(
-          levelName: levelName,
-          levelColor: style.gradient.last,
-          showPulseAnimation: shouldPulse,
-          userName: currentUserModel.name,
-          showVerifiedIcon: true,
-          leadingIcon: style.icon,
+        child: ContributorChip(
+          name: currentUserModel.name,
+          verified: true,
+          accentColor: style.gradient.last,
         ),
       );
     }
@@ -641,6 +643,7 @@ class _DynamicVipChip extends ConsumerWidget {
         int totalPoints = 0;
         int trustPercent = 0;
         int totalVotes = 0;
+        bool isVerified = false;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -649,6 +652,7 @@ class _DynamicVipChip extends ConsumerWidget {
           totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
           trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0;
           totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
+          isVerified = data['verified'] == true;
         }
 
         final result = EliteLevelEngine.evaluate(
@@ -662,7 +666,6 @@ class _DynamicVipChip extends ConsumerWidget {
             : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: result.finalLevel);
         final style = EliteLevelEngine.getLevelStyle(resolvedLevel);
         final levelName = style.label;
-        final shouldPulse = levelName == 'Fiyat Lordu' || levelName == 'Radar Efsanesi';
 
         return InkWell(
           onTap: () => _showUserModal(
@@ -673,13 +676,10 @@ class _DynamicVipChip extends ConsumerWidget {
             style.icon,
             style.badgeForeground,
           ),
-          child: GlobalPremiumBadge(
-            levelName: levelName,
-            levelColor: style.gradient.last,
-            showPulseAnimation: shouldPulse,
-            userName: realName,
-            leadingIcon: style.icon,
-            showVerifiedIcon: true,
+          child: ContributorChip(
+            name: realName,
+            verified: isVerified,
+            accentColor: style.gradient.last,
           ),
         );
       },
