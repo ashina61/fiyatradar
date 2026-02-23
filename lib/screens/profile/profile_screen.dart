@@ -155,15 +155,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
-    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
     final backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
+    final computedLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
+    final hasMeaningfulSignals = totalPoints > 0 || trustTotalVotes >= minVotesForTrust;
+    final resolvedLevel = hasMeaningfulSignals
+        ? computedLevel
+        : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: computedLevel);
+    final resolvedLevelName = EliteLevelEngine.getLevelStyle(resolvedLevel).label;
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
       username: (data['username'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
-      levelName: backendLevelName.isNotEmpty ? backendLevelName : EliteLevelEngine.getLevelStyle(finalLevel).label,
+      levelName: resolvedLevelName,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
     );
