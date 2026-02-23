@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../utils/elite_level_engine.dart';
 import '../utils/level_system.dart';
 
 class LevelBadge extends StatefulWidget {
@@ -62,77 +63,23 @@ class _LevelBadgeState extends State<LevelBadge>
   }
 
   ({Color color, Color textColor, IconData icon, bool softShadow, bool pulse, bool float})
-      _styleFor(String levelName) {
-    switch (levelName) {
-      case 'Gözlemci':
-        return (
-          color: const Color(0xFF8C7A6B),
-          textColor: const Color(0xFF8C7A6B),
-          icon: Icons.visibility,
-          softShadow: false,
-          pulse: false,
-          float: false,
-        );
-      case 'Avcı':
-        return (
-          color: const Color(0xFFF4511E),
-          textColor: const Color(0xFFF4511E),
-          icon: Icons.my_location,
-          softShadow: true,
-          pulse: false,
-          float: false,
-        );
-      case 'Tasarrufçu':
-        return (
-          color: const Color(0xFF1E88E5),
-          textColor: const Color(0xFF1E88E5),
-          icon: Icons.savings,
-          softShadow: true,
-          pulse: false,
-          float: false,
-        );
-      case 'Market Ustası':
-        return (
-          color: const Color(0xFFFFB300),
-          textColor: const Color(0xFFFFB300),
-          icon: Icons.storefront,
-          softShadow: true,
-          pulse: false,
-          float: false,
-        );
-      case 'Fiyat Lordu':
-        return (
-          color: const Color(0xFFE040FB),
-          textColor: const Color(0xFFE040FB),
-          icon: Icons.military_tech,
-          softShadow: false,
-          pulse: true,
-          float: false,
-        );
-      case 'Radar Efsanesi':
-        return (
-          color: const Color(0xFF00E5FF),
-          textColor: const Color(0xFF0097A7),
-          icon: Icons.diamond,
-          softShadow: false,
-          pulse: true,
-          float: true,
-        );
-      default:
-        return (
-          color: const Color(0xFF8C7A6B),
-          textColor: const Color(0xFF8C7A6B),
-          icon: Icons.visibility,
-          softShadow: false,
-          pulse: false,
-          float: false,
-        );
-    }
+      _styleFor(UserLevel levelData) {
+    final eliteLevel = EliteLevelEngine.parseLevelLabel(levelData.label);
+    return (
+      color: levelData.badgeBorder,
+      textColor: levelData.textColor,
+      icon: levelData.icon,
+      softShadow: eliteLevel == EliteLevel.avci ||
+          eliteLevel == EliteLevel.tasarrufcu ||
+          eliteLevel == EliteLevel.marketUstasi,
+      pulse: eliteLevel == EliteLevel.fiyatLordu || eliteLevel == EliteLevel.radarEfsanesi,
+      float: eliteLevel == EliteLevel.radarEfsanesi,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final style = _styleFor(widget.level.label);
+    final style = _styleFor(widget.level);
     var labelText = widget.withEmoji ? '${widget.level.emoji} ${widget.level.label}' : widget.level.label;
     if (widget.uppercase) labelText = labelText.toUpperCase();
 

@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../utils/elite_level_engine.dart';
+
 class GlobalPremiumBadge extends StatefulWidget {
   const GlobalPremiumBadge({
     super.key,
     required this.levelName,
-    required this.levelColor,
-    required this.showPulseAnimation,
     this.userName,
     this.showVerifiedIcon = false,
-    this.leadingIcon = Icons.military_tech_rounded,
+    this.leadingIcon,
+    this.levelColor,
+    this.showPulseAnimation,
   });
 
   final String levelName;
-  final Color levelColor;
-  final bool showPulseAnimation;
+  final Color? levelColor;
+  final bool? showPulseAnimation;
   final String? userName;
   final bool showVerifiedIcon;
-  final IconData leadingIcon;
+  final IconData? leadingIcon;
 
   @override
   State<GlobalPremiumBadge> createState() => _GlobalPremiumBadgeState();
@@ -26,14 +28,29 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
+  late EliteLevelStyle _style;
+
+  bool get _resolvedPulse {
+    if (widget.showPulseAnimation != null) return widget.showPulseAnimation!;
+    final normalized = widget.levelName.trim().toLowerCase();
+    return normalized == 'fiyat lordu' || normalized == 'radar efsanesi';
+  }
+
+  Color get _resolvedColor => widget.levelColor ?? _style.badgeBorder;
+
+  IconData get _resolvedIcon => widget.leadingIcon ?? _style.icon;
+
   @override
   void initState() {
     super.initState();
+    _style = EliteLevelEngine.getLevelStyle(
+      EliteLevelEngine.parseLevelLabel(widget.levelName),
+    );
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    if (widget.showPulseAnimation) {
+    if (_resolvedPulse) {
       _controller.repeat(reverse: true);
     }
   }
@@ -41,7 +58,13 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
   @override
   void didUpdateWidget(covariant GlobalPremiumBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.showPulseAnimation) {
+    if (oldWidget.levelName != widget.levelName) {
+      _style = EliteLevelEngine.getLevelStyle(
+        EliteLevelEngine.parseLevelLabel(widget.levelName),
+      );
+    }
+
+    if (_resolvedPulse) {
       if (!_controller.isAnimating) {
         _controller.repeat(reverse: true);
       }
@@ -59,7 +82,7 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.showPulseAnimation) {
+    if (!_resolvedPulse) {
       return _buildBadge(blurRadius: 10, spreadRadius: 0);
     }
 
@@ -82,10 +105,10 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: widget.levelColor, width: 1.5),
+        border: Border.all(color: _resolvedColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: widget.levelColor.withOpacity(0.5),
+            color: _resolvedColor.withOpacity(0.5),
             blurRadius: blurRadius,
             spreadRadius: spreadRadius,
             offset: const Offset(0, 8),
@@ -95,12 +118,12 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(widget.leadingIcon, color: widget.levelColor, size: 21),
+          Icon(_resolvedIcon, color: _resolvedColor, size: 21),
           const SizedBox(width: 8),
           Text(
             (widget.userName ?? widget.levelName).trim(),
             style: TextStyle(
-              color: widget.levelColor,
+              color: _resolvedColor,
               fontSize: 19,
               fontWeight: FontWeight.w900,
             ),
