@@ -20,7 +20,7 @@ import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-import '../../widgets/user_identity_renderer.dart';
+import '../../widgets/premium_level_badge.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
 
@@ -78,7 +78,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     // Premium header
                     _PremiumProfileHeader(
                       data: data,
-                      isAdmin: userModel?.isAdmin == true,
                       onEdit: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const EditProfileScreen()),
@@ -172,12 +171,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 class _PremiumProfileHeader extends StatelessWidget {
   const _PremiumProfileHeader({
     required this.data,
-    required this.isAdmin,
     required this.onEdit,
   });
 
   final _ProfileData data;
-  final bool isAdmin;
   final VoidCallback onEdit;
 
   @override
@@ -250,31 +247,10 @@ class _PremiumProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   // Name
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: UserIdentityRenderer(
-                          userProfile: UserIdentityProfile(
-                            userName: shownUsername,
-                            level: levelFromLabel(data.levelName),
-                          ),
-                          fontSize: 22,
-                        ),
-                      ),
-                      if (isAdmin) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
-                        ),
-                      ],
-                    ],
+                  PremiumLevelBadge(
+                    levelName: data.levelName,
+                    displayText: shownUsername,
+                    showVerifiedIcon: true,
                   ),
                   if (data.username.trim().isNotEmpty && data.displayName != data.username.trim()) ...[
                     const SizedBox(height: 2),
