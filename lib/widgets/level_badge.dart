@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import '../utils/level_style.dart';
 import '../utils/level_system.dart';
 
 class LevelBadge extends StatefulWidget {
@@ -15,7 +14,6 @@ class LevelBadge extends StatefulWidget {
 
   final UserLevel level;
   final bool compact;
-
   final bool withEmoji;
   final bool uppercase;
 
@@ -23,7 +21,8 @@ class LevelBadge extends StatefulWidget {
   State<LevelBadge> createState() => _LevelBadgeState();
 }
 
-class _LevelBadgeState extends State<LevelBadge> with SingleTickerProviderStateMixin {
+class _LevelBadgeState extends State<LevelBadge>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   bool get _isFiyatLordu => widget.level.label == 'Fiyat Lordu';
@@ -34,7 +33,7 @@ class _LevelBadgeState extends State<LevelBadge> with SingleTickerProviderStateM
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _isRadarEfsanesi ? 2500 : 2000),
+      duration: Duration(milliseconds: _isRadarEfsanesi ? 2600 : 2100),
     );
     if (_isFiyatLordu || _isRadarEfsanesi) {
       _controller.repeat(reverse: true);
@@ -45,14 +44,14 @@ class _LevelBadgeState extends State<LevelBadge> with SingleTickerProviderStateM
   void didUpdateWidget(covariant LevelBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.level.label == widget.level.label) return;
-
     if (_isFiyatLordu || _isRadarEfsanesi) {
       _controller
-        ..duration = Duration(milliseconds: _isRadarEfsanesi ? 2500 : 2000)
+        ..duration = Duration(milliseconds: _isRadarEfsanesi ? 2600 : 2100)
         ..repeat(reverse: true);
     } else {
-      _controller.stop();
-      _controller.value = 0;
+      _controller
+        ..stop()
+        ..value = 0;
     }
   }
 
@@ -62,70 +61,128 @@ class _LevelBadgeState extends State<LevelBadge> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  ({Color color, Color textColor, IconData icon, bool softShadow, bool pulse, bool float})
+      _styleFor(String levelName) {
+    switch (levelName) {
+      case 'Gözlemci':
+        return (
+          color: const Color(0xFF8C7A6B),
+          textColor: const Color(0xFF8C7A6B),
+          icon: Icons.visibility,
+          softShadow: false,
+          pulse: false,
+          float: false,
+        );
+      case 'Avcı':
+        return (
+          color: const Color(0xFFF4511E),
+          textColor: const Color(0xFFF4511E),
+          icon: Icons.my_location,
+          softShadow: true,
+          pulse: false,
+          float: false,
+        );
+      case 'Tasarrufçu':
+        return (
+          color: const Color(0xFF1E88E5),
+          textColor: const Color(0xFF1E88E5),
+          icon: Icons.savings,
+          softShadow: true,
+          pulse: false,
+          float: false,
+        );
+      case 'Market Ustası':
+        return (
+          color: const Color(0xFFFFB300),
+          textColor: const Color(0xFFFFB300),
+          icon: Icons.storefront,
+          softShadow: true,
+          pulse: false,
+          float: false,
+        );
+      case 'Fiyat Lordu':
+        return (
+          color: const Color(0xFFE040FB),
+          textColor: const Color(0xFFE040FB),
+          icon: Icons.military_tech,
+          softShadow: false,
+          pulse: true,
+          float: false,
+        );
+      case 'Radar Efsanesi':
+        return (
+          color: const Color(0xFF00E5FF),
+          textColor: const Color(0xFF0097A7),
+          icon: Icons.diamond,
+          softShadow: false,
+          pulse: true,
+          float: true,
+        );
+      default:
+        return (
+          color: const Color(0xFF8C7A6B),
+          textColor: const Color(0xFF8C7A6B),
+          icon: Icons.visibility,
+          softShadow: false,
+          pulse: false,
+          float: false,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final fontSize = widget.compact ? 10.0 : 11.0;
-    final baseColor = widget.level.badgeBorder;
+    final style = _styleFor(widget.level.label);
+    var labelText = widget.withEmoji ? '${widget.level.emoji} ${widget.level.label}' : widget.level.label;
+    if (widget.uppercase) labelText = labelText.toUpperCase();
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final curveValue = Curves.easeInOut.transform(_controller.value);
-        final glowBlur = _isFiyatLordu
-            ? lerpDouble(10, 28, curveValue)!
-            : _isRadarEfsanesi
-                ? lerpDouble(8, 20, curveValue)!
-                : 0.0;
-        final glowOpacity = _isFiyatLordu
-            ? lerpDouble(0.30, 0.75, curveValue)!
-            : _isRadarEfsanesi
-                ? lerpDouble(0.35, 0.85, curveValue)!
-                : 0.0;
-
-        final floatOffset = _isRadarEfsanesi ? lerpDouble(0, -3, curveValue)! : 0.0;
+        final t = Curves.easeInOut.transform(_controller.value);
+        final glowBlur = style.pulse ? lerpDouble(8, 24, t)! : 0.0;
+        final spread = style.pulse ? lerpDouble(0.3, 2.2, t)! : 0.0;
+        final glowOpacity = style.pulse ? lerpDouble(0.24, 0.50, t)! : 0.0;
+        final floatY = style.float ? lerpDouble(0, -3, t)! : 0.0;
 
         return Transform.translate(
-          offset: Offset(0, floatOffset),
+          offset: Offset(0, floatY),
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.compact ? 8 : 12,
-              vertical: widget.compact ? 4 : 7,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(50),
-              color: baseColor.withOpacity(0.1),
-              border: Border.all(color: baseColor.withOpacity(0.8)),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.16),
-                  Colors.white.withOpacity(0.01),
-                ],
-              ),
+              color: style.color.withOpacity(0.12),
+              border: Border.all(color: style.color.withOpacity(0.8), width: 1.5),
               boxShadow: [
-                if (_isFiyatLordu)
+                if (style.softShadow)
                   BoxShadow(
-                    color: baseColor.withOpacity(glowOpacity),
-                    blurRadius: glowBlur,
+                    color: style.color.withOpacity(widget.level.label == 'Market Ustası' ? 0.28 : 0.18),
+                    blurRadius: widget.level.label == 'Market Ustası' ? 15 : 10,
+                    spreadRadius: widget.level.label == 'Market Ustası' ? 0.7 : 0,
                   ),
-                if (_isRadarEfsanesi)
+                if (style.pulse)
                   BoxShadow(
-                    color: const Color(0xFF00E5FF).withOpacity(glowOpacity),
+                    color: style.color.withOpacity(glowOpacity),
                     blurRadius: glowBlur,
+                    spreadRadius: spread,
                   ),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.level.icon, size: widget.compact ? 12 : 15, color: _isRadarEfsanesi ? const Color(0xFF0097A7) : widget.level.textColor),
-                SizedBox(width: widget.compact ? 4 : 6),
-                LevelFancyText(
-                  level: widget.level,
-                  fontSize: fontSize,
-                  withEmoji: widget.withEmoji,
-                  uppercase: widget.uppercase,
+                Icon(style.icon, size: 18, color: style.color),
+                const SizedBox(width: 6),
+                Text(
+                  labelText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: style.textColor,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ],
             ),
@@ -143,6 +200,7 @@ class LevelFancyText extends StatelessWidget {
     required this.withEmoji,
     required this.uppercase,
     this.text,
+    super.key,
   });
 
   final UserLevel level;
@@ -156,28 +214,18 @@ class LevelFancyText extends StatelessWidget {
     var renderedText = text ?? (withEmoji ? '${level.emoji} ${level.label}' : level.label);
     if (uppercase) renderedText = renderedText.toUpperCase();
 
-    final textColor = level.label == 'Radar Efsanesi'
-        ? const Color(0xFF0097A7)
-        : LevelStyle.readableTextColorForGradient(level.gradient);
-    final baseStyle = TextStyle(
-      fontSize: fontSize,
-      fontWeight: FontWeight.w800,
-      letterSpacing: 0.2,
-      color: textColor,
-      shadows: [
-        Shadow(
-          blurRadius: 6,
-          color: level.badgeBorder.withOpacity(0.20),
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
+    final color = level.label == 'Radar Efsanesi' ? const Color(0xFF0097A7) : level.badgeBorder;
 
     return Text(
       renderedText,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: baseStyle,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.2,
+        color: color,
+      ),
     );
   }
 }
