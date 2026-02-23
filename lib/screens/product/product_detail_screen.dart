@@ -15,6 +15,7 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
+import '../../utils/elite_level_engine.dart';
 import '../../utils/level_system.dart';
 import '../../widgets/premium_level_badge.dart';
 
@@ -600,18 +601,37 @@ class _DynamicVipChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
       builder: (context, snapshot) {
         String realName = fallbackName;
         String tier = 'Gözlemci';
         int trust = 50;
 
         if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          realName = data['name'] ?? data['displayName'] ?? fallbackName;
-          tier = (data['level'] ?? data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? 'Gözlemci').toString();
-          trust = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 50;
+          final data = snapshot.data!.data() ?? const <String, dynamic>{};
+          final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
+          final totalPoints = (data['totalPoints'] as num?)?.toInt() ??
+              (data['pointsTotal'] as num?)?.toInt() ??
+              (data['points'] as num?)?.toInt() ??
+              0;
+          final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ??
+                  (data['reliabilityScore'] as num?)?.toInt() ??
+                  (trustMap['trustPercent'] as num?)?.toInt() ??
+                  0)
+              .clamp(0, 100);
+          final trustVotes = (data['trustTotalVotes'] as num?)?.toInt() ??
+              (trustMap['totalVotes'] as num?)?.toInt() ??
+              0;
+          final evaluated = EliteLevelEngine.evaluate(
+            totalPoints: totalPoints,
+            trustPercent: trustPercent,
+            totalVotes: trustVotes,
+          );
+
+          realName = (data['name'] ?? data['displayName'] ?? fallbackName).toString();
+          tier = EliteLevelEngine.getLevelStyle(evaluated.finalLevel).label;
+          trust = trustPercent;
         }
 
         final lvl = levelFromLabel(tier);
