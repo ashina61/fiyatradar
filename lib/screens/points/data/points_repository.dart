@@ -92,7 +92,6 @@ class PointsRepository {
       final totalPoints = profile.totalPoints;
       final pointsThisWeek = profile.weeklyPoints;
       final streakDays = profile.streakDays;
-      final levelName = profile.level;
       final trustScore = ((profile.trustScore as num?)?.toInt() ?? 0).clamp(0, 100);
       final trustTotalVotes = (profile.trustTotalVotes as num?)?.toInt() ?? 0;
       final levelEval = EliteLevelEngine.evaluate(
@@ -108,7 +107,7 @@ class PointsRepository {
 
       return PointsSummaryData(
         totalPoints: totalPoints,
-        levelName: levelName,
+        levelName: EliteLevelEngine.getLevelStyle(levelEval.finalLevel).label,
         pointsThisWeek: pointsThisWeek,
         streakDays: streakDays,
         nextLevelTarget: nextLevelTarget,
