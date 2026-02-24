@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import '../utils/elite_level_engine.dart';
 
 class PremiumLevelBadge extends StatefulWidget {
   const PremiumLevelBadge({
@@ -22,18 +21,51 @@ class PremiumLevelBadge extends StatefulWidget {
 class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
   bool _animateForward = true;
 
-  EliteLevel get _eliteLevel => EliteLevelEngine.parseLevelLabel(widget.levelName);
-
-  bool get _hasPulseAnimation =>
-      _eliteLevel == EliteLevel.fiyatLordu || _eliteLevel == EliteLevel.radarEfsanesi;
-
   ({Color levelColor, Color contentColor, IconData icon}) _resolveStyle() {
-    final style = EliteLevelEngine.getLevelStyle(_eliteLevel);
-    return (
-      levelColor: style.badgeBorder,
-      contentColor: style.textColor,
-      icon: style.icon,
-    );
+    switch (widget.levelName.trim()) {
+      case 'Avcı':
+        return (
+          levelColor: const Color(0xFFF4511E),
+          contentColor: const Color(0xFFF4511E),
+          icon: Icons.gps_fixed_rounded,
+        );
+      case 'Tasarrufçu':
+        return (
+          levelColor: const Color(0xFF1E88E5),
+          contentColor: const Color(0xFF1E88E5),
+          icon: Icons.savings_rounded,
+        );
+      case 'Market Ustası':
+        return (
+          levelColor: const Color(0xFFFFB300),
+          contentColor: const Color(0xFFFFB300),
+          icon: Icons.storefront_rounded,
+        );
+      case 'Fiyat Lordu':
+        return (
+          levelColor: const Color(0xFFE040FB),
+          contentColor: const Color(0xFFE040FB),
+          icon: Icons.workspace_premium_rounded,
+        );
+      case 'Radar Efsanesi':
+        return (
+          levelColor: const Color(0xFF00E5FF),
+          contentColor: const Color(0xFF0097A7),
+          icon: Icons.diamond_rounded,
+        );
+      case 'Gözlemci':
+      default:
+        return (
+          levelColor: const Color(0xFF8C7A6B),
+          contentColor: const Color(0xFF8C7A6B),
+          icon: Icons.visibility_rounded,
+        );
+    }
+  }
+
+  bool get _hasPulseAnimation {
+    final level = widget.levelName.trim();
+    return level == 'Fiyat Lordu' || level == 'Radar Efsanesi';
   }
 
   @override
@@ -41,7 +73,7 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
     final style = _resolveStyle();
 
     if (!_hasPulseAnimation) {
-      return _badge(
+      return _buildBadge(
         levelColor: style.levelColor,
         contentColor: style.contentColor,
         icon: style.icon,
@@ -50,18 +82,18 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: _animateForward ? 0.0 : 1.0, end: _animateForward ? 1.0 : 0.0),
-      duration: Duration(milliseconds: widget.levelName == 'Radar Efsanesi' ? 2600 : 2100),
+      duration: Duration(milliseconds: widget.levelName.trim() == 'Radar Efsanesi' ? 2600 : 2100),
+      curve: Curves.easeInOut,
       onEnd: () {
         if (mounted) {
           setState(() => _animateForward = !_animateForward);
         }
       },
-      curve: Curves.easeInOut,
-      builder: (context, t, _) {
+      builder: (context, t, child) {
         final blur = 8 + ((24 - 8) * t);
         final spread = 0.3 + ((2.2 - 0.3) * t);
 
-        return _badge(
+        return _buildBadge(
           levelColor: style.levelColor,
           contentColor: style.contentColor,
           icon: style.icon,
@@ -77,12 +109,16 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
     );
   }
 
-  Widget _badge({
+  Widget _buildBadge({
     required Color levelColor,
     required Color contentColor,
     required IconData icon,
     List<BoxShadow>? boxShadow,
   }) {
+    final resolvedText = (widget.displayText?.trim().isNotEmpty == true)
+        ? widget.displayText!.trim()
+        : widget.levelName.trim();
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(50),
       child: BackdropFilter(
@@ -101,9 +137,7 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
               Icon(icon, size: 18, color: contentColor),
               const SizedBox(width: 6),
               Text(
-                widget.displayText?.trim().isNotEmpty == true
-                    ? widget.displayText!.trim()
-                    : widget.levelName,
+                resolvedText,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,

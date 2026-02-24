@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/premium_level_badge.dart';
+
 class PointsScreen extends StatefulWidget {
   const PointsScreen({super.key});
 
@@ -164,23 +166,7 @@ class _PointsScreenState extends State<PointsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: _borderLight, width: 1.5),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.visibility_rounded, size: 18, color: Color(0xFF5A4A42)),
-                    SizedBox(width: 6),
-                    Text(
-                      'Gözlemci',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF5A4A42)),
-                    ),
-                  ],
-                ),
-              ),
+              const PremiumLevelBadge(levelName: 'Gözlemci'),
               const Spacer(),
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.end,

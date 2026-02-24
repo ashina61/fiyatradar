@@ -19,6 +19,7 @@ import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../../widgets/premium_level_badge.dart';
 import 'edit_profile_screen.dart';
 import 'update_history_screen.dart';
 
@@ -187,7 +188,6 @@ class _BossHeroCard extends StatelessWidget {
       EliteLevelEngine.parseLevelLabel(data.levelName),
     );
     final currentLevelColor = levelColorMap[data.levelName] ?? levelStyle.borderColor;
-    final badgeTitle = levelStyle.label;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
     return Container(
@@ -238,28 +238,10 @@ class _BossHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          IntrinsicWidth(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: currentLevelColor.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.85)),
-              ),
-              child: Text(
-                data.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-            ),
+          PremiumLevelBadge(
+            levelName: data.levelName,
+            displayText: data.displayName,
+            showVerifiedIcon: true,
           ),
           if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -272,23 +254,6 @@ class _BossHeroCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: currentLevelColor.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: currentLevelColor.withOpacity(0.85)),
-            ),
-            child: Text(
-              badgeTitle,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,
