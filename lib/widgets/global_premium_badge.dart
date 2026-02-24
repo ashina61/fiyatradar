@@ -27,6 +27,7 @@ class GlobalPremiumBadge extends StatefulWidget {
 class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final Animation<double> _animation;
 
   late EliteLevelStyle _style;
 
@@ -48,7 +49,10 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
     );
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(seconds: 2),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
     if (_resolvedPulse) {
       _controller.repeat(reverse: true);
@@ -82,58 +86,59 @@ class _GlobalPremiumBadgeState extends State<GlobalPremiumBadge>
 
   @override
   Widget build(BuildContext context) {
-    if (!_resolvedPulse) {
-      return _buildBadge(blurRadius: 10, spreadRadius: 0);
-    }
+    final levelInfo = _style;
+    final hasPulseAnimation = _resolvedPulse;
 
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _animation,
       builder: (context, child) {
-        final blurRadius = 10 + (15 * _controller.value);
-        final spreadRadius = 4 * _controller.value;
-        return _buildBadge(blurRadius: blurRadius, spreadRadius: spreadRadius);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: _resolvedColor, width: 1.5),
+            boxShadow: hasPulseAnimation
+                ? [
+                    BoxShadow(
+                      color: levelInfo.badgeBorder.withOpacity(
+                        0.3 + (_animation.value * 0.4),
+                      ),
+                      blurRadius: 10 + (_animation.value * 18),
+                      spreadRadius: 0 + (_animation.value * 4),
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: levelInfo.badgeBorder.withOpacity(0.3),
+                      blurRadius: 10,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_resolvedIcon, color: _resolvedColor, size: 21),
+              const SizedBox(width: 8),
+              Text(
+                (widget.userName ?? widget.levelName).trim(),
+                style: TextStyle(
+                  color: _resolvedColor,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (widget.showVerifiedIcon) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.verified, color: Color(0xFF1DA1F2), size: 21),
+              ],
+            ],
+          ),
+        );
       },
-    );
-  }
-
-  Widget _buildBadge({
-    required double blurRadius,
-    required double spreadRadius,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: _resolvedColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: _resolvedColor.withOpacity(0.5),
-            blurRadius: blurRadius,
-            spreadRadius: spreadRadius,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_resolvedIcon, color: _resolvedColor, size: 21),
-          const SizedBox(width: 8),
-          Text(
-            (widget.userName ?? widget.levelName).trim(),
-            style: TextStyle(
-              color: _resolvedColor,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          if (widget.showVerifiedIcon) ...[
-            const SizedBox(width: 8),
-            const Icon(Icons.verified, color: Color(0xFF1DA1F2), size: 21),
-          ],
-        ],
-      ),
     );
   }
 }
