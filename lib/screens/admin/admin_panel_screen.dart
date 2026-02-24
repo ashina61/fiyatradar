@@ -43,6 +43,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isMarketImportRunning = false;
+  bool _isProductImportRunning = false;
 
   Future<void> _importMarketsFromAsset() async {
     if (_isMarketImportRunning) return;
@@ -132,6 +133,82 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     }
   }
 
+  Future<void> _importProductsFromAsset() async {
+    if (_isProductImportRunning) return;
+
+    setState(() => _isProductImportRunning = true);
+
+    try {
+      final rawJson = await rootBundle.loadString('assets/fiyatradar_urunler.json');
+      final decoded = json.decode(rawJson);
+
+      if (decoded is! List) {
+        throw const FormatException('JSON formati List olmali.');
+      }
+
+      final products = decoded.cast<Map<String, dynamic>>();
+      final firestore = FirebaseFirestore.instance;
+      final productsCollection = firestore.collection('products');
+      var processedCount = 0;
+
+      for (var i = 0; i < products.length; i += 500) {
+        final batch = firestore.batch();
+        final chunk = products.skip(i).take(500);
+
+        for (final product in chunk) {
+          final barcode = (product['barcode'] ?? '').toString().trim();
+          if (barcode.isEmpty) continue;
+
+          final now = FieldValue.serverTimestamp();
+          final docRef = productsCollection.doc(barcode);
+
+          batch.set(docRef, {
+            'name': (product['name'] ?? '').toString().trim(),
+            'brand': (product['brand_name'] ?? '').toString().trim(),
+            'imageUrl': (product['image_url'] ?? '').toString().trim(),
+            'category': (product['category'] ?? '').toString().trim(),
+            'status': 'active',
+            'updatedAt': now,
+            'createdAt': now,
+          }, SetOptions(merge: true));
+          processedCount++;
+        }
+
+        await batch.commit();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text('$processedCount adet urun islendi...')),
+            );
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Urun import tamamlandi. Toplam: ${products.length}, islenen: $processedCount',
+            ),
+          ),
+        );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Urun verileri yuklenemedi: $e')),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _isProductImportRunning = false);
+      }
+    }
+  }
+
   double? _toDouble(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
@@ -186,6 +263,24 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         title: const Text('Admin Paneli'),
         elevation: 0,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: _isProductImportRunning ? null : _importProductsFromAsset,
+              icon: _isProductImportRunning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.inventory_2_outlined),
+              label: Text(
+                _isProductImportRunning
+                    ? 'Urunler Yukleniyor...'
+                    : 'Urun Veritabanini Guncelle',
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
