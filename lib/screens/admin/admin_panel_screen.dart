@@ -58,29 +58,55 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
       }
 
       final markets = decoded.cast<Map<String, dynamic>>();
-      final collection = FirebaseFirestore.instance.collection('marketler');
+      final firestore = FirebaseFirestore.instance;
+      final storesCollection = firestore.collection('stores');
+      final brandsSnapshot = await firestore.collection('brands').get();
+      final brandNameToId = <String, String>{
+        for (final doc in brandsSnapshot.docs)
+          (doc.data()['name'] ?? '').toString().trim().toLowerCase(): doc.id,
+      };
+
+      var insertedCount = 0;
 
       for (var i = 0; i < markets.length; i += 500) {
-        final batch = FirebaseFirestore.instance.batch();
+        final batch = firestore.batch();
         final chunk = markets.skip(i).take(500);
 
         for (final market in chunk) {
-          final ad = (market['ad'] ?? '').toString().trim();
-          final marka = (market['marka'] ?? '').toString().trim();
-          final enlem = (market['enlem'] as num?)?.toDouble();
-          final boylam = (market['boylam'] as num?)?.toDouble();
+          final ad = (market['ad'] ?? market['name'] ?? '').toString().trim();
+          final marka = (market['marka'] ?? market['brand'] ?? market['brand_name'] ?? '')
+              .toString()
+              .trim();
+          final enlem = _toDouble(market['enlem'] ?? market['latitude']);
+          final boylam = _toDouble(market['boylam'] ?? market['longitude']);
 
           if (ad.isEmpty || marka.isEmpty || enlem == null || boylam == null) {
             continue;
           }
 
-          final docRef = collection.doc();
+          final normalizedBrandName = marka.toLowerCase();
+          final brandId = brandNameToId[normalizedBrandName];
+          final now = FieldValue.serverTimestamp();
+          final docRef = storesCollection.doc();
           batch.set(docRef, {
-            'ad': ad,
-            'marka': marka,
-            'enlem': enlem,
-            'boylam': boylam,
+            'name': ad,
+            'displayName': ad,
+            'brand_name': marka,
+            'brandId': brandId,
+            'latitude': enlem,
+            'longitude': boylam,
+            'lat': enlem,
+            'lng': boylam,
+            'status': 'active',
+            'type': 'local',
+            'isOnline': false,
+            'city': '',
+            'district': '',
+            'neighborhood': '',
+            'createdAt': now,
+            'updatedAt': now,
           });
+          insertedCount++;
         }
 
         await batch.commit();
@@ -88,7 +114,11 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${markets.length} market yukleme islemi tamamlandi.')),
+        SnackBar(
+          content: Text(
+            'Stores import tamamlandi. Toplam: ${markets.length}, eklenen: $insertedCount',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -100,6 +130,15 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         setState(() => _isMarketImportRunning = false);
       }
     }
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '.').trim());
+    }
+    return null;
   }
 
   @override
