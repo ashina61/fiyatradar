@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 class PremiumLevelBadge extends StatefulWidget {
@@ -69,61 +67,71 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         ? widget.displayText!.trim()
         : info.levelName;
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        final double pulse = info.hasPulseAnimation ? _animation.value : 0.0;
-
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(50),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: info.levelColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(50),
-                border: Border.all(
-                  color: info.levelColor.withOpacity(0.8),
-                  width: 1.5,
-                ),
-                boxShadow: info.hasPulseAnimation
-                    ? [
-                        BoxShadow(
-                          color: info.levelColor.withOpacity(0.2 + (pulse * 0.4)),
-                          blurRadius: 8.0 + (pulse * 15.0),
-                          spreadRadius: 1.0 + (pulse * 4.0),
-                        ),
-                      ]
-                    : [],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(info.icon, color: info.contentColor, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    resolvedText,
-                    style: TextStyle(
-                      color: info.contentColor,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (widget.showVerifiedIcon) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.verified_rounded,
-                      size: 14,
-                      color: info.contentColor,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+    // 1. Rozetin ortak içeriği
+    final Widget badgeLabel = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(info.icon, color: info.contentColor, size: 20),
+        const SizedBox(width: 6),
+        Text(
+          resolvedText,
+          style: TextStyle(
+            color: info.contentColor,
+            fontWeight: FontWeight.w900,
+            fontSize: 14,
           ),
-        );
-      },
+        ),
+        if (widget.showVerifiedIcon) ...[
+          const SizedBox(width: 6),
+          Icon(
+            Icons.verified_rounded,
+            size: 14,
+            color: info.contentColor,
+          ),
+        ],
+      ],
+    );
+
+    // 2. Ortak kenarlık ve arka plan stili
+    final BoxDecoration baseDecoration = BoxDecoration(
+      color: info.levelColor.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(50),
+      border: Border.all(
+        color: info.levelColor.withOpacity(0.8),
+        width: 1.5,
+      ),
+    );
+
+    // 3. Duruma göre render
+    if (info.hasPulseAnimation) {
+      // Lord / Efsane gibi animasyonlu seviyeler
+      return AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          final double pulse = _animation.value;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: baseDecoration.copyWith(
+              boxShadow: [
+                BoxShadow(
+                  color: info.levelColor.withOpacity(0.2 + (pulse * 0.4)),
+                  blurRadius: 8.0 + (pulse * 15.0),
+                  spreadRadius: 1.0 + (pulse * 4.0),
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: badgeLabel,
+      );
+    }
+
+    // Gözlemci / Avcı gibi statik seviyeler
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: baseDecoration,
+      child: badgeLabel,
     );
   }
 
