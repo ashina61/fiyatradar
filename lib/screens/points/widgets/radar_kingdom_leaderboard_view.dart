@@ -304,6 +304,8 @@ class _PremiumBadgeState extends State<PremiumBadge> with SingleTickerProviderSt
 class _ScopeButton extends StatelessWidget {
   const _ScopeButton({required this.text, required this.icon, required this.selected, required this.onTap});
 
+  static const _textMuted = Color(0xFF8C7A6B);
+
   final String text;
   final IconData icon;
   final bool selected;
