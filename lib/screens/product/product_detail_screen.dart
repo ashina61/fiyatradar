@@ -16,8 +16,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/elite_level_engine.dart';
-import '../../widgets/global_premium_badge.dart';
-import '../../widgets/contributor_chip.dart';
+import '../../widgets/premium_level_badge.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -614,10 +613,10 @@ class _DynamicVipChip extends ConsumerWidget {
           style.icon,
           style.badgeForeground,
         ),
-        child: ContributorChip(
-          name: currentUserModel.name,
-          verified: true,
-          accentColor: style.gradient.last,
+        child: PremiumLevelBadge(
+          levelName: levelName,
+          displayText: currentUserModel.name,
+          showVerifiedIcon: true,
         ),
       );
     }
@@ -663,10 +662,10 @@ class _DynamicVipChip extends ConsumerWidget {
             style.icon,
             style.badgeForeground,
           ),
-          child: ContributorChip(
-            name: realName,
-            verified: isVerified,
-            accentColor: style.gradient.last,
+          child: PremiumLevelBadge(
+            levelName: levelName,
+            displayText: realName,
+            showVerifiedIcon: isVerified,
           ),
         );
       },
