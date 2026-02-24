@@ -79,24 +79,6 @@ class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeader
                           ],
                         ),
                       ),
-                      SizedBox(
-                        height: 52,
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(25, 0, 25, 10),
-                          scrollDirection: Axis.horizontal,
-                          children: const [
-                            PremiumBadge(levelName: 'Gözlemci', icon: Icons.visibility_rounded, backgroundColor: Color(0xFFEBE5DF), foregroundColor: Color(0xFF8C7A6B), borderColor: Color(0xFFD1C4B9)),
-                            SizedBox(width: 12),
-                            PremiumBadge(levelName: 'Avcı', icon: Icons.my_location_rounded, backgroundColor: Color(0xFFFBE9E2), foregroundColor: Color(0xFFF4511E), borderColor: Color(0xFFF8BBA7)),
-                            SizedBox(width: 12),
-                            PremiumBadge(levelName: 'Tasarrufçu', icon: Icons.savings_rounded, backgroundColor: Color(0xFFE3F2FD), foregroundColor: Color(0xFF1E88E5), borderColor: Color(0xFF90CAF9)),
-                            SizedBox(width: 12),
-                            PremiumBadge(levelName: 'Fiyat Lordu', icon: Icons.military_tech_rounded, backgroundColor: Color(0xFFE040FB), foregroundColor: Color(0xFFE040FB), borderColor: Color(0xCCE040FB), hasPulseAnimation: true),
-                            SizedBox(width: 12),
-                            PremiumBadge(levelName: 'Radar Efsanesi', icon: Icons.auto_awesome_rounded, backgroundColor: Color(0xFFFFC107), foregroundColor: Color(0xFFFFA000), borderColor: Color(0xCCFFB300), hasPulseAnimation: true),
-                          ],
-                        ),
-                      ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(25, 0, 25, 20),
                         child: Container(
@@ -215,88 +197,6 @@ class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeader
           ),
         );
       },
-    );
-  }
-}
-
-class PremiumBadge extends StatefulWidget {
-  const PremiumBadge({
-    super.key,
-    required this.levelName,
-    required this.icon,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    required this.borderColor,
-    this.hasPulseAnimation = false,
-  });
-
-  final String levelName;
-  final IconData icon;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final Color borderColor;
-  final bool hasPulseAnimation;
-
-  @override
-  State<PremiumBadge> createState() => _PremiumBadgeState();
-}
-
-class _PremiumBadgeState extends State<PremiumBadge> with SingleTickerProviderStateMixin {
-  AnimationController? _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.hasPulseAnimation) {
-      _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final badgeChild = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(widget.icon, size: 20, color: widget.foregroundColor),
-        const SizedBox(width: 8),
-        Text(widget.levelName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: widget.foregroundColor)),
-      ],
-    );
-
-    if (widget.hasPulseAnimation && _controller != null) {
-      return AnimatedBuilder(
-        animation: _controller!,
-        builder: (context, child) {
-          final t = Curves.easeInOut.transform(_controller!.value);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: widget.backgroundColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-              border: Border.all(color: widget.borderColor, width: 1.5),
-              boxShadow: [BoxShadow(color: widget.foregroundColor.withOpacity(0.25 + (0.5 * t)), blurRadius: 10 + (15 * t))],
-            ),
-            child: child,
-          );
-        },
-        child: badgeChild,
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: widget.backgroundColor,
-        borderRadius: BorderRadius.circular(50),
-        border: Border.all(color: widget.borderColor, width: 1.5),
-      ),
-      child: badgeChild,
     );
   }
 }
