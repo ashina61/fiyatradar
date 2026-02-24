@@ -18,140 +18,178 @@ class PremiumLevelBadge extends StatefulWidget {
   State<PremiumLevelBadge> createState() => _PremiumLevelBadgeState();
 }
 
-class _PremiumLevelBadgeState extends State<PremiumLevelBadge> {
-  bool _animateForward = true;
+class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
 
-  ({Color levelColor, Color contentColor, IconData icon}) _resolveStyle() {
-    switch (widget.levelName.trim()) {
-      case 'Avcı':
-        return (
-          levelColor: const Color(0xFFF4511E),
-          contentColor: const Color(0xFFF4511E),
-          icon: Icons.gps_fixed_rounded,
-        );
-      case 'Tasarrufçu':
-        return (
-          levelColor: const Color(0xFF1E88E5),
-          contentColor: const Color(0xFF1E88E5),
-          icon: Icons.savings_rounded,
-        );
-      case 'Market Ustası':
-        return (
-          levelColor: const Color(0xFFFFB300),
-          contentColor: const Color(0xFFFFB300),
-          icon: Icons.storefront_rounded,
-        );
-      case 'Fiyat Lordu':
-        return (
-          levelColor: const Color(0xFFE040FB),
-          contentColor: const Color(0xFFE040FB),
-          icon: Icons.workspace_premium_rounded,
-        );
-      case 'Radar Efsanesi':
-        return (
-          levelColor: const Color(0xFF00E5FF),
-          contentColor: const Color(0xFF0097A7),
-          icon: Icons.diamond_rounded,
-        );
-      case 'Gözlemci':
-      default:
-        return (
-          levelColor: const Color(0xFF8C7A6B),
-          contentColor: const Color(0xFF8C7A6B),
-          icon: Icons.visibility_rounded,
-        );
+  _PremiumBadgeLevelInfo get levelInfo => _resolveLevelInfo();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (levelInfo.hasPulseAnimation) {
+      _controller.repeat(reverse: true);
     }
   }
 
-  bool get _hasPulseAnimation {
-    final level = widget.levelName.trim();
-    return level == 'Fiyat Lordu' || level == 'Radar Efsanesi';
+  @override
+  void didUpdateWidget(covariant PremiumLevelBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final shouldAnimate = levelInfo.hasPulseAnimation;
+    if (shouldAnimate) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final style = _resolveStyle();
+    final info = levelInfo;
+    final resolvedText = (widget.displayText?.trim().isNotEmpty == true)
+        ? widget.displayText!.trim()
+        : info.levelName;
 
-    if (!_hasPulseAnimation) {
-      return _buildBadge(
-        levelColor: style.levelColor,
-        contentColor: style.contentColor,
-        icon: style.icon,
-      );
-    }
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final double pulse = info.hasPulseAnimation ? _animation.value : 0.0;
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: _animateForward ? 0.0 : 1.0, end: _animateForward ? 1.0 : 0.0),
-      duration: Duration(milliseconds: widget.levelName.trim() == 'Radar Efsanesi' ? 2600 : 2100),
-      curve: Curves.easeInOut,
-      onEnd: () {
-        if (mounted) {
-          setState(() => _animateForward = !_animateForward);
-        }
-      },
-      builder: (context, t, child) {
-        final blur = 8 + ((24 - 8) * t);
-        final spread = 0.3 + ((2.2 - 0.3) * t);
-
-        return _buildBadge(
-          levelColor: style.levelColor,
-          contentColor: style.contentColor,
-          icon: style.icon,
-          boxShadow: [
-            BoxShadow(
-              color: style.levelColor.withOpacity(0.24 + ((0.50 - 0.24) * t)),
-              blurRadius: blur,
-              spreadRadius: spread,
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(50),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: info.levelColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(
+                  color: info.levelColor.withOpacity(0.8),
+                  width: 1.5,
+                ),
+                boxShadow: info.hasPulseAnimation
+                    ? [
+                        BoxShadow(
+                          color: info.levelColor.withOpacity(0.2 + (pulse * 0.4)),
+                          blurRadius: 8.0 + (pulse * 15.0),
+                          spreadRadius: 1.0 + (pulse * 4.0),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(info.icon, color: info.contentColor, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    resolvedText,
+                    style: TextStyle(
+                      color: info.contentColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (widget.showVerifiedIcon) ...[
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.verified_rounded,
+                      size: 14,
+                      color: info.contentColor,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildBadge({
-    required Color levelColor,
-    required Color contentColor,
-    required IconData icon,
-    List<BoxShadow>? boxShadow,
-  }) {
-    final resolvedText = (widget.displayText?.trim().isNotEmpty == true)
-        ? widget.displayText!.trim()
-        : widget.levelName.trim();
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(50),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(50),
-            color: Colors.white.withOpacity(0.85),
-            border: Border.all(color: levelColor, width: 1.5),
-            boxShadow: boxShadow,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: contentColor),
-              const SizedBox(width: 6),
-              Text(
-                resolvedText,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: contentColor,
-                ),
-              ),
-              if (widget.showVerifiedIcon) ...[
-                const SizedBox(width: 6),
-                Icon(Icons.verified_rounded, size: 14, color: contentColor),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
+  _PremiumBadgeLevelInfo _resolveLevelInfo() {
+    switch (widget.levelName.trim()) {
+      case 'Avcı':
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Avcı',
+          levelColor: Color(0xFFF4511E),
+          contentColor: Color(0xFFF4511E),
+          icon: Icons.gps_fixed_rounded,
+        );
+      case 'Tasarrufçu':
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Tasarrufçu',
+          levelColor: Color(0xFF1E88E5),
+          contentColor: Color(0xFF1E88E5),
+          icon: Icons.savings_rounded,
+        );
+      case 'Market Ustası':
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Market Ustası',
+          levelColor: Color(0xFFFFB300),
+          contentColor: Color(0xFFFFB300),
+          icon: Icons.storefront_rounded,
+        );
+      case 'Fiyat Lordu':
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Fiyat Lordu',
+          levelColor: Color(0xFFE040FB),
+          contentColor: Color(0xFFE040FB),
+          icon: Icons.workspace_premium_rounded,
+          hasPulseAnimation: true,
+        );
+      case 'Radar Efsanesi':
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Radar Efsanesi',
+          levelColor: Color(0xFF00E5FF),
+          contentColor: Color(0xFF0097A7),
+          icon: Icons.diamond_rounded,
+          hasPulseAnimation: true,
+        );
+      case 'Gözlemci':
+      default:
+        return const _PremiumBadgeLevelInfo(
+          levelName: 'Gözlemci',
+          levelColor: Color(0xFF8C7A6B),
+          contentColor: Color(0xFF8C7A6B),
+          icon: Icons.visibility_rounded,
+        );
+    }
   }
+}
+
+class _PremiumBadgeLevelInfo {
+  const _PremiumBadgeLevelInfo({
+    required this.levelName,
+    required this.levelColor,
+    required this.contentColor,
+    required this.icon,
+    this.hasPulseAnimation = false,
+  });
+
+  final String levelName;
+  final Color levelColor;
+  final Color contentColor;
+  final IconData icon;
+  final bool hasPulseAnimation;
 }
