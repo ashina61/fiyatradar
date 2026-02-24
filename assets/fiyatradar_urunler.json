@@ -1,0 +1,722 @@
+[
+    {
+        "barcode": "5449000054227",
+        "name": "Coca Cola Original Taste",
+        "brand_name": "Coca-Cola",
+        "image_url": "https://images.openfoodfacts.org/images/products/544/900/005/4227/front_en.406.400.jpg",
+        "category": "Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "3017620422003",
+        "name": "Nutella",
+        "brand_name": "Ferrero,Nutella",
+        "image_url": "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_fr.791.400.jpg",
+        "category": "Other",
+        "status": "active"
+    },
+    {
+        "barcode": "8076809513753",
+        "name": "Pesto alla Genovese",
+        "brand_name": "Barilla",
+        "image_url": "https://images.openfoodfacts.org/images/products/807/680/951/3753/front_en.347.400.jpg",
+        "category": "Condiments",
+        "status": "active"
+    },
+    {
+        "barcode": "5449000000996",
+        "name": "Coke Original Taste",
+        "brand_name": "Coca-Cola",
+        "image_url": "https://images.openfoodfacts.org/images/products/544/900/000/0996/front_en.1002.400.jpg",
+        "category": "Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "80176800",
+        "name": "Nutella",
+        "brand_name": "nutella,Ferrero",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/008/017/6800/front_de.305.400.jpg",
+        "category": "Botanas",
+        "status": "active"
+    },
+    {
+        "barcode": "59032823",
+        "name": "nutella",
+        "brand_name": "Ferrero,Nutellagg",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/005/903/2823/front_fr.262.400.jpg",
+        "category": "Breakfasts",
+        "status": "active"
+    },
+    {
+        "barcode": "4014400400007",
+        "name": "Toffifee 15er",
+        "brand_name": "Süßigkeiten, Storck",
+        "image_url": "https://images.openfoodfacts.org/images/products/401/440/040/0007/front_tr.435.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8000500082379",
+        "name": "Nutella",
+        "brand_name": "Ferrero, Nutella",
+        "image_url": "https://images.openfoodfacts.org/images/products/800/050/008/2379/front_en.161.400.jpg",
+        "category": "Breakfasts",
+        "status": "active"
+    },
+    {
+        "barcode": "5900951311505",
+        "name": "Snickers",
+        "brand_name": "Snickers",
+        "image_url": "https://images.openfoodfacts.org/images/products/590/095/131/1505/front_en.198.400.jpg",
+        "category": "Botanas",
+        "status": "active"
+    },
+    {
+        "barcode": "4008400401621",
+        "name": "Nutella",
+        "brand_name": "Ferrero,Nutella",
+        "image_url": "https://images.openfoodfacts.org/images/products/400/840/040/1621/front_de.239.400.jpg",
+        "category": "Frühstücke",
+        "status": "active"
+    },
+    {
+        "barcode": "4008400404127",
+        "name": "Nutella",
+        "brand_name": "Ferrero,LIDL FERRERO Nutella Nuss-Nugat-Creme",
+        "image_url": "https://images.openfoodfacts.org/images/products/400/840/040/4127/front_de.289.400.jpg",
+        "category": "Frühstücke",
+        "status": "active"
+    },
+    {
+        "barcode": "80135876",
+        "name": "Nutella 400g",
+        "brand_name": "Nutella,Ferrero",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/008/013/5876/front_en.148.400.jpg",
+        "category": "Lanches comida",
+        "status": "active"
+    },
+    {
+        "barcode": "5900951311321",
+        "name": "Mars",
+        "brand_name": "Mars",
+        "image_url": "https://images.openfoodfacts.org/images/products/590/095/131/1321/front_tr.22.400.jpg",
+        "category": "Barres chocolatées au caramel",
+        "status": "active"
+    },
+    {
+        "barcode": "40058153",
+        "name": "Nivea Creeme",
+        "brand_name": "Nivea",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/004/005/8153/front_en.4.400.jpg",
+        "category": "Body care",
+        "status": "active"
+    },
+    {
+        "barcode": "7300400118101",
+        "name": "Original",
+        "brand_name": "wasa",
+        "image_url": "https://images.openfoodfacts.org/images/products/730/040/011/8101/front_it.153.400.jpg",
+        "category": "Plant-based foods and beverages",
+        "status": "active"
+    },
+    {
+        "barcode": "5000159558280",
+        "name": "Bounty",
+        "brand_name": "Bounty",
+        "image_url": "https://images.openfoodfacts.org/images/products/500/015/955/8280/front_en.28.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "4008400290126",
+        "name": "Kinder Pinguí",
+        "brand_name": "Kinder",
+        "image_url": "https://images.openfoodfacts.org/images/products/400/840/029/0126/front_en.101.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8696425018472",
+        "name": "Chicken shawarma",
+        "brand_name": "Lezita",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/642/501/8472/front_tr.6.400.jpg",
+        "category": "Shawarma",
+        "status": "active"
+    },
+    {
+        "barcode": "8691381000486",
+        "name": "BEYPAZARI SADE SODA",
+        "brand_name": "Beypazarı",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/138/100/0486/front_tr.28.400.jpg",
+        "category": "Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077085405",
+        "name": "Xl çikolatalı ince gofret",
+        "brand_name": "Bilinmeyen Marka",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/708/5405/front_ru.8.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "90454752",
+        "name": "Redbull",
+        "brand_name": "Redbull",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/009/045/4752/front_en.3.400.jpg",
+        "category": "energy-drinks",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077000743",
+        "name": "Penne rigate",
+        "brand_name": "Cardella",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/700/0743/front_en.4.400.jpg",
+        "category": "Plant-based foods and beverages",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504017301",
+        "name": "Çubuk kareler 40 g",
+        "brand_name": "Ulker, Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/401/7301/front_tr.44.400.jpg",
+        "category": "Atıştırmalıklar",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504143727",
+        "name": "Dubai Çikolatası",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/414/3727/front_tr.3.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "5449000012203",
+        "name": "Sprite",
+        "brand_name": "Sprite",
+        "image_url": "https://images.openfoodfacts.org/images/products/544/900/001/2203/front_tr.113.400.jpg",
+        "category": "Boissons",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526069500",
+        "name": "Lifalif",
+        "brand_name": "Eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/606/9500/front_tr.6.400.jpg",
+        "category": "tr:Yulaf Ezmesi",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504135913",
+        "name": "ülker çikolata gofret",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/413/5913/front_tr.63.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504011521",
+        "name": "Altınbaşak tahıl cipsi",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/401/1521/front_tr.20.400.jpg",
+        "category": "Wheat crackers",
+        "status": "active"
+    },
+    {
+        "barcode": "7300400112734",
+        "name": "Sesam",
+        "brand_name": "Wasa,Barilla",
+        "image_url": "https://images.openfoodfacts.org/images/products/730/040/011/2734/front_es.36.400.jpg",
+        "category": "Alimentos y bebidas de origen vegetal",
+        "status": "active"
+    },
+    {
+        "barcode": "8696362804718",
+        "name": "ketchup",
+        "brand_name": "Heinz",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/636/280/4718/front_tr.20.400.jpg",
+        "category": "en:ketchup",
+        "status": "active"
+    },
+    {
+        "barcode": "8690627023401",
+        "name": "Mehmet Effendi",
+        "brand_name": "Kurukahveci Mehmet Efendi",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/062/702/3401/front_tr.23.400.jpg",
+        "category": "Boissons et préparations de boissons",
+        "status": "active"
+    },
+    {
+        "barcode": "4000177408100",
+        "name": "capri sun Mystic dragon",
+        "brand_name": "Capri-Sun",
+        "image_url": "https://images.openfoodfacts.org/images/products/400/017/740/8100/front_fr.35.400.jpg",
+        "category": "Alimente și băuturi pe bază de plante",
+        "status": "active"
+    },
+    {
+        "barcode": "8692813005574",
+        "name": "DOĞAL MADEN SUYU",
+        "brand_name": "KIZILAY",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/281/300/5574/front_en.33.400.jpg",
+        "category": "Boissons et préparations de boissons",
+        "status": "active"
+    },
+    {
+        "barcode": "18921102",
+        "name": "Kuru İncir",
+        "brand_name": "Mis, Amigo",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/001/892/1102/front_tr.7.400.jpg",
+        "category": "Plant-based foods and beverages",
+        "status": "active"
+    },
+    {
+        "barcode": "8690766009205",
+        "name": "ÜLKER ÇİZİ",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/076/600/9205/front_tr.42.400.jpg",
+        "category": "tr:Atıştırmalık",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526095417",
+        "name": "Ети Карам",
+        "brand_name": "Eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/609/5417/front_tr.33.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "7622201459826",
+        "name": "Ореховая паста",
+        "brand_name": "Milka",
+        "image_url": "https://images.openfoodfacts.org/images/products/762/220/145/9826/front_ru.5.400.jpg",
+        "category": "На завтрак",
+        "status": "active"
+    },
+    {
+        "barcode": "8691720014433",
+        "name": "Baharatli kraker",
+        "brand_name": "Ani",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/172/001/4433/front_en.3.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "5000112664492",
+        "name": "coca-cola 1 L",
+        "brand_name": "Coca Cola",
+        "image_url": "https://images.openfoodfacts.org/images/products/500/011/266/4492/front_tr.3.400.jpg",
+        "category": "Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077084361",
+        "name": "Finger biskiivi",
+        "brand_name": "Süsse",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/708/4361/front_en.7.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8697439300102",
+        "name": "Waffers Strawberry",
+        "brand_name": "Toren",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/743/930/0102/front_en.3.400.jpg",
+        "category": "en:biscuits",
+        "status": "active"
+    },
+    {
+        "barcode": "5000159559065",
+        "name": "2 Snickers",
+        "brand_name": "Mars",
+        "image_url": "https://images.openfoodfacts.org/images/products/500/015/955/9065/front_tr.32.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "5000112672039",
+        "name": "Coca cola",
+        "brand_name": "Coca-Cola",
+        "image_url": "https://images.openfoodfacts.org/images/products/500/011/267/2039/front_fr.3.400.jpg",
+        "category": "en:colas",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077102010",
+        "name": "Dost Tam Yağlı Süt",
+        "brand_name": "Dost",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/710/2010/front_tr.32.400.jpg",
+        "category": "Dairies",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526039503",
+        "name": "Lifalif  yulaf ezmesi",
+        "brand_name": "Eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/603/9503/front_en.10.400.jpg",
+        "category": "Sağlık",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077099082",
+        "name": "Gikolatati",
+        "brand_name": "Bilinmeyen Marka",
+        "image_url": "",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "50189052",
+        "name": "Polo Original 34g",
+        "brand_name": "POLO",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/005/018/9052/front_fr.11.400.jpg",
+        "category": "en:frozen-desserts",
+        "status": "active"
+    },
+    {
+        "barcode": "8690793020068",
+        "name": "erikli 0,5 su",
+        "brand_name": "Erikli",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/079/302/0068/front_tr.3.400.jpg",
+        "category": "en:waters",
+        "status": "active"
+    },
+    {
+        "barcode": "8692813005598",
+        "name": "Maden Suyu",
+        "brand_name": "Kızılay",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/281/300/5598/front_tr.3.400.jpg",
+        "category": "Su",
+        "status": "active"
+    },
+    {
+        "barcode": "8682214707047",
+        "name": "Full Fat Milk",
+        "brand_name": "Mis",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/221/470/7047/front_tr.10.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "8690627021209",
+        "name": "Türk Kahvesi",
+        "brand_name": "Kuru Kahveci Mehmet Efendi",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/062/702/1209/front_tr.5.400.jpg",
+        "category": "Kahve",
+        "status": "active"
+    },
+    {
+        "barcode": "8690766086473",
+        "name": "Rulokat 9kat tat",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/076/608/6473/front_tr.14.400.jpg",
+        "category": "tr:Gofret",
+        "status": "active"
+    },
+    {
+        "barcode": "8699141057053",
+        "name": "Amada Mood",
+        "brand_name": "Biscolata",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/914/105/7053/front_en.27.400.jpg",
+        "category": "Imbiss",
+        "status": "active"
+    },
+    {
+        "barcode": "86935241",
+        "name": "ayran",
+        "brand_name": "Baktat",
+        "image_url": "https://images.openfoodfacts.org/images/products/000/008/693/5241/front_tr.13.400.jpg",
+        "category": "en:Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "8690787251010",
+        "name": "Ay çekirdeği",
+        "brand_name": "Tadim",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/078/725/1010/front_fr.3.400.jpg",
+        "category": "Kuruyemiş",
+        "status": "active"
+    },
+    {
+        "barcode": "7622300498429",
+        "name": "Strawberry Chocolate",
+        "brand_name": "Milka",
+        "image_url": "https://images.openfoodfacts.org/images/products/762/230/049/8429/front_en.51.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077100092",
+        "name": "Dost Süt Yarım Yağlı",
+        "brand_name": "Dost,Yarım Yağlı Süt",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/710/0092/front_tr.14.400.jpg",
+        "category": "Dairies",
+        "status": "active"
+    },
+    {
+        "barcode": "5000112664478",
+        "name": "Coca Cola",
+        "brand_name": "Coca Cola",
+        "image_url": "https://images.openfoodfacts.org/images/products/500/011/266/4478/front_es.3.400.jpg",
+        "category": "en:colas",
+        "status": "active"
+    },
+    {
+        "barcode": "8683130067796",
+        "name": "Ranch Sos",
+        "brand_name": "Calve",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/313/006/7796/front_tr.5.400.jpg",
+        "category": "Sauce",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526063508",
+        "name": "Burçak Milk Chocolate Biscuits",
+        "brand_name": "Eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/606/3508/front_en.39.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8690565100530",
+        "name": "Pinar Süt 1 lt",
+        "brand_name": "Pinar",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/056/510/0530/front_tr.21.400.jpg",
+        "category": "Mandıra ürünü",
+        "status": "active"
+    },
+    {
+        "barcode": "8692886310711",
+        "name": "Altınkılıç Kefir Sade",
+        "brand_name": "Altınkılıç",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/288/631/0711/front_tr.4.400.jpg",
+        "category": "İçecekler",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526028040",
+        "name": "Eti Karam Bitter",
+        "brand_name": "eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/602/8040/front_tr.18.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8692971413075",
+        "name": "İçim süt 1 litre yarım yağlı",
+        "brand_name": "İçim",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/297/141/3075/front_tr.9.400.jpg",
+        "category": "Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "8690574114795",
+        "name": "pepsi 1.5 litre kola",
+        "brand_name": "Pepsi",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/057/411/4795/front_tr.28.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "4000177407608",
+        "name": "Capri-Sun Safari Fruits",
+        "brand_name": "Capri-Sun",
+        "image_url": "https://images.openfoodfacts.org/images/products/400/017/740/7608/front_tr.25.400.jpg",
+        "category": "Băuturi",
+        "status": "active"
+    },
+    {
+        "barcode": "8711000532454",
+        "name": "Jacobs",
+        "brand_name": "Jacobs",
+        "image_url": "https://images.openfoodfacts.org/images/products/871/100/053/2454/front_fr.3.400.jpg",
+        "category": "Plant-based foods and beverages",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504121541",
+        "name": "Çokokrem",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/412/1541/front_fr.3.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "8904049111647",
+        "name": "Triphala Churna (B.P.N)",
+        "brand_name": "",
+        "image_url": "https://images.openfoodfacts.org/images/products/890/404/911/1647/front_fr.3.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "8683717471428",
+        "name": "Sade Patates Cipsi",
+        "brand_name": "Master Potato",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/371/747/1428/front_fr.3.400.jpg",
+        "category": "tr:Cips",
+        "status": "active"
+    },
+    {
+        "barcode": "8690574114528",
+        "name": "2.5 litre pepsi",
+        "brand_name": "Pepsi",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/057/411/4528/front_tr.22.400.jpg",
+        "category": "",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077004369",
+        "name": "Dost Doğal yoğurt",
+        "brand_name": "Dost",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/700/4369/front_tr.4.400.jpg",
+        "category": "Halty",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526095226",
+        "name": "Eti Hosbes Findik Kremali Gofret / Wafers W / Hazelnut Cream",
+        "brand_name": "eti",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/609/5226/front_tr.13.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8699270013418",
+        "name": "Gofrik",
+        "brand_name": "KAHVE DUNYASI",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/927/001/3418/front_tr.14.400.jpg",
+        "category": "Atıştırmalıklar",
+        "status": "active"
+    },
+    {
+        "barcode": "8690585810068",
+        "name": "Tadıbu",
+        "brand_name": "Abdurrahman Tatlıcı",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/058/581/0068/front_fr.3.400.jpg",
+        "category": "Cocoa and hazelnuts spreads",
+        "status": "active"
+    },
+    {
+        "barcode": "8681630310015",
+        "name": "Peanut Butter(Fıstık Ezmesi)",
+        "brand_name": "Züber",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/163/031/0015/front_tr.6.400.jpg",
+        "category": "Bitkisel yiyecek ve içecekler",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504117858",
+        "name": "Cubuk craker",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/411/7858/front_fr.24.400.jpg",
+        "category": "en:dry-biscuits",
+        "status": "active"
+    },
+    {
+        "barcode": "8690787261033",
+        "name": "Roasted sunflower",
+        "brand_name": "Tadim",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/078/726/1033/front_fr.3.400.jpg",
+        "category": "en:sunflower-seeds",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504142959",
+        "name": "Ülker Bol Sütlü Kare Çikolata",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/414/2959/front_tr.22.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8683417000102",
+        "name": "Hazelnut spread",
+        "brand_name": "sarelle",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/341/700/0102/front_en.23.400.jpg",
+        "category": "Breakfasts",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077013804",
+        "name": "Biscuit Petit beurre",
+        "brand_name": "Süsse",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/701/3804/front_fr.3.400.jpg",
+        "category": "en:biscuits",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526083254",
+        "name": "Tutku",
+        "brand_name": "Bilinmeyen Marka",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/608/3254/front_fr.8.400.jpg",
+        "category": "en:biscuits",
+        "status": "active"
+    },
+    {
+        "barcode": "8690504028536",
+        "name": "Dido",
+        "brand_name": "Ülker",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/050/402/8536/front_en.68.400.jpg",
+        "category": "Snacks",
+        "status": "active"
+    },
+    {
+        "barcode": "8696362804732",
+        "name": "Tomato Ketchup",
+        "brand_name": "Heinz",
+        "image_url": "",
+        "category": "en:ketchup",
+        "status": "active"
+    },
+    {
+        "barcode": "8690710030323",
+        "name": "Tahin Sesampaste",
+        "brand_name": "KOSKA",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/071/003/0323/front_de.27.400.jpg",
+        "category": "Pflanzliche Lebensmittel und Getränke",
+        "status": "active"
+    },
+    {
+        "barcode": "1500144801659",
+        "name": "ULUDAĞ LİMONATA 1L",
+        "brand_name": "Uludağ",
+        "image_url": "https://images.openfoodfacts.org/images/products/150/014/480/1659/front_tr.22.400.jpg",
+        "category": "en:Beverages and beverages preparations",
+        "status": "active"
+    },
+    {
+        "barcode": "8680908020014",
+        "name": "Hazir noodle",
+        "brand_name": "Indomie",
+        "image_url": "https://images.openfoodfacts.org/images/products/868/090/802/0014/front_tr.27.400.jpg",
+        "category": "Plant-based foods and beverages",
+        "status": "active"
+    },
+    {
+        "barcode": "8690131110468",
+        "name": "Pferde",
+        "brand_name": "Dr.C.Tuna",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/013/111/0468/front_tr.7.400.jpg",
+        "category": "Naturel car",
+        "status": "active"
+    },
+    {
+        "barcode": "8695077084323",
+        "name": "Çokodamlalı pasta bisküvi",
+        "brand_name": "",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/507/708/4323/front_fr.3.400.jpg",
+        "category": "en:biscuits",
+        "status": "active"
+    },
+    {
+        "barcode": "8690526076379",
+        "name": "Browni",
+        "brand_name": "eti browni",
+        "image_url": "https://images.openfoodfacts.org/images/products/869/052/607/6379/front_fr.31.400.jpg",
+        "category": "Kek",
+        "status": "active"
+    }
+]
