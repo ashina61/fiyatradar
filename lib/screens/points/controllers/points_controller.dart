@@ -92,15 +92,15 @@ final pointsStateProvider = StreamProvider<PointsState>((ref) {
   final authAsync = ref.watch(authStateProvider);
   return authAsync.when(
     data: (user) {
-      if (user == null) return Stream.value(PointsState.placeholder);
+      if (user == null) return Stream.error(StateError('unauthenticated'));
       return ref.watch(pointsControllerProvider).streamState(user.uid).handleError((error, stackTrace) {
         debugPrint('pointsStateProvider error: $error');
       });
     },
-    loading: () => Stream.value(PointsState.placeholder),
+    loading: () => const Stream.empty(),
     error: (error, stackTrace) {
       debugPrint('pointsStateProvider auth error: $error');
-      return Stream.value(PointsState.placeholder);
+      return Stream.error(error, stackTrace);
     },
   );
 });
