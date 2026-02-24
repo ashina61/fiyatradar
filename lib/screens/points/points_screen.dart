@@ -29,7 +29,35 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgCream,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFAF6B3E),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Puanlar',
+              style: TextStyle(
+                color: Color(0xFF3A2B24),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Padding(

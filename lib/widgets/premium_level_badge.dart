@@ -93,7 +93,7 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
     );
 
     // 2. Ortak kenarlık ve arka plan stili
-    final BoxDecoration baseDecoration = BoxDecoration(
+    final BoxDecoration animatedDecoration = BoxDecoration(
       color: info.levelColor.withOpacity(0.1),
       borderRadius: BorderRadius.circular(50),
       border: Border.all(
@@ -111,7 +111,7 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
           final double pulse = _animation.value;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: baseDecoration.copyWith(
+            decoration: animatedDecoration.copyWith(
               boxShadow: [
                 BoxShadow(
                   color: info.levelColor.withOpacity(0.2 + (pulse * 0.4)),
@@ -130,7 +130,14 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
     // Gözlemci / Avcı gibi statik seviyeler
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: baseDecoration,
+      decoration: BoxDecoration(
+        color: info.levelColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(
+          color: info.levelColor.withOpacity(0.8),
+          width: 2.0,
+        ),
+      ),
       child: badgeLabel,
     );
   }
