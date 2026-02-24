@@ -65,6 +65,10 @@ flutter:
   assets:
     - assets/images/app_logo.png
     - assets/icons/categories/
+flutter:
+  assets:
+    - assets/fiyatradar_marketler.json
+
 
 flutter_launcher_icons:
   android: "ic_launcher"
