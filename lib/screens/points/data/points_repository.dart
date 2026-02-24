@@ -42,20 +42,12 @@ class PointsSummaryData {
 
 class DailyGoalsData {
   const DailyGoalsData({
-    required this.reportPriceDone,
-    required this.verifyPriceDone,
-    required this.commentDone,
-    required this.reportPriceTarget,
-    required this.verifyPriceTarget,
-    required this.commentTarget,
+    required this.counts,
+    required this.rules,
   });
 
-  final int reportPriceDone;
-  final int verifyPriceDone;
-  final int commentDone;
-  final int reportPriceTarget;
-  final int verifyPriceTarget;
-  final int commentTarget;
+  final Map<String, int> counts;
+  final List<PointsRule> rules;
 }
 
 
@@ -128,16 +120,16 @@ class PointsRepository {
   Stream<DailyGoalsData> streamDailyGoals(String uid, DateTime date) {
     final dayKey = DateFormat('yyyyMMdd').format(date);
     final goalsRef = _firestore.collection('users').doc(uid).collection('points_daily').doc(dayKey);
-    return goalsRef.snapshots().map((doc) {
+    return goalsRef.snapshots().asyncMap((doc) async {
+      final rules = await _pointsService.streamPointsRules().first;
       final data = doc.data() ?? const <String, dynamic>{};
-      final counts = Map<String, dynamic>.from(data['counts'] as Map? ?? const {});
+      final rawCounts = Map<String, dynamic>.from(data['counts'] as Map? ?? const {});
+      final counts = <String, int>{
+        for (final entry in rawCounts.entries) entry.key: (entry.value as num?)?.toInt() ?? 0,
+      };
       return DailyGoalsData(
-        reportPriceDone: (counts['price_entry'] as num?)?.toInt() ?? 0,
-        verifyPriceDone: (counts['price_verify'] as num?)?.toInt() ?? 0,
-        commentDone: (counts['comment'] as num?)?.toInt() ?? 0,
-        reportPriceTarget: 2,
-        verifyPriceTarget: 5,
-        commentTarget: 1,
+        counts: counts,
+        rules: rules,
       );
     });
   }
@@ -177,10 +169,5 @@ class PointsRepository {
       default:
         return ('Puan etkinliği', pair.isEmpty ? 'Topluluk katkısı' : pair);
     }
-  }
-
-
-  Stream<List<DailyTask>> streamLeaderboardStub() {
-    return const Stream<List<DailyTask>>.empty();
   }
 }

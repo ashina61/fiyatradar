@@ -12,6 +12,34 @@ class PointsController {
 
   final PointsRepository _repository;
 
+  static const Map<String, String> _taskTitles = {
+    'price_entry': 'Fiyat Bildir',
+    'price_verify': 'Doğrula',
+    'comment': 'Yorum Yap',
+    'photo_bonus': 'Fotoğraf Ekle',
+  };
+
+  static const Map<String, String> _taskDescriptions = {
+    'price_entry': 'Fiyat bildirimi yap',
+    'price_verify': 'Fiyat doğrulaması yap',
+    'comment': 'Ürüne yorum bırak',
+    'photo_bonus': 'Fotoğraflı katkı yap',
+  };
+
+  static const Map<String, IconData> _taskIcons = {
+    'price_entry': Icons.sell_rounded,
+    'price_verify': Icons.verified_rounded,
+    'comment': Icons.chat_bubble_rounded,
+    'photo_bonus': Icons.photo_camera_rounded,
+  };
+
+  static const Map<String, Color> _taskIconBackgrounds = {
+    'price_entry': Color(0xFFFFE7D1),
+    'price_verify': Color(0xFFDFF3FF),
+    'comment': Color(0xFFEAE7FF),
+    'photo_bonus': Color(0xFFE5F7E8),
+  };
+
   Stream<PointsState> streamState(String uid, {DateTime? date}) {
     final today = date ?? DateTime.now();
     return _repository.streamPointsSummary(uid).asyncExpand((summary) {
@@ -27,6 +55,21 @@ class PointsController {
                   ))
               .toList();
 
+          final dailyGoals = goals.rules.map((rule) {
+            final eventType = rule.eventType;
+            final target = rule.dailyCap ?? 0;
+            final current = goals.counts[eventType] ?? 0;
+            return DailyTask(
+              title: _taskTitles[eventType] ?? rule.title,
+              description: _taskDescriptions[eventType] ?? rule.description,
+              reward: rule.points,
+              current: current,
+              target: target,
+              icon: _taskIcons[eventType] ?? Icons.bolt_rounded,
+              iconBackground: _taskIconBackgrounds[eventType] ?? const Color(0xFFECEFF1),
+            );
+          }).toList();
+
           return PointsState(
             totalPoints: summary.totalPoints,
             currentLevelName: summary.levelName,
@@ -35,35 +78,7 @@ class PointsController {
             streakDays: summary.streakDays,
             levelProgressPercent: summary.levelProgress,
             pointsRemainingToNextLevel: summary.pointsToNextLevel,
-            dailyGoals: [
-              DailyTask(
-                title: 'Fiyat Bildir',
-                description: '2 fiyat bildirimi yap',
-                reward: 20,
-                current: goals.reportPriceDone,
-                target: goals.reportPriceTarget,
-                icon: Icons.sell_rounded,
-                iconBackground: const Color(0xFFFFE7D1),
-              ),
-              DailyTask(
-                title: 'Doğrula',
-                description: '5 fiyatı doğrula',
-                reward: 10,
-                current: goals.verifyPriceDone,
-                target: goals.verifyPriceTarget,
-                icon: Icons.verified_rounded,
-                iconBackground: const Color(0xFFDFF3FF),
-              ),
-              DailyTask(
-                title: 'Yorum Yap',
-                description: '1 ürüne yorum bırak',
-                reward: 5,
-                current: goals.commentDone,
-                target: goals.commentTarget,
-                icon: Icons.chat_bubble_rounded,
-                iconBackground: const Color(0xFFEAE7FF),
-              ),
-            ],
+            dailyGoals: dailyGoals,
             activities: formattedActivities,
             trustScore: summary.trustScore,
             trustTotalVotes: summary.trustTotalVotes,
