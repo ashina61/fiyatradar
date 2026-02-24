@@ -8,6 +8,7 @@ import '../../utils/elite_level_engine.dart';
 import '../../widgets/premium_level_badge.dart';
 import 'controllers/points_controller.dart';
 import 'models/points_models.dart';
+import 'widgets/radar_kingdom_leaderboard_view.dart';
 
 class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
@@ -355,6 +356,10 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
   }
 
   Widget _buildLeaderboardTab() {
+    return const RadarKingdomLeaderboardView();
+  }
+
+  Widget _buildLeaderboardTabLegacy() {
     final leaderboardAsync = ref.watch(leaderboardStreamProvider(LeaderboardFilter.global));
     final authUid = ref.watch(authStateProvider).valueOrNull?.uid;
 
