@@ -948,8 +948,6 @@ class _ProductManagementTab extends ConsumerWidget {
                 'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
                 'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
                 'verifiedBadge': verifiedBadge,
-                if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
-                if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
                 'updatedAt': FieldValue.serverTimestamp(),
               });
               if (context.mounted) {
@@ -3257,8 +3255,6 @@ Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dyna
               'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
               'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
               'verifiedBadge': verifiedBadge,
-              if (levelController.text.trim().isNotEmpty) 'levelName': levelController.text.trim(),
-              if (levelController.text.trim().isNotEmpty) 'tierName': levelController.text.trim(),
               'updatedAt': FieldValue.serverTimestamp(),
             });
             if (context.mounted) {
