@@ -42,6 +42,65 @@ class AdminPanelScreen extends ConsumerStatefulWidget {
 class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isMarketImportRunning = false;
+
+  Future<void> _importMarketsFromAsset() async {
+    if (_isMarketImportRunning) return;
+
+    setState(() => _isMarketImportRunning = true);
+
+    try {
+      final rawJson = await rootBundle.loadString('assets/fiyatradar_marketler.json');
+      final decoded = json.decode(rawJson);
+
+      if (decoded is! List) {
+        throw const FormatException('JSON formati List olmali.');
+      }
+
+      final markets = decoded.cast<Map<String, dynamic>>();
+      final collection = FirebaseFirestore.instance.collection('marketler');
+
+      for (var i = 0; i < markets.length; i += 500) {
+        final batch = FirebaseFirestore.instance.batch();
+        final chunk = markets.skip(i).take(500);
+
+        for (final market in chunk) {
+          final ad = (market['ad'] ?? '').toString().trim();
+          final marka = (market['marka'] ?? '').toString().trim();
+          final enlem = (market['enlem'] as num?)?.toDouble();
+          final boylam = (market['boylam'] as num?)?.toDouble();
+
+          if (ad.isEmpty || marka.isEmpty || enlem == null || boylam == null) {
+            continue;
+          }
+
+          final docRef = collection.doc();
+          batch.set(docRef, {
+            'ad': ad,
+            'marka': marka,
+            'enlem': enlem,
+            'boylam': boylam,
+          });
+        }
+
+        await batch.commit();
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${markets.length} market yukleme islemi tamamlandi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Market verileri yuklenemedi: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isMarketImportRunning = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -87,6 +146,22 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
       appBar: AppBar(
         title: const Text('Admin Paneli'),
         elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: _isMarketImportRunning ? null : _importMarketsFromAsset,
+              icon: _isMarketImportRunning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload_outlined),
+              label: Text(_isMarketImportRunning ? 'Yukleniyor...' : 'Veritabanini Guncelle'),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
