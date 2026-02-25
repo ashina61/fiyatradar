@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -441,6 +442,10 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   }
 
   Future<void> submitPrice({required String userId}) async {
+    if (userId.trim().isEmpty) {
+      throw Exception('Kullanıcı kimliği bulunamadı. Lütfen tekrar giriş yapın.');
+    }
+
     final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
     if (parsedPrice == null || parsedPrice <= 0) {
       throw Exception('Lütfen geçerli bir fiyat girin.');
@@ -457,21 +462,34 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final product = await _resolveProductByNameOrBarcode();
+      ProductModel? product;
+      final selectedProductId = state.selectedProductId?.trim() ?? '';
+      if (selectedProductId.isNotEmpty) {
+        debugPrint('[AddPrice.submitPrice] resolve product by selectedProductId=$selectedProductId');
+        product = await _firestore.getProduct(selectedProductId);
+      }
+      product ??= await _resolveProductByNameOrBarcode();
+
       if (product == null) {
         throw Exception('Bu ürün katalogda bulunamadı. Lütfen barkod okutun veya ürün adını kontrol edin.');
       }
 
+      final userModel = await _firestore.getUserById(userId);
+      final reporterName = (userModel?.name ?? userModel?.displayName ?? '').trim();
+      final fallbackReporterName = reporterName.isEmpty ? 'Kullanıcı' : reporterName;
+      final reporterIsAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
+
       final payload = PriceModel(
         id: '',
         productId: product.id,
-        productName: state.productName.trim(),
-        selectedProductId: state.selectedProductId,
+        productName: product.name.trim().isNotEmpty ? product.name : state.productName.trim(),
+        selectedProductId: product.id,
         selectedCategoryId: state.selectedCategoryId,
         selectedStoreId: state.selectedStoreId,
         barcode: state.barcode,
         userId: userId,
         createdByUid: userId,
+        userName: fallbackReporterName,
         price: parsedPrice,
         branchStoreId: state.selectedStoreId!,
         chainId: null,
@@ -480,12 +498,22 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         isPending: true,
         verificationStatus: 'unverified',
         status: 'active',
+        reporterUid: userId,
+        reporterName: fallbackReporterName,
+        reporterIsAnonymous: reporterIsAnonymous,
       );
 
-      debugPrint('[AddPrice] Firestore write target: priceReports + price_entries + price_dedupes');
-      debugPrint('[AddPrice] Submit payload => ${payload.toFirestore()}');
+      debugPrint('[AddPrice] Firestore write target: priceReports (+ product mirror)');
+      debugPrint('[AddPrice.submitPrice] payload => ${payload.toFirestore()}');
 
       await _firestore.addPriceReport(payload);
+
+      if (kDebugMode) {
+        final latestPrice = await _firestore.getLatestPrice(product.id);
+        debugPrint(
+          '[AddPrice.submitPrice] latest verification => productId=${product.id}, latestPriceId=${latestPrice?.id}, latestProductId=${latestPrice?.productId}',
+        );
+      }
 
       state = state.copyWith(
         isLoading: false,
@@ -505,3 +533,4 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     }
   }
 }
+

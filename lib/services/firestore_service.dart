@@ -809,6 +809,13 @@ class FirestoreService {
   }
 
   Future<String> addPriceReport(PriceModel price) async {
+    if (price.productId.trim().isEmpty) {
+      throw Exception('productId zorunludur.');
+    }
+    if (price.userId.trim().isEmpty) {
+      throw Exception('reporterUid zorunludur.');
+    }
+
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
@@ -821,45 +828,66 @@ class FirestoreService {
     );
     final dayKey = _priceDayKey(price.reportedAt);
 
+    final reporterUid = (price.reporterUid ?? price.userId).trim();
+    final reporterNameRaw = (price.reporterName ?? price.userName ?? '').trim();
+    final reporterName = reporterNameRaw.isEmpty ? 'Kullanıcı' : reporterNameRaw;
+
     final priceRef = _pricesRef.doc();
-    final priceEntryRef = _firestore.collection('price_entries').doc(priceRef.id);
     final dedupeRef = _priceDedupeRef.doc(dedupeKey);
+    final productMirrorRef = _productsRef
+        .doc(price.productId)
+        .collection('priceReports')
+        .doc(priceRef.id);
 
     await _firestore.runTransaction((txn) async {
       final dedupeDoc = await txn.get(dedupeRef);
       if (dedupeDoc.exists) {
         throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');
       }
-      final payload = price.copyWith(id: priceRef.id, dedupeKey: dedupeKey).toFirestore();
-      payload['createdByUid'] = price.userId;
-      payload['dedupeKey'] = dedupeKey;
+
+      final payload = price
+          .copyWith(
+            id: priceRef.id,
+            dedupeKey: dedupeKey,
+            userId: reporterUid,
+            createdByUid: reporterUid,
+            reporterUid: reporterUid,
+            reporterName: reporterName,
+            userName: reporterName,
+          )
+          .toFirestore();
+
       payload['id'] = priceRef.id;
-      payload['verificationStatus'] = payload['verificationStatus'] ?? 'unverified';
+      payload['productId'] = price.productId;
+      payload['productName'] =
+          ((price.productName ?? '').trim().isNotEmpty ? price.productName!.trim() : (productData?['name'] ?? ''));
+      payload['categoryId'] = (price.selectedCategoryId ?? '').trim();
+      payload['storeId'] = price.branchStoreId;
+      payload['storeName'] = (price.storeName ?? '').trim();
+      payload['price'] = price.price;
+      payload['reporterUid'] = reporterUid;
+      payload['createdByUid'] = reporterUid;
+      payload['reporterName'] = reporterName;
+      payload['reporterIsAnonymous'] = price.reporterIsAnonymous;
+      payload['createdAt'] = FieldValue.serverTimestamp();
+      payload['reportedAt'] = Timestamp.fromDate(price.reportedAt);
+      payload['status'] = 'active';
+      payload['isPending'] = price.isPending;
+      payload['verificationStatus'] = 'unverified';
+      payload['dedupeKey'] = dedupeKey;
+      payload['branchStoreId'] = price.branchStoreId;
+      payload['branchId'] = price.branchStoreId;
+      payload['userId'] = reporterUid;
+      payload['userName'] = reporterName;
+
       txn.set(priceRef, payload);
-      txn.set(priceEntryRef, {
-        'productId': price.productId,
-        'storeId': price.chainId,
-        'branchId': price.branchStoreId,
-        'price': price.price,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdByUid': price.userId,
-        'createdByName': price.userName,
-        'createdByTrustScore': price.addedByTrustScoreSnapshot,
-        'status': 'active',
-        'verification': {
-          'upCount': 0,
-          'downCount': 0,
-          'score': 0,
-          'userVotes': <String, String>{},
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      });
+      txn.set(productMirrorRef, payload);
       txn.set(dedupeRef, {
         'productId': price.productId,
         'branchStoreId': price.branchStoreId,
         'price': price.price,
         'day': dayKey,
-        'createdByUid': price.userId,
+        'createdByUid': reporterUid,
         'priceReportId': priceRef.id,
         'dedupeKey': dedupeKey,
         'createdAt': FieldValue.serverTimestamp(),
@@ -876,7 +904,7 @@ class FirestoreService {
     try {
       notificationCount = await _createFollowerNotifications(
         productId: price.productId,
-        priceReporterId: price.userId,
+        priceReporterId: reporterUid,
         productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
         oldPrice: oldPrice,
         newPrice: price.price,
@@ -892,7 +920,7 @@ class FirestoreService {
 
     try {
       await _pointsService.awardEvent(
-        uid: price.userId,
+        uid: reporterUid,
         eventType: 'price_add',
         meta: {
           'productId': price.productId,
@@ -901,7 +929,7 @@ class FirestoreService {
           'priceEntryId': priceRef.id,
         },
       );
-      await _pointsService.markReferralFirstContribution(price.userId);
+      await _pointsService.markReferralFirstContribution(reporterUid);
     } catch (e, st) {
       _logFirestoreQueryError('addPriceReport/pointsAward', e, st);
     }

@@ -21,6 +21,9 @@ class PriceModel {
 
   final String? productName;
   final String? userName;
+  final String? reporterUid;
+  final String? reporterName;
+  final bool reporterIsAnonymous;
   final String? storeName;
   final String? selectedProductId;
   final String? selectedCategoryId;
@@ -66,6 +69,9 @@ class PriceModel {
     this.userVotes = const {},
     this.productName,
     this.userName,
+    this.reporterUid,
+    this.reporterName,
+    this.reporterIsAnonymous = false,
     this.storeName,
     this.selectedProductId,
     this.selectedCategoryId,
@@ -154,7 +160,7 @@ class PriceModel {
       id: doc.id,
       productId: (data['productId'] ?? '').toString(),
       barcode: (data['barcode'] ?? data['productBarcode']) as String?,
-      userId: (data['userId'] ?? data['createdByUid'] ?? '').toString(),
+      userId: (data['reporterUid'] ?? data['userId'] ?? data['createdByUid'] ?? '').toString(),
       createdByUid: (data['createdByUid'] ?? data['userId']) as String?,
       price: _parsePriceValue(data['price']),
       branchStoreId: (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString(),
@@ -169,10 +175,13 @@ class PriceModel {
       score: (data['verifyScore'] as num?)?.toDouble() ?? (verification['score'] as num?)?.toDouble() ?? (data['score'] as num?)?.toDouble() ?? (up - down).toDouble(),
       userVotes: Map<String, String>.from(verification['userVotes'] as Map? ?? const {}),
       productName: data['productName'] as String?,
-      userName: data['userName'] as String?,
+      userName: (data['reporterName'] ?? data['userName']) as String?,
+      reporterUid: (data['reporterUid'] ?? data['userId'] ?? data['createdByUid']) as String?,
+      reporterName: (data['reporterName'] ?? data['userName']) as String?,
+      reporterIsAnonymous: data['reporterIsAnonymous'] == true,
       storeName: data['storeName'] as String?,
       selectedProductId: data['selectedProductId'] as String?,
-      selectedCategoryId: data['selectedCategoryId'] as String?,
+      selectedCategoryId: (data['selectedCategoryId'] ?? data['categoryId']) as String?,
       selectedStoreId: data['selectedStoreId'] as String?,
       storeLocation: data['storeLocation'] as String?,
       geoPoint: data['geoPoint'] as GeoPoint?,
@@ -208,6 +217,9 @@ class PriceModel {
       'barcode': barcode,
       'userId': userId,
       'createdByUid': createdByUid ?? userId,
+      'reporterUid': reporterUid ?? userId,
+      'reporterName': reporterName ?? userName ?? 'Kullanıcı',
+      'reporterIsAnonymous': reporterIsAnonymous,
       'price': price,
       'branchStoreId': branchStoreId,
       'branchId': branchStoreId,
@@ -229,10 +241,11 @@ class PriceModel {
         'updatedAt': FieldValue.serverTimestamp(),
       },
       'productName': productName,
-      'userName': userName,
+      'userName': userName ?? reporterName ?? 'Kullanıcı',
       'storeName': storeName,
       'selectedProductId': selectedProductId,
       'selectedCategoryId': selectedCategoryId,
+      'categoryId': selectedCategoryId,
       'selectedStoreId': selectedStoreId ?? branchStoreId,
       'storeLocation': storeLocation,
       'geoPoint': geoPoint,
@@ -278,6 +291,9 @@ class PriceModel {
     Map<String, String>? userVotes,
     String? productName,
     String? userName,
+    String? reporterUid,
+    String? reporterName,
+    bool? reporterIsAnonymous,
     String? storeName,
     String? selectedProductId,
     String? selectedCategoryId,
@@ -323,6 +339,9 @@ class PriceModel {
       userVotes: userVotes ?? this.userVotes,
       productName: productName ?? this.productName,
       userName: userName ?? this.userName,
+      reporterUid: reporterUid ?? this.reporterUid,
+      reporterName: reporterName ?? this.reporterName,
+      reporterIsAnonymous: reporterIsAnonymous ?? this.reporterIsAnonymous,
       storeName: storeName ?? this.storeName,
       selectedProductId: selectedProductId ?? this.selectedProductId,
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,

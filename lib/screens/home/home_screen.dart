@@ -1247,7 +1247,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              price.userName ?? 'Anonim',
+                              ((price.reporterName ?? price.userName ?? 'Kullanıcı').trim().isEmpty
+                                  ? 'Kullanıcı'
+                                  : (price.reporterName ?? price.userName ?? 'Kullanıcı')),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textTertiary,
