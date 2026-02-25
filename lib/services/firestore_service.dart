@@ -726,10 +726,15 @@ class FirestoreService {
   Stream<List<PriceModel>> getPricesForProduct(String productId) {
     var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
     query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
-    query = query.orderBy('reportedAt', descending: true);
-    return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)).toList();
-    });
+    return query
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => PriceModel.fromFirestore(doc))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
 
@@ -833,18 +838,14 @@ class FirestoreService {
       txn.set(priceRef, payload);
       txn.set(priceEntryRef, {
         'productId': price.productId,
-        'storeId': price.branchStoreId,
-        'chainId': price.chainId,
-        'branchStoreId': price.branchStoreId,
+        'storeId': price.chainId,
         'branchId': price.branchStoreId,
         'price': price.price,
         'createdAt': FieldValue.serverTimestamp(),
-        'reportedAt': Timestamp.fromDate(price.reportedAt),
         'createdByUid': price.userId,
         'createdByName': price.userName,
         'createdByTrustScore': price.addedByTrustScoreSnapshot,
         'status': 'active',
-        'isApproved': true,
         'verification': {
           'upCount': 0,
           'downCount': 0,
