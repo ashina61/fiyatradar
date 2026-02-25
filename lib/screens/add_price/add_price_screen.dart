@@ -1,508 +1,2591 @@
-import 'dart:async';
-import 'dart:math' as math;
-
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
-
-import '../models/category_model.dart';
-import '../models/price_model.dart';
 import '../models/product_model.dart';
-import '../models/store.dart';
+import '../models/price_model.dart';
+import '../models/comment_model.dart';
+import '../models/notification_model.dart';
+import '../models/brand_model.dart';
 import '../models/store_model.dart';
-import '../services/firestore_service.dart';
-import '../services/location_service.dart';
-import 'product_provider.dart';
+import '../utils/constants.dart';
+import '../models/banner_model.dart';
+import '../models/user_model.dart';
+import '../models/campaign_basket_model.dart';
+import '../models/store_suggestion_model.dart';
+import '../models/product_suggestion_model.dart';
+import '../models/category_model.dart';
+import '../models/actual_item_model.dart';
+import '../models/actual_model.dart';
+import '../utils/safe_query_builder.dart';
+import '../services/storage_service.dart';
+import '../utils/elite_level_engine.dart';
+import 'points_service.dart';
 
-class AddPriceState {
-  const AddPriceState({
-    this.price = '',
-    this.productName = '',
-    this.barcode,
-    this.selectedCategoryId,
-    this.selectedCategoryName,
-    this.selectedProductId,
-    this.lockedCategoryByProduct = false,
-    this.productSuggestions = const [],
-    this.activeTab = 0,
-    this.searchQuery = '',
-    this.selectedStore,
-    this.selectedStoreId,
-    this.selectedStoreName,
-    this.categories = const [],
-    this.nearbyStores = const [],
-    this.onlineStores = const [],
-    this.isStoresLoading = false,
-    this.storesError,
-    this.locationMessage,
-    this.isLoading = false,
-    this.error,
-  });
+class DuplicatePriceException implements Exception {
+const DuplicatePriceException(this.message);
+final String message;
 
-  final String price;
-  final String productName;
-  final String? barcode;
-  final String? selectedCategoryId;
-  final String? selectedCategoryName;
-  final String? selectedProductId;
-  final bool lockedCategoryByProduct;
-  final List<ProductModel> productSuggestions;
-  final int activeTab;
-  final String searchQuery;
-  final Store? selectedStore;
-  final String? selectedStoreId;
-  final String? selectedStoreName;
-  final List<CategoryModel> categories;
-  final List<Store> nearbyStores;
-  final List<Store> onlineStores;
-  final bool isStoresLoading;
-  final String? storesError;
-  final String? locationMessage;
-  final bool isLoading;
-  final String? error;
-
-  AddPriceState copyWith({
-    String? price,
-    String? productName,
-    String? barcode,
-    bool clearBarcode = false,
-    String? selectedCategoryId,
-    String? selectedCategoryName,
-    bool clearCategory = false,
-    String? selectedProductId,
-    bool clearSelectedProduct = false,
-    bool? lockedCategoryByProduct,
-    List<ProductModel>? productSuggestions,
-    int? activeTab,
-    String? searchQuery,
-    Store? selectedStore,
-    bool clearSelectedStore = false,
-    String? selectedStoreId,
-    String? selectedStoreName,
-    List<CategoryModel>? categories,
-    List<Store>? nearbyStores,
-    List<Store>? onlineStores,
-    bool? isStoresLoading,
-    String? storesError,
-    bool clearStoresError = false,
-    String? locationMessage,
-    bool? isLoading,
-    String? error,
-    bool clearError = false,
-  }) {
-    return AddPriceState(
-      price: price ?? this.price,
-      productName: productName ?? this.productName,
-      barcode: clearBarcode ? null : (barcode ?? this.barcode),
-      selectedCategoryId:
-          clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
-      selectedCategoryName: clearCategory
-          ? null
-          : (selectedCategoryName ?? this.selectedCategoryName),
-      selectedProductId: clearSelectedProduct
-          ? null
-          : (selectedProductId ?? this.selectedProductId),
-      lockedCategoryByProduct:
-          lockedCategoryByProduct ?? this.lockedCategoryByProduct,
-      productSuggestions: productSuggestions ?? this.productSuggestions,
-      activeTab: activeTab ?? this.activeTab,
-      searchQuery: searchQuery ?? this.searchQuery,
-      selectedStore:
-          clearSelectedStore ? null : (selectedStore ?? this.selectedStore),
-      selectedStoreId:
-          clearSelectedStore ? null : (selectedStoreId ?? this.selectedStoreId),
-      selectedStoreName: clearSelectedStore
-          ? null
-          : (selectedStoreName ?? this.selectedStoreName),
-      categories: categories ?? this.categories,
-      nearbyStores: nearbyStores ?? this.nearbyStores,
-      onlineStores: onlineStores ?? this.onlineStores,
-      isStoresLoading: isStoresLoading ?? this.isStoresLoading,
-      storesError: clearStoresError ? null : (storesError ?? this.storesError),
-      locationMessage: locationMessage ?? this.locationMessage,
-      isLoading: isLoading ?? this.isLoading,
-      error: clearError ? null : (error ?? this.error),
-    );
-  }
-
-  bool get isNearbyMode => activeTab == 0;
-
-  List<Store> get visibleStores {
-    final source = isNearbyMode ? nearbyStores : onlineStores;
-    final filtered = searchQuery.trim().isEmpty
-        ? source
-        : source
-            .where((s) =>
-                s.name.toLowerCase().contains(searchQuery.toLowerCase()))
-            .toList(growable: false);
-    final ordered = List<Store>.of(filtered);
-    if (isNearbyMode) {
-      ordered.sort((a, b) {
-        final ad = a.distanceMeters;
-        final bd = b.distanceMeters;
-        if (ad != null && bd != null) return ad.compareTo(bd);
-        if (ad != null) return -1;
-        if (bd != null) return 1;
-        return 0;
-      });
-    }
-    return ordered.take(5).toList(growable: false);
-  }
+@override
+String toString() => message;
 }
 
-final addPriceProvider =
-    StateNotifierProvider<AddPriceNotifier, AddPriceState>((ref) {
-  return AddPriceNotifier(
-    ref.read(firestoreServiceProvider),
-    LocationService(),
-  );
+class AlreadyVotedException implements Exception {
+const AlreadyVotedException([this.message = 'Zaten oy verdin']);
+final String message;
+
+@override
+String toString() => message;
+}
+
+enum PriceVoteStatus { newVote, voteChanged, alreadyVoted, selfVoteBlocked, ignored }
+
+class PriceVoteResult {
+const PriceVoteResult(
+this.status, {
+this.upCount,
+this.downCount,
+this.score,
 });
 
-class AddPriceNotifier extends StateNotifier<AddPriceState> {
-  AddPriceNotifier(this._firestore, this._locationService)
-      : super(const AddPriceState()) {
-    loadStoresAndCategories();
-  }
+final PriceVoteStatus status;
+final int? upCount;
+final int? downCount;
+final int? score;
 
-  final FirestoreService _firestore;
-  final LocationService _locationService;
-  Timer? _productSearchDebounce;
-  LocationData? _cachedLocationData;
+bool get shouldAward => status == PriceVoteStatus.newVote;
+}
 
-  @override
-  void dispose() {
-    _productSearchDebounce?.cancel();
-    super.dispose();
-  }
+class PriceStatusMigrationResult {
+const PriceStatusMigrationResult({
+required this.updatedCount,
+required this.scannedCount,
+});
 
-  Future<void> loadStoresAndCategories() async {
-    state = state.copyWith(
-      isStoresLoading: true,
-      clearStoresError: true,
-      locationMessage: null,
-    );
-    try {
-      final categories = await _firestore.getCategories().first;
-      final stores = await _firestore.getAllStoresStream().first;
-      _cachedLocationData ??= await _locationService.getLocationData();
+final int updatedCount;
+final int scannedCount;
+}
 
-      final userPosition = _cachedLocationData?.position;
-      final locationMessage = userPosition == null
-          ? 'Konum izni olmadan mesafe hesaplanamiyor.'
-          : null;
+class FirestoreService {
+final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+final PointsService _pointsService = PointsService();
+final Set<String> _offFetchInFlight = <String>{};
 
-      final nearby = stores
-          .where((s) => s.status == StoreStatus.active && !s.isOnline)
-          .map((store) => _mapStore(store, userPosition))
-          .toList(growable: false)
-        ..sort((a, b) => a.name.compareTo(b.name));
+void _logFirestoreQueryError(
+String context,
+Object error,
+StackTrace stackTrace,
+) {
+if (!kDebugMode) return;
+// Native logcat tag'leri ile hizali debug format.
+debugPrint('E/FLTFirestoreMsgCodec($context): $error');
+debugPrint('W/FirebaseFirestore($context): $error');
+debugPrintStack(stackTrace: stackTrace, label: 'FIRESTORE QUERY STACK ($context)');
+}
 
-      final online = stores
-          .where((s) => s.status == StoreStatus.active && s.isOnline)
-          .map((store) => _mapStore(store, userPosition))
-          .toList(growable: false)
-        ..sort((a, b) => a.name.compareTo(b.name));
+// Collection references
+CollectionReference<Map<String, dynamic>> get _productsRef => _firestore.collection('products');
+CollectionReference<Map<String, dynamic>> get _pricesRef => _firestore.collection('priceReports');
+CollectionReference<Map<String, dynamic>> get _commentsRef => _firestore.collection('comments');
+CollectionReference<Map<String, dynamic>> get _notificationsRef =>
+_firestore.collection('inAppNotifications');
+CollectionReference<Map<String, dynamic>> get _legacyNotificationsRef =>
+_firestore.collection('notifications');
+CollectionReference<Map<String, dynamic>> get _bannersRef => _firestore.collection('banners');
+CollectionReference<Map<String, dynamic>> get _campaignBasketsRef => _firestore.collection('campaignBaskets');
+CollectionReference<Map<String, dynamic>> get _usersRef => _firestore.collection('users');
+CollectionReference<Map<String, dynamic>> get _brandsRef => _firestore.collection('brands');
+CollectionReference<Map<String, dynamic>> get _storesRef => _firestore.collection('stores');
+CollectionReference<Map<String, dynamic>> get _storeSuggestionsRef =>
+_firestore.collection('storeSuggestions');
+CollectionReference<Map<String, dynamic>> get _productSuggestionsRef =>
+_firestore.collection('productSuggestions');
+CollectionReference<Map<String, dynamic>> get _priceDedupeRef => _firestore.collection('price_dedupes');
+CollectionReference<Map<String, dynamic>> get _weeklyDealsRef => _firestore.collection('weekly_deals');
+CollectionReference<Map<String, dynamic>> get _actualsRef => _firestore.collection('actuals');
+CollectionReference<Map<String, dynamic>> get _stockReportsRef => _firestore.collection('stock_reports');
+CollectionReference<Map<String, dynamic>> get _stockValidationRef => _firestore.collection('stock_validation');
+DocumentReference<Map<String, dynamic>> get _maintenanceRef =>
+_firestore.collection('app_config').doc('maintenance');
 
-      state = state.copyWith(
-        categories: categories,
-        nearbyStores: nearby,
-        onlineStores: online,
-        isStoresLoading: false,
-        locationMessage: locationMessage,
-        clearStoresError: true,
-      );
-    } catch (e, st) {
-      debugPrint('[AddPrice.loadStoresAndCategories] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[AddPrice.loadStoresAndCategories] STACK',
-      );
-      state = state.copyWith(
-        isStoresLoading: false,
-        storesError: e.toString(),
-        nearbyStores: const [],
-        onlineStores: const [],
-      );
-    }
-  }
+// =========================================================================
+// BRANDS
+// =========================================================================
 
-  Store _mapStore(StoreModel model, Position? userPosition) {
-    final hasCoordinates = model.lat != 0 && model.lng != 0;
-    final lat = hasCoordinates ? model.lat : null;
-    final lng = hasCoordinates ? model.lng : null;
+Stream<List<BrandModel>> getAllBrands() {
+return _brandsRef.snapshots().map((snapshot) {
+final list = snapshot.docs
+.map((doc) => BrandModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.name.compareTo(b.name));
+return list;
+});
+}
 
-    final distanceMeters = lat != null && lng != null && userPosition != null
-        ? _haversineMeters(
-            userPosition.latitude,
-            userPosition.longitude,
-            lat,
-            lng,
-          ).round()
-        : null;
+Stream<List<BrandModel>> getActiveBrands() {
+final query = SafeQueryBuilder.safeWhere(_brandsRef, 'isActive', true, expectedType: bool);
+return query.snapshots().map((snapshot) {
+final list = snapshot.docs
+.map((doc) => BrandModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.name.compareTo(b.name));
+return list;
+});
+}
 
-    return Store(
-      id: model.id,
-      name: model.displayName,
-      type: model.isOnline ? 'online' : 'nearby',
-      distanceMeters: distanceMeters,
-      logoUrl:
-          model.displayName.isNotEmpty ? model.displayName[0].toUpperCase() : '?',
-      subtitle: [model.district, model.city]
-              .where((e) => e.trim().isNotEmpty)
-              .join(', ')
-              .trim()
-              .isEmpty
-          ? null
-          : [model.district, model.city]
-              .where((e) => e.trim().isNotEmpty)
-              .join(', '),
-    );
-  }
+Future<String> addBrand(BrandModel brand) async {
+final doc = await _brandsRef.add(brand.toFirestore());
+return doc.id;
+}
 
-  double _haversineMeters(
-    double startLatitude,
-    double startLongitude,
-    double endLatitude,
-    double endLongitude,
-  ) {
-    const earthRadius = 6371000.0;
-    final dLat = _degToRad(endLatitude - startLatitude);
-    final dLng = _degToRad(endLongitude - startLongitude);
-    final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-        math.cos(_degToRad(startLatitude)) *
-            math.cos(_degToRad(endLatitude)) *
-            (math.sin(dLng / 2) * math.sin(dLng / 2));
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
+Future<void> updateBrand(String brandId, Map<String, dynamic> data) async {
+await _brandsRef.doc(brandId).update(data);
+}
 
-  double _degToRad(double deg) => deg * (math.pi / 180);
+Future<void> deleteBrand(String brandId) async {
+await _brandsRef.doc(brandId).delete();
+}
 
-  void setPrice(String value) => state = state.copyWith(price: value);
+Future<BrandModel?> getBrandById(String brandId) async {
+final doc = await _brandsRef.doc(brandId).get();
+if (!doc.exists) return null;
+return BrandModel.fromFirestore(doc);
+}
 
-  void onProductInputChanged(String value) {
-    _productSearchDebounce?.cancel();
+// =========================================================================
+// STORES (Subeler)
+// =========================================================================
 
-    final normalizedInput = value.trim();
-    final wasSelected = state.selectedProductId != null;
-    final shouldClearSelection = wasSelected &&
-        normalizedInput.toLowerCase() !=
-            state.productName.trim().toLowerCase();
+Stream<List<StoreModel>> getAllStoresStream() {
+return _storesRef.snapshots().map((snapshot) {
+final list = snapshot.docs
+.map((doc) => StoreModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.displayName.compareTo(b.displayName));
+return list;
+});
+}
 
-    state = state.copyWith(
-      productName: value,
-      productSuggestions: const [],
-      clearBarcode: true,
-      clearSelectedProduct: shouldClearSelection,
-      lockedCategoryByProduct:
-          shouldClearSelection ? false : state.lockedCategoryByProduct,
-    );
+Stream<List<StoreModel>> getActiveStores() {
+final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => StoreModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.displayName.compareTo(b.displayName));
+return list;
+});
+}
 
-    if (normalizedInput.isEmpty) {
-      state = state.copyWith(
-        clearSelectedProduct: true,
-        lockedCategoryByProduct: false,
-        clearCategory: true,
-        productSuggestions: const [],
-      );
-      return;
-    }
+Stream<List<StoreModel>> getNearbyActiveStoresStream() {
+return _storesRef
+.snapshots()
+.handleError((error, stackTrace) {
+debugPrint('[AddPrice] nearby branch query error: $error');
+if (error is FirebaseException) {
+debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
+}
+if (stackTrace is StackTrace) {
+debugPrintStack(stackTrace: stackTrace);
+}
+})
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => StoreModel.fromFirestore(doc))
+.where((store) => store.status == StoreStatus.active && !store.isOnline)
+.toList();
+list.sort((a, b) => a.displayName.compareTo(b.displayName));
+return list;
+});
+}
 
-    if (normalizedInput.length < 2) return;
+Stream<List<StoreModel>> getOnlineActiveStoresStream() {
+return _storesRef
+.snapshots()
+.handleError((error, stackTrace) {
+debugPrint('[AddPrice] online branch query error: $error');
+if (error is FirebaseException) {
+debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
+}
+if (stackTrace is StackTrace) {
+debugPrintStack(stackTrace: stackTrace);
+}
+})
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => StoreModel.fromFirestore(doc))
+.where((store) => store.status == StoreStatus.active && store.isOnline)
+.toList();
+list.sort((a, b) => a.displayName.compareTo(b.displayName));
+return list;
+});
+}
 
-    _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
-      try {
-        final results =
-            await _firestore.searchProductsByPrefix(normalizedInput, limit: 5);
-        if (state.productName.trim().toLowerCase() !=
-            normalizedInput.toLowerCase()) return;
-        state = state.copyWith(productSuggestions: results);
-      } catch (_) {
-        state = state.copyWith(productSuggestions: const []);
-      }
-    });
-  }
+Future<List<StoreModel>> getNearbyActiveStores({
+required double userLat,
+required double userLng,
+double maxDistanceMeters = 2000,
+}) async {
+final query = SafeQueryBuilder.safeWhere(_storesRef, 'status', 'active', expectedType: String);
+final snapshot = await query.get();
+final stores = snapshot.docs.map((doc) => StoreModel.fromFirestore(doc)).toList();
+stores.sort((a, b) {
+final aDistance = _distanceInMeters(userLat, userLng, a.lat, a.lng);
+final bDistance = _distanceInMeters(userLat, userLng, b.lat, b.lng);
+return aDistance.compareTo(bDistance);
+});
+return stores
+.where((store) =>
+!store.isOnline &&
+store.lat != 0 &&
+store.lng != 0 &&
+_distanceInMeters(userLat, userLng, store.lat, store.lng) <=
+maxDistanceMeters)
+.toList();
+}
 
-  void clearProductSuggestions() {
-    if (state.productSuggestions.isEmpty) return;
-    state = state.copyWith(productSuggestions: const []);
-  }
+Stream<List<StoreSuggestionModel>> getPendingStoreSuggestions() {
+final query = SafeQueryBuilder.safeWhere(_storeSuggestionsRef, 'status', 'pending', expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => StoreSuggestionModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+return list;
+});
+}
 
-  void selectProductSuggestion(ProductModel product, {String? barcode}) {
-    final resolvedCategory = _resolveCategoryForProduct(product);
-    state = state.copyWith(
-      productName: product.name,
-      barcode: barcode ?? product.barcode,
-      selectedProductId: product.id,
-      productSuggestions: const [],
-      selectedCategoryId: resolvedCategory?.id,
-      selectedCategoryName: resolvedCategory?.title,
-      clearCategory: resolvedCategory == null,
-      lockedCategoryByProduct: resolvedCategory != null,
-    );
-  }
+Future<String> addStore(StoreModel store) async {
+final doc = await _storesRef.add(store.toFirestore());
+return doc.id;
+}
 
-  CategoryModel? _resolveCategoryForProduct(ProductModel product) {
-    final categoryValue = product.categories
-        .map((item) => item.trim())
-        .firstWhere((item) => item.isNotEmpty, orElse: () => '');
-    if (categoryValue.isEmpty) return null;
+Future<String> addStoreSuggestion({
+required String displayName,
+required double lat,
+required double lng,
+String city = '',
+String district = '',
+String neighborhood = '',
+}) async {
+final doc = await _storeSuggestionsRef.add({
+'displayName': displayName,
+'city': city,
+'district': district,
+'neighborhood': neighborhood,
+'lat': lat,
+'lng': lng,
+'status': 'pending',
+'resolvedStoreId': null,
+'createdAt': FieldValue.serverTimestamp(),
+});
+return doc.id;
+}
 
-    final normalized = categoryValue.toLowerCase();
-    for (final category in state.categories) {
-      if (category.id.toLowerCase() == normalized ||
-          category.title.toLowerCase() == normalized) {
-        return category;
-      }
-    }
-    return null;
-  }
+Future<void> approveStoreSuggestion(String suggestionId) async {
+final suggestionDoc = await _storeSuggestionsRef.doc(suggestionId).get();
+if (!suggestionDoc.exists) return;
+final suggestion = StoreSuggestionModel.fromFirestore(suggestionDoc);
 
-  void setCategory(CategoryModel? value) {
-    if (state.lockedCategoryByProduct) return;
-    state = state.copyWith(
-      selectedCategoryId: value?.id,
-      selectedCategoryName: value?.title,
-    );
-  }
+final storeRef = await _storesRef.add({  
+  'displayName': suggestion.displayName,  
+  'name': suggestion.displayName,  
+  'city': suggestion.city,  
+  'district': suggestion.district,  
+  'neighborhood': suggestion.neighborhood,  
+  'lat': suggestion.lat,  
+  'lng': suggestion.lng,  
+  'status': 'active',  
+  'type': StoreType.local.name,  
+  'isOnline': false,  
+  'createdAt': FieldValue.serverTimestamp(),  
+});  
 
-  void setSearchQuery(String value) => state = state.copyWith(searchQuery: value);
+await _storeSuggestionsRef.doc(suggestionId).update({  
+  'status': 'approved',  
+  'resolvedStoreId': storeRef.id,  
+});
 
-  void setActiveTab(int value) =>
-      state = state.copyWith(activeTab: value, clearSelectedStore: true);
+}
 
-  void setSelectedStore(Store store) => state = state.copyWith(
-        selectedStore: store,
-        selectedStoreId: store.id,
-        selectedStoreName: store.name,
-      );
+Future<void> mergeStoreSuggestion({
+required String suggestionId,
+required String targetStoreId,
+}) async {
+await _storeSuggestionsRef.doc(suggestionId).update({
+'status': 'merged',
+'resolvedStoreId': targetStoreId,
+});
+}
 
-  void setBarcode(String? value) {
-    final barcode = value?.trim();
-    state = state.copyWith(
-      barcode: barcode,
-      productName: barcode ?? '',
-      clearSelectedProduct: true,
-      lockedCategoryByProduct: false,
-      productSuggestions: const [],
-    );
-  }
+Future<void> rejectStoreSuggestion(String suggestionId) async {
+await _storeSuggestionsRef.doc(suggestionId).update({
+'status': 'rejected',
+});
+}
 
-  Future<void> initializeForProduct(String productId) async {
-    final normalizedId = productId.trim();
-    if (normalizedId.isEmpty) return;
-    final product = await _firestore.getProduct(normalizedId);
-    if (product == null) return;
-    selectProductSuggestion(product, barcode: product.barcode);
-  }
+Future<void> updateStore(String storeId, Map<String, dynamic> data) async {
+await _storesRef.doc(storeId).update(data);
+}
 
-  Future<bool> applyScannedBarcode(String barcode) async {
-    final normalizedBarcode = barcode.trim();
-    if (normalizedBarcode.isEmpty) return false;
+Future<void> approveStore(String storeId) async {
+await _storesRef.doc(storeId).update({'status': 'active'});
+}
 
-    final matches = await _firestore.searchProducts(normalizedBarcode);
-    for (final product in matches) {
-      if ((product.barcode?.trim() ?? '') == normalizedBarcode) {
-        selectProductSuggestion(product, barcode: normalizedBarcode);
-        return true;
-      }
-    }
+Future<void> hideStore(String storeId) async {
+await _storesRef.doc(storeId).update({'status': 'hidden'});
+}
 
-    setBarcode(normalizedBarcode);
-    return false;
-  }
+Future<void> deleteStore(String storeId) async {
+await _storesRef.doc(storeId).delete();
+}
 
-  Future<ProductModel?> _resolveProductByNameOrBarcode() async {
-    final selectedProductId = state.selectedProductId?.trim() ?? '';
-    if (selectedProductId.isNotEmpty) {
-      final selectedProduct = await _firestore.getProduct(selectedProductId);
-      if (selectedProduct != null) return selectedProduct;
-    }
+Future<StoreModel?> getStoreById(String storeId) async {
+final doc = await _storesRef.doc(storeId).get();
+if (!doc.exists) return null;
+return StoreModel.fromFirestore(doc);
+}
 
-    final byBarcode = state.barcode?.trim() ?? '';
-    final query = byBarcode.isNotEmpty ? byBarcode : state.productName.trim();
-    if (query.isEmpty) return null;
+/// Merge two stores: move all priceReports from sourceId to targetId, then delete source
+Future<void> mergeStores(String sourceId, String targetId) async {
+final targetStore = await getStoreById(targetId);
+if (targetStore == null) return;
 
-    final matches = await _firestore.searchProducts(query);
-    if (matches.isEmpty) return null;
+// Update all prices referencing sourceId  
+final priceQuery = SafeQueryBuilder.safeWhere(_pricesRef, 'storeId', sourceId, expectedType: String);  
+final priceSnapshot = await priceQuery.get();  
 
-    final normalizedName = state.productName.trim().toLowerCase();
-    for (final product in matches) {
-      if (product.name.trim().toLowerCase() == normalizedName &&
-          normalizedName.isNotEmpty) {
-        return product;
-      }
-    }
-    return matches.first;
-  }
+final batch = _firestore.batch();  
+for (final doc in priceSnapshot.docs) {  
+  batch.update(doc.reference, {  
+    'storeId': targetId,  
+    'branchStoreId': targetId,  
+    'storeName': targetStore.displayName,  
+    'chainId': targetStore.brandId,  
+  });  
+}  
+batch.delete(_storesRef.doc(sourceId));  
+await batch.commit();
 
-  // ✅ FULL FIX: userName çekiyoruz + payload tamam
-  Future<void> submitPrice({required String userId}) async {
-    final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
-    if (parsedPrice == null || parsedPrice <= 0) {
-      throw Exception('Lütfen geçerli bir fiyat girin.');
-    }
-    if (state.productName.trim().isEmpty) {
-      throw Exception('Lütfen ürün adını girin.');
-    }
-    if (state.selectedCategoryId == null) {
-      throw Exception('Lütfen kategori seçin.');
-    }
-    if (state.selectedStoreId == null || state.selectedStoreName == null) {
-      throw Exception('Lütfen bir mağaza seçin.');
-    }
+}
 
-    state = state.copyWith(isLoading: true, clearError: true);
+// Legacy store methods (for backward compat during migration)
+Stream<List<Map<String, dynamic>>> getStores() {
+return _storesRef.snapshots().map((snapshot) {
+final list = snapshot.docs.map((doc) {
+final raw = doc.data();
+final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+return {
+'id': doc.id,
+'name': data['displayName'] ?? data['name'] ?? '',
+};
+}).toList();
+list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+return list;
+});
+}
 
-    try {
-      final product = await _resolveProductByNameOrBarcode();
-      if (product == null) {
-        throw Exception(
-            'Bu ürün katalogda bulunamadı. Lütfen barkod okutun veya ürün adını kontrol edin.');
-      }
+Future<String> addStoreLegacy(String name) async {
+final doc = await _storesRef.add({
+'displayName': name,
+'name': name,
+'city': '',
+'district': '',
+'neighborhood': '',
+'lat': 0.0,
+'lng': 0.0,
+'status': 'active',
+'createdAt': FieldValue.serverTimestamp(),
+});
+return doc.id;
+}
 
-      // ✅ Anonim fix: userName çek
-      final userModel = await _firestore.getUserById(userId);
-      final userName = (userModel?.name ?? userModel?.displayName ?? '').trim();
+// =========================================================================
+// PRODUCTS
+// =========================================================================
 
-      final payload = PriceModel(
-        id: '',
-        productId: product.id,
-        productName: state.productName.trim(),
-        selectedProductId: state.selectedProductId,
-        selectedCategoryId: state.selectedCategoryId,
-        selectedStoreId: state.selectedStoreId,
-        barcode: state.barcode,
-        userId: userId,
-        userName: userName.isEmpty ? null : userName, // ✅
-        createdByUid: userId,
-        price: parsedPrice,
-        branchStoreId: state.selectedStoreId!,
-        chainId: null,
-        storeName: state.selectedStoreName,
-        reportedAt: DateTime.now(),
-        isPending: true,
-        verificationStatus: 'unverified',
-        status: 'active', // ✅
-      );
+Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
+return _productsRef
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => ProductModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
+return list.take(limit).toList();
+});
+}
 
-      await _firestore.addPriceReport(payload);
+// Maintenance mode
+Stream<bool> getMaintenanceMode() {
+return _maintenanceRef.snapshots().map((doc) {
+if (!doc.exists) return false;
+final raw = doc.data();
+final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+return data['enabled'] as bool? ?? false;
+});
+}
 
-      state = state.copyWith(
-        isLoading: false,
-        price: '',
-        productName: '',
-        searchQuery: '',
-        clearCategory: true,
-        clearSelectedStore: true,
-        clearBarcode: true,
-        clearSelectedProduct: true,
-        lockedCategoryByProduct: false,
-        productSuggestions: const [],
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
-    }
-  }
+Future<void> setMaintenanceMode(bool enabled) async {
+await _maintenanceRef.set({
+'enabled': enabled,
+'updatedAt': FieldValue.serverTimestamp(),
+}, SetOptions(merge: true));
+}
+
+Stream<List<ProductModel>> getRecommendedProducts({int limit = 10}) {
+return _productsRef
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => ProductModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+return list.take(limit).toList();
+});
+}
+
+Stream<List<ProductModel>> getAllProducts() {
+return _productsRef
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => ProductModel.fromFirestore(doc))
+.toList();
+for (final product in list) {
+_ensureOpenFoodFactsImage(product);
+}
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<List<ProductModel>> searchProducts(String query) async {
+final queryLower = query.toLowerCase();
+final snapshot = await _productsRef.get();
+return snapshot.docs
+.map((doc) => ProductModel.fromFirestore(doc))
+.where((product) =>
+product.name.toLowerCase().contains(queryLower) ||
+product.brand.toLowerCase().contains(queryLower) ||
+(product.barcode?.contains(query) ?? false))
+.toList();
+}
+
+Future<List<ProductModel>> searchProductsByPrefix(
+String query, {
+int limit = 5,
+}) async {
+final trimmed = query.trim();
+if (trimmed.isEmpty) return const [];
+
+try {  
+  // Baş harfi büyüt (Veritabanındaki orijinal ismi yakalamak için)  
+  final capitalizedQuery = trimmed.isNotEmpty   
+      ? '${trimmed[0].toUpperCase()}${trimmed.substring(1).toLowerCase()}'   
+      : trimmed;  
+
+  // nameLower uydurmasını sildik, gerçek 'name' ile arıyoruz  
+  var snapshot = await _productsRef  
+      .orderBy('name')  
+      .startAt([capitalizedQuery])  
+      .endAt(['$capitalizedQuery\uf8ff'])  
+      .limit(limit)  
+      .get();  
+
+  var products = snapshot.docs  
+      .map((doc) => ProductModel.fromFirestore(doc))  
+      .toList();  
+
+  // Eğer büyük harfle bulamazsa, küçük harfle de şansını denesin  
+  if (products.isEmpty) {  
+    final fallbackSnapshot = await _productsRef  
+        .orderBy('name')  
+        .startAt([trimmed])  
+        .endAt(['$trimmed\uf8ff'])  
+        .limit(limit)  
+        .get();  
+
+    products.addAll(fallbackSnapshot.docs  
+        .map((doc) => ProductModel.fromFirestore(doc))  
+        .toList());  
+  }  
+
+  return products.take(limit).toList();  
+} catch (e) {  
+  debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');  
+  return const [];   
+}
+
+}
+
+Future<ProductModel?> getProduct(String productId) async {
+final doc = await _productsRef.doc(productId).get();
+if (doc.exists) {
+final product = ProductModel.fromFirestore(doc);
+await _ensureOpenFoodFactsImage(product);
+return product;
+}
+return null;
+}
+
+Future<void> _ensureOpenFoodFactsImage(ProductModel product) async {
+if ((product.effectiveImage ?? '').isNotEmpty) return;
+final barcode = product.barcode?.trim() ?? '';
+if (barcode.isEmpty) return;
+if (_offFetchInFlight.contains(product.id)) return;
+_offFetchInFlight.add(product.id);
+
+try {  
+  final uri = Uri.parse('https://world.openfoodfacts.org/api/v2/product/$barcode.json');  
+  final response = await _getBytes(uri, headers: const {  
+    'User-Agent': 'FiyatRadar/1.0 (image-fallback)',  
+    'Accept': 'application/json',  
+  }).timeout(const Duration(seconds: 6));  
+  if (response.statusCode != 200) return;  
+  final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;  
+  final productData = body['product'] as Map<String, dynamic>?;  
+  final imageFront = (productData?['image_front_url'] ?? '').toString();  
+  if (imageFront.isEmpty) return;  
+  await _productsRef.doc(product.id).set({  
+    'imageUrl': imageFront,  
+    'mainImage': imageFront,  
+    'imageSource': 'openfoodfacts',  
+    'imageApproved': true,  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+} catch (_) {  
+  // Sessizce gec.  
+} finally {  
+  _offFetchInFlight.remove(product.id);  
+}
+
+}
+
+Future<Map<String, dynamic>> createAiPackshot({
+required ProductModel product,
+required StorageService storageService,
+}) async {
+final prompt = 'Ultra realistic Turkish grocery store packshot, front facing product, clean white background, soft supermarket lighting, realistic packaging, no watermark, high detail commercial food photography. Product: ${product.brand} ${product.name} Turkey packaging';
+final uri = Uri.parse('https://image.pollinations.ai/prompt/${Uri.encodeComponent(prompt)}');
+final response = await _getBytes(uri).timeout(const Duration(seconds: 40));
+if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+throw Exception('AI packshot olusturulamadi.');
+}
+
+final urls = await storageService.uploadPackshotVariants(  
+  productId: product.id,  
+  imageBytes: response.bodyBytes,  
+);  
+
+final payload = {  
+  'imageThumbUrl': urls['imageThumbUrl'],  
+  'imageMediumUrl': urls['imageMediumUrl'],  
+  'imageUrl': urls['imageMediumUrl'],  
+  'mainImage': urls['imageThumbUrl'],  
+  'imageSource': 'ai_packshot',  
+  'aiGenerated': true,  
+  'aiPrompt': prompt,  
+  'imageApproved': true,  
+  'updatedAt': FieldValue.serverTimestamp(),  
+};  
+await updateProduct(product.id, payload);  
+return payload;
+
+}
+
+Future<List<ProductModel>> getProductsByIds(List<String> productIds) async {
+if (productIds.isEmpty) return const [];
+
+final uniqueIds = productIds.toSet().toList();  
+final futures = uniqueIds.map((id) => _productsRef.doc(id).get());  
+final docs = await Future.wait(futures);  
+final productMap = <String, ProductModel>{};  
+for (final doc in docs) {  
+  if (!doc.exists) continue;  
+  final model = ProductModel.fromFirestore(doc);  
+  productMap[model.id] = model;  
+}  
+
+return uniqueIds.where(productMap.containsKey).map((id) => productMap[id]!).toList();
+
+}
+
+Future<List<String>> getCampaignProductIdsForBanner(String bannerId) async {
+final sub = await _bannersRef.doc(bannerId).collection('campaignProducts').get();
+return sub.docs
+.map((doc) => (doc.data()['productId'] ?? doc.id).toString())
+.where((id) => id.trim().isNotEmpty)
+.toList();
+}
+
+Future<CampaignBasketModel?> getCampaignById(String id) async {
+if (id.trim().isEmpty) return null;
+final doc = await _campaignBasketsRef.doc(id).get();
+if (!doc.exists) return null;
+return CampaignBasketModel.fromFirestore(doc);
+}
+
+Stream<List<CampaignBasketModel>> getAllCampaigns() {
+return _campaignBasketsRef.snapshots().map((snapshot) {
+final list = snapshot.docs
+.map((doc) => CampaignBasketModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) {
+final aOrder = a.sortOrder ?? 999999;
+final bOrder = b.sortOrder ?? 999999;
+if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+return b.createdAt.compareTo(a.createdAt);
+});
+return list;
+});
+}
+
+Stream<List<CampaignBasketModel>> getActiveCampaigns() {
+final query = SafeQueryBuilder.safeWhere(_campaignBasketsRef, 'isActive', true, expectedType: bool);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => CampaignBasketModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) {
+final aOrder = a.sortOrder ?? 999999;
+final bOrder = b.sortOrder ?? 999999;
+if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+return b.createdAt.compareTo(a.createdAt);
+});
+return list;
+});
+}
+
+Future<String> addCampaign(CampaignBasketModel campaign) async {
+final doc = await _campaignBasketsRef.add({
+...campaign.toFirestore(),
+'createdAt': FieldValue.serverTimestamp(),
+'updatedAt': FieldValue.serverTimestamp(),
+});
+return doc.id;
+}
+
+Future<void> updateCampaign(String id, Map<String, dynamic> data) async {
+await _campaignBasketsRef.doc(id).update({
+...data,
+'updatedAt': FieldValue.serverTimestamp(),
+});
+}
+
+Future<void> deleteCampaign(String id) async {
+await _campaignBasketsRef.doc(id).delete();
+}
+
+@Deprecated('Use getCampaignById')
+Future<Map<String, dynamic>?> getCampaignBasket(String basketId) async {
+final model = await getCampaignById(basketId);
+if (model == null) return null;
+return model.toFirestore();
+}
+
+Future<List<ProductModel>> getCampaignBasketProducts(String basketId) async {
+final campaign = await getCampaignById(basketId);
+if (campaign == null || campaign.itemProductIds.isEmpty) return const [];
+return getProductsByIds(campaign.itemProductIds);
+}
+
+Future<void> incrementViewCount(String productId) async {
+await _productsRef.doc(productId).update({
+'viewCount': FieldValue.increment(1),
+});
+}
+
+Future<String> addProduct(ProductModel product) async {
+final doc = await _productsRef.add(product.toFirestore());
+return doc.id;
+}
+
+Future<void> updateProduct(String productId, Map<String, dynamic> data) async {
+await _productsRef.doc(productId).update(data);
+}
+
+Future<void> deleteProduct(String productId) async {
+await _productsRef.doc(productId).delete();
+}
+
+// =========================================================================
+// PRICES
+// =========================================================================
+
+Stream<List<PriceModel>> getPricesForProduct(String productId) {
+var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => PriceModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<PriceModel?> getLatestPriceForStore({
+required String productId,
+required String branchStoreId,
+}) async {
+try {
+var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
+final snapshot = await query.get();
+
+final prices = snapshot.docs  
+      .map((doc) => PriceModel.fromFirestore(doc))  
+      .where((price) => price.branchStoreId == branchStoreId)  
+      .toList()  
+    ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));  
+  return prices.isEmpty ? null : prices.first;  
+} on FirebaseException catch (e, st) {  
+  _logFirestoreQueryError('getLatestPriceForStore', e, st);  
+  return null;  
+} catch (e, st) {  
+  _logFirestoreQueryError('getLatestPriceForStore', e, st);  
+  return null;  
+}
+
+}
+
+Future<PriceModel?> getLatestPrice(String productId) async {
+var query = SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
+query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
+final snapshot = await query.get();
+
+final prices = snapshot.docs  
+    .map((doc) => PriceModel.fromFirestore(doc))  
+    .toList();  
+prices.sort((a, b) => b.createdAt.compareTo(a.createdAt));  
+return prices.isNotEmpty ? prices.first : null;
+
+}
+
+Stream<List<PriceModel>> getLatestPrices({int limit = 10}) {
+var query = SafeQueryBuilder.safeWhere(_pricesRef, 'status', 'active', expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => PriceModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list.take(limit).toList();
+});
+}
+
+Future<String> addPrice(PriceModel price) async {
+return addPriceReport(price);
+}
+
+String _priceDayKey(DateTime date) {
+final localDate = date.toLocal();
+final m = localDate.month.toString().padLeft(2, '0');
+final d = localDate.day.toString().padLeft(2, '0');
+return '${localDate.year}$m$d';
+}
+
+String _buildPriceDedupeKey({
+required String productId,
+required String branchStoreId,
+required double price,
+required DateTime reportedAt,
+}) {
+return '$productId|$branchStoreId|${price.toStringAsFixed(2)}|${_priceDayKey(reportedAt)}';
+}
+
+Future<String> addPriceReport(PriceModel price) async {
+final productDoc = await _productsRef.doc(price.productId).get();
+final productRaw = productDoc.data();
+final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
+final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
+final dedupeKey = _buildPriceDedupeKey(
+productId: price.productId,
+branchStoreId: price.branchStoreId,
+price: price.price,
+reportedAt: price.reportedAt,
+);
+final dayKey = _priceDayKey(price.reportedAt);
+
+final priceRef = _pricesRef.doc();  
+final priceEntryRef = _firestore.collection('price_entries').doc(priceRef.id);  
+final dedupeRef = _priceDedupeRef.doc(dedupeKey);  
+
+await _firestore.runTransaction((txn) async {  
+  final dedupeDoc = await txn.get(dedupeRef);  
+  if (dedupeDoc.exists) {  
+    throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');  
+  }  
+  final payload = price.copyWith(id: priceRef.id, dedupeKey: dedupeKey).toFirestore();  
+  payload['createdByUid'] = price.userId;  
+  payload['dedupeKey'] = dedupeKey;  
+  payload['id'] = priceRef.id;  
+  payload['verificationStatus'] = payload['verificationStatus'] ?? 'unverified';  
+  txn.set(priceRef, payload);  
+  txn.set(priceEntryRef, {  
+    'productId': price.productId,  
+    'storeId': price.chainId,  
+    'branchId': price.branchStoreId,  
+    'price': price.price,  
+    'createdAt': FieldValue.serverTimestamp(),  
+    'createdByUid': price.userId,  
+    'createdByName': price.userName,  
+    'createdByTrustScore': price.addedByTrustScoreSnapshot,  
+    'status': 'active',  
+    'verification': {  
+      'upCount': 0,  
+      'downCount': 0,  
+      'score': 0,  
+      'userVotes': <String, String>{},  
+      'updatedAt': FieldValue.serverTimestamp(),  
+    },  
+  });  
+  txn.set(dedupeRef, {  
+    'productId': price.productId,  
+    'branchStoreId': price.branchStoreId,  
+    'price': price.price,  
+    'day': dayKey,  
+    'createdByUid': price.userId,  
+    'priceReportId': priceRef.id,  
+    'dedupeKey': dedupeKey,  
+    'createdAt': FieldValue.serverTimestamp(),  
+  });  
+  txn.update(_productsRef.doc(price.productId), {  
+    'priceEntryCount': FieldValue.increment(1),  
+    'lastPrice': price.price,  
+    'lastStore': price.storeName,  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  });  
+});  
+
+var notificationCount = 0;  
+try {  
+  notificationCount = await _createFollowerNotifications(  
+    productId: price.productId,  
+    priceReporterId: price.userId,  
+    productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',  
+    oldPrice: oldPrice,  
+    newPrice: price.price,  
+    storeName: price.storeName,  
+  );  
+} on FirebaseException catch (e, st) {  
+  _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);  
+} catch (e, st) {  
+  _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);  
+}  
+
+print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');  
+
+try {  
+  await _pointsService.awardEvent(  
+    uid: price.userId,  
+    eventType: 'price_add',  
+    meta: {  
+      'productId': price.productId,  
+      'storeId': price.chainId,  
+      'branchId': price.branchStoreId,  
+      'priceEntryId': priceRef.id,  
+    },  
+  );  
+  await _pointsService.markReferralFirstContribution(price.userId);  
+} catch (e, st) {  
+  _logFirestoreQueryError('addPriceReport/pointsAward', e, st);  
+}  
+
+return priceRef.id;
+
+}
+
+Future<int> _createFollowerNotifications({
+required String productId,
+required String priceReporterId,
+required String productName,
+required double? oldPrice,
+required double newPrice,
+String? storeName,
+}) async {
+if (productId.trim().isEmpty) {
+if (kDebugMode) {
+debugPrint('E/FLTFirestoreMsgCodec(_createFollowerNotifications): productId bos, query atlandi');
+}
+return 0;
+}
+
+final isDrop = oldPrice != null && newPrice < oldPrice;  
+final percentChange =  
+    oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;  
+
+final followedSnapshot = await SafeQueryBuilder.safeWhere(  
+  _firestore.collectionGroup('followedProducts'),  
+  FieldPath.documentId,  
+  productId.trim(), // Query argumanini primitive + trim'li gonder.  
+  expectedType: String,  
+).get();  
+
+final batch = _firestore.batch();  
+var notificationCount = 0;  
+
+for (final followDoc in followedSnapshot.docs) {  
+  final userRef = followDoc.reference.parent.parent;  
+  final uid = userRef?.id;  
+  if (uid == null || uid.isEmpty || uid == priceReporterId) continue;  
+
+  final followData = followDoc.data();  
+  final notifyOnNewPrice = followData['notifyOnNewPrice'] == true;  
+  final notifyOnPriceDrop = followData['notifyOnPriceDrop'] == true;  
+
+  if (notifyOnNewPrice) {  
+    final ref = _notificationsRef.doc();  
+    batch.set(ref, {  
+      'id': ref.id,  
+      'userId': uid,  
+      'type': 'new_price',  
+      'productId': productId,  
+      'title': '$productName icin yeni fiyat',  
+      'body': storeName == null || storeName.isEmpty  
+          ? 'Yeni fiyat girildi: ${newPrice.toStringAsFixed(2)}₺'  
+          : '$storeName mağazasında yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',  
+      'createdAt': FieldValue.serverTimestamp(),  
+      'isRead': false,  
+      'meta': {  
+        'oldPrice': oldPrice,  
+        'newPrice': newPrice,  
+        'storeName': storeName,  
+        'percentChange': percentChange,  
+      },  
+    });  
+    notificationCount += 1;  
+  }  
+
+  if (isDrop && notifyOnPriceDrop) {  
+    final ref = _notificationsRef.doc();  
+    batch.set(ref, {  
+      'id': ref.id,  
+      'userId': uid,  
+      'type': 'price_drop',  
+      'productId': productId,  
+      'title': '$productName fiyat dustu',  
+      'body': '${oldPrice!.toStringAsFixed(2)}₺ → ${newPrice.toStringAsFixed(2)}₺',  
+      'createdAt': FieldValue.serverTimestamp(),  
+      'isRead': false,  
+      'meta': {  
+        'oldPrice': oldPrice,  
+        'newPrice': newPrice,  
+        'storeName': storeName,  
+        'percentChange': percentChange,  
+      },  
+    });  
+    notificationCount += 1;  
+  }  
+}  
+
+if (notificationCount > 0) {  
+  await batch.commit();  
+}  
+
+return notificationCount;
+
+}
+
+Future<void> setFollowedProduct({
+required String userId,
+required String productId,
+required bool notifyOnNewPrice,
+required bool notifyOnPriceDrop,
+}) async {
+final docRef = _usersRef.doc(userId).collection('followedProducts').doc(productId);
+if (!notifyOnNewPrice && !notifyOnPriceDrop) {
+await docRef.delete();
+return;
+}
+
+await docRef.set({  
+  'notifyOnNewPrice': notifyOnNewPrice,  
+  'notifyOnPriceDrop': notifyOnPriceDrop,  
+  'createdAt': FieldValue.serverTimestamp(),  
+}, SetOptions(merge: true));
+
+}
+
+Stream<DocumentSnapshot<Map<String, dynamic>>> followedProductStream({
+required String userId,
+required String productId,
+}) {
+return _firestore
+.collection('users')
+.doc(userId)
+.collection('followedProducts')
+.doc(productId)
+.snapshots();
+}
+
+Future<String> addProductSuggestion({
+required String name,
+String? barcode,
+String? category,
+String? brand,
+String? photoUrl,
+required String userId,
+}) async {
+final doc = await _productSuggestionsRef.add({
+'name': name,
+'barcode': barcode,
+'category': category,
+'brand': brand,
+'photoUrl': photoUrl,
+'imageUrl': photoUrl,
+'userId': userId,
+'status': 'pending',
+'createdAt': FieldValue.serverTimestamp(),
+});
+return doc.id;
+}
+
+Stream<List<ProductSuggestionModel>> getPendingProductSuggestions() {
+final query = SafeQueryBuilder.safeWhere(_productSuggestionsRef, 'status', 'pending', expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => ProductSuggestionModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<void> approveProductSuggestion(String suggestionId) async {
+final suggestionDoc = await _productSuggestionsRef.doc(suggestionId).get();
+if (!suggestionDoc.exists) return;
+final raw = suggestionDoc.data();
+final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+final name = (data['name'] ?? '').toString().trim();
+if (name.isEmpty) return;
+
+final category = (data['category'] ?? '').toString();  
+final brand = (data['brand'] ?? '').toString();  
+final imageUrl = ((data['imageUrl'] ?? data['photoUrl']) ?? '').toString();  
+final productRef = await _productsRef.add({  
+  'name': name,  
+  'brand': brand,  
+  'category': category,  
+  'categories': category.isEmpty ? <String>[] : <String>[category],  
+  'barcode': data['barcode'],  
+  'imageUrl': imageUrl.isEmpty ? null : imageUrl,  
+  'createdAt': FieldValue.serverTimestamp(),  
+  'updatedAt': FieldValue.serverTimestamp(),  
+  'priceEntryCount': 0,  
+  'viewCount': 0,  
+  'isActive': true,  
+});  
+
+await _productSuggestionsRef.doc(suggestionId).update({  
+  'status': 'approved',  
+  'resolvedProductId': productRef.id,  
+  'resolvedAt': FieldValue.serverTimestamp(),  
+});
+
+}
+
+Future<void> rejectProductSuggestion(String suggestionId) async {
+await _productSuggestionsRef.doc(suggestionId).update({
+'status': 'rejected',
+'resolvedAt': FieldValue.serverTimestamp(),
+});
+}
+
+double _distanceInMeters(
+double lat1,
+double lon1,
+double lat2,
+double lon2,
+) {
+const earthRadius = 6371000.0;
+final dLat = _toRadians(lat2 - lat1);
+final dLon = _toRadians(lon2 - lon1);
+final a =
+(sin(dLat / 2) * sin(dLat / 2)) +
+cos(_toRadians(lat1)) *
+cos(_toRadians(lat2)) *
+(sin(dLon / 2) * sin(dLon / 2));
+final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+return earthRadius * c;
+}
+
+double _toRadians(double degree) => degree * 0.017453292519943295;
+
+Future<PriceVoteResult> voteOnPrice({
+required String priceId,
+required String priceOwnerUid,
+required int vote,
+required String voterUid,
+}) async {
+if (vote != 1 && vote != -1) {
+return const PriceVoteResult(PriceVoteStatus.ignored);
+}
+
+try {  
+  final result = await _firestore.runTransaction<PriceVoteResult>((txn) async {  
+    final priceRef = _pricesRef.doc(priceId);  
+    final voteRef = _firestore.collection('price_votes').doc(priceId).collection('votes').doc(voterUid);  
+    final voterRef = _usersRef.doc(voterUid);  
+
+    final priceSnap = await txn.get(priceRef);  
+    if (!priceSnap.exists) return const PriceVoteResult(PriceVoteStatus.ignored);  
+
+    final priceData = Map<String, dynamic>.from(priceSnap.data() ?? const <String, dynamic>{});  
+    final status = (priceData['status'] ?? 'active').toString();  
+    if (status != 'active') return const PriceVoteResult(PriceVoteStatus.ignored);  
+
+    final ownerUidFromDoc = (priceData['createdByUid'] ?? priceData['userId'] ?? '').toString();  
+    final ownerUid = ownerUidFromDoc.isNotEmpty ? ownerUidFromDoc : priceOwnerUid;  
+    if (ownerUid.trim().isEmpty) {  
+      return const PriceVoteResult(PriceVoteStatus.ignored);  
+    }  
+    if (ownerUid == voterUid) {  
+      return const PriceVoteResult(PriceVoteStatus.selfVoteBlocked);  
+    }  
+
+    final upCurrent = (priceData['verifyUpCount'] as num?)?.toInt() ??  
+        (priceData['upVotes'] as num?)?.toInt() ??  
+        (priceData['verifyYesCount'] as num?)?.toInt() ??  
+        (priceData['verification'] is Map ? ((priceData['verification'] as Map)['upCount'] as num?)?.toInt() : null) ??  
+        0;  
+    final downCurrent = (priceData['verifyDownCount'] as num?)?.toInt() ??  
+        (priceData['downVotes'] as num?)?.toInt() ??  
+        (priceData['verifyNoCount'] as num?)?.toInt() ??  
+        (priceData['verification'] is Map ? ((priceData['verification'] as Map)['downCount'] as num?)?.toInt() : null) ??  
+        0;  
+
+    final voteSnap = await txn.get(voteRef);  
+    final existingVoteData = voteSnap.data() ?? const <String, dynamic>{};  
+    final existingVoteRaw = (existingVoteData['vote'] ?? existingVoteData['value'] ?? '').toString();  
+    final existingVote = existingVoteRaw == 'up' || existingVoteRaw == 'yes' || existingVoteRaw == 'verified'  
+        ? 1  
+        : (existingVoteRaw == 'down' || existingVoteRaw == 'no' || existingVoteRaw == 'wrong' ? -1 : 0);  
+
+    if (voteSnap.exists && existingVote == vote) {  
+      return PriceVoteResult(  
+        PriceVoteStatus.alreadyVoted,  
+        upCount: upCurrent,  
+        downCount: downCurrent,  
+        score: upCurrent - downCurrent,  
+      );  
+    }  
+
+    var up = upCurrent;  
+    var down = downCurrent;  
+    if (voteSnap.exists) {  
+      if (existingVote == 1) up -= 1;  
+      if (existingVote == -1) down -= 1;  
+    }  
+    if (vote == 1) {  
+      up += 1;  
+    } else {  
+      down += 1;  
+    }  
+
+    final voterSnap = await txn.get(voterRef);  
+    final voterData = voterSnap.data() ?? const <String, dynamic>{};  
+    final voterName = (voterData['name'] ?? voterData['displayName'] ?? '').toString();  
+    final voterTotalPoints = (voterData['totalPoints'] as num?)?.toInt() ?? (voterData['pointsTotal'] as num?)?.toInt() ?? (voterData['points'] as num?)?.toInt() ?? 0;  
+    final voterTrustPercent = ((voterData['trustScorePercent'] as num?)?.toInt() ?? (voterData['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);  
+    final voterTrustVotes = (voterData['trustTotalVotes'] as num?)?.toInt() ?? 0;  
+    final voterFinalLevel = EliteLevelEngine.getFinalLevel(voterTotalPoints, voterTrustPercent, voterTrustVotes);  
+    final voterLevel = EliteLevelEngine.getLevelStyle(voterFinalLevel).label;  
+    final voterTrust = voterTrustPercent.toDouble();  
+
+    txn.set(voteRef, {  
+      'uid': voterUid,  
+      'vote': vote == 1 ? 'verified' : 'wrong',  
+      'createdAt': FieldValue.serverTimestamp(),  
+      'userName': voterName,  
+      'userLevelSnapshot': voterLevel,  
+      'userTrustSnapshot': voterTrust,  
+    }, SetOptions(merge: true));  
+
+    if (up < 0) up = 0;  
+    if (down < 0) down = 0;  
+
+    final score = up - down;  
+    final total = up + down;  
+    final verificationStatus = total < 3  
+        ? 'unverified'  
+        : (score >= 3 && up >= 3)  
+            ? 'trusted'  
+            : (down >= 3 && score <= -2)  
+                ? 'contested'  
+                : 'unverified';  
+
+    txn.set(priceRef, {  
+      'verifyUpCount': up,  
+      'verifyDownCount': down,  
+      'verifyScore': score,  
+      'upVotes': up,  
+      'downVotes': down,  
+      'verifyYesCount': up,  
+      'verifyNoCount': down,  
+      'verifiedCount': up,  
+      'unverifiedCount': down,  
+      'score': score,  
+      'verificationScore': score,  
+      'verificationStatus': verificationStatus,  
+      'verification.upCount': up,  
+      'verification.downCount': down,  
+      'verification.score': score,  
+      'verification.updatedAt': FieldValue.serverTimestamp(),  
+      'lastVerifiedAt': FieldValue.serverTimestamp(),  
+      'updatedAt': FieldValue.serverTimestamp(),  
+    }, SetOptions(merge: true));  
+
+
+    return PriceVoteResult(  
+      voteSnap.exists ? PriceVoteStatus.voteChanged : PriceVoteStatus.newVote,  
+      upCount: up,  
+      downCount: down,  
+      score: score,  
+    );  
+  });  
+
+  if (result.status == PriceVoteStatus.newVote) {  
+    try {  
+      final priceSnap = await _pricesRef.doc(priceId).get();  
+      final priceData = priceSnap.data() ?? const <String, dynamic>{};  
+      await _pointsService.awardEvent(  
+        uid: voterUid,  
+        eventType: 'verify_vote',  
+        meta: {  
+          'priceId': priceId,  
+          'productId': (priceData['productId'] ?? '').toString(),  
+          'storeId': (priceData['storeId'] ?? priceData['branchStoreId'] ?? '').toString(),  
+        },  
+        ensureUniqueByMeta: true,  
+      );  
+    } catch (e) {  
+      debugPrint('voteOnPrice points award failed: $e');  
+    }  
+  }  
+
+  final normalizedOwnerUid = priceOwnerUid.trim();  
+  if (normalizedOwnerUid.isNotEmpty &&  
+      (result.status == PriceVoteStatus.newVote || result.status == PriceVoteStatus.voteChanged)) {  
+    await recomputeAndStoreUserTrust(normalizedOwnerUid);  
+  }  
+
+  return result;  
+} on FirebaseException catch (e, st) {  
+  _logFirestoreQueryError('voteOnPrice', e, st);  
+  return const PriceVoteResult(PriceVoteStatus.ignored);  
+} catch (e, st) {  
+  _logFirestoreQueryError('voteOnPrice', e, st);  
+  return const PriceVoteResult(PriceVoteStatus.ignored);  
+}
+
+}
+
+Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
+try {
+debugPrint(
+'[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
+);
+final priceSnap = await _pricesRef.doc(priceId).get();
+final data = priceSnap.data() ?? const <String, dynamic>{};
+final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
+if (ownerUid.isEmpty) {
+return const PriceVoteResult(PriceVoteStatus.ignored);
+}
+
+return voteOnPrice(  
+    priceId: priceId,  
+    priceOwnerUid: ownerUid,  
+    vote: isVerified ? 1 : -1,  
+    voterUid: voterId,  
+  );  
+} catch (e, st) {  
+  debugPrint('[FirestoreService.verifyPrice] ERROR: $e');  
+  debugPrintStack(  
+    stackTrace: st,  
+    label: '[FirestoreService.verifyPrice] STACK',  
+  );  
+  rethrow;  
+}
+
+}
+
+Future<bool> hasUserVotedPrice(String priceId, String userId) async {
+return hasUserVerifiedPrice(priceId, userId);
+}
+
+Future<bool> hasUserVerifiedPrice(String priceId, String userId) async {
+final voteDoc = await _firestore.collection('price_votes').doc(priceId).collection('votes').doc(userId).get();
+if (voteDoc.exists) return true;
+final legacyVoteDoc = await _pricesRef.doc(priceId).collection('verifications').doc(userId).get();
+return legacyVoteDoc.exists;
+}
+
+Stream<String?> streamUserVoteValue(String priceId, String uid) {
+if (priceId.trim().isEmpty || uid.trim().isEmpty) return const Stream<String?>.empty();
+return _firestore.collection('price_votes').doc(priceId).collection('votes').doc(uid).snapshots().asyncMap((snap) async {
+if (!snap.exists) {
+final legacy = await _pricesRef.doc(priceId).collection('verifications').doc(uid).get();
+if (!legacy.exists) return null;
+final legacyData = legacy.data() ?? const <String, dynamic>{};
+final rawLegacy = (legacyData['vote'] ?? legacyData['value'] ?? '').toString();
+if (rawLegacy == 'up' || rawLegacy == 'yes' || rawLegacy == 'verified') return 'yes';
+if (rawLegacy == 'down' || rawLegacy == 'no' || rawLegacy == 'wrong') return 'no';
+return null;
+}
+final data = snap.data() ?? const <String, dynamic>{};
+final raw = (data['vote'] ?? data['value'] ?? '').toString();
+if (raw == 'up' || raw == 'yes' || raw == 'verified') return 'yes';
+if (raw == 'down' || raw == 'no' || raw == 'wrong') return 'no';
+return null;
+});
+}
+
+Future<void> reportPrice({
+required String priceId,
+required String userId,
+required String reason,
+String? contextId,
+}) async {
+await _firestore.collection('reports').add({
+'targetType': 'priceEntry',
+'targetId': priceId,
+'priceEntryId': priceId,
+'contextId': contextId,
+'reason': reason,
+'reporterUserId': userId,
+'reporterUid': userId,
+'status': 'pending',
+'createdAt': FieldValue.serverTimestamp(),
+'resolvedBy': null,
+'resolvedAt': null,
+});
+}
+
+Future<void> reportComment({
+required String commentId,
+required String userId,
+required String reason,
+String? contextId,
+}) async {
+await _firestore.collection('reports').add({
+'targetType': 'comment',
+'targetId': commentId,
+'contextId': contextId,
+'reason': reason,
+'reporterUserId': userId,
+'status': 'pending',
+'createdAt': FieldValue.serverTimestamp(),
+'resolvedBy': null,
+'resolvedAt': null,
+});
+}
+
+Stream<List<PriceModel>> getPendingPrices() {
+final query = SafeQueryBuilder.safeWhere(_pricesRef, 'isPending', true, expectedType: bool);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => PriceModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<void> approvePrice(String priceId) async {
+await _pricesRef.doc(priceId).update({
+'isApproved': true,
+'isPending': false,
+});
+}
+
+Future<void> rejectPrice(String priceId) async {
+await _pricesRef.doc(priceId).update({
+'isApproved': false,
+'isPending': false,
+});
+}
+
+// =========================================================================
+// COMMENTS
+// =========================================================================
+
+Stream<List<CommentModel>> getComments(String productId) {
+final query = SafeQueryBuilder.safeWhere(_commentsRef, 'productId', productId, expectedType: String);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => CommentModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<String> addComment(CommentModel comment) async {
+final doc = await _commentsRef.add(comment.toFirestore());
+if (comment.text.trim().length >= 12) {
+await _pointsService.awardEvent(
+uid: comment.userId,
+eventType: 'comment',
+meta: {'commentId': doc.id, 'productId': comment.productId},
+);
+}
+return doc.id;
+}
+
+Future<void> likeComment(String commentId, String userId) async {
+final doc = await _commentsRef.doc(commentId).get();
+if (doc.exists) {
+final raw = doc.data();
+final data = raw is Map<String, dynamic>
+? Map<String, dynamic>.from(raw)
+: null;
+final likedBy = List<String>.from(data?['likedBy'] ?? []);
+if (likedBy.contains(userId)) {
+likedBy.remove(userId);
+} else {
+likedBy.add(userId);
+}
+await _commentsRef.doc(commentId).update({
+'likedBy': likedBy,
+'likes': likedBy.length,
+});
+}
+}
+
+Future<void> deleteComment(String commentId) async {
+await _commentsRef.doc(commentId).delete();
+}
+
+// =========================================================================
+// NOTIFICATIONS
+// =========================================================================
+
+Stream<List<NotificationModel>> getNotifications(String userId) {
+final primary = SafeQueryBuilder.safeWhere(
+_notificationsRef,
+'userId',
+userId,
+expectedType: String,
+).snapshots();
+final legacy = SafeQueryBuilder.safeWhere(
+_legacyNotificationsRef,
+'userId',
+userId,
+expectedType: String,
+).snapshots();
+
+return primary.asyncMap((primarySnapshot) async {  
+  final legacySnapshot = await legacy.first;  
+  final merged = <NotificationModel>[  
+    ...primarySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),  
+    ...legacySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),  
+  ];  
+
+  final byId = <String, NotificationModel>{};  
+  for (final notification in merged) {  
+    byId[notification.id] = notification;  
+  }  
+  final list = byId.values.toList();  
+  list.sort((a, b) => b.createdAt.compareTo(a.createdAt));  
+  return list;  
+});
+
+}
+
+Stream<int> getUnreadNotificationCount(String userId) {
+return getNotifications(userId).map(
+(list) => list.where((item) => !item.isRead).length,
+);
+}
+
+Future<void> markNotificationAsRead(String notificationId) async {
+final doc = await _notificationsRef.doc(notificationId).get();
+if (doc.exists) {
+await _notificationsRef.doc(notificationId).update({'isRead': true});
+return;
+}
+
+final legacyDoc = await _legacyNotificationsRef.doc(notificationId).get();  
+if (legacyDoc.exists) {  
+  await _legacyNotificationsRef.doc(notificationId).update({'isRead': true});  
+}
+
+}
+
+Future<void> markAllNotificationsAsRead(String userId) async {
+final batch = _firestore.batch();
+final primarySnapshot = await SafeQueryBuilder.safeWhere(
+_notificationsRef,
+'userId',
+userId,
+expectedType: String,
+).get();
+final legacySnapshot = await SafeQueryBuilder.safeWhere(
+_legacyNotificationsRef,
+'userId',
+userId,
+expectedType: String,
+).get();
+
+for (final doc in [...primarySnapshot.docs, ...legacySnapshot.docs]) {  
+  final raw = doc.data();  
+  final map = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};  
+  final isRead = map['isRead'] == true;  
+  if (!isRead) {  
+    batch.update(doc.reference, {'isRead': true});  
+  }  
+}  
+
+await batch.commit();
+
+}
+
+Future<void> addNotification(NotificationModel notification) async {
+await _notificationsRef.add(notification.toFirestore());
+}
+
+Future<void> deleteNotification(String notificationId) async {
+await _notificationsRef.doc(notificationId).delete();
+}
+
+// =========================================================================
+// BANNERS
+// =========================================================================
+
+Stream<List<BannerModel>> getActiveBanners() {
+final query = SafeQueryBuilder.safeWhere(_bannersRef, 'isActive', true, expectedType: bool);
+return query
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => BannerModel.fromFirestore(doc))
+.where((banner) => banner.shouldShow)
+.toList();
+list.sort((a, b) => a.order.compareTo(b.order));
+return list;
+});
+}
+
+Stream<List<BannerModel>> getAllBanners() {
+return _bannersRef
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => BannerModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => a.order.compareTo(b.order));
+return list;
+});
+}
+
+Future<String> addBanner(BannerModel banner) async {
+final doc = await _bannersRef.add(banner.toFirestore());
+return doc.id;
+}
+
+Future<void> updateBanner(String bannerId, Map<String, dynamic> data) async {
+await _bannersRef.doc(bannerId).update(data);
+}
+
+Future<void> deleteBanner(String bannerId) async {
+await _bannersRef.doc(bannerId).delete();
+}
+
+// =========================================================================
+// USERS (admin)
+// =========================================================================
+
+Stream<List<UserModel>> getAllUsers() {
+return _usersRef
+.snapshots()
+.map((snapshot) {
+final list = snapshot.docs
+.map((doc) => UserModel.fromFirestore(doc))
+.toList();
+list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+return list;
+});
+}
+
+Future<void> updateUserAdmin(String userId, bool isAdmin) async {
+await _usersRef.doc(userId).update({
+'isAdmin': isAdmin,
+});
+}
+
+Future<void> updateUserFcmToken(String userId, String token) async {
+await _usersRef.doc(userId).update({
+'fcmToken': token,
+'fcmUpdatedAt': FieldValue.serverTimestamp(),
+});
+}
+
+Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
+await _usersRef.doc(userId).update(data);
+}
+
+Future<UserModel?> getUserById(String userId) async {
+final doc = await _usersRef.doc(userId).get();
+if (!doc.exists) return null;
+return UserModel.fromFirestore(doc);
+}
+
+Future<void> _incrementVoterTrustForVote(String uid) async {
+if (uid.trim().isEmpty) return;
+final dayKey = DateTime.now().toUtc().toIso8601String().split('T').first.replaceAll('-', '');
+final dailyRef = _usersRef.doc(uid).collection('trust_daily').doc(dayKey);
+final userRef = _usersRef.doc(uid);
+
+await _firestore.runTransaction((txn) async {  
+  final dailySnap = await txn.get(dailyRef);  
+  final current = (dailySnap.data()?['voteContribution'] as num?)?.toInt() ?? 0;  
+  if (current >= 10) {  
+    txn.set(dailyRef, {'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));  
+    return;  
+  }  
+
+  txn.set(dailyRef, {  
+    'voteContribution': FieldValue.increment(1),  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+  txn.set(userRef, {  
+    'reliabilityScore': FieldValue.increment(0.1),  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+});
+
+}
+
+Future<void> _applyPriceAuthorTrustThreshold({
+required String priceId,
+required String ownerUid,
+}) async {
+if (priceId.trim().isEmpty || ownerUid.trim().isEmpty) return;
+
+final priceRef = _pricesRef.doc(priceId);  
+final trustEventRef = _usersRef.doc(ownerUid).collection('trust_events').doc(priceId);  
+final ownerRef = _usersRef.doc(ownerUid);  
+
+await _firestore.runTransaction((txn) async {  
+  final priceSnap = await txn.get(priceRef);  
+  if (!priceSnap.exists) return;  
+  final priceData = priceSnap.data() ?? const <String, dynamic>{};  
+  final yes = (priceData['verifyYesCount'] as num?)?.toInt() ?? (priceData['upVotes'] as num?)?.toInt() ?? 0;  
+  final no = (priceData['verifyNoCount'] as num?)?.toInt() ?? (priceData['downVotes'] as num?)?.toInt() ?? 0;  
+  final net = yes - no;  
+
+  final targetTier = net >= 3  
+      ? 3  
+      : net <= -3  
+          ? -3  
+          : 0;  
+  if (targetTier == 0) return;  
+
+  final trustEventSnap = await txn.get(trustEventRef);  
+  final appliedTier = (trustEventSnap.data()?['appliedTier'] as num?)?.toInt() ?? 0;  
+  if (appliedTier == targetTier) return;  
+
+  final scoreDelta = targetTier > appliedTier ? 1 : -1;  
+  txn.set(ownerRef, {  
+    'reliabilityScore': FieldValue.increment(scoreDelta),  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+  txn.set(trustEventRef, {  
+    'appliedTier': targetTier,  
+    'updatedAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+});
+
+}
+
+String _trustTierFromScore(int score) {
+if (score >= 80) return 'Elmas';
+if (score >= 60) return 'Altın';
+if (score >= 40) return 'Bronz';
+return 'Standart';
+}
+
+String _standardizeTrustTierName(String rawTier) {
+final normalized = rawTier.trim().toLowerCase();
+switch (normalized) {
+case 'diamond':
+case 'elmas seviyesi':
+case 'elmas':
+return 'Elmas';
+case 'gold':
+case 'altın':
+case 'altin':
+return 'Altın';
+case 'silver':
+case 'gümüş':
+case 'gumus':
+return 'Gümüş';
+case 'bronze':
+case 'bronz':
+return 'Bronz';
+case 'standard':
+case 'standart':
+case 'yeni':
+return 'Standart';
+default:
+return 'Standart';
+}
+}
+
+Future<void> recomputeAndStoreUserTrust(String uid) async {
+if (uid.trim().isEmpty) return;
+
+final byCreated = await _pricesRef.where('createdByUid', isEqualTo: uid).get();  
+final byUser = await _pricesRef.where('userId', isEqualTo: uid).get();  
+final docs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};  
+for (final doc in byCreated.docs) {  
+  docs[doc.id] = doc;  
+}  
+for (final doc in byUser.docs) {  
+  docs[doc.id] = doc;  
+}  
+
+var verifiedTotal = 0;  
+var wrongTotal = 0;  
+for (final doc in docs.values) {  
+  final data = doc.data();  
+  verifiedTotal += ((data['verifyUpCount'] as num?)?.toInt() ??  
+      (data['upVotes'] as num?)?.toInt() ??  
+      (data['verifiedCount'] as num?)?.toInt() ??  
+      (data['verification'] is Map ? ((data['verification'] as Map)['upCount'] as num?)?.toInt() : null) ??  
+      0);  
+  wrongTotal += ((data['verifyDownCount'] as num?)?.toInt() ??  
+      (data['downVotes'] as num?)?.toInt() ??  
+      (data['unverifiedCount'] as num?)?.toInt() ??  
+      (data['verification'] is Map ? ((data['verification'] as Map)['downCount'] as num?)?.toInt() : null) ??  
+      0);  
+}  
+
+final trust = EliteLevelEngine.calculateTrust(  
+  verifiedTotal: verifiedTotal,  
+  wrongTotal: wrongTotal,  
+);  
+
+final userDoc = await _usersRef.doc(uid).get();  
+final userData = userDoc.data() ?? const <String, dynamic>{};  
+final totalPoints = (userData['totalPoints'] as num?)?.toInt() ??  
+    (userData['pointsTotal'] as num?)?.toInt() ??  
+    (userData['points'] as num?)?.toInt() ??  
+    0;  
+final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trust.trustPercent, trust.totalVotes);  
+final levelLabel = EliteLevelEngine.getLevelStyle(finalLevel).label;  
+
+await _usersRef.doc(uid).set({  
+  'trustVerifiedTotal': trust.verifiedTotal,  
+  'trustWrongTotal': trust.wrongTotal,  
+  'trustTotalVotes': trust.totalVotes,  
+  'trustScorePercent': trust.trustPercent,  
+  'trustScore': trust.trustPercent / 100,  
+  'trustUpdatedAt': FieldValue.serverTimestamp(),  
+  'trustScoreStatus': trust.status == TrustScoreStatus.veriAz ? 'veri_az' : 'ok',  
+  'trust': {  
+    'upTotal': trust.verifiedTotal,  
+    'downTotal': trust.wrongTotal,  
+    'totalVotes': trust.totalVotes,  
+    'trustPercent': trust.trustPercent,  
+  },  
+  'level': levelLabel,  
+  'levelName': levelLabel,  
+  'tierName': levelLabel,  
+  'reliabilityScore': trust.trustPercent,  
+  'updatedAt': FieldValue.serverTimestamp(),  
+}, SetOptions(merge: true));
+
+}
+
+Stream<Map<String, dynamic>> streamUserTrustProfile(String uid) {
+if (uid.trim().isEmpty) {
+return Stream.value(const {
+'displayName': 'Kullanıcı',
+'trustScorePercent': 0,
+'trustTotalVotes': 0,
+'tierName': 'Standart',
+});
+}
+
+return _usersRef.doc(uid).snapshots().map((doc) {  
+  final data = doc.data() ?? <String, dynamic>{};  
+  final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});  
+  final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);  
+  final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;  
+  final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;  
+  final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);  
+  final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;  
+  final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);  
+  return {  
+    'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),  
+    'trustScorePercent': trustPercent,  
+    'trustTotalVotes': totalVotes,  
+    'tierName': EliteLevelEngine.getLevelStyle(level).label,  
+    'upTotal': upTotal,  
+    'downTotal': downTotal,  
+  };  
+});
+
+}
+
+Future<Map<String, dynamic>> getUserTrustProfile(String uid) async {
+if (uid.trim().isEmpty) {
+return {
+'displayName': 'Kullanıcı',
+'trustScorePercent': 0,
+'trustTotalVotes': 0,
+'tierName': 'Standart',
+};
+}
+
+final doc = await _usersRef.doc(uid).get();  
+final data = doc.data() ?? <String, dynamic>{};  
+final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});  
+final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);  
+final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;  
+final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;  
+final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);  
+final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;  
+final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);  
+
+return {  
+  'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),  
+  'trustScorePercent': trustPercent,  
+  'trustTotalVotes': totalVotes,  
+  'tierName': EliteLevelEngine.getLevelStyle(level).label,  
+  'upTotal': upTotal,  
+  'downTotal': downTotal,  
+};
+
+}
+
+Future<void> softDeletePrice({required String priceId, required String deletedByUid}) async {
+await _pricesRef.doc(priceId).set({
+'status': 'deleted',
+'deletedAt': FieldValue.serverTimestamp(),
+'deletedByUid': deletedByUid,
+}, SetOptions(merge: true));
+}
+
+Future<PriceStatusMigrationResult> migrateMissingPriceStatus({
+int batchSize = 300,
+void Function(int updated, int scanned)? onProgress,
+}) async {
+final safeBatchSize = batchSize.clamp(200, 500).toInt();
+QueryDocumentSnapshot<Map<String, dynamic>>? lastDocument;
+var updatedCount = 0;
+var scannedCount = 0;
+
+while (true) {  
+  Query<Map<String, dynamic>> query = _pricesRef.limit(safeBatchSize);  
+  if (lastDocument != null) {  
+    query = query.startAfterDocument(lastDocument);  
+  }  
+
+  final snapshot = await query.get();  
+  if (snapshot.docs.isEmpty) break;  
+
+  final batch = _firestore.batch();  
+  var updatedInBatch = 0;  
+
+  for (final doc in snapshot.docs) {  
+    scannedCount++;  
+    final data = doc.data();  
+    if (!data.containsKey('status')) {  
+      batch.update(doc.reference, {'status': 'active'});  
+      updatedInBatch++;  
+    }  
+  }  
+
+  if (updatedInBatch > 0) {  
+    await batch.commit();  
+  }  
+
+  updatedCount += updatedInBatch;  
+  onProgress?.call(updatedCount, scannedCount);  
+
+  lastDocument = snapshot.docs.last;  
+  if (snapshot.docs.length < safeBatchSize) break;  
+}  
+
+return PriceStatusMigrationResult(  
+  updatedCount: updatedCount,  
+  scannedCount: scannedCount,  
+);
+
+}
+
+Future<void> updateUserByAdmin(String userId, Map<String, dynamic> data) async {
+await _usersRef.doc(userId).set(data, SetOptions(merge: true));
+
+final hasPointsUpdate = data.containsKey('totalPoints') ||  
+    data.containsKey('pointsTotal') ||  
+    data.containsKey('points');  
+final hasRoleUpdate = data.containsKey('role') || data.containsKey('isAdmin');  
+if (hasPointsUpdate || hasRoleUpdate) {  
+  await _pointsService.recomputeUserGamification(userId);  
+}
+
+}
+
+Future<void> setUserBanStatusByAdmin({
+required String userId,
+required bool isBanned,
+String? reason,
+String? adminUid,
+}) async {
+await _usersRef.doc(userId).set({
+'isBanned': isBanned,
+'banReason': isBanned ? (reason ?? 'Admin işlemi') : FieldValue.delete(),
+'bannedAt': isBanned ? FieldValue.serverTimestamp() : FieldValue.delete(),
+'bannedByUid': isBanned ? (adminUid ?? '') : FieldValue.delete(),
+'updatedAt': FieldValue.serverTimestamp(),
+}, SetOptions(merge: true));
+}
+
+Future<void> deleteUserByAdmin(String userId) async {
+await _usersRef.doc(userId).delete();
+}
+
+Future<void> registerProductShare({
+required String productId,
+String? uid,
+Map<String, dynamic>? payload,
+}) async {
+final shareRef = _firestore.collection('product_shares').doc();
+await shareRef.set({
+'productId': productId,
+'uid': uid,
+'createdAt': FieldValue.serverTimestamp(),
+...?payload,
+});
+
+await _productsRef.doc(productId).set({  
+  'shareCount': FieldValue.increment(1),  
+  'updatedAt': FieldValue.serverTimestamp(),  
+}, SetOptions(merge: true));
+
+}
+
+// =========================================================================
+// SEARCH HISTORY
+// =========================================================================
+
+Future<void> saveSearchHistory(String userId, String query) async {
+final doc = _usersRef.doc(userId).collection('searchHistory').doc();
+await doc.set({
+'query': query,
+'createdAt': FieldValue.serverTimestamp(),
+});
+}
+
+Stream<List<String>> getSearchHistory(String userId, {int limit = 10}) {
+return _usersRef
+.doc(userId)
+.collection('searchHistory')
+.snapshots()
+.map((snapshot) {
+final docs = snapshot.docs.toList();
+docs.sort((a, b) {
+final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+return bTime.compareTo(aTime);
+});
+return docs.take(limit).map((doc) => doc.data()['query'] as String).toList();
+});
+}
+
+Future<void> clearSearchHistory(String userId) async {
+final batch = _firestore.batch();
+final snapshot =
+await _usersRef.doc(userId).collection('searchHistory').get();
+for (final doc in snapshot.docs) {
+batch.delete(doc.reference);
+}
+await batch.commit();
+}
+
+// =========================================================================
+// SAVED PRODUCTS
+// =========================================================================
+
+Stream<List<ProductModel>> getSavedProducts(List<String> productIds) {
+if (productIds.isEmpty) {
+return Stream.value([]);
+}
+
+final uniqueIds = productIds.toSet().toList();  
+return _productsRef.snapshots().map((snapshot) {  
+  final productMap = <String, ProductModel>{};  
+  for (final doc in snapshot.docs) {  
+    final product = ProductModel.fromFirestore(doc);  
+    if (uniqueIds.contains(product.id)) {  
+      productMap[product.id] = product;  
+    }  
+  }  
+  return uniqueIds  
+      .where(productMap.containsKey)  
+      .map((id) => productMap[id]!)  
+      .toList();  
+});
+
+}
+
+// =========================================================================
+// CATEGORIES
+// =========================================================================
+
+CollectionReference get _categoriesRef => _firestore.collection('categories');
+
+Stream<List<CategoryModel>> getCategories() {
+return _categoriesRef.snapshots().map((snapshot) {
+final list = snapshot.docs
+.map(CategoryModel.fromFirestore)
+.where((category) => category.isActive)
+.toList();
+list.sort((a, b) {
+final aOrder = a.order;
+final bOrder = b.order;
+if (aOrder != null && bOrder != null) {
+return aOrder.compareTo(bOrder);
+}
+if (aOrder != null) return -1;
+if (bOrder != null) return 1;
+return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+});
+return list;
+});
+}
+
+Future<String> addCategory(
+String title,
+String iconName, {
+String? imageUrl,
+String? imagePath,
+bool isActive = true,
+int? order,
+}) async {
+final normalizedId = title
+.trim()
+.toLowerCase()
+.replaceAll('ı', 'i')
+.replaceAll('ğ', 'g')
+.replaceAll('ü', 'u')
+.replaceAll('ş', 's')
+.replaceAll('ö', 'o')
+.replaceAll('ç', 'c')
+.replaceAll(RegExp(r'[^a-z0-9]+'), '')
+.replaceAll(RegExp(r'^+|_+$'), '');
+final doc = await _categoriesRef.add({
+'id': normalizedId,
+'title': title,
+'isActive': isActive,
+if (order != null) 'sort': order,
+'createdAt': FieldValue.serverTimestamp(),
+'updatedAt': FieldValue.serverTimestamp(),
+});
+return doc.id;
+}
+
+Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
+final sanitized = Map<String, dynamic>.from(data)
+..remove('iconName')
+..remove('imageUrl')
+..remove('imagePath')
+..remove('name')
+..remove('order');
+if (sanitized.containsKey('title') && sanitized['title'] is String) {
+final title = (sanitized['title'] as String).trim();
+sanitized['title'] = title;
+sanitized['id'] = title
+.toLowerCase()
+.replaceAll('ı', 'i')
+.replaceAll('ğ', 'g')
+.replaceAll('ü', 'u')
+.replaceAll('ş', 's')
+.replaceAll('ö', 'o')
+.replaceAll('ç', 'c')
+.replaceAll(RegExp(r'[^a-z0-9]+'), '')
+.replaceAll(RegExp(r'^+|_+$'), '');
+}
+if (sanitized.containsKey('sort') && sanitized['sort'] is! num) {
+sanitized.remove('sort');
+}
+await _categoriesRef.doc(categoryId).update({
+...sanitized,
+'updatedAt': FieldValue.serverTimestamp(),
+});
+}
+
+Future<void> deleteCategory(String categoryId) async {
+await _categoriesRef.doc(categoryId).delete();
+}
+
+// =========================================================================
+// BASKET
+// =========================================================================
+
+CollectionReference<Map<String, dynamic>> _basketRef(String userId) {
+return _usersRef.doc(userId).collection('basketItems');
+}
+
+Stream<List<Map<String, dynamic>>> getBasketItems(String userId) {
+return _basketRef(userId).snapshots().map((snapshot) {
+return snapshot.docs
+.map((doc) => {
+'id': doc.id,
+...doc.data(),
+})
+.toList();
+});
+}
+
+Future<void> upsertBasketItem({
+required String userId,
+required String productId,
+required int quantity,
+double? lastKnownPrice,
+bool includeLastKnownPrice = false,
+}) async {
+await _basketRef(userId).doc(productId).set({
+'productId': productId,
+'quantity': quantity,
+'addedAt': FieldValue.serverTimestamp(),
+if (includeLastKnownPrice) 'lastKnownPrice': lastKnownPrice,
+}, SetOptions(merge: true));
+}
+
+Future<void> removeBasketItem({
+required String userId,
+required String productId,
+}) async {
+await _basketRef(userId).doc(productId).delete();
+}
+
+// =========================================================================
+// REPORTS
+// =========================================================================
+
+CollectionReference get _reportsRef => _firestore.collection('reports');
+
+Stream<List<Map<String, dynamic>>> getReports() {
+return _reportsRef.snapshots().map((snapshot) {
+final list = snapshot.docs.map((doc) {
+final raw = doc.data();
+final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+final status = data['status'] ?? 'pending';
+return {
+'id': doc.id,
+'targetType': data['targetType'] ?? data['type'] ?? '',
+'targetId': data['targetId'] ?? '',
+'contextId': data['contextId'],
+'reporterUserId': data['reporterUserId'] ?? data['userId'] ?? '',
+'reason': data['reason'] ?? '',
+'status': status == 'dismissed' ? 'rejected' : status,
+'resolutionNote': data['resolutionNote'],
+'resolvedBy': data['resolvedBy'],
+'resolvedAt': (data['resolvedAt'] as Timestamp?)?.toDate(),
+'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+};
+}).toList();
+list.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
+return list;
+});
+}
+
+Future<void> updateReportStatus(
+String reportId,
+String status, {
+String? resolvedBy,
+String? resolutionNote,
+}) async {
+await _reportsRef.doc(reportId).update({
+'status': status,
+if (resolvedBy != null) 'resolvedBy': resolvedBy,
+if (status != 'pending') 'resolvedAt': FieldValue.serverTimestamp(),
+if (resolutionNote != null) 'resolutionNote': resolutionNote,
+});
+if (status == 'confirmed') {
+await _pointsService.handleReportConfirmed(reportId);
+}
+}
+
+Future<void> deleteReport(String reportId) async {
+await _reportsRef.doc(reportId).delete();
+}
+
+Future<CommentModel?> getCommentById(String commentId) async {
+final doc = await _commentsRef.doc(commentId).get();
+if (!doc.exists) return null;
+return CommentModel.fromFirestore(doc);
+}
+
+Future<PriceModel?> getPriceById(String priceId) async {
+final doc = await _pricesRef.doc(priceId).get();
+if (!doc.exists) return null;
+return PriceModel.fromFirestore(doc);
+}
+
+Future<List<PriceModel>> getPricesForProductIds(List<String> productIds) async {
+if (productIds.isEmpty) return [];
+final results = <PriceModel>[];
+final chunks = <List<String>>[];
+for (var i = 0; i < productIds.length; i += 10) {
+chunks.add(productIds.sublist(
+i,
+i + 10 > productIds.length ? productIds.length : i + 10,
+));
+}
+for (final chunk in chunks) {
+try {
+var query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
+final snapshot = await query.get();
+results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+} catch (e) {
+debugPrint("FIRESTORE QUERY ERROR -> $e");
+}
+}
+return results;
+}
+
+Future<List<PriceModel>> getPricesForProductKeys(List<String> productKeys) async {
+if (productKeys.isEmpty) return [];
+final results = <PriceModel>[];
+final chunks = <List<String>>[];
+for (var i = 0; i < productKeys.length; i += 10) {
+chunks.add(productKeys.sublist(
+i,
+i + 10 > productKeys.length ? productKeys.length : i + 10,
+));
+}
+for (final chunk in chunks) {
+try {
+var query = SafeQueryBuilder.safeWhereIn(_pricesRef, 'productId', chunk);
+query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
+final snapshot = await query.get();
+results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
+} catch (e) {
+debugPrint("FIRESTORE QUERY ERROR -> $e");
+}
+}
+return results;
+}
+
+Stream<List<ActualModel>> getActualsForAdmin({bool? isActive}) {
+Query<Map<String, dynamic>> query = _actualsRef;
+if (isActive != null) {
+query = query.where('isActive', isEqualTo: isActive);
+}
+return query.snapshots().map((snapshot) {
+final list = snapshot.docs.map(ActualModel.fromFirestore).toList();
+list.sort((a, b) => b.startDate.compareTo(a.startDate));
+return list;
+});
+}
+
+Stream<ActualModel?> getLatestActiveActualForUser() {
+return _actualsRef.where('isActive', isEqualTo: true).snapshots().map((snapshot) {
+final now = DateTime.now();
+final active = snapshot.docs
+.map(ActualModel.fromFirestore)
+.where((actual) => !actual.startDate.isAfter(now) && !actual.endDate.isBefore(now))
+.toList();
+if (active.isEmpty) return null;
+active.sort((a, b) {
+final createdAtCompare = b.createdAt.compareTo(a.createdAt);
+if (createdAtCompare != 0) return createdAtCompare;
+return b.startDate.compareTo(a.startDate);
+});
+return active.first;
+});
+}
+
+Stream<List<ActualItemModel>> getActualItems(String actualId) {
+return _actualsRef
+.doc(actualId)
+.collection('items')
+.snapshots()
+.map((snapshot) => snapshot.docs.map(ActualItemModel.fromFirestore).toList());
+}
+
+Future<String> addActual(ActualModel actual) async {
+final payload = actual.toFirestore();
+payload['createdAt'] = FieldValue.serverTimestamp();
+payload['updatedAt'] = FieldValue.serverTimestamp();
+final doc = await _actualsRef.add(payload);
+return doc.id;
+}
+
+Future<void> updateActual(String actualId, Map<String, dynamic> data) async {
+final payload = Map<String, dynamic>.from(data);
+payload['updatedAt'] = FieldValue.serverTimestamp();
+await _actualsRef.doc(actualId).update(payload);
+}
+
+Future<void> setActualActive(String actualId, bool isActive) async {
+await _actualsRef.doc(actualId).update({
+'isActive': isActive,
+'updatedAt': FieldValue.serverTimestamp(),
+});
+}
+
+Future<String> addActualItem(String actualId, ActualItemModel item) async {
+final payload = item.toFirestore();
+payload['createdAt'] = FieldValue.serverTimestamp();
+final doc = await _actualsRef.doc(actualId).collection('items').add(payload);
+return doc.id;
+}
+
+Future<void> updateActualItem(String actualId, String itemId, Map<String, dynamic> data) async {
+await _actualsRef.doc(actualId).collection('items').doc(itemId).update(data);
+}
+
+Future<void> deleteActualItem(String actualId, String itemId) async {
+await _actualsRef.doc(actualId).collection('items').doc(itemId).delete();
+}
+
+Stream<List<Map<String, dynamic>>> getWeeklyDeals() {
+return _weeklyDealsRef.orderBy('startDate', descending: true).snapshots().map((snapshot) {
+return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+});
+}
+
+Stream<List<Map<String, dynamic>>> getDealItems(String dealId) {
+return _weeklyDealsRef.doc(dealId).collection('deal_items').snapshots().map((snapshot) {
+return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+});
+}
+
+Stream<Map<String, int>> getStockSummary({required String dealItemId, required String branchId}) {
+return _stockReportsRef
+.where('dealItemId', isEqualTo: dealItemId)
+.where('branchId', isEqualTo: branchId)
+.snapshots()
+.map((snapshot) {
+var inStock = 0;
+var low = 0;
+var out = 0;
+for (final doc in snapshot.docs) {
+final status = (doc.data()['status'] ?? '').toString();
+if (status == 'in_stock') inStock++;
+if (status == 'low_stock') low++;
+if (status == 'out_of_stock') out++;
+}
+return {
+'in_stock': inStock,
+'low_stock': low,
+'out_of_stock': out,
+};
+});
+}
+
+Future<bool> submitStockReport({
+required String uid,
+required String dealItemId,
+required String branchId,
+required String status,
+}) async {
+final reportId = '${uid}${dealItemId}$branchId';
+final rewardId = '${uid}${dealItemId}$branchId';
+final now = DateTime.now();
+var rewarded = false;
+await _firestore.runTransaction((txn) async {
+final reportRef = _stockReportsRef.doc(reportId);
+final rewardRef = _firestore.collection('stock_report_rewards').doc(rewardId);
+final userRef = _usersRef.doc(uid);
+final rewardSnap = await txn.get(rewardRef);
+final lastRewardAt = (rewardSnap.data()?['lastRewardAt'] as Timestamp?)?.toDate();
+final canReward = lastRewardAt == null || now.difference(lastRewardAt).inHours >= 6;
+
+txn.set(reportRef, {  
+    'dealItemId': dealItemId,  
+    'branchId': branchId,  
+    'status': status,  
+    'createdByUid': uid,  
+    'createdAt': FieldValue.serverTimestamp(),  
+  }, SetOptions(merge: true));  
+
+  if (canReward) {  
+    rewarded = true;  
+    txn.set(rewardRef, {'lastRewardAt': Timestamp.fromDate(now)}, SetOptions(merge: true));  
+    txn.set(userRef.collection('points_log').doc(), {  
+      'type': 'stock_report',  
+      'points': 2,  
+      'dealItemId': dealItemId,  
+      'branchId': branchId,  
+      'createdAt': FieldValue.serverTimestamp(),  
+    });  
+    txn.update(userRef, {'points': FieldValue.increment(2)});  
+    txn.set(userRef.collection('stats').doc('summary'), {  
+      'stockReportsCount': FieldValue.increment(1),  
+      'updatedAt': FieldValue.serverTimestamp(),  
+    }, SetOptions(merge: true));  
+  }  
+});  
+
+await _grantStockHunterBadges(uid);  
+return rewarded;
+
+}
+
+Future<void> _grantStockHunterBadges(String uid) async {
+final userRef = _usersRef.doc(uid);
+final statsDoc = await userRef.collection('stats').doc('summary').get();
+final count = (statsDoc.data()?['stockReportsCount'] as num?)?.toInt() ?? 0;
+final tiers = <int, String>{20: 'stock_hunter_1', 50: 'stock_hunter_2', 100: 'stock_hunter_3'};
+for (final threshold in tiers.keys.toList()..sort()) {
+if (count < threshold) continue;
+final badgeId = tiers[threshold]!;
+final badgeRef = userRef.collection('badges').doc(badgeId);
+final badgeDoc = await badgeRef.get();
+if (badgeDoc.exists) continue;
+await badgeRef.set({
+'badgeId': badgeId,
+'unlockedAt': FieldValue.serverTimestamp(),
+});
+await userRef.collection('badgeEvents').add({
+'badgeId': badgeId,
+'badgeName': 'Stok Avcısı',
+'description': 'Stok bildirimi katkın için teşekkürler.',
+'seen': false,
+'createdAt': FieldValue.serverTimestamp(),
+});
+}
+}
+
+Future<bool> validateStockReport({
+required String reportId,
+required String validatorUid,
+required String result,
+}) async {
+final validationId = '${reportId}_$validatorUid';
+final validationRef = _stockValidationRef.doc(validationId);
+final reportRef = _stockReportsRef.doc(reportId);
+bool rewarded = false;
+
+await _firestore.runTransaction((txn) async {  
+  final existing = await txn.get(validationRef);  
+  if (existing.exists) return;  
+  txn.set(validationRef, {  
+    'reportId': reportId,  
+    'validatorUid': validatorUid,  
+    'result': result,  
+    'createdAt': FieldValue.serverTimestamp(),  
+  });  
+});  
+
+final reportValidations = await _stockValidationRef.where('reportId', isEqualTo: reportId).get();  
+final correctCount = reportValidations.docs.where((doc) => (doc.data()['result'] ?? '').toString() == 'correct').length;  
+if (correctCount >= 3) {  
+  await _firestore.runTransaction((txn) async {  
+    final reportDoc = await txn.get(reportRef);  
+    final reportData = reportDoc.data() ?? <String, dynamic>{};  
+    if (reportData['bonusAwarded'] == true) return;  
+    final ownerUid = (reportData['createdByUid'] ?? '').toString();  
+    if (ownerUid.isEmpty) return;  
+    final userRef = _usersRef.doc(ownerUid);  
+    txn.update(reportRef, {'bonusAwarded': true});  
+    txn.update(userRef, {'points': FieldValue.increment(3)});  
+    txn.set(userRef.collection('points_log').doc(), {  
+      'type': 'stock_validation_bonus',  
+      'points': 3,  
+      'reportId': reportId,  
+      'createdAt': FieldValue.serverTimestamp(),  
+    });  
+    rewarded = true;  
+  });  
+}  
+return rewarded;
+
+}
+
+Stream<QuerySnapshot<Map<String, dynamic>>> pointsLogStream(String uid) {
+return _usersRef.doc(uid).collection('points_log').orderBy('createdAt', descending: true).limit(40).snapshots();
+}
+
+Future<void> toggleFavorite({required String uid, required String productId, Map<String, dynamic>? payload}) async {
+final ref = _usersRef.doc(uid).collection('favorites').doc(productId);
+final doc = await ref.get();
+if (doc.exists) {
+await ref.delete();
+return;
+}
+await ref.set({
+'productId': productId,
+'createdAt': FieldValue.serverTimestamp(),
+...?payload,
+});
+}
+
+Stream<bool> isFavoriteStream({required String uid, required String productId}) {
+return _usersRef.doc(uid).collection('favorites').doc(productId).snapshots().map((doc) => doc.exists);
+}
+
+Future<void> addRecentlyViewed({required String uid, required ProductModel product}) async {
+final ref = _usersRef.doc(uid).collection('recently_viewed').doc(product.id);
+await ref.set({
+'productId': product.id,
+'productName': product.name,
+'imageUrl': product.effectiveImage,
+'updatedAt': FieldValue.serverTimestamp(),
+}, SetOptions(merge: true));
+
+final list = await _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).get();  
+if (list.docs.length > 10) {  
+  for (final doc in list.docs.skip(10)) {  
+    await doc.reference.delete();  
+  }  
+}
+
+}
+
+Stream<List<Map<String, dynamic>>> recentlyViewedStream(String uid) {
+return _usersRef.doc(uid).collection('recently_viewed').orderBy('updatedAt', descending: true).limit(10).snapshots().map((snapshot) {
+return snapshot.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+});
+}
+
+Future<_HttpBytesResponse> _getBytes(
+Uri uri, {
+Map<String, String>? headers,
+}) async {
+final client = HttpClient();
+try {
+final request = await client.getUrl(uri);
+headers?.forEach(request.headers.set);
+final response = await request.close();
+final bodyBytes = await consolidateHttpClientResponseBytes(response);
+return _HttpBytesResponse(response.statusCode, bodyBytes);
+} finally {
+client.close(force: true);
+}
+}
+}
+
+class _HttpBytesResponse {
+const _HttpBytesResponse(this.statusCode, this.bodyBytes);
+
+final int statusCode;
+final Uint8List bodyBytes;
 }
