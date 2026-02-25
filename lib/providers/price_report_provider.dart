@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/category_model.dart';
@@ -441,11 +440,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     return matches.first;
   }
 
-  Future<void> submitPrice() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null || userId.trim().isEmpty) {
-      throw Exception('Fiyat eklemek için giriş yapmalısın.');
-    }
+  Future<void> submitPrice({required String userId}) async {
     final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
     if (parsedPrice == null || parsedPrice <= 0) {
       throw Exception('Lütfen geçerli bir fiyat girin.');
@@ -485,7 +480,6 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         isPending: true,
         verificationStatus: 'unverified',
         status: 'active',
-        isApproved: true,
       );
 
       debugPrint('[AddPrice] Firestore write target: priceReports + price_entries + price_dedupes');

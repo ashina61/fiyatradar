@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/store.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../utils/motion_tokens.dart';
 import '../../utils/theme.dart';
@@ -1112,7 +1112,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   }
 
   Future<void> _submit() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final user = ref.read(authStateProvider).value;
+    final userId = user?.uid;
     if (userId == null || userId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fiyat gonderebilmek icin giris yapmalisin.')),
@@ -1121,7 +1122,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     }
 
     try {
-      await ref.read(addPriceProvider.notifier).submitPrice();
+      await ref.read(addPriceProvider.notifier).submitPrice(userId: userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

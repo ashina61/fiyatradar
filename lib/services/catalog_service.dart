@@ -93,9 +93,10 @@ class CatalogService {
     var query =
         SafeQueryBuilder.safeWhere(_pricesRef, 'productId', productId, expectedType: String);
     query = SafeQueryBuilder.safeWhere(query, 'status', 'active', expectedType: String);
-    query = query.orderBy('reportedAt', descending: true);
     return query.snapshots().map((snapshot) {
-      return snapshot.docs.map(PriceModel.fromFirestore).toList();
+      final list = snapshot.docs.map(PriceModel.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     });
   }
 
