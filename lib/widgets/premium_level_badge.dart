@@ -94,10 +94,10 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
 
     // 2. Ortak kenarlık ve arka plan stili
     final BoxDecoration animatedDecoration = BoxDecoration(
-      color: info.levelColor.withOpacity(0.1),
+      color: info.backgroundColor,
       borderRadius: BorderRadius.circular(50),
       border: Border.all(
-        color: info.levelColor.withOpacity(0.8),
+        color: info.borderColor,
         width: 1.5,
       ),
     );
@@ -131,10 +131,10 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: info.levelColor.withOpacity(0.2),
+        color: info.backgroundColor,
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
-          color: info.levelColor.withOpacity(0.8),
+          color: info.borderColor,
           width: 2.0,
         ),
       ),
@@ -148,28 +148,36 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Avcı',
           levelColor: Color(0xFFF4511E),
-          contentColor: Color(0xFFF4511E),
+          backgroundColor: Color(0xFFF4511E),
+          contentColor: Colors.white,
+          borderColor: Color(0xFFFFCCBC),
           icon: Icons.gps_fixed_rounded,
         );
       case 'Tasarrufçu':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Tasarrufçu',
           levelColor: Color(0xFF1E88E5),
-          contentColor: Color(0xFF1E88E5),
+          backgroundColor: Color(0xFF1E88E5),
+          contentColor: Colors.white,
+          borderColor: Color(0xFFBBDEFB),
           icon: Icons.savings_rounded,
         );
       case 'Market Ustası':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Market Ustası',
           levelColor: Color(0xFFFFB300),
-          contentColor: Color(0xFFFFB300),
+          backgroundColor: Color(0xFFFFB300),
+          contentColor: Color(0xFF3E2723),
+          borderColor: Color(0xFFFFECB3),
           icon: Icons.storefront_rounded,
         );
       case 'Fiyat Lordu':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Fiyat Lordu',
           levelColor: Color(0xFFE040FB),
-          contentColor: Color(0xFFE040FB),
+          backgroundColor: Color(0xFFE040FB),
+          contentColor: Colors.white,
+          borderColor: Color(0xFFF8BBD0),
           icon: Icons.workspace_premium_rounded,
           hasPulseAnimation: true,
         );
@@ -177,7 +185,9 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Radar Efsanesi',
           levelColor: Color(0xFF00E5FF),
-          contentColor: Color(0xFF0097A7),
+          backgroundColor: Color(0xFF00BCD4),
+          contentColor: Color(0xFF00363D),
+          borderColor: Color(0xFFB2EBF2),
           icon: Icons.diamond_rounded,
           hasPulseAnimation: true,
         );
@@ -186,7 +196,9 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Gözlemci',
           levelColor: Color(0xFF8C7A6B),
-          contentColor: Color(0xFF8C7A6B),
+          backgroundColor: Color(0xFF8C7A6B),
+          contentColor: Color(0xFFFFF3E0),
+          borderColor: Color(0xFFD7CCC8),
           icon: Icons.visibility_rounded,
         );
     }
@@ -197,14 +209,18 @@ class _PremiumBadgeLevelInfo {
   const _PremiumBadgeLevelInfo({
     required this.levelName,
     required this.levelColor,
+    required this.backgroundColor,
     required this.contentColor,
+    required this.borderColor,
     required this.icon,
     this.hasPulseAnimation = false,
   });
 
   final String levelName;
   final Color levelColor;
+  final Color backgroundColor;
   final Color contentColor;
+  final Color borderColor;
   final IconData icon;
   final bool hasPulseAnimation;
 }

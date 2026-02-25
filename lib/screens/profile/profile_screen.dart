@@ -50,6 +50,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFDFBF9),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFDFBF9),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFAF6B3E),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Profil',
+              style: TextStyle(
+                color: Color(0xFF3A2B24),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: userAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
@@ -69,56 +98,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               return RefreshIndicator(
                 color: const Color(0xFF955427),
                 onRefresh: () async => setState(() => _reloadKey++),
-                child: SafeArea(
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Profil',
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        _BossHeroCard(
+                          data: data,
+                          onEdit: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                            );
+                            if (mounted) setState(() => _reloadKey++);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _StatsRow(totalPoints: data.totalPoints),
+                        const SizedBox(height: 12),
+                        _QuickActionsGrid(uid: uid),
+                        const SizedBox(height: 16),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'Hesap Yönetimi',
                             style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF3A2B24),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Color(0xFF8C7A6B),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          _BossHeroCard(
-                            data: data,
-                            onEdit: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-                              );
-                              if (mounted) setState(() => _reloadKey++);
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _StatsRow(totalPoints: data.totalPoints),
-                          const SizedBox(height: 12),
-                          _QuickActionsGrid(uid: uid),
-                          const SizedBox(height: 16),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              'Hesap Yönetimi',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                                color: Color(0xFF8C7A6B),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _MenuSection(
-                            isAdmin: userModel?.isAdmin == true,
-                            onReload: () => setState(() => _reloadKey++),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 10),
+                        _MenuSection(
+                          isAdmin: userModel?.isAdmin == true,
+                          onReload: () => setState(() => _reloadKey++),
+                        ),
+                      ],
                     ),
                   ),
                 ),
