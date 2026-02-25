@@ -78,6 +78,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
 
   Future<void> _openAddPrice() async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddPriceScreen(initialProductId: widget.productId)));
+    if (!mounted) return;
+    await ref.read(productDetailProvider(widget.productId).notifier).load();
   }
 
   Future<void> _toggleFavorite(ProductDetailResponse data) async {
