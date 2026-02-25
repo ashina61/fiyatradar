@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1172,10 +1174,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   }
 
   Future<void> _submit() async {
-    final user = ref.read(authStateProvider).value;
-    final userId = user?.uid;
+    final authStateUser = ref.read(authStateProvider).value;
+    final currentUser = authStateUser ?? FirebaseAuth.instance.currentUser;
 
-    if (userId == null || userId.isEmpty) {
+    final state = ref.read(addPriceProvider);
+    debugPrint(
+      '[AddPriceScreen.submit] user => uid=${currentUser?.uid}, isAnonymous=${currentUser?.isAnonymous}, email=${currentUser?.email}',
+    );
+    debugPrint(
+      '[AddPriceScreen.submit] selection => selectedProductId=${state.selectedProductId}, productName=${state.productName}, selectedCategoryId=${state.selectedCategoryId}, selectedStoreId=${state.selectedStoreId}',
+    );
+
+    if (currentUser == null || currentUser.uid.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Fiyat gonderebilmek icin giris yapmalisin.'),
@@ -1184,8 +1194,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       return;
     }
 
+    if (currentUser.isAnonymous) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fiyat eklemek icin giris yapman gerekiyor.'),
+        ),
+      );
+      return;
+    }
+
     try {
-      await ref.read(addPriceProvider.notifier).submitPrice(userId: userId);
+      await ref.read(addPriceProvider.notifier).submitPrice(userId: currentUser.uid);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1211,7 +1230,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Kaydedilemedi: $e'),
+          content: Text(
+            kDebugMode ? 'Kaydedilemedi: $e' : 'Fiyat kaydedilemedi. Lütfen tekrar deneyin.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
