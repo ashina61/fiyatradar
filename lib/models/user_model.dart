@@ -31,6 +31,8 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
+  String? get displayName => name.trim().isEmpty ? null : name;
+
   UserModel({
     required this.uid,
     required this.email,
