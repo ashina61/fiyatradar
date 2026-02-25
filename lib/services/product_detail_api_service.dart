@@ -52,7 +52,6 @@ class ProductDetailApiService {
           .where('status', isEqualTo: 'active')
           .get();
       final prices = pricesSnapshot.docs.map(PriceModel.fromFirestore).toList();
-      prices.sort((a, b) => a.price.compareTo(b.price));
 
       debugPrint(
         '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=comments, where=[productId == $productId], orderBy=[]',
@@ -65,7 +64,12 @@ class ProductDetailApiService {
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      final bestPriceModel = prices.isNotEmpty ? prices.first : null;
+      final latestPriceModel = prices.isNotEmpty
+          ? prices.reduce(
+              (current, next) =>
+                  next.reportedAt.isAfter(current.reportedAt) ? next : current,
+            )
+          : null;
       final stats = _buildStats(prices);
       final trust = _buildTrust(prices);
 
@@ -76,7 +80,7 @@ class ProductDetailApiService {
         categories: product.categories,
         viewCount: product.viewCount,
         priceEntryCount: prices.length,
-        bestPrice: _toBestPrice(bestPriceModel),
+        bestPrice: _toBestPrice(latestPriceModel),
         stats: stats,
         trust: trust,
         comments: comments.map(_toProductComment).toList(growable: false),
