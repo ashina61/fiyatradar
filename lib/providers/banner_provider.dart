@@ -5,7 +5,7 @@ import '../models/banner_model.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import 'product_provider.dart';
-import 'price_provider.dart';
+import 'price_provider.dart' show storageServiceProvider;
 
 final activeBannersProvider = StreamProvider<List<BannerModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);

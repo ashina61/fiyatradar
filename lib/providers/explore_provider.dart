@@ -9,7 +9,7 @@ import '../models/store_model.dart';
 import '../models/category_model.dart';
 import '../services/location_service.dart';
 import 'price_provider.dart';
-import 'product_provider.dart';
+import 'product_provider.dart' hide firestoreServiceProvider;
 
 enum ExploreMode { nearby, online, drops }
 
