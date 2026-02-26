@@ -81,9 +81,10 @@ app.*.map.json
 !/dev/ci/**/Gemfile.lock
 
 # Firebase
-# Keep google-services.json for local development but create a template
-# **/android/app/google-services.json
-# **/ios/Runner/GoogleService-Info.plist
+# Keep firebase config files out of VCS
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
 
 # Environment variables
 .env

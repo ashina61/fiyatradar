@@ -63,7 +63,7 @@ class ActualManagementTab extends ConsumerWidget {
                       isThreeLine: true,
                       trailing: Switch(
                         value: actual.isActive,
-                        onChanged: (value) => ref.read(firestoreServiceProvider).setActualActive(actual.id, value),
+                        onChanged: (value) => ref.read(actualAdminDomainServiceProvider).setActualActive(actual.id, value),
                       ),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => ActualItemsAdminScreen(actual: actual)),
@@ -225,9 +225,9 @@ class ActualManagementTab extends ConsumerWidget {
                       createdAt: now,
                       updatedAt: now,
                     );
-                    await ref.read(firestoreServiceProvider).addActual(actual);
+                    await ref.read(actualAdminDomainServiceProvider).addActual(actual);
                   } else {
-                    await ref.read(firestoreServiceProvider).updateActual(current.id, payload);
+                    await ref.read(actualAdminDomainServiceProvider).updateActual(current.id, payload);
                   }
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
@@ -279,7 +279,7 @@ class ActualItemsAdminScreen extends ConsumerWidget {
                         icon: const Icon(Icons.edit_outlined),
                       ),
                       IconButton(
-                        onPressed: () => ref.read(firestoreServiceProvider).deleteActualItem(actual.id, item.id),
+                        onPressed: () => ref.read(actualAdminDomainServiceProvider).deleteActualItem(actual.id, item.id),
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ],
@@ -357,7 +357,7 @@ class ActualItemsAdminScreen extends ConsumerWidget {
                 };
 
                 if (item == null) {
-                  await ref.read(firestoreServiceProvider).addActualItem(
+                  await ref.read(actualAdminDomainServiceProvider).addActualItem(
                         actual.id,
                         ActualItemModel(
                           id: '',
@@ -373,7 +373,7 @@ class ActualItemsAdminScreen extends ConsumerWidget {
                         ),
                       );
                 } else {
-                  await ref.read(firestoreServiceProvider).updateActualItem(actual.id, item.id, payload);
+                  await ref.read(actualAdminDomainServiceProvider).updateActualItem(actual.id, item.id, payload);
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
               },

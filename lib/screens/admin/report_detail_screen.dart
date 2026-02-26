@@ -33,7 +33,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchTarget() async {
-    final service = ref.read(firestoreServiceProvider);
+    final service = ref.read(adminModerationDomainServiceProvider);
     final targetType = widget.report['targetType'] as String? ?? '';
     final targetId = widget.report['targetId'] as String? ?? '';
     final contextId = widget.report['contextId'] as String?;
@@ -73,7 +73,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     setState(() => _isResolving = true);
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      await ref.read(firestoreServiceProvider).updateReportStatus(
+      await ref.read(adminModerationDomainServiceProvider).updateReportStatus(
             widget.report['id'] as String,
             status,
             resolvedBy: currentUser?.uid,

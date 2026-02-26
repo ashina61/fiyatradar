@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'cart/cart_screen.dart';
+import 'cart/cart_screen_v2.dart';
 import '../widgets/premium_bottom_nav.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';

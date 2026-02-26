@@ -75,6 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Future<void> _precacheCategoryIcons(List<CategoryModel> categories) async {
     if (!mounted) return;
     for (final category in categories) {
+      if (!mounted) return;
       if (_precachedIcons.contains(category.iconAssetPath)) continue;
       _precachedIcons.add(category.iconAssetPath);
       await precacheImage(AssetImage(category.iconAssetPath), context)
@@ -87,6 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!mounted) return;
       final banners = ref.read(activeBannersProvider).valueOrNull ?? [];
       if (banners.isEmpty) return;
+      if (!_bannerController.hasClients) return;
       final nextPage = (_currentBannerPage + 1) % banners.length;
       _bannerController.animateToPage(
         nextPage,
