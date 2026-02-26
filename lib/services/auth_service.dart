@@ -171,7 +171,7 @@ class AuthService {
           final newUser = UserModel(
             uid: user.uid,
             email: user.email ?? '',
-            name: user.displayName ?? 'Kullanici',
+            name: user.displayName ?? 'Kullanıcı',
             photoUrl: user.photoURL,
             inviteCode: _generateInviteCode(user.uid),
             city: null,
@@ -211,7 +211,7 @@ class AuthService {
     } catch (e) {
       throw FirebaseAuthException(
         code: 'google-sign-in-failed',
-        message: 'Google ile giris yapilamadi: $e',
+        message: 'Google ile giriş yapılamadı: $e',
       );
     }
   }
@@ -319,33 +319,35 @@ class AuthService {
     }
   }
 
-  // Get auth error message in Turkish
-  String getErrorMessage(FirebaseAuthException e) {
+  static String mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
-        return 'Bu e-posta adresiyle kayitli kullanici bulunamadi.';
+        return 'Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.';
       case 'wrong-password':
-        return 'Yanlis sifre girdiniz.';
+        return 'Yanlış şifre girdiniz.';
       case 'email-already-in-use':
-        return 'Bu e-posta adresi zaten kullaniliyor.';
+        return 'Bu e-posta adresi zaten kullanılıyor.';
       case 'weak-password':
-        return 'Sifre cok zayif. En az 6 karakter kullanin.';
+        return 'Şifre çok zayıf. En az 6 karakter kullanın.';
       case 'invalid-email':
-        return 'Gecersiz e-posta adresi.';
+        return 'Geçersiz e-posta adresi.';
       case 'user-disabled':
-        return 'Bu hesap devre disi birakilmis.';
+        return 'Bu hesap devre dışı bırakılmış.';
       case 'too-many-requests':
-        return 'Cok fazla deneme yaptiniz. Lutfen daha sonra tekrar deneyin.';
+        return 'Çok fazla deneme yaptınız. Lütfen daha sonra tekrar deneyin.';
       case 'operation-not-allowed':
-        return 'Bu islem simdilik kullanilamaz.';
+        return 'Bu işlem şimdilik kullanılamaz.';
       case 'network-request-failed':
-        return 'Baglanti hatasi. Internet baglantinizi kontrol edin.';
+        return 'Bağlantı hatası. İnternet bağlantınızı kontrol edin.';
       case 'google-sign-in-failed':
-        return e.message ?? 'Google ile giris yapilamadi.';
+        return e.message ?? 'Google ile giriş yapılamadı.';
       case 'invalid-credential':
-        return 'E-posta veya sifre hatali.';
+        return 'E-posta veya şifre hatalı.';
       default:
-        return 'Bir hata olustu: ${e.message}';
+        return 'Bir hata oluştu: ${e.message}';
     }
   }
+
+  // Get auth error message in Turkish
+  String getErrorMessage(FirebaseAuthException e) => mapAuthError(e);
 }

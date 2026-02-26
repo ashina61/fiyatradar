@@ -1,0 +1,13 @@
+{
+  "name": "fiyatradar-firestore-rules-tests",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test firestore.rules.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.2",
+    "firebase": "^11.0.1"
+  }
+}

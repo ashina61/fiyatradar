@@ -1,7 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
     function isAdmin() {
       return signedIn() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
@@ -9,47 +16,93 @@ service cloud.firestore {
       );
     }
 
+    function immutable(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function hasOnlyUserWritableKeys() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'name',
+        'photoUrl',
+        'cityCode',
+        'cityName',
+        'city',
+        'savedProducts',
+        'lastLoginAt',
+        'fcmToken'
+      ]);
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
-      allow update: if request.auth.uid == uid || isAdmin();
-      allow create: if signedIn();
+
+      allow create: if isOwner(uid) &&
+        (!(request.resource.data.keys().hasAny(['uid'])) || request.resource.data.uid == uid) &&
+        (request.resource.data.isAdmin == false || !('isAdmin' in request.resource.data)) &&
+        (request.resource.data.role == null || !('role' in request.resource.data));
+
+      allow update: if isAdmin() ||
+        (
+          isOwner(uid) &&
+          hasOnlyUserWritableKeys() &&
+          immutable('isAdmin') &&
+          immutable('role') &&
+          immutable('points') &&
+          immutable('trustScorePercent') &&
+          immutable('trustTotalVotes') &&
+          immutable('trustVerifiedTotal') &&
+          immutable('trustWrongTotal')
+        );
+
       allow delete: if isAdmin();
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /priceReports/{priceId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn() && (
-        isAdmin() ||
-        resource.data.createdByUid == request.auth.uid
-      );
+      allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isAdmin() ||
+        (
+          signedIn() &&
+          resource.data.createdByUid == request.auth.uid &&
+          immutable('createdByUid')
+        );
     }
 
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn() && (
-        isAdmin() ||
-        resource.data.userId == request.auth.uid
-      );
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() ||
+        (
+          signedIn() &&
+          resource.data.userId == request.auth.uid &&
+          immutable('userId')
+        );
       allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /points_events/{eventId} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow create: if isAdmin() ||
+        (
+          signedIn() &&
+          request.resource.data.userId == request.auth.uid
+        );
+      allow update, delete: if isAdmin();
     }
 
     match /adminActions/{doc} {
-      allow read, write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

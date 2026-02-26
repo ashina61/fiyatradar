@@ -25,9 +25,3 @@ final firebaseInitializedStateProvider =
 final firebaseInitializedProvider = Provider<bool>((ref) {
   return ref.watch(firebaseInitializedStateProvider).value;
 });
-
-bool get firebaseInitialized => firebaseInitializedNotifier.value;
-
-set firebaseInitialized(bool value) {
-  firebaseInitializedNotifier.value = value;
-}

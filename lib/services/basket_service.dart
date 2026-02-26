@@ -20,16 +20,25 @@ class BasketCalculationResult {
   });
 }
 
-class BasketService {
-  final FirestoreService firestoreService;
+typedef PriceFetcher = Future<List<PriceModel>> Function(List<String> productIds);
 
-  BasketService(this.firestoreService);
+class BasketService {
+  final FirestoreService? firestoreService;
+  final PriceFetcher _priceFetcher;
+
+  BasketService(FirestoreService firestoreService)
+      : firestoreService = firestoreService,
+        _priceFetcher = firestoreService.getPricesForProductIds;
+
+  BasketService.withPriceFetcher(PriceFetcher priceFetcher)
+      : firestoreService = null,
+        _priceFetcher = priceFetcher;
 
   Future<BasketCalculationResult> calculateRecommendations(
     List<BasketItemModel> items,
   ) async {
     final productIds = items.map((e) => e.productId).toList();
-    final prices = await firestoreService.getPricesForProductIds(productIds);
+    final prices = await _priceFetcher(productIds);
     final approvedPrices = prices.where((p) => p.isApproved).toList();
 
     final Map<String, PriceModel> cheapestPerProduct = {};

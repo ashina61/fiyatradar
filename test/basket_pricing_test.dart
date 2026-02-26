@@ -63,4 +63,43 @@ void main() {
     expect(summary.mixedResult.total, 16);
     expect(summary.mixedResult.missingKeys, isEmpty);
   });
+
+  test('equal prices across markets keeps deterministic best single market', () {
+    final items = [
+      const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
+    ];
+    final pricesIndex = {
+      'p1': {'m1': 10, 'm2': 10},
+    };
+
+    final summary = calculateBasketPricing(
+      items: items,
+      pricesIndex: pricesIndex,
+      marketNames: const {'m1': 'Market 1', 'm2': 'Market 2'},
+    );
+
+    expect(summary.bestSingleMarket, isNotNull);
+    expect(summary.bestSingleMarket?.total, 10);
+  });
+
+  test('missing product is reported in mixed result', () {
+    final items = [
+      const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
+      const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
+    ];
+    final pricesIndex = {
+      'p1': {'m1': 10},
+      // p2 missing everywhere
+    };
+
+    final summary = calculateBasketPricing(
+      items: items,
+      pricesIndex: pricesIndex,
+      marketNames: const {'m1': 'Market 1'},
+    );
+
+    expect(summary.bestSingleMarket, isNull);
+    expect(summary.mixedResult.total, 10);
+    expect(summary.mixedResult.missingKeys, ['p2']);
+  });
 }

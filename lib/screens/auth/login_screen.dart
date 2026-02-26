@@ -1,12 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../providers/firebase_init_provider.dart';
-import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/theme.dart';
-import '../main_screen.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +18,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
@@ -46,18 +44,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     try {
-      await _authService.signInWithEmailAndPassword(
+      await ref.read(authServiceProvider).signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
+      context.go('/main');
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar(_authService.getErrorMessage(e));
+      _showErrorSnackBar(ref.read(authServiceProvider).getErrorMessage(e));
     } catch (e) {
       if (!mounted) return;
       _showErrorSnackBar('Giriş yapılamadı: $e');
@@ -77,18 +73,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isGoogleLoading = true);
 
     try {
-      final user = await _authService.signInWithGoogle();
+      final user = await ref.read(authServiceProvider).signInWithGoogle();
 
       if (user != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+        context.go('/main');
       } else if (mounted) {
         setState(() => _isGoogleLoading = false);
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar(_authService.getErrorMessage(e));
+      _showErrorSnackBar(ref.read(authServiceProvider).getErrorMessage(e));
       setState(() => _isGoogleLoading = false);
     } catch (e) {
       if (!mounted) return;
@@ -164,7 +158,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               if (emailController.text.isEmpty) return;
 
               try {
-                await _authService.resetPassword(emailController.text.trim());
+                await ref.read(authServiceProvider).resetPassword(emailController.text.trim());
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -190,9 +184,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _navigateToRegister() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-    );
+    context.go('/register');
   }
 
   @override
