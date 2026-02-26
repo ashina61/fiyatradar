@@ -98,7 +98,7 @@ class _ImageFallback extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Gorsel yok',
+            'Görsel yok',
             style: Theme.of(context).textTheme.labelSmall,
           ),
         ],

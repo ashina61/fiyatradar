@@ -157,7 +157,7 @@ class FirestoreService {
   }
 
   // =========================================================================
-  // STORES (Subeler)
+  // STORES (Şubeler)
   // =========================================================================
 
   Stream<List<StoreModel>> getAllStoresStream() {
@@ -188,11 +188,11 @@ class FirestoreService {
     return _storesRef
         .snapshots()
         .handleError((error, stackTrace) {
-      debugPrint('[AddPrice] nearby branch query error: $error');
+      if (kDebugMode) debugPrint('[AddPrice] nearby branch query error: $error');
       if (error is FirebaseException) {
-        debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
+        if (kDebugMode) debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
       }
-      if (stackTrace is StackTrace) {
+      if (stackTrace is StackTrace && kDebugMode) {
         debugPrintStack(stackTrace: stackTrace);
       }
     })
@@ -210,11 +210,11 @@ class FirestoreService {
     return _storesRef
         .snapshots()
         .handleError((error, stackTrace) {
-      debugPrint('[AddPrice] online branch query error: $error');
+      if (kDebugMode) debugPrint('[AddPrice] online branch query error: $error');
       if (error is FirebaseException) {
-        debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
+        if (kDebugMode) debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
       }
-      if (stackTrace is StackTrace) {
+      if (stackTrace is StackTrace && kDebugMode) {
         debugPrintStack(stackTrace: stackTrace);
       }
     })
@@ -520,7 +520,7 @@ class FirestoreService {
 
       return products.take(limit).toList();
     } catch (e) {
-      debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
+      if (kDebugMode) debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
       return const []; 
     }
   }
@@ -905,7 +905,7 @@ class FirestoreService {
       notificationCount = await _createFollowerNotifications(
         productId: price.productId,
         priceReporterId: reporterUid,
-        productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
+        productName: productData?['name']?.toString() ?? price.productName ?? 'Ürün',
         oldPrice: oldPrice,
         newPrice: price.price,
         storeName: price.storeName,
@@ -959,7 +959,7 @@ class FirestoreService {
     final followedSnapshot = await SafeQueryBuilder.safeWhere(
       _firestore.collectionGroup('followedProducts'),
       FieldPath.documentId,
-      productId.trim(), // Query argumanini primitive + trim'li gonder.
+      productId.trim(), // Query argümanını primitive + trim'li gönder.
       expectedType: String,
     ).get();
 
@@ -1300,7 +1300,7 @@ class FirestoreService {
             ensureUniqueByMeta: true,
           );
         } catch (e) {
-          debugPrint('voteOnPrice points award failed: $e');
+          if (kDebugMode) debugPrint('voteOnPrice points award failed: $e');
         }
       }
 
@@ -1322,9 +1322,11 @@ class FirestoreService {
 
   Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
     try {
-      debugPrint(
-        '[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
+        );
+      }
       final priceSnap = await _pricesRef.doc(priceId).get();
       final data = priceSnap.data() ?? const <String, dynamic>{};
       final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
@@ -1339,11 +1341,13 @@ class FirestoreService {
         voterUid: voterId,
       );
     } catch (e, st) {
-      debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[FirestoreService.verifyPrice] STACK',
-      );
+      if (kDebugMode) debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
+      if (kDebugMode) {
+        debugPrintStack(
+          stackTrace: st,
+          label: '[FirestoreService.verifyPrice] STACK',
+        );
+      }
       rethrow;
     }
   }
@@ -2279,7 +2283,7 @@ class FirestoreService {
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {
-        debugPrint("FIRESTORE QUERY ERROR -> $e");
+        if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
       }
     }
     return results;
@@ -2302,7 +2306,7 @@ class FirestoreService {
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {
-        debugPrint("FIRESTORE QUERY ERROR -> $e");
+        if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
       }
     }
     return results;

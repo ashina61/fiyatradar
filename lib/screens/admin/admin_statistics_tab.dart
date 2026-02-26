@@ -98,12 +98,12 @@ class _AdminStatisticsTabState extends ConsumerState<AdminStatisticsTab> {
     }
 
     final stats = [
-      _AdminStatItem('Toplam Urun', productCount, Icons.inventory_2_outlined, AppColors.primary),
+      _AdminStatItem('Toplam Ürün', productCount, Icons.inventory_2_outlined, AppColors.primary),
       _AdminStatItem('Toplam Zincir', brandCount, Icons.business_outlined, AppColors.secondary),
-      _AdminStatItem('Toplam Sube', storeCount, Icons.store_outlined, AppColors.accent),
+      _AdminStatItem('Toplam Şube', storeCount, Icons.store_outlined, AppColors.accent),
       _AdminStatItem('Toplam Kategori', categoryCount, Icons.category_outlined, const Color(0xFF6366F1)),
-      _AdminStatItem('Toplam Kullanici', userCount, Icons.people_outlined, AppColors.info),
-      _AdminStatItem('Toplam Fiyat Girisi', totalPriceEntries, Icons.price_change_outlined, const Color(0xFF10B981)),
+      _AdminStatItem('Toplam Kullanıcı', userCount, Icons.people_outlined, AppColors.info),
+      _AdminStatItem('Toplam Fiyat Girişi', totalPriceEntries, Icons.price_change_outlined, const Color(0xFF10B981)),
       _AdminStatItem('Toplam Rapor', reportCount, Icons.flag_outlined, AppColors.error),
       _AdminStatItem('Toplam Banner', bannerCount, Icons.view_carousel_outlined, const Color(0xFF8B5CF6)),
       _AdminStatItem('Toplam Puan', totalPoints, Icons.stars, const Color(0xFFF59E0B)),

@@ -68,7 +68,7 @@ Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dyna
 }
 
 // ---------------------------------------------------------------------------
-// Tab 6: Kullanici Yonetimi
+// Tab 6: Kullanıcı Yönetimi
 // ---------------------------------------------------------------------------
 class AdminUserManagementTab extends ConsumerWidget {
   const AdminUserManagementTab({super.key});
@@ -84,7 +84,7 @@ class AdminUserManagementTab extends ConsumerWidget {
           return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(Icons.people_outlined, size: 64, color: theme.hintColor),
             const SizedBox(height: AppSpacing.md),
-            Text('Henuz kullanici yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+            Text('Henüz kullanıcı yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
           ]));
         }
         return ListView.builder(
@@ -208,7 +208,7 @@ class AdminUserManagementTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Kullanicilar yuklenemedi')),
+      error: (_, __) => const Center(child: Text('Kullanıcılar yüklenemedi')),
     );
   }
 }

@@ -65,7 +65,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final currentUser = _authService.currentUser;
       if (currentUser == null) {
-        throw Exception('Kullanici oturumu bulunamadi');
+        throw Exception('Kullanıcı oturumu bulunamadı');
       }
 
       final userModel = await _authService.getUserModel(currentUser.uid);

@@ -109,12 +109,12 @@ final pointsStateProvider = StreamProvider<PointsState>((ref) {
     data: (user) {
       if (user == null) return Stream.error(StateError('unauthenticated'));
       return ref.watch(pointsControllerProvider).streamState(user.uid).handleError((error, stackTrace) {
-        debugPrint('pointsStateProvider error: $error');
+        if (kDebugMode) debugPrint('pointsStateProvider error: $error');
       });
     },
     loading: () => const Stream.empty(),
     error: (error, stackTrace) {
-      debugPrint('pointsStateProvider auth error: $error');
+      if (kDebugMode) debugPrint('pointsStateProvider auth error: $error');
       return Stream.error(error, stackTrace);
     },
   );

@@ -191,7 +191,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
-              hintText: 'Urun, magaza veya kategori ara...',
+              hintText: 'Ürün, mağaza veya kategori ara...',
               hintStyle: TextStyle(
                 color: AppColors.textHint,
                 fontWeight: FontWeight.w400,
@@ -514,7 +514,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             const SizedBox(height: 14),
             Text(
-              'Urunler yukleniyor...',
+              'Ürünler yükleniyor...',
               style: TextStyle(
                 color: AppColors.textTertiary,
                 fontSize: 13,
@@ -537,7 +537,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             const SizedBox(height: 14),
             Text(
-              'Baglanti hatasi',
+              'Bağlantı hatası',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 15,
@@ -581,7 +581,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             const SizedBox(height: 14),
             Text(
-              'Henuz bu filtrede fiyat yok',
+              'Henüz bu filtrede fiyat yok',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 15,

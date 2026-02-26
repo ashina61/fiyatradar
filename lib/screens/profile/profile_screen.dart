@@ -154,14 +154,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userDoc = await userRef.get();
     if (!userDoc.exists) {
       await userRef.set({
-        'displayName': 'Kullanici',
+        'displayName': 'Kullanıcı',
         'photoUrl': '',
         'photoURL': '',
         'verified': false,
         'trustScore': 0,
         'levelName': 'Gözlemci',
         'monthlySavings': '₺0',
-        'topMarket': 'Henuz yok',
+        'topMarket': 'Henüz yok',
         'totalPoints': 0,
         'weeklyPoints': 0,
         'streakDays': 0,
@@ -184,7 +184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final resolvedLevelName = EliteLevelEngine.getLevelStyle(resolvedLevel).label;
 
     return _ProfileData(
-      displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
+      displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
@@ -737,7 +737,7 @@ class MyPricesScreen extends StatelessWidget {
               return bDt.compareTo(aDt);
             });
           if (docs.isEmpty) {
-            return const Center(child: Text('Henuz fiyat eklemedin.'));
+            return const Center(child: Text('Henüz fiyat eklemedin.'));
           }
           return ListView.separated(
             itemCount: docs.length,
@@ -747,7 +747,7 @@ class MyPricesScreen extends StatelessWidget {
               final ts = data['createdAt'];
               final date = ts is Timestamp ? ts.toDate() : null;
               final productName = (data['productName'] ?? data['urunAdi'] ?? data['name'] ?? data['title'] ?? '').toString().trim();
-              final displayName = productName.isEmpty ? 'Isimsiz Urun' : productName;
+              final displayName = productName.isEmpty ? 'İsimsiz Ürün' : productName;
               final formattedDate = date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}';
               return ListTile(
                 title: Text(displayName),
@@ -758,7 +758,7 @@ class MyPricesScreen extends StatelessWidget {
                   children: [
                     Text(formatTRY((data['price'] ?? 0) as num), style: const TextStyle(fontWeight: FontWeight.w700)),
                     if (data['verified'] == true)
-                      const Text('Dogrulandi', style: TextStyle(fontSize: 11, color: Colors.green)),
+                      const Text('Doğrulandı', style: TextStyle(fontSize: 11, color: Colors.green)),
                   ],
                 ),
               );
@@ -815,7 +815,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Favoriler guncellenemedi. Tekrar dene.')),
+        const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
       );
     }
   }
@@ -855,7 +855,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   children: [
                     Icon(Icons.favorite_border, size: 42, color: AppColors.textTertiary),
                     SizedBox(height: 8),
-                    Text('Henuz favori urunun yok.'),
+                    Text('Henüz favori ürünün yok.'),
                   ],
                 ),
               ),
@@ -876,8 +876,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               final data = docs[index].data();
               final productId = (data['productId'] ?? '').toString();
               final product = _productCache[productId];
-              final title = product?.name ?? (data['productName'] ?? 'Urun').toString();
-              final subtitle = product?.brand ?? 'Urun';
+              final title = product?.name ?? (data['productName'] ?? 'Ürün').toString();
+              final subtitle = product?.brand ?? 'Ürün';
               final image = product?.effectiveImage;
 
               return Dismissible(
@@ -938,7 +938,7 @@ class ReceiptsScreen extends StatelessWidget {
           }
           final docs = snapshot.data?.docs ?? const [];
           if (docs.isEmpty) {
-            return const Center(child: Text('Henuz fis eklemedin.'));
+            return const Center(child: Text('Henüz fiş eklemedin.'));
           }
           return ListView.builder(
             itemCount: docs.length,
@@ -966,28 +966,28 @@ class ProfileHelpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Yardim ve SSS')),
+      appBar: AppBar(title: const Text('Yardım ve SSS')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: const [
           _HelpSectionCard(
-            title: 'Sikca Sorulan Sorular',
+            title: 'Sıkça Sorulan Sorular',
             icon: Icons.quiz_outlined,
             children: [
               _FaqItem(
-                question: 'Fiyat nasil eklenir?',
+                question: 'Fiyat nasıl eklenir?',
                 answer:
-                    'Ana ekrandan + butonuna basin, urun secin, fiyat ve magazayi girip Fiyati Kaydet ile gonderin.',
+                    'Ana ekrandan + butonuna basın, ürün seçin, fiyat ve mağazayı girip Fiyatı Kaydet ile gönderin.',
               ),
               _FaqItem(
-                question: 'Ekledigim fiyatlar hemen yayinlanir mi?',
+                question: 'Eklediğim fiyatlar hemen yayınlanır mı?',
                 answer:
-                    'Fiyatlar topluluk geri bildirimleri ve sistem kontrolleri ile dogrulanir. Supheli fiyatlar moderasyona dusebilir.',
+                    'Fiyatlar topluluk geri bildirimleri ve sistem kontrolleri ile doğrulanır. Şüpheli fiyatlar moderasyona düşebilir.',
               ),
               _FaqItem(
-                question: 'Hesapla ozelligi ne yapar?',
+                question: 'Hesapla özelliği ne yapar?',
                 answer:
-                    'Sepetinizdeki urunleri secili magazalar arasinda kiyaslar ve tahmini toplam tutari gosterir.',
+                    'Sepetinizdeki ürünleri seçili mağazalar arasında kıyaslar ve tahmini toplam tutarı gösterir.',
               ),
             ],
           ),
@@ -996,10 +996,10 @@ class ProfileHelpScreen extends StatelessWidget {
             title: 'Puan Toplama Sistemi',
             icon: Icons.stars_rounded,
             children: [
-              _BulletText('Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan kazandirir.'),
-              _BulletText('Fotograf eklenen fiyat girisi +${AppConstants.pointsForPriceEntryWithPhoto} puan kazandirir.'),
-              _BulletText('Dogrulanan katkilarda guven puaniniz yukselir, hatali bildirimlerde dusebilir.'),
-              _BulletText('Puanlar rozetleri, seviye ilerlemesini ve liderlik tablosundaki siranizi etkiler.'),
+              _BulletText('Her fiyat girişi +${AppConstants.pointsForPriceEntry} puan kazandırır.'),
+              _BulletText('Fotoğraf eklenen fiyat girişi +${AppConstants.pointsForPriceEntryWithPhoto} puan kazandırır.'),
+              _BulletText('Doğrulanan katkılarda güven puanınız yükselir, hatalı bildirimlerde düşebilir.'),
+              _BulletText('Puanlar rozetleri, seviye ilerlemesini ve liderlik tablosundaki sıranızı etkiler.'),
             ],
           ),
         ],
@@ -1228,7 +1228,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _SettingsTile(
             icon: Icons.auto_awesome_rounded,
-            title: 'Guncellemeler',
+            title: 'Güncellemeler',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()),
             ),
@@ -1261,7 +1261,7 @@ class AboutScreen extends StatelessWidget {
                 SizedBox(height: 12),
                 _BulletText('Fiyat Ekle ekrani Material 3 stiline gore yenilendi.'),
                 _BulletText('Fiyat Sepeti ekraninda aksiyonlar sadeleştirildi ve sticky alt bar iyileştirildi.'),
-                _BulletText('Profil ekranina Yardim ve SSS bolumu eklendi.'),
+                _BulletText('Profil ekranina Yardım ve SSS bolumu eklendi.'),
               ],
             ),
           ),
@@ -1285,7 +1285,7 @@ class _ErrorState extends StatelessWidget {
           const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.textTertiary),
           const SizedBox(height: 12),
           const Text(
-            'Profil verisi yuklenemedi.',
+            'Profil verisi yüklenemedi.',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,

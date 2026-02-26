@@ -33,7 +33,7 @@ class _CampaignBasketScreenState extends ConsumerState<CampaignBasketScreen> {
   }
 
   Future<_CampaignBasketData> _loadCampaignBasket() async {
-    if (!firebaseInitializedNotifier.value) return const _CampaignBasketData.empty();
+    if (!ref.read(firebaseInitializedProvider)) return const _CampaignBasketData.empty();
     final service = ref.read(firestoreServiceProvider);
 
     final campaignId = widget.campaignId.trim();
