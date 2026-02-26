@@ -59,11 +59,11 @@ class _AdminReportsManagementTabState
       case 'comment':
         return 'Yorum';
       case 'product':
-        return 'Urun';
+        return 'Ürün';
       case 'user':
-        return 'Kullanici';
+        return 'Kullanıcı';
       case 'other':
-        return 'Diger';
+        return 'Diğer';
       default:
         return type;
     }
@@ -166,7 +166,7 @@ class _AdminReportsManagementTabState
                 Icon(Icons.flag_outlined, size: 64, color: theme.hintColor),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Henuz rapor yok',
+                  'Henüz rapor yok',
                   style: TextStyle(color: theme.hintColor, fontSize: 16),
                 ),
               ],
@@ -413,7 +413,7 @@ class _AdminReportsManagementTabState
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Raporlar yuklenemedi')),
+      error: (_, __) => const Center(child: Text('Raporlar yüklenemedi')),
     );
   }
 }

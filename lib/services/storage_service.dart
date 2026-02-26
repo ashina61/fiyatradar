@@ -126,7 +126,7 @@ class StorageService {
   }) async {
     final decoded = img.decodeImage(imageBytes);
     if (decoded == null) {
-      throw Exception('Gorsel verisi okunamadi.');
+      throw Exception('Görsel verisi okunamadı.');
     }
 
     final thumb = img.copyResize(decoded, width: 256);

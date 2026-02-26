@@ -367,7 +367,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
                 const Text(
-                  'URUN FIYATI',
+                  'ÜRÜN FİYATI',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
@@ -450,7 +450,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       children: [
         _SectionLabel(
           icon: Icons.inventory_2_outlined,
-          label: 'Urun Bilgisi',
+          label: 'Ürün Bilgisi',
           theme: theme,
         ),
         const SizedBox(height: 10),
@@ -494,7 +494,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent,
                     filled: false,
-                    hintText: 'Urun adini yazin',
+                    hintText: 'Ürün adını yazın',
                     hintStyle: const TextStyle(color: AppColors.textHint),
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     suffixIcon: state.productName.trim().isEmpty
@@ -612,7 +612,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               border: Border.all(color: AppColors.outline.withOpacity(0.25)),
             ),
             child: const Text(
-              'Urun bulunamadi',
+              'Ürün bulunamadı',
               style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
           ),
@@ -746,7 +746,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         if (state.lockedCategoryByProduct) ...[
           const SizedBox(height: 8),
           const Text(
-            'Kategori secilen urune gore kilitlendi.',
+            'Kategori seçilen ürüne göre kilitlendi.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textTertiary,
@@ -990,7 +990,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Magazalar yuklenemedi',
+                  'Mağazalar yüklenemedi',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppColors.error,
@@ -1051,7 +1051,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Aramaniza uygun magaza bulunamadi',
+            'Aramanıza uygun mağaza bulunamadı',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.textTertiary,
             ),
@@ -1162,7 +1162,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         SnackBar(
           content: Text(
             knownProduct
-                ? 'Barkod okundu ve urun secildi: $barcode'
+                ? 'Barkod okundu ve ürün seçildi: $barcode'
                 : 'Barkod okundu: $barcode',
           ),
           behavior: SnackBarBehavior.floating,
@@ -1178,17 +1178,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     final currentUser = authStateUser ?? FirebaseAuth.instance.currentUser;
 
     final state = ref.read(addPriceProvider);
-    debugPrint(
-      '[AddPriceScreen.submit] user => uid=${currentUser?.uid}, isAnonymous=${currentUser?.isAnonymous}, email=${currentUser?.email}',
-    );
-    debugPrint(
-      '[AddPriceScreen.submit] selection => selectedProductId=${state.selectedProductId}, productName=${state.productName}, selectedCategoryId=${state.selectedCategoryId}, selectedStoreId=${state.selectedStoreId}',
-    );
-
     if (currentUser == null || currentUser.uid.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Fiyat gonderebilmek icin giris yapmalisin.'),
+          content: Text('Fiyat gönderebilmek için giriş yapmalısın.'),
         ),
       );
       return;
@@ -1197,7 +1190,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     if (currentUser.isAnonymous) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Fiyat eklemek icin giris yapman gerekiyor.'),
+          content: Text('Fiyat eklemek için giriş yapman gerekiyor.'),
         ),
       );
       return;
@@ -1215,7 +1208,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               SizedBox(width: 10),
               Expanded(
                 child:
-                    Text('Fiyat basariyla kaydedildi. +10 puan hesabina eklendi!'),
+                    Text('Fiyat başarıyla kaydedildi. +10 puan hesabına eklendi!'),
               ),
             ],
           ),
@@ -1317,19 +1310,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   const _InfoRow(
                     icon: Icons.stars_rounded,
                     iconColor: AppColors.accent,
-                    text: 'Her fiyat girisi +10 Puan kazandirir!',
+                    text: 'Her fiyat girişi +10 puan kazandırır!',
                   ),
                   const SizedBox(height: 12),
                   const _InfoRow(
                     icon: Icons.groups_rounded,
                     iconColor: AppColors.primary,
-                    text: 'Fiyatlar tamamen kullanicilar tarafindan bildirilmektedir.',
+                    text: 'Fiyatlar tamamen kullanıcılar tarafından bildirilmektedir.',
                   ),
                   const SizedBox(height: 12),
                   const _InfoRow(
                     icon: Icons.verified_rounded,
                     iconColor: AppColors.success,
-                    text: 'Dogru fiyat girisleri guven puaninizi arttirir.',
+                    text: 'Doğru fiyat girişleri güven puanınızı artırır.',
                   ),
                 ],
               ),

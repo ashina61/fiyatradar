@@ -75,7 +75,7 @@ class BarcodeScannerSheet {
                       borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                     child: const Text(
-                      'Kamerayi barkoda dogru tutun.',
+                      'Kamerayı barkoda doğru tutun.',
                       style: TextStyle(color: Colors.white70),
                       textAlign: TextAlign.center,
                     ),

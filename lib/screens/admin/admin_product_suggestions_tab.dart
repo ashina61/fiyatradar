@@ -12,7 +12,7 @@ class AdminProductSuggestionsTab extends ConsumerWidget {
     final suggestionsAsync = ref.watch(pendingProductSuggestionsProvider);
     return suggestionsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Urun onerileri yuklenemedi')),
+      error: (_, __) => const Center(child: Text('Ürün önerileri yüklenemedi')),
       data: (suggestions) {
         if (suggestions.isEmpty) {
           return const Center(child: Text('Bekleyen ürün önerisi yok.'));

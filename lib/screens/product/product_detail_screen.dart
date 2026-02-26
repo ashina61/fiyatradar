@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1069,7 +1070,7 @@ class _TrustBadge extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 // 3. YORUMLAR PANELİ (Raporlama İkonları ve Tüm Yorumlara Yönlendirme)
 // ═══════════════════════════════════════════════════════════════════
-class CommentsPanel extends StatefulWidget {
+class CommentsPanel extends ConsumerStatefulWidget {
   const CommentsPanel({super.key, required this.state, required this.notifier, required this.controller, required this.productId});
   final ProductDetailState state; 
   final ProductDetailNotifier notifier; 
@@ -1077,13 +1078,14 @@ class CommentsPanel extends StatefulWidget {
   final String productId;
 
   @override
-  State<CommentsPanel> createState() => _CommentsPanelState();
+  ConsumerState<CommentsPanel> createState() => _CommentsPanelState();
 }
 
-class _CommentsPanelState extends State<CommentsPanel> {
+class _CommentsPanelState extends ConsumerState<CommentsPanel> {
   bool _justSent = false;
 
-  void _reportComment(String authorName) {
+  void _reportComment(ProductComment comment) {
+    final authorName = comment.author;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1093,10 +1095,38 @@ class _CommentsPanelState extends State<CommentsPanel> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
-            onPressed: () {
-              // TODO: Backend yorum raporlama servisi
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum raporlandı.')));
+            onPressed: () async {
+              final userId = FirebaseAuth.instance.currentUser?.uid;
+
+              if (userId == null) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Yorum raporlamak için giriş yapmalısınız.')),
+                );
+                return;
+              }
+
+              try {
+                await ref.read(firestoreServiceProvider).reportComment(
+                  commentId: comment.id,
+                  userId: userId,
+                  reason: 'Uygunsuz yorum',
+                );
+
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Yorum raporlandı.')),
+                );
+              } catch (_) {
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Yorum raporlanamadı. Lütfen tekrar deneyin.'),
+                  ),
+                );
+              }
             },
             child: const Text('Raporla', style: TextStyle(color: Colors.white)),
           ),
@@ -1152,7 +1182,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
                                 const SizedBox(width: 8),
                                 // Yorum Raporlama Butonu
                                 GestureDetector(
-                                  onTap: () => _reportComment(c.author),
+                                  onTap: () => _reportComment(c),
                                   child: const Icon(Icons.outlined_flag_rounded, size: 16, color: Color(0xFF8D6E63)),
                                 ),
                               ],

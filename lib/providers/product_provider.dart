@@ -210,7 +210,7 @@ final activeBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
 });
 
 // =========================================================================
-// STORES (Subeler)
+// STORES (Şubeler)
 // =========================================================================
 
 final allStoresStreamProvider = StreamProvider<List<StoreModel>>((ref) {

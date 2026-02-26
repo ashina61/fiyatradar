@@ -108,9 +108,9 @@ class BasketViewModel extends ChangeNotifier {
       onError: (error) {
         isLoadingItems = false;
         if (error is FirebaseException && error.code == 'permission-denied') {
-          errorMessage = 'Sepet icin erisim izni bulunamadi.';
+          errorMessage = 'Sepet için erişim izni bulunamadı.';
         } else {
-          errorMessage = 'Sepet yuklenemedi. Lutfen tekrar deneyin.';
+          errorMessage = 'Sepet yüklenemedi. Lütfen tekrar deneyin.';
         }
         notifyListeners();
       },
@@ -302,7 +302,7 @@ class BasketViewModel extends ChangeNotifier {
             .map(
               (item) => BasketItemInput(
                 key: item.productId,
-                name: productMap[item.productId]?.name ?? 'Urun',
+                name: productMap[item.productId]?.name ?? 'Ürün',
                 quantity: item.quantity,
               ),
             )
@@ -368,11 +368,11 @@ class BasketViewModel extends ChangeNotifier {
     } catch (error) {
       if (error is FirebaseException &&
           (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
-        errorMessage = 'Fiyatlar icin erisim izni bulunamadi.';
+        errorMessage = 'Fiyatlar için erişim izni bulunamadı.';
       } else if (error is FirebaseException && error.code == 'unavailable') {
-        errorMessage = 'Baglanti hatasi. Lutfen internetinizi kontrol edin.';
+        errorMessage = 'Bağlantı hatası. Lütfen internetinizi kontrol edin.';
       } else {
-        errorMessage = 'Fiyat hesaplanamadi. Lutfen tekrar deneyin.';
+        errorMessage = 'Fiyat hesaplanamadı. Lütfen tekrar deneyin.';
       }
       comparisonState = CartComparisonState(
         status: CartComparisonStatus.error,

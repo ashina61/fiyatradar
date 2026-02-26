@@ -47,7 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _errorMessage = null;
     });
 
-    if (!firebaseInitializedNotifier.value) {
+    if (!ref.read(firebaseInitializedProvider)) {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.';
@@ -91,7 +91,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    if (!firebaseInitializedNotifier.value) {
+    if (!ref.read(firebaseInitializedProvider)) {
       setState(() {
         _errorMessage = 'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.';
       });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +24,7 @@ void main() async {
   FlutterError.onError = (FlutterErrorDetails details) {
     final exception = details.exceptionAsString();
     if (exception.contains('Unable to load asset')) {
-      debugPrint('Asset yükleme hatası yakalandı: $exception');
+      if (kDebugMode) debugPrint('Asset yükleme hatası yakalandı: $exception');
     }
     FlutterError.presentError(details);
   };
@@ -46,15 +47,15 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     firebaseInitializedNotifier.value = true;
-    debugPrint('Firebase başarıyla başlatıldı! app=${app.name}');
+    if (kDebugMode) debugPrint('Firebase başarıyla başlatıldı! app=${app.name}');
   } catch (e) {
-    debugPrint('Firebase initializeApp(options) başarısız: $e');
+    if (kDebugMode) debugPrint('Firebase initializeApp(options) başarısız: $e');
     try {
       final fallbackApp = await Firebase.initializeApp();
       firebaseInitializedNotifier.value = true;
-      debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
+      if (kDebugMode) debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
     } catch (inner) {
-      debugPrint('Firebase başlatılamadı, hata: $inner');
+      if (kDebugMode) debugPrint('Firebase başlatılamadı, hata: $inner');
       firebaseInitializedNotifier.value = false;
     }
   }

@@ -507,16 +507,20 @@ class ExploreController extends StateNotifier<ExploreState> {
     final lat = hasStoreCoordinates ? storeLat : price.geoPoint?.latitude;
     final lng = hasStoreCoordinates ? storeLng : price.geoPoint?.longitude;
     if (lat == null || lng == null || lat == 0 || lng == 0) {
-      debugPrint(
-        'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=(null) meters=null',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=(null) meters=null',
+        );
+      }
       return null;
     }
 
     final meters = _haversineMeters(userLat, userLng, lat, lng);
-    debugPrint(
-      'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=($lat,$lng) meters=${meters.toStringAsFixed(2)}',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        'DISTANCE user=($userLat,$userLng) store=${store?.id ?? price.branchStoreId} location=($lat,$lng) meters=${meters.toStringAsFixed(2)}',
+      );
+    }
     return meters;
   }
 

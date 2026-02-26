@@ -240,13 +240,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: trendingAsync.when(
                       data: (products) => _buildProductsSection(
                         theme,
-                        'Trend Urunler',
+                        'Trend Ürünler',
                         products,
                         icon: Icons.local_fire_department_rounded,
                         iconColor: AppColors.error,
                       ),
                       loading: () => _buildProductsLoading(theme,
-                          'Trend Urunler',
+                          'Trend Ürünler',
                           icon: Icons.local_fire_department_rounded,
                           iconColor: AppColors.error),
                       error: (_, __) => const SizedBox.shrink(),
@@ -261,13 +261,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: recommendedAsync.when(
                       data: (products) => _buildProductsSection(
                         theme,
-                        'Onerilen Urunler',
+                        'Önerilen Ürünler',
                         products,
                         icon: Icons.auto_awesome_rounded,
                         iconColor: AppColors.accent,
                       ),
                       loading: () => _buildProductsLoading(theme,
-                          'Onerilen Urunler',
+                          'Önerilen Ürünler',
                           icon: Icons.auto_awesome_rounded,
                           iconColor: AppColors.accent),
                       error: (_, __) => const SizedBox.shrink(),
@@ -303,7 +303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ─── App Bar ───────────────────────────────────────────────────
   Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user,
       AsyncValue<int> unreadCountAsync) {
-    final displayName = user?.name ?? 'Kullanici';
+    final displayName = user?.name ?? 'Kullanıcı';
     final initial =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
@@ -540,7 +540,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Urun, magaza veya kategori ara...',
+                    'Ürün, mağaza veya kategori ara...',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.textHint,
                     ),
@@ -566,7 +566,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             icon: Icons.trending_down_rounded,
             iconColor: AppColors.success,
             label: 'Dusus',
-            value: '$trendingCount urun',
+            value: '$trendingCount ürün',
             bgColor: AppColors.success.withOpacity(0.08),
             borderColor: AppColors.success.withOpacity(0.15),
           ),
@@ -576,8 +576,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: _InsightPill(
             icon: Icons.auto_awesome_rounded,
             iconColor: AppColors.accent,
-            label: 'Oneri',
-            value: '$recommendedCount urun',
+            label: 'Öneri',
+            value: '$recommendedCount ürün',
             bgColor: AppColors.accent.withOpacity(0.08),
             borderColor: AppColors.accent.withOpacity(0.15),
           ),
@@ -1017,7 +1017,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               final productId =
                   (item['productId'] ?? item['id'] ?? '').toString();
               final productName =
-                  (item['productName'] ?? 'Urun').toString();
+                  (item['productName'] ?? 'Ürün').toString();
               final imageUrl = (item['imageUrl'] ?? '').toString();
 
               return PremiumPressable(

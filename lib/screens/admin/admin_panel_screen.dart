@@ -128,7 +128,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Market verileri yuklenemedi: $e')),
+        SnackBar(content: Text('Market verileri yüklenemedi: $e')),
       );
     } finally {
       if (mounted) {
@@ -184,7 +184,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(
-              SnackBar(content: Text('$processedCount adet urun islendi...')),
+              SnackBar(content: Text('$processedCount adet ürün işlendi...')),
             );
         }
       }
@@ -195,7 +195,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
         ..showSnackBar(
           SnackBar(
             content: Text(
-              'Urun import tamamlandi. Toplam: ${products.length}, islenen: $processedCount',
+              'Ürün import tamamlandı. Toplam: ${products.length}, işlenen: $processedCount',
             ),
           ),
         );
@@ -204,7 +204,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text('Urun verileri yuklenemedi: $e')),
+          SnackBar(content: Text('Ürün verileri yüklenemedi: $e')),
         );
     } finally {
       if (mounted) {
@@ -280,8 +280,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
                   : const Icon(Icons.inventory_2_outlined),
               label: Text(
                 _isProductImportRunning
-                    ? 'Urunler Yukleniyor...'
-                    : 'Urun Veritabanini Guncelle',
+                    ? 'Ürünler Yükleniyor...'
+                    : 'Ürün Veritabanını Güncelle',
               ),
             ),
           ),
@@ -296,7 +296,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.cloud_upload_outlined),
-              label: Text(_isMarketImportRunning ? 'Yukleniyor...' : 'Veritabanini Guncelle'),
+              label: Text(_isMarketImportRunning ? 'Yükleniyor...' : 'Veritabanını Güncelle'),
             ),
           ),
         ],
@@ -374,7 +374,7 @@ class _ProductHubTabState extends State<_ProductHubTab>
             controller: _tabController,
             tabs: const [
               Tab(text: 'Ürünler'),
-              Tab(text: 'Oneriler'),
+              Tab(text: 'Öneriler'),
             ],
           ),
         ),
@@ -446,7 +446,7 @@ class _StoreHubTabState extends State<_StoreHubTab>
 }
 
 // ---------------------------------------------------------------------------
-// Tab 1: Urun Yonetimi
+// Tab 1: Ürün Yönetimi
 // ---------------------------------------------------------------------------
 class _OpenFoodFactsResult {
   final String? productName;
@@ -693,20 +693,19 @@ class _ProductManagementTab extends ConsumerWidget {
 
               openFoodFactsImageUrl = result.imageUrl;
               barcodeHint = openFoodFactsImageUrl == null
-                  ? 'Gorsel bulunamadi / Manuel ekle'
-                  : 'OpenFoodFacts gorseli bulundu';
+                  ? 'Görsel bulunamadı / Manuel ekle'
+                  : 'OpenFoodFacts görseli bulundu';
             });
           }
 
 
           Future<void> submitProduct() async {
-            debugPrint('ProductAdd pressed');
             if (isUploading) return;
 
             if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Urun adi ve en az bir kategori zorunludur'),
+                  content: Text('Ürün adı ve en az bir kategori zorunludur'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -767,19 +766,19 @@ class _ProductManagementTab extends ConsumerWidget {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Urun basariyla eklendi'),
+                    content: Text('Ürün başarıyla eklendi'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
               }
             } catch (e) {
               setDialogState(() {
-                uploadError = 'Yukleme basarisiz: $e';
+                uploadError = 'Yükleme başarısız: $e';
               });
               if (ctx.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Urun eklenemedi: $e'),
+                    content: Text('Ürün eklenemedi: $e'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -802,18 +801,18 @@ class _ProductManagementTab extends ConsumerWidget {
               child: const Icon(Icons.add_box_outlined, color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: AppSpacing.sm),
-            const Text('Yeni Urun Ekle'),
+            const Text('Yeni Ürün Ekle'),
           ]),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Urun Adi', prefixIcon: Icon(Icons.label_outline)),
+                decoration: const InputDecoration(labelText: 'Ürün Adı', prefixIcon: Icon(Icons.label_outline)),
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Aciklama (Opsiyonel)', prefixIcon: Icon(Icons.description_outlined)),
+                decoration: const InputDecoration(labelText: 'Açıklama (Opsiyonel)', prefixIcon: Icon(Icons.description_outlined)),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -907,7 +906,7 @@ class _ProductManagementTab extends ConsumerWidget {
                   child: Text(
                     barcodeHint!,
                     style: TextStyle(
-                      color: barcodeHint!.contains('bulunamadi') || barcodeHint!.contains('Manuel')
+                      color: barcodeHint!.contains('bulunamadı') || barcodeHint!.contains('Manuel')
                           ? AppColors.warning
                           : AppColors.success,
                       fontSize: 12,
@@ -928,7 +927,7 @@ class _ProductManagementTab extends ConsumerWidget {
                       height: 120,
                       alignment: Alignment.center,
                       color: Colors.black12,
-                      child: const Text('Gorsel bulunamadi / Manuel ekle'),
+                      child: const Text('Görsel bulunamadı / Manuel ekle'),
                     ),
                   ),
                 ),
@@ -980,14 +979,14 @@ class _ProductManagementTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: const Text('Urun Duzenle'),
+          title: const Text('Ürün Düzenle'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Urun Adi')),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Ürün Adı')),
                 const SizedBox(height: AppSpacing.md),
-                TextField(controller: descriptionController, maxLines: 2, decoration: const InputDecoration(labelText: 'Aciklama (Opsiyonel)')),
+                TextField(controller: descriptionController, maxLines: 2, decoration: const InputDecoration(labelText: 'Açıklama (Opsiyonel)')),
                 const SizedBox(height: AppSpacing.md),
                 TextField(controller: barcodeController, decoration: const InputDecoration(labelText: 'Barkod (Opsiyonel)')),
                 const SizedBox(height: AppSpacing.md),
@@ -1048,11 +1047,11 @@ class _ProductManagementTab extends ConsumerWidget {
                   ? null
                   : () async {
                       if (product.id.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun ID bulunamadi')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ürün ID bulunamadı')));
                         return;
                       }
                       if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Urun adi ve kategori zorunludur')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ürün adı ve kategori zorunludur')));
                         return;
                       }
 
@@ -1096,11 +1095,11 @@ class _ProductManagementTab extends ConsumerWidget {
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Urun basariyla guncellendi'), behavior: SnackBarBehavior.floating),
+                          const SnackBar(content: Text('Ürün başarıyla güncellendi'), behavior: SnackBarBehavior.floating),
                         );
                         ref.invalidate(allProductsProvider);
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Urun guncellenemedi: $e')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ürün güncellenemedi: $e')));
                       } finally {
                         if (ctx.mounted) setDialogState(() => isSaving = false);
                       }
@@ -1185,11 +1184,10 @@ class _ProductManagementTab extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_product',
         onPressed: () {
-          debugPrint('ProductAdd pressed');
           _showAddProductDialog(context, ref, categoriesAsync.valueOrNull ?? []);
         },
         icon: const Icon(Icons.add),
-        label: const Text('Urun Ekle'),
+        label: const Text('Ürün Ekle'),
       ),
       body: productsAsync.when(
         data: (products) {
@@ -1197,7 +1195,7 @@ class _ProductManagementTab extends ConsumerWidget {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.inventory_2_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
-              Text('Henuz urun yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+              Text('Henüz ürün yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
             ]));
           }
           return ListView.builder(
@@ -1275,7 +1273,7 @@ class _ProductManagementTab extends ConsumerWidget {
                             ),
                             icon: const Icon(Icons.edit_outlined, size: 20),
                             color: theme.hintColor,
-                            tooltip: 'Duzenle',
+                            tooltip: 'Düzenle',
                           ),
                         ],
                       ),
@@ -1287,7 +1285,7 @@ class _ProductManagementTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Urunler yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Ürünler yüklenemedi')),
       ),
     );
   }
@@ -1316,7 +1314,7 @@ class _InfoChip extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 3: Sube (Store) Yonetimi
+// Tab 3: Şube (Store) Yönetimi
 // ---------------------------------------------------------------------------
 class _StoreManagementTab extends ConsumerStatefulWidget {
   final String initialFilter;
@@ -1390,7 +1388,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-            title: Text(isEdit ? 'Sube Duzenle' : 'Yeni Sube Ekle'),
+            title: Text(isEdit ? 'Şube Düzenle' : 'Yeni Şube Ekle'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1406,7 +1404,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: const Text('Yerel Sube'),
+                          label: const Text('Yerel Şube'),
                           selected: selectedType == StoreType.local,
                           onSelected: (_) => setDialogState(() => selectedType = StoreType.local),
                         ),
@@ -1414,7 +1412,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: ChoiceChip(
-                          label: const Text('Online Magaza'),
+                          label: const Text('Online Mağaza'),
                           selected: selectedType == StoreType.online,
                           onSelected: (_) => setDialogState(() => selectedType = StoreType.online),
                         ),
@@ -1830,7 +1828,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
     final targets = allStores.where((s) => s.id != source.id && s.status == StoreStatus.active).toList();
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Birlestirmek icin aktif baska magaza yok'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('Birleştirmek için aktif başka mağaza yok'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -1839,7 +1837,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('Magazayi Birlestir'),
+        title: const Text('Mağazayı Birleştir'),
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
@@ -1881,7 +1879,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
         heroTag: 'fab_store',
         onPressed: () => _showAddStoreDialog(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('Sube Ekle'),
+        label: const Text('Şube Ekle'),
       ),
       body: storesAsync.when(
         data: (stores) {
@@ -1889,7 +1887,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.store_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
-              Text('Henuz sube yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+              Text('Henüz şube yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
             ]));
           }
 
@@ -1963,7 +1961,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                                 await ref.read(firestoreServiceProvider).approveStore(store.id);
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Sube onaylandi'), behavior: SnackBarBehavior.floating),
+                                    const SnackBar(content: Text('Şube onaylandı'), behavior: SnackBarBehavior.floating),
                                   );
                                 }
                               },
@@ -1998,7 +1996,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
                           child: TextButton.icon(
                             onPressed: () => _openStoreEditor(context: context, ref: ref, store: store),
                             icon: const Icon(Icons.edit_outlined, size: 16),
-                            label: const Text('Duzenle', style: TextStyle(fontSize: 12)),
+                            label: const Text('Düzenle', style: TextStyle(fontSize: 12)),
                             style: TextButton.styleFrom(foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 8)),
                           ),
                         ),
@@ -2035,7 +2033,7 @@ class _StoreManagementTabState extends ConsumerState<_StoreManagementTab> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Subeler yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Şubeler yüklenemedi')),
       ),
     );
   }
@@ -2137,7 +2135,7 @@ class _StoreSuggestionsTab extends ConsumerWidget {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mevcut Magaza ile Birlestir'),
+        title: const Text('Mevcut Mağaza ile Birleştir'),
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
@@ -2172,7 +2170,7 @@ class _StoreSuggestionsTab extends ConsumerWidget {
       data: (activeStores) => suggestionsAsync.when(
         data: (suggestions) {
           if (suggestions.isEmpty) {
-            return const Center(child: Text('Bekleyen magaza onerisi yok'));
+            return const Center(child: Text('Bekleyen mağaza önerisi yok'));
           }
           final clusters = _buildClusters(suggestions, activeStores);
           return ListView.builder(
@@ -2189,7 +2187,7 @@ class _StoreSuggestionsTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${cluster.suggestions.length} onerinin merkezi (±20m)',
+                        '${cluster.suggestions.length} önerinin merkezi (±20m)',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -2236,16 +2234,16 @@ class _StoreSuggestionsTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Magaza onerileri yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Mağaza önerileri yüklenemedi')),
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Magazalar yuklenemedi')),
+      error: (_, __) => const Center(child: Text('Mağazalar yüklenemedi')),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab 3: Kategori Yonetimi
+// Tab 3: Kategori Yönetimi
 // ---------------------------------------------------------------------------
 class _CategoryManagementTab extends ConsumerWidget {
   const _CategoryManagementTab();
@@ -2297,7 +2295,7 @@ class _CategoryManagementTab extends ConsumerWidget {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)),
+                  decoration: const InputDecoration(labelText: 'Kategori Adı', prefixIcon: Icon(Icons.label_outline)),
                   autofocus: true,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -2333,7 +2331,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                             children: [
                               Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.textSecondary),
                               SizedBox(height: 4),
-                              Text('Kategori Gorseli Yukle', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              Text('Kategori Görseli Yukle', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                             ],
                           ),
                   ),
@@ -2402,14 +2400,14 @@ class _CategoryManagementTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: Text('${cat.name} - Kategori Duzenle'),
+          title: Text('${cat.name} - Kategori Düzenle'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Kategori Adi', prefixIcon: Icon(Icons.label_outline)),
+                  decoration: const InputDecoration(labelText: 'Kategori Adı', prefixIcon: Icon(Icons.label_outline)),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
@@ -2455,7 +2453,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                                 children: [
                                   Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.textSecondary),
                                   SizedBox(height: 4),
-                                  Text('Gorsel Sec', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                  Text('Görsel Sec', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                 ],
                               ),
                   ),
@@ -2499,7 +2497,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                   if (ctx.mounted) Navigator.pop(ctx);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Kategori guncellendi'), behavior: SnackBarBehavior.floating),
+                      const SnackBar(content: Text('Kategori güncellendi'), behavior: SnackBarBehavior.floating),
                     );
                   }
                 } catch (e) {
@@ -2513,7 +2511,7 @@ class _CategoryManagementTab extends ConsumerWidget {
               },
               child: isUploading
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Guncelle'),
+                  : const Text('Güncelle'),
             ),
           ],
         ),
@@ -2542,7 +2540,7 @@ class _CategoryManagementTab extends ConsumerWidget {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.category_outlined, size: 64, color: theme.hintColor),
               const SizedBox(height: AppSpacing.md),
-              Text('Henuz kategori yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
+              Text('Henüz kategori yok', style: TextStyle(color: theme.hintColor, fontSize: 16)),
             ]));
           }
           return GridView.builder(
@@ -2577,7 +2575,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
-                      Text('$productCount urun', style: TextStyle(fontSize: 12, color: theme.hintColor)),
+                      Text('$productCount ürün', style: TextStyle(fontSize: 12, color: theme.hintColor)),
                     ]),
                   ),
                   Positioned(
@@ -2622,14 +2620,14 @@ class _CategoryManagementTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Kategoriler yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Kategoriler yüklenemedi')),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab 4: Banner Yonetimi
+// Tab 4: Banner Yönetimi
 // ---------------------------------------------------------------------------
 class _BannerManagementTab extends ConsumerWidget {
   const _BannerManagementTab();
@@ -2651,14 +2649,14 @@ class _BannerManagementTab extends ConsumerWidget {
           return StatefulBuilder(
             builder: (context, setModalState) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-              title: Text(banner == null ? 'Yeni Banner Ekle' : 'Banner Duzenle'),
+              title: Text(banner == null ? 'Yeni Banner Ekle' : 'Banner Düzenle'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik')),
                     const SizedBox(height: AppSpacing.sm),
-                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama')),
+                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Açıklama')),
                     const SizedBox(height: AppSpacing.sm),
                     TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Resim URL')),
                     const SizedBox(height: AppSpacing.sm),
@@ -2775,7 +2773,7 @@ class _BannerManagementTab extends ConsumerWidget {
       ),
       body: bannersAsync.when(
         data: (banners) {
-          if (banners.isEmpty) return const Center(child: Text('Henuz banner yok'));
+          if (banners.isEmpty) return const Center(child: Text('Henüz banner yok'));
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 80),
             itemCount: banners.length,
@@ -2820,14 +2818,14 @@ class _BannerManagementTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Bannerlar yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Bannerlar yüklenemedi')),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab 5: Kampanya Yonetimi
+// Tab 5: Kampanya Yönetimi
 // ---------------------------------------------------------------------------
 class _CampaignManagementTab extends ConsumerWidget {
   const _CampaignManagementTab();
@@ -2854,7 +2852,7 @@ class _CampaignManagementTab extends ConsumerWidget {
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-            title: Text(campaign == null ? 'Kampanya Ekle' : 'Kampanya Duzenle'),
+            title: Text(campaign == null ? 'Kampanya Ekle' : 'Kampanya Düzenle'),
             content: SizedBox(
               width: 560,
               child: SingleChildScrollView(
@@ -2864,9 +2862,9 @@ class _CampaignManagementTab extends ConsumerWidget {
                   children: [
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Baslik')),
                     const SizedBox(height: AppSpacing.sm),
-                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Aciklama')),
+                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Açıklama')),
                     const SizedBox(height: AppSpacing.sm),
-                    TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Gorsel URL')),
+                    TextField(controller: imageUrlController, decoration: const InputDecoration(labelText: 'Görsel URL')),
                     const SizedBox(height: AppSpacing.sm),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -2875,7 +2873,7 @@ class _CampaignManagementTab extends ConsumerWidget {
                       title: const Text('Aktif'),
                     ),
                     TextField(
-                      decoration: const InputDecoration(labelText: 'Urun ara (isim/marka/barkod)'),
+                      decoration: const InputDecoration(labelText: 'Ürün ara (isim/marka/barkod)'),
                       onChanged: (v) => setModalState(() => search = v),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -2980,7 +2978,7 @@ class _CampaignManagementTab extends ConsumerWidget {
             ),
       body: campaignsAsync.when(
         data: (campaigns) {
-          if (campaigns.isEmpty) return const Center(child: Text('Kampanya bulunamadi'));
+          if (campaigns.isEmpty) return const Center(child: Text('Kampanya bulunamadı'));
           final products = productsAsync.valueOrNull ?? const <ProductModel>[];
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 90),
@@ -3003,7 +3001,7 @@ class _CampaignManagementTab extends ConsumerWidget {
                     ),
                   ),
                   title: Text(c.title),
-                  subtitle: Text('${c.itemProductIds.length} urun'),
+                  subtitle: Text('${c.itemProductIds.length} ürün'),
                   trailing: Wrap(
                     spacing: 4,
                     children: [
@@ -3024,7 +3022,7 @@ class _CampaignManagementTab extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Kampanyalar yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Kampanyalar yüklenemedi')),
       ),
     );
   }

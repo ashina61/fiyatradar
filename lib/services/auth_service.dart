@@ -126,7 +126,7 @@ class AuthService {
               });
             }
           } catch (e) {
-            debugPrint("FIRESTORE QUERY ERROR -> $e");
+            if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
           }
         }
 

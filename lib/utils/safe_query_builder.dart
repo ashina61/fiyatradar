@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart';
 class SafeQueryBuilder {
   const SafeQueryBuilder._();
 
+  static void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint(message);
+  }
+
   static Query<T> safeWhere<T>(
     Query<T> query,
     Object? field,
@@ -13,14 +18,14 @@ class SafeQueryBuilder {
     final isInvalidField =
         field == null || (field is String && field.trim().isEmpty);
     if (isInvalidField) {
-      debugPrint('FIRESTORE QUERY ERROR -> where field is null/empty');
+      _log('FIRESTORE QUERY ERROR -> where field is null/empty');
       return query;
     }
     if (value == null) return query;
     if (value is String && value.trim().isEmpty) return query;
 
     if (expectedType != null && !_isExpectedType(value, expectedType)) {
-      debugPrint(
+      _log(
         'FIRESTORE QUERY ERROR -> type mismatch for "$field": expected $expectedType, got ${value.runtimeType}',
       );
       return query;
@@ -37,7 +42,7 @@ class SafeQueryBuilder {
     final isInvalidField =
         field == null || (field is String && field.trim().isEmpty);
     if (isInvalidField) {
-      debugPrint('FIRESTORE QUERY ERROR -> whereIn field is null/empty');
+      _log('FIRESTORE QUERY ERROR -> whereIn field is null/empty');
       return query;
     }
     if (values == null || values.isEmpty) {
@@ -54,11 +59,11 @@ class SafeQueryBuilder {
     final isInvalidField =
         field == null || (field is String && field.trim().isEmpty);
     if (isInvalidField) {
-      debugPrint('FIRESTORE QUERY ERROR -> arrayContainsAny field is null/empty');
+      _log('FIRESTORE QUERY ERROR -> arrayContainsAny field is null/empty');
       return query;
     }
     if (values == null || values.isEmpty) {
-      debugPrint('FIRESTORE QUERY ERROR -> arrayContainsAny list is empty');
+      _log('FIRESTORE QUERY ERROR -> arrayContainsAny list is empty');
       return query;
     }
     return query.where(field, arrayContainsAny: values);
@@ -72,7 +77,7 @@ class SafeQueryBuilder {
     final isInvalidField =
         field == null || (field is String && field.trim().isEmpty);
     if (isInvalidField) {
-      debugPrint('FIRESTORE QUERY ERROR -> orderBy field is null/empty');
+      _log('FIRESTORE QUERY ERROR -> orderBy field is null/empty');
       return query;
     }
     return query.orderBy(field, descending: descending);

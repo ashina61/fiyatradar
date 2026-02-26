@@ -517,7 +517,7 @@ class PointsService {
       final normalizedType = _normalizeEventType(eventType);
       final pointsDelta = _pointForEvent(normalizedType);
       if (pointsDelta <= 0) {
-        debugPrint('PointsService.awardEvent skipped unknown type: $eventType');
+        if (kDebugMode) debugPrint('PointsService.awardEvent skipped unknown type: $eventType');
         return false;
       }
 
@@ -629,7 +629,7 @@ class PointsService {
       await _evaluateBadges(uid);
       return true;
     } catch (e) {
-      debugPrint('PointsService.awardEvent failed for $eventType/$uid: $e');
+      if (kDebugMode) debugPrint('PointsService.awardEvent failed for $eventType/$uid: $e');
       return false;
     }
   }
