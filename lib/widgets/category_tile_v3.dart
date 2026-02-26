@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/category_model.dart';
+import '../utils/material_icon_resolver.dart';
 
 class CategoryTileV3 extends StatefulWidget {
   const CategoryTileV3({
@@ -81,13 +82,19 @@ class _CategoryTileV3State extends State<CategoryTileV3> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 2, bottom: 8),
-                    child: Image.asset(
-                      widget.category.iconAssetPath,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.category,
-                        color: Color(0xFFB97A3A),
-                        size: 40,
+                    child: Center(
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFDFBF9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          materialIconFromName(widget.category.iconName),
+                          color: const Color(0xFF8B4D22),
+                          size: 30,
+                        ),
                       ),
                     ),
                   ),

@@ -53,8 +53,11 @@ class CategoryService {
     final doc = await _categoriesRef.add({
       'id': normalizedId,
       'title': title,
+      'iconName': iconName.trim().isEmpty ? 'category' : iconName.trim(),
       'isActive': isActive,
       if (order != null) 'sort': order,
+      if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
+      if (imagePath != null && imagePath.isNotEmpty) 'imagePath': imagePath,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -63,9 +66,6 @@ class CategoryService {
 
   Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
     final sanitized = Map<String, dynamic>.from(data)
-      ..remove('iconName')
-      ..remove('imageUrl')
-      ..remove('imagePath')
       ..remove('name')
       ..remove('order');
     if (sanitized.containsKey('title') && sanitized['title'] is String) {
@@ -84,6 +84,10 @@ class CategoryService {
     }
     if (sanitized.containsKey('sort') && sanitized['sort'] is! num) {
       sanitized.remove('sort');
+    }
+    if (sanitized.containsKey('iconName')) {
+      final value = (sanitized['iconName'] ?? '').toString().trim();
+      sanitized['iconName'] = value.isEmpty ? 'category' : value;
     }
     await _categoriesRef.doc(categoryId).update({
       ...sanitized,

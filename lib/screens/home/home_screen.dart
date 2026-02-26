@@ -7,7 +7,6 @@ import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
-import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -44,10 +43,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const double _categoryTileWidth = 110;
   static const double _categoryTileSpacing = 12;
   static const double _categoryListHorizontalPadding = 20;
-  final Set<String> _precachedIcons = <String>{};
-  late final ProviderSubscription<AsyncValue<List<CategoryModel>>>
-      _categoryPrecacheSub;
-
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFade;
 
@@ -55,12 +50,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _startBannerAutoScroll();
-    _categoryPrecacheSub =
-        ref.listenManual<AsyncValue<List<CategoryModel>>>(
-      categoriesProvider,
-      (_, next) => next.whenData(_precacheCategoryIcons),
-      fireImmediately: true,
-    );
     _headerAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -72,16 +61,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _headerAnimController.forward();
   }
 
-  Future<void> _precacheCategoryIcons(List<CategoryModel> categories) async {
-    if (!mounted) return;
-    for (final category in categories) {
-      if (!mounted) return;
-      if (_precachedIcons.contains(category.iconAssetPath)) continue;
-      _precachedIcons.add(category.iconAssetPath);
-      await precacheImage(AssetImage(category.iconAssetPath), context)
-          .catchError((_) {});
-    }
-  }
 
   void _startBannerAutoScroll() {
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -101,7 +80,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _categoryPrecacheSub.close();
     _categoryScrollController.dispose();
     _bannerController.dispose();
     _headerAnimController.dispose();
