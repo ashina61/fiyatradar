@@ -176,8 +176,22 @@ class AdminCategoryManagementDomainService {
 
   final FirestoreService _firestoreService;
 
-  Future<String> addCategory(CategoryModel category) =>
-      _firestoreService.addCategory(category);
+  Future<String> addCategory(
+    String title,
+    String iconName, {
+    String? imageUrl,
+    String? imagePath,
+    bool isActive = true,
+    int? order,
+  }) =>
+      _firestoreService.addCategory(
+        title,
+        iconName,
+        imageUrl: imageUrl,
+        imagePath: imagePath,
+        isActive: isActive,
+        order: order,
+      );
 
   Future<void> updateCategory(String categoryId, Map<String, dynamic> data) =>
       _firestoreService.updateCategory(categoryId, data);
