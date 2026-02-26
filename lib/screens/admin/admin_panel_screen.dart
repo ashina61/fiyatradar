@@ -137,75 +137,73 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     }
   }
 
-  Future<void> _importProductsFromAsset() async {
+  Future<void> _importProducts(BuildContext context) async {
     if (_isProductImportRunning) return;
 
     setState(() => _isProductImportRunning = true);
 
     try {
-      final rawJson = await rootBundle.loadString('assets/fiyatradar_urunler.json');
-      final decoded = json.decode(rawJson);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⏳ Ürünler işleniyor, lütfen bekleyin...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
 
-      if (decoded is! List) {
-        throw const FormatException('JSON formati List olmali.');
-      }
+      final String response = await rootBundle.loadString('assets/fiyatradar_urunler.json');
+      final List<dynamic> data = json.decode(response);
 
-      final products = decoded.cast<Map<String, dynamic>>();
-      final firestore = FirebaseFirestore.instance;
-      final productsCollection = firestore.collection('products');
-      var processedCount = 0;
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      WriteBatch batch = firestore.batch();
 
-      for (var i = 0; i < products.length; i += 500) {
-        final batch = firestore.batch();
-        final chunk = products.skip(i).take(500);
+      int count = 0;
+      int totalAdded = 0;
 
-        for (final product in chunk) {
-          final barcode = (product['barcode'] ?? '').toString().trim();
-          if (barcode.isEmpty) continue;
-
-          final now = FieldValue.serverTimestamp();
-          final docRef = productsCollection.doc(barcode);
-
-          batch.set(docRef, {
-            'name': (product['name'] ?? '').toString().trim(),
-            'brand': (product['brand_name'] ?? '').toString().trim(),
-            'imageUrl': (product['image_url'] ?? '').toString().trim(),
-            'category': (product['category'] ?? '').toString().trim(),
-            'status': 'active',
-            'updatedAt': now,
-            'createdAt': now,
-          }, SetOptions(merge: true));
-          processedCount++;
+      for (final item in data) {
+        if (item['barcode'] == null || item['barcode'].toString().isEmpty) {
+          continue;
         }
 
+        final String barcode = item['barcode'].toString();
+        final DocumentReference docRef = firestore.collection('products').doc(barcode);
+
+        batch.set(docRef, {
+          'name': item['name'] ?? '',
+          'brand': item['brand_name'] ?? 'Bilinmeyen Marka',
+          'imageUrl': item['image_url'] ?? '',
+          'category': item['category'] ?? '',
+          'categories': item['category'] != null ? [item['category']] : [],
+          'status': 'active',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        count++;
+        totalAdded++;
+
+        if (count == 500) {
+          await batch.commit();
+          batch = firestore.batch();
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
         await batch.commit();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(content: Text('$processedCount adet ürün işlendi...')),
-            );
-        }
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              'Ürün import tamamlandı. Toplam: ${products.length}, işlenen: $processedCount',
-            ),
-          ),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Başarılı! Toplam $totalAdded ürün aktarıldı.'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
+      debugPrint('Ürün aktarma hatası: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('Ürün verileri yüklenemedi: $e')),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Hata: $e'), backgroundColor: Colors.red),
+      );
     } finally {
       if (mounted) {
         setState(() => _isProductImportRunning = false);
@@ -270,7 +268,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
-              onPressed: _isProductImportRunning ? null : _importProductsFromAsset,
+              onPressed: _isProductImportRunning ? null : () => _importProducts(context),
               icon: _isProductImportRunning
                   ? const SizedBox(
                       width: 16,
