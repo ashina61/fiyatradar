@@ -12,6 +12,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../utils/material_icon_resolver.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
@@ -2246,21 +2247,6 @@ class _StoreSuggestionsTab extends ConsumerWidget {
 class _CategoryManagementTab extends ConsumerWidget {
   const _CategoryManagementTab();
 
-  IconData _categoryIcon(String name) {
-    switch (name) {
-      case 'Elektronik': return Icons.devices;
-      case 'Gida': return Icons.restaurant;
-      case 'Temizlik': return Icons.cleaning_services;
-      case 'Kisisel Bakim': return Icons.face;
-      case 'Ev & Yasam': return Icons.home;
-      case 'Giyim': return Icons.checkroom;
-      case 'Spor': return Icons.sports;
-      case 'Oyuncak': return Icons.toys;
-      case 'Kitap': return Icons.book;
-      case 'Otomotiv': return Icons.directions_car;
-      default: return Icons.category;
-    }
-  }
 
   Color _categoryColor(int index) {
     final colors = [AppColors.primary, AppColors.secondary, AppColors.accent, AppColors.info, AppColors.error, const Color(0xFF8B5CF6), const Color(0xFFEC4899), const Color(0xFF14B8A6), const Color(0xFFF97316), const Color(0xFF6366F1)];
@@ -2270,6 +2256,7 @@ class _CategoryManagementTab extends ConsumerWidget {
   void _showAddCategoryDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     final orderController = TextEditingController();
+    final iconNameController = TextEditingController(text: 'category');
     File? selectedImage;
     bool isUploading = false;
 
@@ -2301,6 +2288,15 @@ class _CategoryManagementTab extends ConsumerWidget {
                   controller: orderController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Sira (opsiyonel)', prefixIcon: Icon(Icons.format_list_numbered_outlined)),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: iconNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Material icon adı',
+                    hintText: 'Örn: fastfood, local_mall, sports_soccer',
+                    prefixIcon: Icon(Icons.emoji_symbols_outlined),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 GestureDetector(
@@ -2351,7 +2347,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                   final orderValue = int.tryParse(orderController.text.trim());
                   final categoryId = await ref.read(adminCategoryManagementDomainServiceProvider).addCategory(
                     nameController.text.trim(),
-                    'category',
+                    iconNameController.text.trim().isEmpty ? 'category' : iconNameController.text.trim(),
                     isActive: true,
                     order: orderValue,
                   );
@@ -2388,6 +2384,7 @@ class _CategoryManagementTab extends ConsumerWidget {
   void _showEditCategoryDialog(BuildContext context, WidgetRef ref, CategoryModel cat) {
     final nameController = TextEditingController(text: cat.name);
     final orderController = TextEditingController(text: cat.order?.toString() ?? '');
+    final iconNameController = TextEditingController(text: cat.iconName);
     bool isActive = cat.isActive;
     File? selectedImage;
     bool isUploading = false;
@@ -2412,6 +2409,15 @@ class _CategoryManagementTab extends ConsumerWidget {
                   controller: orderController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Sira (opsiyonel)', prefixIcon: Icon(Icons.format_list_numbered_outlined)),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: iconNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Material icon adı',
+                    hintText: 'Örn: fastfood, local_mall, sports_soccer',
+                    prefixIcon: Icon(Icons.emoji_symbols_outlined),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 SwitchListTile(
@@ -2488,6 +2494,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                     'name': nameController.text.trim(),
                     'isActive': isActive,
                     'order': int.tryParse(orderController.text.trim()),
+                    'iconName': iconNameController.text.trim().isEmpty ? 'category' : iconNameController.text.trim(),
                     'imageUrl': imageUrl,
                     'imagePath': imagePath,
                   });
@@ -2550,8 +2557,6 @@ class _CategoryManagementTab extends ConsumerWidget {
               final catName = cat.name;
               final color = _categoryColor(index);
               final productCount = products.where((p) => p.categories.contains(catName)).length;
-              final catImageUrl = cat.versionedImageUrl;
-
               return Card(
                 child: Stack(children: [
                   Padding(
@@ -2562,13 +2567,8 @@ class _CategoryManagementTab extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: color.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          image: catImageUrl != null && catImageUrl.isNotEmpty
-                              ? DecorationImage(image: NetworkImage(catImageUrl), fit: BoxFit.cover, onError: (_, __) {})
-                              : null,
                         ),
-                        child: catImageUrl == null || catImageUrl.isEmpty
-                            ? Icon(_categoryIcon(cat.iconName), color: color, size: 24)
-                            : null,
+                        child: Icon(materialIconFromName(cat.iconName), color: color, size: 24),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
