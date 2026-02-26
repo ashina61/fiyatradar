@@ -7,6 +7,7 @@ import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
+import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -1436,4 +1437,3 @@ class _AmbientOrb extends StatelessWidget {
     );
   }
 }
-
