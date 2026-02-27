@@ -428,7 +428,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     minimumSize: const Size.fromHeight(54),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     elevation: 1,
-                    shadowColor: _accentColor.withValues(alpha: .22),
+                    shadowColor: _accentColor.withOpacity(.22),
                     textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ).copyWith(
                     backgroundColor: WidgetStateProperty.resolveWith(
