@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +22,7 @@ import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../widgets/premium_level_badge.dart';
 import 'edit_profile_screen.dart';
+import 'fiyatradar_settings_screen.dart';
 import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -110,7 +112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           data: data,
                           onEdit: () async {
                             await Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
                             );
                             if (mounted) setState(() => _reloadKey++);
                           },
@@ -535,11 +537,11 @@ class _MenuSection extends ConsumerWidget {
       children: [
         _MenuTile(
           icon: Icons.edit_rounded,
-          title: 'Profili Düzenle',
+          title: 'Hesap & Ayarlar',
           onTap: () async {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
             );
             onReload();
           },
