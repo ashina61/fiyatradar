@@ -21,8 +21,7 @@ import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../widgets/premium_level_badge.dart';
-import 'edit_profile_screen.dart';
-import 'fiyatradar_settings_screen.dart';
+import 'fiyatradar_settings.dart'; 
 import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
