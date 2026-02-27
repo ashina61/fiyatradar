@@ -368,7 +368,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     validator: (value) => (value == null || value.trim().isEmpty) ? 'Soyad gerekli' : null,
                   ),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedCity,
+                    value: _selectedCity,
                     decoration: const InputDecoration(labelText: 'İl'),
                     items: _locations.keys.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
                     onChanged: (value) {
@@ -383,7 +383,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     },
                   ),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedDistrict,
+                    value: _selectedDistrict,
                     decoration: const InputDecoration(labelText: 'İlçe'),
                     items: _locations[_selectedCity]!.keys.map((district) => DropdownMenuItem(value: district, child: Text(district))).toList(),
                     onChanged: (value) {
@@ -397,7 +397,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     },
                   ),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedNeighborhood,
+                    value: _selectedNeighborhood,
                     decoration: const InputDecoration(labelText: 'Mahalle'),
                     items: _locations[_selectedCity]![_selectedDistrict]!
                         .map((neighborhood) => DropdownMenuItem(value: neighborhood, child: Text(neighborhood)))
