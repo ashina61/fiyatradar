@@ -71,7 +71,7 @@ class FiyatRadarSettingsScreen extends StatelessWidget {
 
           _buildSectionTitle('Uygulama Tercihleri'),
           _buildInsetGroup([
-            _buildListTile(icon: Icons.notifications_none, title: 'Bildirim Ayarları', onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const NotificationsScreen()))),
+            _buildListTile(icon: Icons.notifications_none, title: 'Bildirim Ayarları', onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const NotificationSettingsScreen()))),
             _buildDivider(),
             _buildListTile(icon: Icons.cleaning_services_outlined, title: 'Önbelleği Temizle', subtitle: 'Uygulama yavaşlarsa kullan', trailing: const SizedBox.shrink()),
           ]),
@@ -289,14 +289,15 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 // ============================================================================
 // ALT SAYFA 2: BİLDİRİMLER (FIREBASE ENTEGRELİ)
 // ============================================================================
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+class NotificationSettingsScreen extends StatefulWidget {
+  const NotificationSettingsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+// ...
   final ProfileService _profileService = ProfileService();
   UserModel? _currentUser;
   bool _isLoading = true;
