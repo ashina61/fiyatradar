@@ -186,7 +186,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return _ProfileData(
       displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
-      username: (data['username'] ?? '').toString(),
+      username: (data['username'] ?? data['userName'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
       levelName: resolvedLevelName,
@@ -958,19 +958,29 @@ class ProfileHelpScreen extends StatelessWidget {
             icon: Icons.quiz_outlined,
             children: [
               _FaqItem(
-                question: 'Fiyat nasıl eklenir?',
+                question: 'Puan sistemi nasıl çalışır?',
                 answer:
-                    'Ana ekrandan + butonuna basın, ürün seçin, fiyat ve mağazayı girip Fiyatı Kaydet ile gönderin.',
+                    'Fiyat ekleme, doğrulama ve topluluk etkileşimlerinden puan kazanırsınız. Puanlar seviyenizi, rozetlerinizi ve liderlik tablosundaki sıralamanızı etkiler.',
               ),
               _FaqItem(
-                question: 'Eklediğim fiyatlar hemen yayınlanır mı?',
+                question: 'Güven puanı nasıl kazanılır?',
                 answer:
-                    'Fiyatlar topluluk geri bildirimleri ve sistem kontrolleri ile doğrulanır. Şüpheli fiyatlar moderasyona düşebilir.',
+                    'Eklediğiniz fiyatlar diğer kullanıcılar ve sistem kontrolleri tarafından doğru bulunduğunda güven puanınız artar. Hatalı veya yanıltıcı girişlerde güven puanı düşebilir.',
               ),
               _FaqItem(
-                question: 'Hesapla özelliği ne yapar?',
+                question: 'Hesabımı nasıl silerim?',
                 answer:
-                    'Sepetinizdeki ürünleri seçili mağazalar arasında kıyaslar ve tahmini toplam tutarı gösterir.',
+                    'Profil > Ayarlar > Güvenlik menüsünden hesap kapatma talebi oluşturabilirsiniz. Güvenlik doğrulaması sonrası hesap kalıcı olarak silinir.',
+              ),
+              _FaqItem(
+                question: 'Fiyat nasıl eklerim?',
+                answer:
+                    'Ana ekrandaki + butonuna dokunun, ürün/market/fiyat bilgilerini girin ve kaydedin. Fotoğraf eklerseniz katkınız daha hızlı doğrulanır.',
+              ),
+              _FaqItem(
+                question: 'Fiyatın güvenilir olduğunu nasıl anlarım?',
+                answer:
+                    'Ürün detayındaki doğrulama oranına, son güncelleme zamanına ve katkı yapan kullanıcının güven göstergesine bakın. Birden fazla yeni doğrulama varsa fiyat daha güvenilirdir.',
               ),
             ],
           ),

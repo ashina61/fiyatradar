@@ -154,6 +154,7 @@ class UserModel {
       'lastName': lastName,
       'surname': lastName,
       'username': username,
+      'userName': username,
       'points': points,
       'priceEntries': priceEntries,
       'validations': validations,

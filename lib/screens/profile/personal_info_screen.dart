@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../providers/profile_provider.dart';
+import '../../services/location_service.dart';
 import '../../utils/cities_tr.dart';
 
 class PersonalInfoScreen extends ConsumerStatefulWidget {
@@ -24,6 +26,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   final _usernameCtrl = TextEditingController();
   final _districtCtrl = TextEditingController();
   final _neighborhoodCtrl = TextEditingController();
+  final LocationService _locationService = LocationService();
   bool _isInit = false;
   bool _isSaving = false;
   String _city = 'İstanbul';
@@ -56,6 +59,50 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fotoğraf yüklenemedi.'), backgroundColor: Color(0xFFDC2626)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+
+  Future<void> _fillLocationFromCurrentPosition() async {
+    setState(() => _isSaving = true);
+    try {
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum alınamadı. Lütfen konum izni verin.'), backgroundColor: Color(0xFFDC2626)),
+        );
+        return;
+      }
+
+      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      if (placemarks.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum adres detayına çevrilemedi.'), backgroundColor: Color(0xFFDC2626)),
+        );
+        return;
+      }
+
+      final place = placemarks.first;
+      final cityCandidate = (place.administrativeArea ?? place.locality ?? '').trim();
+      final districtCandidate = (place.subAdministrativeArea ?? place.locality ?? '').trim();
+      final neighborhoodCandidate = (place.subLocality ?? place.street ?? place.name ?? '').trim();
+
+      setState(() {
+        if (_cities.contains(cityCandidate)) {
+          _city = cityCandidate;
+        }
+        _districtCtrl.text = districtCandidate;
+        _neighborhoodCtrl.text = neighborhoodCandidate;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Konum bilgisi alınırken hata oluştu.'), backgroundColor: Color(0xFFDC2626)),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -131,6 +178,13 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             _neighborhoodCtrl.text = user.neighborhood ?? '';
             _photoUrl = user.photoUrl;
             _isInit = true;
+            if (_districtCtrl.text.trim().isEmpty || _neighborhoodCtrl.text.trim().isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _fillLocationFromCurrentPosition();
+                }
+              });
+            }
           }
 
           final initials = _nameCtrl.text.trim().isEmpty
@@ -199,8 +253,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
               ),
               _group([
                 _dropdown('İl', _city, _cities, (value) => setState(() => _city = value)),
-                _input(label: 'İlçe', controller: _districtCtrl),
-                _input(label: 'Mahalle', controller: _neighborhoodCtrl),
+                _input(label: 'İlçe', controller: _districtCtrl, readOnly: true),
+                _input(label: 'Mahalle', controller: _neighborhoodCtrl, readOnly: true),
+                _locationFillTile(),
               ]),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -234,7 +289,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     );
   }
 
-  Widget _input({required String label, required TextEditingController controller}) {
+  Widget _input({required String label, required TextEditingController controller, bool readOnly = false}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0x148B4D22)))),
@@ -244,8 +299,36 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           Text(label, style: const TextStyle(fontSize: 12, color: _sienna, fontWeight: FontWeight.w600)),
           TextField(
             controller: controller,
+            readOnly: readOnly,
             decoration: const InputDecoration(border: InputBorder.none, isDense: true),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _locationFillTile() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0x148B4D22)))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Konumdan Otomatik Doldur', style: TextStyle(fontSize: 12, color: _sienna, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isSaving ? null : _fillLocationFromCurrentPosition,
+              icon: const Icon(Icons.my_location_rounded),
+              label: const Text('Mevcut konumu kullan (İl/İlçe/Mahalle)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _sienna,
+                side: const BorderSide(color: Color(0x338B4D22)),
+              ),
+            ),
           ),
         ],
       ),
