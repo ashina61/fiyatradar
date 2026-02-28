@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'profile_screen.dart';
 import 'update_history_screen.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -47,7 +48,10 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 34),
           _section('DESTEK VE BİLGİ'),
           _group([
-            _tile('Sıkça Sorulan Sorular (SSS)', () => _openUrl(context, 'https://fiyatradar.com/sss')),
+            _tile(
+              'Sıkça Sorulan Sorular (SSS)',
+              () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const ProfileHelpScreen())),
+            ),
             _tile('Bize Ulaşın', () => _openUrl(context, 'mailto:destek@fiyatradar.com')),
             _tile(
               'Güncelleme Geçmişi',
