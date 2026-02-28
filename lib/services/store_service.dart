@@ -5,13 +5,18 @@ import '../models/price_report.dart';
 import '../models/store.dart';
 
 class StoreService {
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint(message);
+  }
+
   StoreService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
   Future<List<Store>> fetchStores({required String type, double? lat, double? lng}) async {
-    debugPrint('[StoreService] Firestore query: stores (type=$type)');
+    _log('[StoreService] Firestore query: stores (type=$type)');
     final snapshot = await _firestore.collection('stores').get();
     final isOnlineMode = type == 'online';
 
@@ -36,7 +41,7 @@ class StoreService {
   }
 
   Future<void> submitPrice(PriceReport report) async {
-    debugPrint('[StoreService] Firestore write: priceReports');
+    _log('[StoreService] Firestore write: priceReports');
     await _firestore.collection('priceReports').add({
       ...report.toJson(),
       'createdAt': FieldValue.serverTimestamp(),

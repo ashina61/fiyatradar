@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -165,6 +166,18 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   Timer? _productSearchDebounce;
   LocationData? _cachedLocationData;
 
+
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint(message);
+  }
+
+  void _logStack(Object error, StackTrace stackTrace, {required String label}) {
+    if (!kDebugMode) return;
+    _log('$label: $error');
+    debugPrintStack(stackTrace: stackTrace, label: '$label STACK');
+  }
+
   @override
   void dispose() {
     _productSearchDebounce?.cancel();
@@ -178,8 +191,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       locationMessage: null,
     );
     try {
-      debugPrint('[AddPrice.loadStoresAndCategories] Firestore query => collection=categories, where=[], orderBy=[]');
-      debugPrint('[AddPrice.loadStoresAndCategories] Firestore query => collection=stores, where=[], orderBy=[]');
+      _log('[AddPrice.loadStoresAndCategories] Firestore query => collection=categories, where=[], orderBy=[]');
+      _log('[AddPrice.loadStoresAndCategories] Firestore query => collection=stores, where=[], orderBy=[]');
 
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
@@ -187,7 +200,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       final userPosition = _cachedLocationData?.position;
       final userLat = userPosition?.latitude;
       final userLng = userPosition?.longitude;
-      debugPrint('USER_LOCATION: ${userLat != null && userLng != null ? '$userLat,$userLng' : 'null'}');
+      _log('USER_LOCATION: ${userLat != null && userLng != null ? '$userLat,$userLng' : 'null'}');
       final locationMessage = userPosition == null
           ? 'Konum izni olmadan mesafe hesaplanamiyor.'
           : null;
@@ -205,11 +218,11 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
       if (categories.isNotEmpty) {
         final sample = categories.first;
-        debugPrint('[AddPrice] Category mapped fields: id=${sample.id}, title=${sample.title}, isActive=${sample.isActive}');
+        _log('[AddPrice] Category mapped fields: id=${sample.id}, title=${sample.title}, isActive=${sample.isActive}');
       }
       if (stores.isNotEmpty) {
         final sample = stores.first;
-        debugPrint('[AddPrice] Store mapped fields: id=${sample.id}, displayName=${sample.displayName}, type=${sample.type.name}, status=${sample.status.name}, lat=${sample.lat}, lng=${sample.lng}');
+        _log('[AddPrice] Store mapped fields: id=${sample.id}, displayName=${sample.displayName}, type=${sample.type.name}, status=${sample.status.name}, lat=${sample.lat}, lng=${sample.lng}');
       }
 
       state = state.copyWith(
@@ -221,11 +234,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         clearStoresError: true,
       );
     } catch (e, st) {
-      debugPrint('[AddPrice.loadStoresAndCategories] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[AddPrice.loadStoresAndCategories] STACK',
-      );
+      _logStack(e, st, label: '[AddPrice.loadStoresAndCategories] ERROR');
       state = state.copyWith(
         isStoresLoading: false,
         storesError: e.toString(),
@@ -239,7 +248,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     final hasCoordinates = model.lat != 0 && model.lng != 0;
     final lat = hasCoordinates ? model.lat : null;
     final lng = hasCoordinates ? model.lng : null;
-    debugPrint('STORE_LOC: ${model.id} ${lat != null && lng != null ? '$lat,$lng' : 'null'}');
+    _log('STORE_LOC: ${model.id} ${lat != null && lng != null ? '$lat,$lng' : 'null'}');
     final distanceMeters = lat != null && lng != null && userPosition != null
         ? _haversineMeters(
             userPosition.latitude,
@@ -248,7 +257,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
             lng,
           ).round()
         : null;
-    debugPrint('DISTANCE: ${model.id} ${distanceMeters ?? 'null'}');
+    _log('DISTANCE: ${model.id} ${distanceMeters ?? 'null'}');
 
     return Store(
       id: model.id,
@@ -292,7 +301,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         wasSelected && normalizedInput.toLowerCase() != state.productName.trim().toLowerCase();
 
     if (shouldClearSelection) {
-      debugPrint('CATEGORY_LOCKED: false');
+      _log('CATEGORY_LOCKED: false');
     }
     state = state.copyWith(
       productName: value,
@@ -303,7 +312,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     );
 
     if (normalizedInput.isEmpty) {
-      debugPrint('CATEGORY_LOCKED: false');
+      _log('CATEGORY_LOCKED: false');
       state = state.copyWith(
         clearSelectedProduct: true,
         lockedCategoryByProduct: false,
@@ -318,11 +327,11 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
         final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 5);
-        debugPrint('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
+        _log('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
         state = state.copyWith(productSuggestions: results);
       } catch (_) {
-        debugPrint('PRODUCT_QUERY: $normalizedInput -> 0 results');
+        _log('PRODUCT_QUERY: $normalizedInput -> 0 results');
         state = state.copyWith(productSuggestions: const []);
       }
     });
@@ -335,8 +344,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
   void selectProductSuggestion(ProductModel product, {String? barcode}) {
     final resolvedCategory = _resolveCategoryForProduct(product);
-    debugPrint('PRODUCT_SELECTED: ${product.id} ${product.name} category=${resolvedCategory?.id ?? 'null'}');
-    debugPrint('CATEGORY_LOCKED: ${resolvedCategory != null}');
+    _log('PRODUCT_SELECTED: ${product.id} ${product.name} category=${resolvedCategory?.id ?? 'null'}');
+    _log('CATEGORY_LOCKED: ${resolvedCategory != null}');
     state = state.copyWith(
       productName: product.name,
       barcode: barcode ?? product.barcode,
@@ -418,7 +427,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   Future<ProductModel?> _resolveProductByNameOrBarcode() async {
     final selectedProductId = state.selectedProductId?.trim() ?? '';
     if (selectedProductId.isNotEmpty) {
-      debugPrint('[AddPrice] Firestore query: products (id="$selectedProductId")');
+      _log('[AddPrice] Firestore query: products (id="$selectedProductId")');
       final selectedProduct = await _firestore.getProduct(selectedProductId);
       if (selectedProduct != null) return selectedProduct;
     }
@@ -427,7 +436,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     final query = byBarcode.isNotEmpty ? byBarcode : state.productName.trim();
     if (query.isEmpty) return null;
 
-    debugPrint('[AddPrice] Firestore query: products (search="$query")');
+    _log('[AddPrice] Firestore query: products (search="$query")');
     final matches = await _firestore.searchProducts(query);
     if (matches.isEmpty) return null;
 
@@ -441,6 +450,10 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   }
 
   Future<void> submitPrice({required String userId}) async {
+    if (userId.trim().isEmpty) {
+      throw Exception('Kullanıcı kimliği bulunamadı. Lütfen tekrar giriş yapın.');
+    }
+
     final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
     if (parsedPrice == null || parsedPrice <= 0) {
       throw Exception('Lütfen geçerli bir fiyat girin.');
@@ -457,21 +470,34 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final product = await _resolveProductByNameOrBarcode();
+      ProductModel? product;
+      final selectedProductId = state.selectedProductId?.trim() ?? '';
+      if (selectedProductId.isNotEmpty) {
+        _log('[AddPrice.submitPrice] resolve product by selectedProductId=$selectedProductId');
+        product = await _firestore.getProduct(selectedProductId);
+      }
+      product ??= await _resolveProductByNameOrBarcode();
+
       if (product == null) {
         throw Exception('Bu ürün katalogda bulunamadı. Lütfen barkod okutun veya ürün adını kontrol edin.');
       }
 
+      final userModel = await _firestore.getUserById(userId);
+      final reporterName = (userModel?.name ?? userModel?.displayName ?? '').trim();
+      final fallbackReporterName = reporterName.isEmpty ? 'Kullanıcı' : reporterName;
+      final reporterIsAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
+
       final payload = PriceModel(
         id: '',
         productId: product.id,
-        productName: state.productName.trim(),
-        selectedProductId: state.selectedProductId,
+        productName: product.name.trim().isNotEmpty ? product.name : state.productName.trim(),
+        selectedProductId: product.id,
         selectedCategoryId: state.selectedCategoryId,
         selectedStoreId: state.selectedStoreId,
         barcode: state.barcode,
         userId: userId,
         createdByUid: userId,
+        userName: fallbackReporterName,
         price: parsedPrice,
         branchStoreId: state.selectedStoreId!,
         chainId: null,
@@ -480,12 +506,20 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         isPending: true,
         verificationStatus: 'unverified',
         status: 'active',
+        reporterUid: userId,
+        reporterName: fallbackReporterName,
+        reporterIsAnonymous: reporterIsAnonymous,
       );
 
-      debugPrint('[AddPrice] Firestore write target: priceReports + price_entries + price_dedupes');
-      debugPrint('[AddPrice] Submit payload => ${payload.toFirestore()}');
+      _log('[AddPrice] Firestore write target: priceReports (+ product mirror)');
+      _log('[AddPrice.submitPrice] payload => ${payload.toFirestore()}');
 
       await _firestore.addPriceReport(payload);
+
+      final latestPrice = await _firestore.getLatestPrice(product.id);
+      _log(
+        '[AddPrice.submitPrice] latest verification => productId=${product.id}, latestPriceId=${latestPrice?.id}, latestProductId=${latestPrice?.productId}',
+      );
 
       state = state.copyWith(
         isLoading: false,
@@ -505,3 +539,4 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     }
   }
 }
+

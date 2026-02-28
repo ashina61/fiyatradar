@@ -11,6 +11,11 @@ class UserModel {
   final String? cityCode;
   final String? cityName;
   final String? city;
+  final String? district;
+  final String? neighborhood;
+  final String? firstName;
+  final String? lastName;
+  final String? username;
   final int points;
   final int priceEntries;
   final int validations;
@@ -30,6 +35,11 @@ class UserModel {
   final int reliabilityVotesDown;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
+  final bool alarmNotifications;
+  final bool campaignNotifications;
+  final bool badgeNotifications;
+
+  String? get displayName => name.trim().isEmpty ? null : name;
 
   UserModel({
     required this.uid,
@@ -42,6 +52,11 @@ class UserModel {
     this.cityCode,
     this.cityName,
     this.city,
+    this.district,
+    this.neighborhood,
+    this.firstName,
+    this.lastName,
+    this.username,
     this.points = 0,
     this.priceEntries = 0,
     this.validations = 0,
@@ -61,15 +76,21 @@ class UserModel {
     this.reliabilityVotesDown = 0,
     required this.createdAt,
     this.lastLoginAt,
+    this.alarmNotifications = true,
+    this.campaignNotifications = true,
+    this.badgeNotifications = false,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final raw = doc.data();
     final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final notificationPrefs = data['notificationPrefs'] is Map
+        ? Map<String, dynamic>.from(data['notificationPrefs'] as Map)
+        : <String, dynamic>{};
     return UserModel(
       uid: doc.id,
       email: data['email'] ?? '',
-      name: data['name'] ?? '',
+      name: (data['name'] ?? data['displayName'] ?? '').toString(),
       photoUrl: data['photoUrl'],
       fcmToken: data['fcmToken'],
       inviteCode: data['inviteCode'],
@@ -77,6 +98,11 @@ class UserModel {
       cityCode: data['cityCode'],
       cityName: data['cityName'],
       city: data['city'] ?? data['cityName'],
+      district: data['district']?.toString(),
+      neighborhood: data['neighborhood']?.toString(),
+      firstName: data['firstName']?.toString(),
+      lastName: (data['lastName'] ?? data['surname'])?.toString(),
+      username: (data['username'] ?? data['userName'])?.toString(),
       points: data['points'] ?? 0,
       priceEntries: data['priceEntries'] ?? 0,
       validations: data['validations'] ?? 0,
@@ -96,6 +122,18 @@ class UserModel {
       reliabilityVotesDown: (data['reliabilityVotesDown'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
+      alarmNotifications: (data['alarmNotifications'] as bool?) ??
+          (data['priceAlarm'] as bool?) ??
+          (notificationPrefs['priceAlerts'] as bool?) ??
+          true,
+      campaignNotifications: (data['campaignNotifications'] as bool?) ??
+          (data['campaignNotification'] as bool?) ??
+          (notificationPrefs['campaignAlerts'] as bool?) ??
+          true,
+      badgeNotifications: (data['badgeNotifications'] as bool?) ??
+          (data['badgeNotification'] as bool?) ??
+          (notificationPrefs['badgeAlerts'] as bool?) ??
+          false,
     );
   }
 
@@ -103,6 +141,7 @@ class UserModel {
     return {
       'email': email,
       'name': name,
+      'displayName': name,
       'photoUrl': photoUrl,
       'fcmToken': fcmToken,
       'inviteCode': inviteCode,
@@ -110,6 +149,13 @@ class UserModel {
       'cityCode': cityCode,
       'cityName': cityName,
       'city': city,
+      'district': district,
+      'neighborhood': neighborhood,
+      'firstName': firstName,
+      'lastName': lastName,
+      'surname': lastName,
+      'username': username,
+      'userName': username,
       'points': points,
       'priceEntries': priceEntries,
       'validations': validations,
@@ -129,6 +175,17 @@ class UserModel {
       'reliabilityVotesDown': reliabilityVotesDown,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+      'alarmNotifications': alarmNotifications,
+      'priceAlarm': alarmNotifications,
+      'campaignNotifications': campaignNotifications,
+      'campaignNotification': campaignNotifications,
+      'badgeNotifications': badgeNotifications,
+      'badgeNotification': badgeNotifications,
+      'notificationPrefs': {
+        'priceAlerts': alarmNotifications,
+        'campaignAlerts': campaignNotifications,
+        'badgeAlerts': badgeNotifications,
+      },
     };
   }
 
@@ -143,6 +200,12 @@ class UserModel {
     String? cityCode,
     String? cityName,
     String? city,
+    String? district,
+    String? neighborhood,
+    String? firstName,
+    String? lastName,
+    String? surname,
+    String? username,
     int? points,
     int? priceEntries,
     int? validations,
@@ -162,6 +225,12 @@ class UserModel {
     int? reliabilityVotesDown,
     DateTime? createdAt,
     DateTime? lastLoginAt,
+    bool? alarmNotifications,
+    bool? priceAlarm,
+    bool? campaignNotifications,
+    bool? campaignNotification,
+    bool? badgeNotifications,
+    bool? badgeNotification,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -174,6 +243,11 @@ class UserModel {
       cityCode: cityCode ?? this.cityCode,
       cityName: cityName ?? this.cityName,
       city: city ?? this.city,
+      district: district ?? this.district,
+      neighborhood: neighborhood ?? this.neighborhood,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? surname ?? this.lastName,
+      username: username ?? this.username,
       points: points ?? this.points,
       priceEntries: priceEntries ?? this.priceEntries,
       validations: validations ?? this.validations,
@@ -193,6 +267,73 @@ class UserModel {
       reliabilityVotesDown: reliabilityVotesDown ?? this.reliabilityVotesDown,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      alarmNotifications: alarmNotifications ?? priceAlarm ?? this.alarmNotifications,
+      campaignNotifications:
+          campaignNotifications ?? campaignNotification ?? this.campaignNotifications,
+      badgeNotifications: badgeNotifications ?? badgeNotification ?? this.badgeNotifications,
     );
   }
+
+  // Legacy compatibility for old profile screens/providers.
+  String get id => uid;
+  String get surname => lastName ?? '';
+  bool get priceAlarm => alarmNotifications;
+  bool get campaignNotification => campaignNotifications;
+  bool get badgeNotification => badgeNotifications;
+
+  factory UserModel.fromMap(Map<String, dynamic> data, String documentId) {
+    final notificationPrefs = data['notificationPrefs'] is Map
+        ? Map<String, dynamic>.from(data['notificationPrefs'] as Map)
+        : <String, dynamic>{};
+    return UserModel(
+      uid: documentId,
+      email: data['email'] ?? '',
+      name: (data['name'] ?? data['displayName'] ?? '').toString(),
+      photoUrl: data['photoUrl'],
+      fcmToken: data['fcmToken'],
+      inviteCode: data['inviteCode'],
+      invitedBy: data['invitedBy'],
+      cityCode: data['cityCode'],
+      cityName: data['cityName'],
+      city: data['city'] ?? data['cityName'],
+      district: data['district']?.toString(),
+      neighborhood: data['neighborhood']?.toString(),
+      firstName: data['firstName']?.toString(),
+      lastName: (data['lastName'] ?? data['surname'])?.toString(),
+      username: (data['username'] ?? data['userName'])?.toString(),
+      points: data['points'] ?? 0,
+      priceEntries: data['priceEntries'] ?? 0,
+      validations: data['validations'] ?? 0,
+      inviteCount: data['inviteCount'] ?? 0,
+      isAdmin: data['isAdmin'] ?? false,
+      isBanned: data['isBanned'] ?? false,
+      banReason: data['banReason']?.toString(),
+      role: data['role'],
+      savedProducts: List<String>.from(data['savedProducts'] ?? []),
+      reliabilityScore: (data['reliabilityScore'] ?? 0.0).toDouble(),
+      trustScorePercent: (data['trustScorePercent'] as num?)?.toInt() ?? 0,
+      trustTotalVotes: (data['trustTotalVotes'] as num?)?.toInt() ?? 0,
+      trustVerifiedTotal: (data['trustVerifiedTotal'] as num?)?.toInt() ?? 0,
+      trustWrongTotal: (data['trustWrongTotal'] as num?)?.toInt() ?? 0,
+      reliabilityVotesTotal: (data['reliabilityVotesTotal'] as num?)?.toInt() ?? 0,
+      reliabilityVotesUp: (data['reliabilityVotesUp'] as num?)?.toInt() ?? 0,
+      reliabilityVotesDown: (data['reliabilityVotesDown'] as num?)?.toInt() ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
+      alarmNotifications: (data['alarmNotifications'] as bool?) ??
+          (data['priceAlarm'] as bool?) ??
+          (notificationPrefs['priceAlerts'] as bool?) ??
+          true,
+      campaignNotifications: (data['campaignNotifications'] as bool?) ??
+          (data['campaignNotification'] as bool?) ??
+          (notificationPrefs['campaignAlerts'] as bool?) ??
+          true,
+      badgeNotifications: (data['badgeNotifications'] as bool?) ??
+          (data['badgeNotification'] as bool?) ??
+          (notificationPrefs['badgeAlerts'] as bool?) ??
+          false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => toFirestore();
 }

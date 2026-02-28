@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,7 +20,8 @@ import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
-import 'edit_profile_screen.dart';
+import '../../widgets/premium_level_badge.dart';
+import 'fiyatradar_settings.dart'; 
 import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -49,6 +51,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFDFBF9),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFDFBF9),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFAF6B3E),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Profil',
+              style: TextStyle(
+                color: Color(0xFF3A2B24),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: userAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
@@ -68,56 +99,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               return RefreshIndicator(
                 color: const Color(0xFF955427),
                 onRefresh: () async => setState(() => _reloadKey++),
-                child: SafeArea(
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Profil',
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        _BossHeroCard(
+                          data: data,
+                          onEdit: () async {
+                            await Navigator.of(context).push(
+                              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
+                            );
+                            if (mounted) setState(() => _reloadKey++);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _StatsRow(totalPoints: data.totalPoints, cityRank: data.cityRank),
+                        const SizedBox(height: 12),
+                        _QuickActionsGrid(uid: uid),
+                        const SizedBox(height: 16),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'Hesap Yönetimi',
                             style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF3A2B24),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Color(0xFF8C7A6B),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          _BossHeroCard(
-                            data: data,
-                            onEdit: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-                              );
-                              if (mounted) setState(() => _reloadKey++);
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _StatsRow(totalPoints: data.totalPoints),
-                          const SizedBox(height: 12),
-                          _QuickActionsGrid(uid: uid),
-                          const SizedBox(height: 16),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              'Hesap Yönetimi',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                                color: Color(0xFF8C7A6B),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _MenuSection(
-                            isAdmin: userModel?.isAdmin == true,
-                            onReload: () => setState(() => _reloadKey++),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 10),
+                        _MenuSection(
+                          isAdmin: userModel?.isAdmin == true,
+                          onReload: () => setState(() => _reloadKey++),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -134,14 +155,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userDoc = await userRef.get();
     if (!userDoc.exists) {
       await userRef.set({
-        'displayName': 'Kullanici',
+        'displayName': 'Kullanıcı',
         'photoUrl': '',
         'photoURL': '',
         'verified': false,
         'trustScore': 0,
         'levelName': 'Gözlemci',
         'monthlySavings': '₺0',
-        'topMarket': 'Henuz yok',
+        'topMarket': 'Henüz yok',
         'totalPoints': 0,
         'weeklyPoints': 0,
         'streakDays': 0,
@@ -150,28 +171,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
-    final trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    Map<String, dynamic> trustProfile = const <String, dynamic>{};
+    try {
+      trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    } catch (_) {
+      trustProfile = const <String, dynamic>{};
+    }
     final totalPoints =
         (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
-    final backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
-    final computedLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
-    final hasMeaningfulSignals = totalPoints > 0 || trustTotalVotes >= minVotesForTrust;
-    final resolvedLevel = hasMeaningfulSignals
-        ? computedLevel
-        : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: computedLevel);
-    final resolvedLevelName = EliteLevelEngine.getLevelStyle(resolvedLevel).label;
+    final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
+    final pointsLevelName = EliteLevelEngine.getLevelStyle(pointsLevel).label;
+    final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
+    final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
     return _ProfileData(
-      displayName: (data['displayName'] ?? data['name'] ?? 'Kullanici').toString(),
-      username: (data['username'] ?? '').toString(),
+      displayName: (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
+      username: (data['username'] ?? data['userName'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
-      levelName: resolvedLevelName,
+      cityRank: cityRank,
+      pointsLevelName: pointsLevelName,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
     );
+  }
+
+  Future<int?> _resolveCityRank({required String uid, required String cityName}) async {
+    if (cityName.isEmpty) return null;
+
+    try {
+      final byCityName = await FirebaseFirestore.instance.collection('users').where('cityName', isEqualTo: cityName).get();
+      final cityNameRank = _findRank(_sortByPoints(byCityName.docs), uid);
+      if (cityNameRank != null) return cityNameRank;
+
+      final byCity = await FirebaseFirestore.instance.collection('users').where('city', isEqualTo: cityName).get();
+      return _findRank(_sortByPoints(byCity.docs), uid);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortByPoints(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final sorted = [...docs];
+    sorted.sort((a, b) {
+      final aPoints = (a.data()['totalPoints'] as num?)?.toInt() ??
+          (a.data()['pointsTotal'] as num?)?.toInt() ??
+          (a.data()['points'] as num?)?.toInt() ??
+          0;
+      final bPoints = (b.data()['totalPoints'] as num?)?.toInt() ??
+          (b.data()['pointsTotal'] as num?)?.toInt() ??
+          (b.data()['points'] as num?)?.toInt() ??
+          0;
+      return bPoints.compareTo(aPoints);
+    });
+    return sorted;
+  }
+
+  int? _findRank(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, String uid) {
+    for (var i = 0; i < docs.length; i++) {
+      if (docs[i].id == uid) return i + 1;
+    }
+    return null;
   }
 }
 
@@ -414,9 +476,10 @@ class _Avatar extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.totalPoints});
+  const _StatsRow({required this.totalPoints, required this.cityRank});
 
   final int totalPoints;
+  final int? cityRank;
 
   @override
   Widget build(BuildContext context) {
@@ -426,8 +489,8 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(value: '${(totalPoints / 1000).toStringAsFixed(1)}K', label: 'Radar Puanı'),
         ),
         const SizedBox(width: 12),
-        const Expanded(
-          child: _StatCard(value: '#42', label: 'Şehir Sırası'),
+        Expanded(
+          child: _StatCard(value: cityRank == null ? '-' : '#$cityRank', label: 'Şehir Sırası'),
         ),
       ],
     );
@@ -567,11 +630,11 @@ class _MenuSection extends ConsumerWidget {
       children: [
         _MenuTile(
           icon: Icons.edit_rounded,
-          title: 'Profili Düzenle',
+          title: 'Hesap & Ayarlar',
           onTap: () async {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
             );
             onReload();
           },
@@ -599,24 +662,6 @@ class _MenuSection extends ConsumerWidget {
             ),
           ),
         ],
-        const SizedBox(height: 10),
-        _MenuTile(
-          icon: Icons.help_outline_rounded,
-          title: 'Yardım ve SSS',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileHelpScreen()),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _MenuTile(
-          icon: Icons.info_outline_rounded,
-          title: 'Hakkında',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AboutScreen()),
-          ),
-        ),
         const SizedBox(height: 10),
         _MenuTile(
           icon: Icons.logout_rounded,
@@ -769,7 +814,7 @@ class MyPricesScreen extends StatelessWidget {
               return bDt.compareTo(aDt);
             });
           if (docs.isEmpty) {
-            return const Center(child: Text('Henuz fiyat eklemedin.'));
+            return const Center(child: Text('Henüz fiyat eklemedin.'));
           }
           return ListView.separated(
             itemCount: docs.length,
@@ -779,7 +824,7 @@ class MyPricesScreen extends StatelessWidget {
               final ts = data['createdAt'];
               final date = ts is Timestamp ? ts.toDate() : null;
               final productName = (data['productName'] ?? data['urunAdi'] ?? data['name'] ?? data['title'] ?? '').toString().trim();
-              final displayName = productName.isEmpty ? 'Isimsiz Urun' : productName;
+              final displayName = productName.isEmpty ? 'İsimsiz Ürün' : productName;
               final formattedDate = date == null ? 'Tarih yok' : '${date.day}.${date.month}.${date.year}';
               return ListTile(
                 title: Text(displayName),
@@ -790,7 +835,7 @@ class MyPricesScreen extends StatelessWidget {
                   children: [
                     Text(formatTRY((data['price'] ?? 0) as num), style: const TextStyle(fontWeight: FontWeight.w700)),
                     if (data['verified'] == true)
-                      const Text('Dogrulandi', style: TextStyle(fontSize: 11, color: Colors.green)),
+                      const Text('Doğrulandı', style: TextStyle(fontSize: 11, color: Colors.green)),
                   ],
                 ),
               );
@@ -847,7 +892,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Favoriler guncellenemedi. Tekrar dene.')),
+        const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
       );
     }
   }
@@ -887,7 +932,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   children: [
                     Icon(Icons.favorite_border, size: 42, color: AppColors.textTertiary),
                     SizedBox(height: 8),
-                    Text('Henuz favori urunun yok.'),
+                    Text('Henüz favori ürünün yok.'),
                   ],
                 ),
               ),
@@ -908,8 +953,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               final data = docs[index].data();
               final productId = (data['productId'] ?? '').toString();
               final product = _productCache[productId];
-              final title = product?.name ?? (data['productName'] ?? 'Urun').toString();
-              final subtitle = product?.brand ?? 'Urun';
+              final title = product?.name ?? (data['productName'] ?? 'Ürün').toString();
+              final subtitle = product?.brand ?? 'Ürün';
               final image = product?.effectiveImage;
 
               return Dismissible(
@@ -970,7 +1015,7 @@ class ReceiptsScreen extends StatelessWidget {
           }
           final docs = snapshot.data?.docs ?? const [];
           if (docs.isEmpty) {
-            return const Center(child: Text('Henuz fis eklemedin.'));
+            return const Center(child: Text('Henüz fiş eklemedin.'));
           }
           return ListView.builder(
             itemCount: docs.length,
@@ -998,28 +1043,38 @@ class ProfileHelpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Yardim ve SSS')),
+      appBar: AppBar(title: const Text('Yardım ve SSS')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: const [
           _HelpSectionCard(
-            title: 'Sikca Sorulan Sorular',
+            title: 'Sıkça Sorulan Sorular',
             icon: Icons.quiz_outlined,
             children: [
               _FaqItem(
-                question: 'Fiyat nasil eklenir?',
+                question: 'Puan sistemi nasıl çalışır?',
                 answer:
-                    'Ana ekrandan + butonuna basin, urun secin, fiyat ve magazayi girip Fiyati Kaydet ile gonderin.',
+                    'Fiyat ekleme, doğrulama ve topluluk etkileşimlerinden puan kazanırsınız. Puanlar seviyenizi, rozetlerinizi ve liderlik tablosundaki sıralamanızı etkiler.',
               ),
               _FaqItem(
-                question: 'Ekledigim fiyatlar hemen yayinlanir mi?',
+                question: 'Güven puanı nasıl kazanılır?',
                 answer:
-                    'Fiyatlar topluluk geri bildirimleri ve sistem kontrolleri ile dogrulanir. Supheli fiyatlar moderasyona dusebilir.',
+                    'Eklediğiniz fiyatlar diğer kullanıcılar ve sistem kontrolleri tarafından doğru bulunduğunda güven puanınız artar. Hatalı veya yanıltıcı girişlerde güven puanı düşebilir.',
               ),
               _FaqItem(
-                question: 'Hesapla ozelligi ne yapar?',
+                question: 'Hesabımı nasıl silerim?',
                 answer:
-                    'Sepetinizdeki urunleri secili magazalar arasinda kiyaslar ve tahmini toplam tutari gosterir.',
+                    'Profil > Ayarlar > Güvenlik menüsünden hesap kapatma talebi oluşturabilirsiniz. Güvenlik doğrulaması sonrası hesap kalıcı olarak silinir.',
+              ),
+              _FaqItem(
+                question: 'Fiyat nasıl eklerim?',
+                answer:
+                    'Ana ekrandaki + butonuna dokunun, ürün/market/fiyat bilgilerini girin ve kaydedin. Fotoğraf eklerseniz katkınız daha hızlı doğrulanır.',
+              ),
+              _FaqItem(
+                question: 'Fiyatın güvenilir olduğunu nasıl anlarım?',
+                answer:
+                    'Ürün detayındaki doğrulama oranına, son güncelleme zamanına ve katkı yapan kullanıcının güven göstergesine bakın. Birden fazla yeni doğrulama varsa fiyat daha güvenilirdir.',
               ),
             ],
           ),
@@ -1028,10 +1083,10 @@ class ProfileHelpScreen extends StatelessWidget {
             title: 'Puan Toplama Sistemi',
             icon: Icons.stars_rounded,
             children: [
-              _BulletText('Her fiyat girisi +${AppConstants.pointsForPriceEntry} puan kazandirir.'),
-              _BulletText('Fotograf eklenen fiyat girisi +${AppConstants.pointsForPriceEntryWithPhoto} puan kazandirir.'),
-              _BulletText('Dogrulanan katkilarda guven puaniniz yukselir, hatali bildirimlerde dusebilir.'),
-              _BulletText('Puanlar rozetleri, seviye ilerlemesini ve liderlik tablosundaki siranizi etkiler.'),
+              _BulletText('Her fiyat girişi +${AppConstants.pointsForPriceEntry} puan kazandırır.'),
+              _BulletText('Fotoğraf eklenen fiyat girişi +${AppConstants.pointsForPriceEntryWithPhoto} puan kazandırır.'),
+              _BulletText('Doğrulanan katkılarda güven puanınız yükselir, hatalı bildirimlerde düşebilir.'),
+              _BulletText('Puanlar rozetleri, seviye ilerlemesini ve liderlik tablosundaki sıranızı etkiler.'),
             ],
           ),
         ],
@@ -1260,7 +1315,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _SettingsTile(
             icon: Icons.auto_awesome_rounded,
-            title: 'Guncellemeler',
+            title: 'Güncellemeler',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()),
             ),
@@ -1293,7 +1348,7 @@ class AboutScreen extends StatelessWidget {
                 SizedBox(height: 12),
                 _BulletText('Fiyat Ekle ekrani Material 3 stiline gore yenilendi.'),
                 _BulletText('Fiyat Sepeti ekraninda aksiyonlar sadeleştirildi ve sticky alt bar iyileştirildi.'),
-                _BulletText('Profil ekranina Yardim ve SSS bolumu eklendi.'),
+                _BulletText('Profil ekranina Yardım ve SSS bolumu eklendi.'),
               ],
             ),
           ),
@@ -1317,7 +1372,7 @@ class _ErrorState extends StatelessWidget {
           const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.textTertiary),
           const SizedBox(height: 12),
           const Text(
-            'Profil verisi yuklenemedi.',
+            'Profil verisi yüklenemedi.',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -1374,17 +1429,19 @@ class _ProfileData {
     required this.displayName,
     required this.photoUrl,
     required this.username,
-    required this.levelName,
+    required this.pointsLevelName,
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
+    required this.cityRank,
   });
 
   final String displayName;
   final String photoUrl;
   final String username;
-  final String levelName;
+  final String pointsLevelName;
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;
+  final int? cityRank;
 }

@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../utils/theme.dart';
 import '../../utils/cities_tr.dart';
-import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
-import '../main_screen.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _inviteController = TextEditingController();
-  final _authService = AuthService();
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
@@ -47,48 +47,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
 
-    if (!firebaseInitialized) {
+    if (!ref.read(firebaseInitializedProvider)) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.';
+        _errorMessage = 'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.';
+      });
+      return;
+    }
+
+    if (_selectedCity == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Lütfen şehir seçin.';
       });
       return;
     }
 
     try {
-      await _authService.registerWithEmailAndPassword(
+      await ref.read(authServiceProvider).registerWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
         inviteCode: _inviteController.text.trim(),
-        cityCode: _selectedCity!.code,
-        cityName: _selectedCity!.name,
+        cityCode: _selectedCity?.code,
+        cityName: _selectedCity?.name,
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-        (route) => false,
-      );
+      context.go('/main');
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = _authService.getErrorMessage(e);
+        _errorMessage = ref.read(authServiceProvider).getErrorMessage(e);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Kayit olusturulamadi: $e';
+        _errorMessage = 'Kayıt oluşturulamadı: $e';
       });
     }
   }
 
   Future<void> _signInWithGoogle() async {
-    if (!firebaseInitialized) {
+    if (!ref.read(firebaseInitializedProvider)) {
       setState(() {
-        _errorMessage = 'Firebase baglantisi kurulamadi. Lutfen internet baglantinizi kontrol edin.';
+        _errorMessage = 'Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.';
       });
       return;
     }
@@ -99,13 +104,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final user = await _authService.signInWithGoogle();
+      final user = await ref.read(authServiceProvider).signInWithGoogle();
 
       if (user != null && mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-          (route) => false,
-        );
+        context.go('/main');
       } else if (mounted) {
         setState(() => _isGoogleLoading = false);
       }
@@ -113,13 +115,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       setState(() {
         _isGoogleLoading = false;
-        _errorMessage = _authService.getErrorMessage(e);
+        _errorMessage = ref.read(authServiceProvider).getErrorMessage(e);
       });
     } catch (e) {
       if (!mounted) return;
-      String errorMessage = 'Google ile kayit olusturulamadi.';
+      String errorMessage = 'Google ile kayıt oluşturulamadı.';
       if (e.toString().contains('ApiException: 10')) {
-        errorMessage = 'Google giris yapilandirmasi eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
+        errorMessage = 'Google giriş yapılandırması eksik. Firebase Console\'dan SHA-1 parmak izi ekleyin.';
       }
       setState(() {
         _isGoogleLoading = false;
@@ -132,7 +134,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hesap Olustur'),
+        title: const Text('Hesap Oluştur'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -143,14 +145,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'FiyatRadar\'a Hos Geldiniz',
+                  'FiyatRadar\'a Hoş Geldiniz',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Fiyat takibi yapin, toplulukla paylasin ve puan kazanin!',
+                  'Fiyat takibi yapın, toplulukla paylaşın ve puan kazanın!',
                   style: TextStyle(
                     color: Theme.of(context).hintColor,
                   ),
@@ -217,7 +219,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Ad Soyad',
-                    hintText: 'Adinizi girin',
+                    hintText: 'Adınızı girin',
                     prefixIcon: Icon(Icons.person_outlined, color: Theme.of(context).hintColor),
                   ),
                   validator: (value) {
@@ -225,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return 'Ad soyad gerekli';
                     }
                     if (value.length < 2) {
-                      return 'Gecerli bir isim girin';
+                      return 'Geçerli bir isim girin';
                     }
                     return null;
                   },
@@ -238,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Davet Kodu (Opsiyonel)',
-                    hintText: 'Arkadasinizdan aldiginiz kod',
+                    hintText: 'Arkadaşınızdan aldığınız kod',
                     prefixIcon:
                         Icon(Icons.person_add_alt, color: Theme.of(context).hintColor),
                   ),
@@ -288,7 +290,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return 'E-posta adresi gerekli';
                     }
                     if (!value.contains('@') || !value.contains('.')) {
-                      return 'Gecerli bir e-posta adresi girin';
+                      return 'Geçerli bir e-posta adresi girin';
                     }
                     return null;
                   },
@@ -300,7 +302,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Sifre',
+                    labelText: 'Şifre',
                     hintText: 'En az 6 karakter',
                     prefixIcon: Icon(Icons.lock_outlined, color: Theme.of(context).hintColor),
                     suffixIcon: IconButton(
@@ -319,10 +321,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Sifre gerekli';
+                      return 'Şifre gerekli';
                     }
                     if (value.length < 6) {
-                      return 'Sifre en az 6 karakter olmali';
+                      return 'Şifre en az 6 karakter olmalı';
                     }
                     return null;
                   },
@@ -335,8 +337,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _register(),
                   decoration: InputDecoration(
-                    labelText: 'Sifre Tekrar',
-                    hintText: 'Sifrenizi tekrar girin',
+                    labelText: 'Şifre Tekrar',
+                    hintText: 'Şifrenizi tekrar girin',
                     prefixIcon: Icon(Icons.lock_outlined, color: Theme.of(context).hintColor),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -354,10 +356,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Sifre tekrari gerekli';
+                      return 'Şifre tekrarı gerekli';
                     }
                     if (value != _passwordController.text) {
-                      return 'Sifreler eslesmiyor';
+                      return 'Şifreler eşleşmiyor';
                     }
                     return null;
                   },
@@ -400,7 +402,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             )
                           : const Text(
-                              'Kayit Ol',
+                              'Kayıt Ol',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -417,16 +419,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Zaten hesabiniz var mi? ',
+                      'Zaten hesabınız var mı? ',
                       style: TextStyle(
                         color: Theme.of(context).hintColor,
                         fontSize: 14,
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () => context.go('/login'),
                       child: const Text(
-                        'Giris Yap',
+                        'Giriş Yap',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,
@@ -439,7 +441,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Kayit olarak Kullanim Kosullari ve Gizlilik Politikasi\'ni kabul etmis olursunuz.',
+                  'Kayıt olarak Kullanım Koşulları ve Gizlilik Politikası\'nı kabul etmiş olursunuz.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).hintColor,
@@ -510,7 +512,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Text(
-                    'Google ile Kayit Ol',
+                    'Google ile Kayıt Ol',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,

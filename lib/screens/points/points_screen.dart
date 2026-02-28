@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PointsScreen extends StatefulWidget {
+import '../../models/leaderboard_item.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/leaderboard_provider.dart';
+import '../../utils/elite_level_engine.dart';
+import '../../widgets/premium_level_badge.dart';
+import 'controllers/points_controller.dart';
+import 'models/points_models.dart';
+import 'widgets/radar_kingdom_leaderboard_view.dart';
+
+class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
 
   @override
-  State<PointsScreen> createState() => _PointsScreenState();
+  ConsumerState<PointsScreen> createState() => _PointsScreenState();
 }
 
-class _PointsScreenState extends State<PointsScreen> {
+class _PointsScreenState extends ConsumerState<PointsScreen> {
   static const Color _bgCream = Color(0xFFFDFBF9);
   static const Color _textDark = Color(0xFF3A2B24);
   static const Color _textMuted = Color(0xFF8C7A6B);
@@ -15,25 +25,39 @@ class _PointsScreenState extends State<PointsScreen> {
 
   int _selectedTab = 0;
 
-  final List<_LeaderboardUser> _podiumUsers = const [
-    _LeaderboardUser(rank: 2, name: 'Mert A.', points: '24.5K', emoji: '👱🏻‍♂️', level: 'Market Ustası'),
-    _LeaderboardUser(rank: 1, name: 'Elif S.', points: '32.8K', emoji: '😎', level: 'Radar Efsanesi', isVerified: true),
-    _LeaderboardUser(rank: 3, name: 'Can Y.', points: '21.2K', emoji: '👩🏻‍🦰', level: 'Fiyat Lordu'),
-  ];
-
-  final List<_LeaderboardUser> _leaderboardUsers = const [
-    _LeaderboardUser(rank: 4, name: 'Hasan T.', points: '19.1K', emoji: '🧔🏻‍♂️', level: 'Fiyat Lordu'),
-    _LeaderboardUser(rank: 5, name: 'Ayşe K.', points: '18.9K', emoji: '👩🏻‍🏫', level: 'Market Ustası'),
-    _LeaderboardUser(rank: 6, name: 'Adem K.', points: '18.5K', emoji: '👨🏻‍💻', level: 'Fiyat Lordu (Sen)', isCurrentUser: true, isVerified: true),
-    _LeaderboardUser(rank: 7, name: 'Deniz A.', points: '17.8K', emoji: '🧑🏻', level: 'Gözlemci'),
-    _LeaderboardUser(rank: 8, name: 'Bora M.', points: '17.1K', emoji: '👨🏼', level: 'Gözlemci'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgCream,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFAF6B3E),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Puanlar',
+              style: TextStyle(
+                color: Color(0xFF3A2B24),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Padding(
@@ -123,29 +147,35 @@ class _PointsScreenState extends State<PointsScreen> {
   }
 
   Widget _buildOverviewTab() {
-    return SingleChildScrollView(
-      key: const ValueKey('overview'),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatusCard(),
-          const SizedBox(height: 14),
-          _buildStatsGrid(),
-          const SizedBox(height: 16),
-          _buildSectionTitle('Seviye Ayrıcalıkları'),
-          const SizedBox(height: 8),
-          _buildPrivilegesList(),
-          const SizedBox(height: 16),
-          _buildSectionTitle('Puan Kazan'),
-          const SizedBox(height: 8),
-          _buildPointTasks(),
-        ],
+    final pointsAsync = ref.watch(pointsStateProvider);
+    return pointsAsync.when(
+      data: (state) => SingleChildScrollView(
+        key: const ValueKey('overview'),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatusCard(state),
+            const SizedBox(height: 14),
+            _buildStatsGrid(state),
+            const SizedBox(height: 16),
+            _buildSectionTitle('Seviye Ayrıcalıkları'),
+            const SizedBox(height: 8),
+            _buildPrivilegesList(state),
+            const SizedBox(height: 16),
+            _buildSectionTitle('Puan Kazan'),
+            const SizedBox(height: 8),
+            _buildPointTasks(state),
+          ],
+        ),
       ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Puan verisi yüklenemedi')),
     );
   }
 
-  Widget _buildStatusCard() {
+  Widget _buildStatusCard(PointsState state) {
+    final trustProgress = state.requiredMinTrust == 0 ? 1.0 : (state.trustScore / state.requiredMinTrust).clamp(0, 1).toDouble();
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -164,30 +194,14 @@ class _PointsScreenState extends State<PointsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: _borderLight, width: 1.5),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.visibility_rounded, size: 18, color: Color(0xFF5A4A42)),
-                    SizedBox(width: 6),
-                    Text(
-                      'Gözlemci',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF5A4A42)),
-                    ),
-                  ],
-                ),
-              ),
+              PremiumLevelBadge(levelName: state.currentLevelName),
               const Spacer(),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Toplam Puan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _PointsScreenState._textMuted)),
-                  SizedBox(height: 2),
-                  Text('15.000', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: _PointsScreenState._textDark, letterSpacing: -0.6)),
+                  const Text('Toplam Puan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textMuted)),
+                  const SizedBox(height: 2),
+                  Text(_formatFullPoints(state.totalPoints), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: _textDark, letterSpacing: -0.6)),
                 ],
               ),
             ],
@@ -195,40 +209,42 @@ class _PointsScreenState extends State<PointsScreen> {
           const SizedBox(height: 24),
           _buildProgressSection(
             title: 'Seviye İlerlemesi',
-            limit: '15.000 / 20.000',
+            limit: '${_formatFullPoints(state.totalPoints)} / ${_formatFullPoints(state.nextLevelTargetPoints)}',
             fillColor: const Color(0xFF8B7365),
-            progress: 0.75,
-            description: 'Sonraki seviyeye +5.000 Puan',
+            progress: state.levelProgressPercent.clamp(0, 1),
+            description: 'Sonraki seviyeye +${_formatFullPoints(state.pointsRemainingToNextLevel)} Puan',
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 border: Border.all(color: _borderLight, width: 1.5),
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: const Text(
-                'SONRAKİ SEVİYE: RADAR EFSANESİ',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: _textMuted, letterSpacing: 0.4),
+              child: Text(
+                'SONRAKİ SEVİYE: ${state.nextLevelName.toUpperCase()}',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: _textMuted, letterSpacing: 0.4),
               ),
             ),
           ),
           const SizedBox(height: 20),
           _buildProgressSection(
             title: 'Güven Skoru',
-            limit: '%38 / Min %85',
-            fillColor: const Color(0xFFD32F2F),
-            progress: 0.38,
-            description: 'Sonraki seviye için minimum güven şartı sağlanmalı',
-            danger: true,
+            limit: '%${state.trustScore} / Min %${state.requiredMinTrust}',
+            fillColor: state.isTrustGated ? const Color(0xFFD32F2F) : const Color(0xFF00A63E),
+            progress: trustProgress,
+            description: state.isTrustGated
+                ? 'Sonraki seviye için minimum güven şartı sağlanmalı'
+                : 'Güven şartı sağlandı',
+            danger: state.isTrustGated,
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
-                border: Border.all(color: const Color(0xFFFFCDD2), width: 1.5),
+                color: state.isTrustGated ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
+                border: Border.all(color: state.isTrustGated ? const Color(0xFFFFCDD2) : const Color(0xFFC8E6C9), width: 1.5),
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: const Text(
-                'GATED',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 0.5),
+              child: Text(
+                state.isTrustGated ? 'GATED' : 'OK',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: state.isTrustGated ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32), letterSpacing: 0.5),
               ),
             ),
           ),
@@ -289,14 +305,14 @@ class _PointsScreenState extends State<PointsScreen> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(PointsState state) {
     return Row(
-      children: const [
-        Expanded(child: _MiniStatCard(value: '+124', label: 'Bu Hafta', color: Color(0xFF00C853))),
-        SizedBox(width: 12),
-        Expanded(child: _MiniStatCard(value: '86', label: 'Onaylı Fiyat', color: _textDark)),
-        SizedBox(width: 12),
-        Expanded(child: _MiniStatCard(value: '12', label: 'Seri Gün', color: Color(0xFFFFB300))),
+      children: [
+        Expanded(child: _MiniStatCard(value: '+${state.pointsThisWeek}', label: 'Bu Hafta', color: const Color(0xFF00C853))),
+        const SizedBox(width: 12),
+        Expanded(child: _MiniStatCard(value: '${state.trustTotalVotes}', label: 'Onaylı Fiyat', color: _textDark)),
+        const SizedBox(width: 12),
+        Expanded(child: _MiniStatCard(value: '${state.streakDays}', label: 'Seri Gün', color: const Color(0xFFFFB300))),
       ],
     );
   }
@@ -316,61 +332,109 @@ class _PointsScreenState extends State<PointsScreen> {
     );
   }
 
-  Widget _buildPrivilegesList() {
-    return const Column(
+  Widget _buildPrivilegesList(PointsState state) {
+    final currentLevel = EliteLevelEngine.parseLevelLabel(state.currentLevelName);
+    final currentOrder = currentLevel.index;
+
+    bool unlocked(EliteLevel level) => currentOrder >= level.index;
+
+    return Column(
       children: [
         _PrivilegeTile(
           title: 'Temel Fiyat Bildirimi',
-          subtitle: 'Gözlemci (Mevcut Seviye)',
+          subtitle: unlocked(EliteLevel.gozlemci) ? '${state.currentLevelName} (Mevcut Seviye)' : 'Gözlemci Olunca Açılır',
           icon: Icons.sell_rounded,
-          unlocked: true,
+          unlocked: unlocked(EliteLevel.gozlemci),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         _PrivilegeTile(
           title: 'Özel Favori Market Alarmları',
-          subtitle: 'Market Ustası Olunca Açılır',
+          subtitle: unlocked(EliteLevel.marketUstasi) ? '${state.currentLevelName} ile açık' : 'Market Ustası Olunca Açılır',
           icon: Icons.notifications_active_rounded,
-          unlocked: false,
+          unlocked: unlocked(EliteLevel.marketUstasi),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         _PrivilegeTile(
           title: 'Sınırsız Geçmiş Fiyat Analizi',
-          subtitle: 'Radar Efsanesi Olunca Açılır',
+          subtitle: unlocked(EliteLevel.radarEfsanesi) ? '${state.currentLevelName} ile açık' : 'Radar Efsanesi Olunca Açılır',
           icon: Icons.history_rounded,
-          unlocked: false,
+          unlocked: unlocked(EliteLevel.radarEfsanesi),
         ),
       ],
     );
   }
 
-  Widget _buildPointTasks() {
-    return const Column(
-      children: [
-        _PointTaskTile(title: 'Günün Fişini Tara', subtitle: '0/1 Tamamlandı', icon: Icons.qr_code_scanner_rounded, reward: '+100 P'),
-        SizedBox(height: 10),
-        _PointTaskTile(title: 'Yeni Market Ekle', subtitle: 'Limitsiz', icon: Icons.add_business_rounded, reward: '+50 P'),
-        SizedBox(height: 10),
-        _PointTaskTile(title: 'Arkadaş Davet Et', subtitle: 'Özel Referans Kodu', icon: Icons.group_add_rounded, reward: '+250 P'),
-      ],
+  Widget _buildPointTasks(PointsState state) {
+    final goals = state.dailyGoals;
+    return Column(
+      children: goals
+          .map(
+            (goal) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _PointTaskTile(
+                title: goal.title,
+                subtitle: '${goal.current}/${goal.target} Tamamlandı',
+                icon: goal.icon,
+                reward: '+${goal.reward} P',
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
   Widget _buildLeaderboardTab() {
-    return SingleChildScrollView(
-      key: const ValueKey('leaderboard'),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPodium(),
-          const SizedBox(height: 10),
-          _buildLeaderboard(),
-        ],
-      ),
+    return const RadarKingdomLeaderboardView();
+  }
+
+  Widget _buildLeaderboardTabLegacy() {
+    final leaderboardAsync = ref.watch(leaderboardStreamProvider(LeaderboardFilter.global));
+    final authUid = ref.watch(authStateProvider).valueOrNull?.uid;
+
+    return leaderboardAsync.when(
+      data: (items) {
+        final users = items
+            .asMap()
+            .entries
+            .map((entry) => _LeaderboardUser.fromItem(entry.key + 1, entry.value, isCurrentUser: entry.value.uid == authUid))
+            .toList();
+        final podiumUsers = users.where((u) => u.rank <= 3).toList()..sort((a, b) => a.rank.compareTo(b.rank));
+        final otherUsers = users.where((u) => u.rank > 3).toList();
+
+        return SingleChildScrollView(
+          key: const ValueKey('leaderboard'),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPodium(podiumUsers),
+              const SizedBox(height: 10),
+              _buildLeaderboard(otherUsers),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Liderlik tablosu yüklenemedi')),
     );
   }
 
-  Widget _buildPodium() {
+  Widget _buildPodium(List<_LeaderboardUser> users) {
+    if (users.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    _LeaderboardUser? rank1;
+    _LeaderboardUser? rank2;
+    _LeaderboardUser? rank3;
+    for (final user in users) {
+      if (user.rank == 1) rank1 = user;
+      if (user.rank == 2) rank2 = user;
+      if (user.rank == 3) rank3 = user;
+    }
+
+    final ordered = [if (rank2 != null) rank2, if (rank1 != null) rank1, if (rank3 != null) rank3].whereType<_LeaderboardUser>().toList();
+
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 18, 8, 16),
       decoration: const BoxDecoration(
@@ -379,7 +443,7 @@ class _PointsScreenState extends State<PointsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: _podiumUsers.map(_buildPodiumSlot).toList(),
+        children: ordered.map(_buildPodiumSlot).toList(),
       ),
     );
   }
@@ -396,8 +460,7 @@ class _PointsScreenState extends State<PointsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isFirst)
-            const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFC107), size: 30),
+          if (isFirst) const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFC107), size: 30),
           const SizedBox(height: 2),
           Stack(
             clipBehavior: Clip.none,
@@ -419,7 +482,7 @@ class _PointsScreenState extends State<PointsScreen> {
                     ),
                   ],
                 ),
-                child: Text(user.emoji, style: TextStyle(fontSize: isFirst ? 34 : 26)),
+                child: Text(user.avatar, style: TextStyle(fontSize: isFirst ? 30 : 22, fontWeight: FontWeight.w900)),
               ),
               Positioned(
                 bottom: -8,
@@ -441,18 +504,17 @@ class _PointsScreenState extends State<PointsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                user.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: isFirst ? 15 : 13,
-                  color: isFirst ? const Color(0xFFFFC107) : _textDark,
+              Flexible(
+                child: Text(
+                  user.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: isFirst ? 15 : 13,
+                    color: isFirst ? const Color(0xFFFFC107) : _textDark,
+                  ),
                 ),
               ),
-              if (user.isVerified) ...[
-                const SizedBox(width: 4),
-                const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF1E88E5)),
-              ],
             ],
           ),
           const SizedBox(height: 2),
@@ -462,9 +524,9 @@ class _PointsScreenState extends State<PointsScreen> {
     );
   }
 
-  Widget _buildLeaderboard() {
+  Widget _buildLeaderboard(List<_LeaderboardUser> users) {
     return Column(
-      children: _leaderboardUsers
+      children: users
           .map(
             (user) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -474,6 +536,8 @@ class _PointsScreenState extends State<PointsScreen> {
           .toList(),
     );
   }
+
+  String _formatFullPoints(int points) => points.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => '.');
 }
 
 class _MiniStatCard extends StatelessWidget {
@@ -523,52 +587,40 @@ class _PrivilegeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color iconColor = unlocked ? const Color(0xFF00C853) : const Color(0xFF9E9E9E);
+    final iconColor = unlocked ? const Color(0xFF00A63E) : const Color(0xFFB0A297);
 
-    return Opacity(
-      opacity: unlocked ? 1 : 0.7,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border(
-            left: BorderSide(color: unlocked ? const Color(0xFF00C853) : const Color(0xFFE0E0E0), width: 4),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: unlocked ? const Color(0xFFDCEDC8) : const Color(0xFFF1E8DE)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: unlocked ? const Color(0xFFE8F5E9) : const Color(0xFFF7F2ED),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4A3623).withOpacity(0.03),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _PointsScreenState._textMuted)),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: unlocked ? const Color(0xFFE8F5E9) : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _PointsScreenState._textMuted)),
-                ],
-              ),
-            ),
-            Icon(unlocked ? Icons.check_circle_rounded : Icons.lock_rounded, color: iconColor),
-          ],
-        ),
+          ),
+          Icon(unlocked ? Icons.check_circle_rounded : Icons.lock_rounded, color: iconColor),
+        ],
       ),
     );
   }
@@ -670,27 +722,17 @@ class _LeaderboardRow extends StatelessWidget {
             height: 40,
             alignment: Alignment.center,
             decoration: const BoxDecoration(color: Color(0xFFF8F4F0), shape: BoxShape.circle),
-            child: Text(user.emoji, style: const TextStyle(fontSize: 20)),
+            child: Text(user.avatar, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        user.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark),
-                      ),
-                    ),
-                    if (user.isVerified) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF1E88E5)),
-                    ],
-                  ],
+                Text(
+                  user.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _PointsScreenState._textDark),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -725,17 +767,43 @@ class _LeaderboardUser {
     required this.rank,
     required this.name,
     required this.points,
-    required this.emoji,
+    required this.avatar,
     required this.level,
     this.isCurrentUser = false,
-    this.isVerified = false,
   });
+
+  factory _LeaderboardUser.fromItem(int rank, UserLeaderboardItem item, {required bool isCurrentUser}) {
+    final finalLevel = EliteLevelEngine.getFinalLevel(item.totalPoints, item.trustScorePercent, item.trustTotalVotes);
+    final levelName = EliteLevelEngine.getLevelStyle(finalLevel).label;
+    return _LeaderboardUser(
+      rank: rank,
+      name: item.name,
+      points: _shortPoints(item.weeklyPoints),
+      avatar: _avatarText(item.name),
+      level: isCurrentUser ? '$levelName (Sen)' : levelName,
+      isCurrentUser: isCurrentUser,
+    );
+  }
 
   final int rank;
   final String name;
   final String points;
-  final String emoji;
+  final String avatar;
   final String level;
   final bool isCurrentUser;
-  final bool isVerified;
+
+  static String _shortPoints(int value) {
+    if (value >= 1000) {
+      final v = (value / 1000).toStringAsFixed(1);
+      return '${v.replaceAll('.0', '')}K';
+    }
+    return '$value';
+  }
+
+  static String _avatarText(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+  }
 }

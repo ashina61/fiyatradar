@@ -11,6 +11,11 @@ import '../models/product_model.dart';
 import 'firestore_service.dart';
 
 class ProductDetailApiService {
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint(message);
+  }
+
   ProductDetailApiService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
@@ -34,7 +39,7 @@ class ProductDetailApiService {
 
   Future<ProductDetailResponse> fetchProductDetails(String productId) async {
     try {
-      debugPrint(
+      _log(
         '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=products, where=[documentId == $productId], orderBy=[]',
       );
       final productDoc = await _productsRef.doc(productId).get();
@@ -44,7 +49,7 @@ class ProductDetailApiService {
 
       final product = ProductModel.fromFirestore(productDoc);
 
-      debugPrint(
+      _log(
         '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=priceReports, where=[productId == $productId, status == active], orderBy=[]',
       );
       final pricesSnapshot = await _pricesRef
@@ -52,9 +57,8 @@ class ProductDetailApiService {
           .where('status', isEqualTo: 'active')
           .get();
       final prices = pricesSnapshot.docs.map(PriceModel.fromFirestore).toList();
-      prices.sort((a, b) => a.price.compareTo(b.price));
 
-      debugPrint(
+      _log(
         '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=comments, where=[productId == $productId], orderBy=[]',
       );
       final commentsSnapshot = await _commentsRef
@@ -65,7 +69,12 @@ class ProductDetailApiService {
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      final bestPriceModel = prices.isNotEmpty ? prices.first : null;
+      final latestPriceModel = prices.isNotEmpty
+          ? prices.reduce(
+              (current, next) =>
+                  next.reportedAt.isAfter(current.reportedAt) ? next : current,
+            )
+          : null;
       final stats = _buildStats(prices);
       final trust = _buildTrust(prices);
 
@@ -76,17 +85,19 @@ class ProductDetailApiService {
         categories: product.categories,
         viewCount: product.viewCount,
         priceEntryCount: prices.length,
-        bestPrice: _toBestPrice(bestPriceModel),
+        bestPrice: _toBestPrice(latestPriceModel),
         stats: stats,
         trust: trust,
         comments: comments.map(_toProductComment).toList(growable: false),
       );
     } catch (e, st) {
-      debugPrint('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[ProductDetailApiService.fetchProductDetails] STACK',
-      );
+      _log('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
+      if (kDebugMode) {
+        debugPrintStack(
+          stackTrace: st,
+          label: '[ProductDetailApiService.fetchProductDetails] STACK',
+        );
+      }
       rethrow;
     }
   }
@@ -96,7 +107,7 @@ class ProductDetailApiService {
       final now = DateTime.now();
       final since = now.subtract(const Duration(days: 30));
 
-      debugPrint(
+      _log(
         '[ProductDetailApiService.fetchPriceHistory] Firestore query => collection=priceReports, where=[productId == $productId, status == active, reportedAt >= ${Timestamp.fromDate(since)}], orderBy=[]',
       );
       final snapshot = await _pricesRef
@@ -138,11 +149,13 @@ class ProductDetailApiService {
           )
           .toList(growable: false);
     } catch (e, st) {
-      debugPrint('[ProductDetailApiService.fetchPriceHistory] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[ProductDetailApiService.fetchPriceHistory] STACK',
-      );
+      _log('[ProductDetailApiService.fetchPriceHistory] ERROR: $e');
+      if (kDebugMode) {
+        debugPrintStack(
+          stackTrace: st,
+          label: '[ProductDetailApiService.fetchPriceHistory] STACK',
+        );
+      }
       rethrow;
     }
   }

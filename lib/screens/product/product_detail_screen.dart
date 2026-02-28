@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +17,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/elite_level_engine.dart';
-import '../../widgets/global_premium_badge.dart';
-import '../../widgets/contributor_chip.dart';
+import '../../widgets/premium_level_badge.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -79,6 +79,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
 
   Future<void> _openAddPrice() async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddPriceScreen(initialProductId: widget.productId)));
+    if (!mounted) return;
+    await ref.read(productDetailProvider(widget.productId).notifier).load();
   }
 
   Future<void> _toggleFavorite(ProductDetailResponse data) async {
@@ -479,10 +481,10 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          
-          // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
-          Row(
+            const SizedBox(height: 20),
+
+            // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Mağaza ismine tıklayınca navigasyon açılsın
@@ -530,14 +532,14 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                 ],
               ),
             ],
-          ),
-          
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 20),
+            ),
 
-          // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
-          Row(
+            const SizedBox(height: 20),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 20),
+
+            // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -575,11 +577,9 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
                 ],
               ),
             ],
-          ),
-        ],
-      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -599,12 +599,8 @@ class _DynamicVipChip extends ConsumerWidget {
     final currentUserModel = ref.watch(userModelStreamProvider).valueOrNull;
 
     if (authUser != null && currentUserModel != null && authUser.uid == userId) {
-      final result = EliteLevelEngine.evaluate(
-        totalPoints: currentUserModel.points,
-        trustPercent: currentUserModel.trustScorePercent,
-        totalVotes: currentUserModel.trustTotalVotes,
-      );
-      final style = EliteLevelEngine.getLevelStyle(result.finalLevel);
+      final pointsLevel = EliteLevelEngine.getPointsLevel(currentUserModel.points);
+      final style = EliteLevelEngine.getLevelStyle(pointsLevel);
       final levelName = style.label;
 
       return InkWell(
@@ -616,10 +612,10 @@ class _DynamicVipChip extends ConsumerWidget {
           style.icon,
           style.badgeForeground,
         ),
-        child: ContributorChip(
-          name: currentUserModel.name,
-          verified: true,
-          accentColor: style.gradient.last,
+        child: PremiumLevelBadge(
+          levelName: levelName,
+          displayText: currentUserModel.name,
+          showVerifiedIcon: true,
         ),
       );
     }
@@ -628,32 +624,20 @@ class _DynamicVipChip extends ConsumerWidget {
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snapshot) {
         String realName = fallbackName;
-        String backendLevelName = '';
         int totalPoints = 0;
         int trustPercent = 0;
-        int totalVotes = 0;
         bool isVerified = false;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           realName = (data['name'] ?? data['displayName'] ?? fallbackName).toString();
-          backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
           totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
           trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0;
-          totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
           isVerified = data['verified'] == true;
         }
 
-        final result = EliteLevelEngine.evaluate(
-          totalPoints: totalPoints,
-          trustPercent: trustPercent,
-          totalVotes: totalVotes,
-        );
-        final hasMeaningfulSignals = totalPoints > 0 || totalVotes >= minVotesForTrust;
-        final resolvedLevel = hasMeaningfulSignals
-            ? result.finalLevel
-            : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: result.finalLevel);
-        final style = EliteLevelEngine.getLevelStyle(resolvedLevel);
+        final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
+        final style = EliteLevelEngine.getLevelStyle(pointsLevel);
         final levelName = style.label;
 
         return InkWell(
@@ -665,10 +649,10 @@ class _DynamicVipChip extends ConsumerWidget {
             style.icon,
             style.badgeForeground,
           ),
-          child: ContributorChip(
-            name: realName,
-            verified: isVerified,
-            accentColor: style.gradient.last,
+          child: PremiumLevelBadge(
+            levelName: levelName,
+            displayText: realName,
+            showVerifiedIcon: isVerified,
           ),
         );
       },
@@ -1070,7 +1054,7 @@ class _TrustBadge extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 // 3. YORUMLAR PANELİ (Raporlama İkonları ve Tüm Yorumlara Yönlendirme)
 // ═══════════════════════════════════════════════════════════════════
-class CommentsPanel extends StatefulWidget {
+class CommentsPanel extends ConsumerStatefulWidget {
   const CommentsPanel({super.key, required this.state, required this.notifier, required this.controller, required this.productId});
   final ProductDetailState state; 
   final ProductDetailNotifier notifier; 
@@ -1078,13 +1062,14 @@ class CommentsPanel extends StatefulWidget {
   final String productId;
 
   @override
-  State<CommentsPanel> createState() => _CommentsPanelState();
+  ConsumerState<CommentsPanel> createState() => _CommentsPanelState();
 }
 
-class _CommentsPanelState extends State<CommentsPanel> {
+class _CommentsPanelState extends ConsumerState<CommentsPanel> {
   bool _justSent = false;
 
-  void _reportComment(String authorName) {
+  void _reportComment(ProductComment comment) {
+    final authorName = comment.author;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1094,10 +1079,38 @@ class _CommentsPanelState extends State<CommentsPanel> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
-            onPressed: () {
-              // TODO: Backend yorum raporlama servisi
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum raporlandı.')));
+            onPressed: () async {
+              final userId = FirebaseAuth.instance.currentUser?.uid;
+
+              if (userId == null) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Yorum raporlamak için giriş yapmalısınız.')),
+                );
+                return;
+              }
+
+              try {
+                await ref.read(firestoreServiceProvider).reportComment(
+                  commentId: comment.id,
+                  userId: userId,
+                  reason: 'Uygunsuz yorum',
+                );
+
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Yorum raporlandı.')),
+                );
+              } catch (_) {
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Yorum raporlanamadı. Lütfen tekrar deneyin.'),
+                  ),
+                );
+              }
             },
             child: const Text('Raporla', style: TextStyle(color: Colors.white)),
           ),
@@ -1153,7 +1166,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
                                 const SizedBox(width: 8),
                                 // Yorum Raporlama Butonu
                                 GestureDetector(
-                                  onTap: () => _reportComment(c.author),
+                                  onTap: () => _reportComment(c),
                                   child: const Icon(Icons.outlined_flag_rounded, size: 16, color: Color(0xFF8D6E63)),
                                 ),
                               ],

@@ -65,7 +65,8 @@ flutter:
   assets:
     - assets/images/app_logo.png
     - assets/icons/categories/
-
+    - assets/fiyatradar_marketler.json
+    - assets/fiyatradar_urunler.json
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,8 +13,8 @@ import 'providers/theme_provider.dart';
 import 'providers/firebase_init_provider.dart';
 import 'providers/app_start_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/main_screen.dart';
+import 'app_router.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -23,7 +24,7 @@ void main() async {
   FlutterError.onError = (FlutterErrorDetails details) {
     final exception = details.exceptionAsString();
     if (exception.contains('Unable to load asset')) {
-      debugPrint('Asset yükleme hatası yakalandı: $exception');
+      if (kDebugMode) debugPrint('Asset yükleme hatası yakalandı: $exception');
     }
     FlutterError.presentError(details);
   };
@@ -45,17 +46,17 @@ void main() async {
     final app = await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    firebaseInitialized = true;
-    debugPrint('Firebase başarıyla başlatıldı! app=${app.name}');
+    firebaseInitializedNotifier.value = true;
+    if (kDebugMode) debugPrint('Firebase başarıyla başlatıldı! app=${app.name}');
   } catch (e) {
-    debugPrint('Firebase initializeApp(options) başarısız: $e');
+    if (kDebugMode) debugPrint('Firebase initializeApp(options) başarısız: $e');
     try {
       final fallbackApp = await Firebase.initializeApp();
-      firebaseInitialized = true;
-      debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
+      firebaseInitializedNotifier.value = true;
+      if (kDebugMode) debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
     } catch (inner) {
-      debugPrint('Firebase başlatılamadı, hata: $inner');
-      firebaseInitialized = false;
+      if (kDebugMode) debugPrint('Firebase başlatılamadı, hata: $inner');
+      firebaseInitializedNotifier.value = false;
     }
   }
 
@@ -89,6 +90,8 @@ class FiyatRadarApp extends ConsumerStatefulWidget {
 }
 
 class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
+  late final _router = buildAppRouter(showOnboarding: widget.showOnboarding);
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +106,7 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'FiyatRadar',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -116,22 +119,15 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('tr')],
-      home: widget.showOnboarding
-          ? OnboardingScreen(
-              onComplete: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('onboarding_complete', true);
-              },
-            )
-          : const _AppStartGate(),
+      routerConfig: _router,
     );
   }
 
 }
 
 
-class _AppStartGate extends ConsumerWidget {
-  const _AppStartGate();
+class AppStartGate extends ConsumerWidget {
+  const AppStartGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

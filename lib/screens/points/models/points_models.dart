@@ -56,67 +56,6 @@ class PointsState {
   final String trustLabel;
   final String nextLevelName;
 
-  static const PointsState placeholder = PointsState(
-    totalPoints: 200,
-    currentLevelName: 'Gözlemci',
-    pointsThisWeek: 47,
-    nextLevelTargetPoints: 300,
-    streakDays: 3,
-    levelProgressPercent: 0.38,
-    pointsRemainingToNextLevel: 300,
-    dailyGoals: [
-      DailyTask(
-        title: 'Fiyat Bildir',
-        description: '2 fiyat bildirimi yap',
-        reward: 20,
-        current: 1,
-        target: 2,
-        icon: Icons.sell_rounded,
-        iconBackground: Color(0xFFFFE7D1),
-      ),
-      DailyTask(
-        title: 'Doğrula',
-        description: '5 fiyatı doğrula',
-        reward: 10,
-        current: 3,
-        target: 5,
-        icon: Icons.verified_rounded,
-        iconBackground: Color(0xFFDFF3FF),
-      ),
-      DailyTask(
-        title: 'Yorum Yap',
-        description: '1 ürüne yorum bırak',
-        reward: 5,
-        current: 0,
-        target: 1,
-        icon: Icons.chat_bubble_rounded,
-        iconBackground: Color(0xFFEAE7FF),
-      ),
-    ],
-    activities: [
-      PointsActivity(
-        type: 'price_entry',
-        title: 'Fiyat bildirimi',
-        subtitle: 'Migros • iPhone 15',
-        points: 5,
-        createdAt: 'Bugün',
-      ),
-      PointsActivity(
-        type: 'price_verify',
-        title: 'Fiyat doğrulaması',
-        subtitle: 'CarrefourSA • Süt 1L',
-        points: 2,
-        createdAt: 'Dün',
-      ),
-    ],
-    trustScore: 27,
-    trustTotalVotes: 6,
-    requiredMinTrust: 40,
-    isTrustGated: true,
-    finalLevelLabel: 'Avcı',
-    trustLabel: 'Gelişen Güven',
-    nextLevelName: 'Avcı',
-  );
 }
 
 class PointsActivity {

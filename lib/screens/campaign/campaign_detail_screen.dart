@@ -20,7 +20,7 @@ class CampaignDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Kampanya')),
       body: campaignAsync.when(
         data: (campaign) {
-          if (campaign == null) return const Center(child: Text('Kampanya bulunamadi'));
+          if (campaign == null) return const Center(child: Text('Kampanya bulunamadı'));
           final productsAsync = ref.watch(campaignProductsProvider(campaign.itemProductIds));
 
           return CustomScrollView(
@@ -103,7 +103,7 @@ class CampaignDetailScreen extends ConsumerWidget {
                 error: (_, __) => const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(AppSpacing.lg),
-                    child: Center(child: Text('Urunler yuklenemedi')),
+                    child: Center(child: Text('Ürünler yüklenemedi')),
                   ),
                 ),
               ),
@@ -111,7 +111,7 @@ class CampaignDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Kampanya yuklenemedi')),
+        error: (_, __) => const Center(child: Text('Kampanya yüklenemedi')),
       ),
     );
   }

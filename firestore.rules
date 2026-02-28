@@ -1,7 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
     function isAdmin() {
       return signedIn() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
@@ -9,47 +16,233 @@ service cloud.firestore {
       );
     }
 
+    function immutable(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function hasOnlyUserWritableKeys() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'name',
+        'photoUrl',
+        'cityCode',
+        'cityName',
+        'city',
+        'savedProducts',
+        'lastLoginAt',
+        'fcmToken'
+      ]);
+    }
+
+    function hasSafeUserCreateDefaults() {
+      return (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'user') &&
+        (!('points' in request.resource.data) || request.resource.data.points == 0) &&
+        (!('trustScorePercent' in request.resource.data) || request.resource.data.trustScorePercent == 0) &&
+        (!('trustTotalVotes' in request.resource.data) || request.resource.data.trustTotalVotes == 0) &&
+        (!('trustVerifiedTotal' in request.resource.data) || request.resource.data.trustVerifiedTotal == 0) &&
+        (!('trustWrongTotal' in request.resource.data) || request.resource.data.trustWrongTotal == 0);
+    }
+
+    function hasSafeCommentCreateDefaults() {
+      return (!('likes' in request.resource.data) || request.resource.data.likes == 0) &&
+        (!('likedBy' in request.resource.data) || request.resource.data.likedBy.size() == 0);
+    }
+
+    function hasSafeCommentCreatePayload() {
+      return request.resource.data.keys().hasOnly([
+        'productId',
+        'userId',
+        'text',
+        'likes',
+        'likedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      ('productId' in request.resource.data) &&
+      ('userId' in request.resource.data) &&
+      ('text' in request.resource.data) &&
+      (request.resource.data.productId is string) &&
+      (request.resource.data.userId is string) &&
+      (request.resource.data.text is string) &&
+      (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+    }
+
+    function hasOnlyCommentOwnerWritableKeys() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'text',
+        'updatedAt'
+      ]);
+    }
+
+    function hasOnlyPriceReportOwnerWritableKeys() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'price',
+        'storeName',
+        'chainId',
+        'branchStoreId',
+        'branchId',
+        'reporterIsAnonymous',
+        'updatedAt'
+      ]);
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
-      allow update: if request.auth.uid == uid || isAdmin();
-      allow create: if signedIn();
+
+      allow create: if isOwner(uid) &&
+        (!(request.resource.data.keys().hasAny(['uid'])) || request.resource.data.uid == uid) &&
+        hasSafeUserCreateDefaults();
+
+      allow update: if isAdmin() ||
+        (
+          isOwner(uid) &&
+          hasOnlyUserWritableKeys() &&
+          immutable('isAdmin') &&
+          immutable('role') &&
+          immutable('points') &&
+          immutable('trustScorePercent') &&
+          immutable('trustTotalVotes') &&
+          immutable('trustVerifiedTotal') &&
+          immutable('trustWrongTotal')
+        );
+
       allow delete: if isAdmin();
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn();
-      allow delete: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    function hasSafePriceReportCreatePayload() {
+      return request.resource.data.keys().hasOnly([
+        'productId',
+        'createdByUid',
+        'price',
+        'storeName',
+        'chainId',
+        'branchStoreId',
+        'branchId',
+        'reporterIsAnonymous',
+        'status',
+        'verificationStatus',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      ('productId' in request.resource.data) &&
+      ('createdByUid' in request.resource.data) &&
+      ('price' in request.resource.data) &&
+      (request.resource.data.productId is string) &&
+      (request.resource.data.createdByUid is string) &&
+      ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
+      (!('storeName' in request.resource.data) || request.resource.data.storeName is string) &&
+      (!('chainId' in request.resource.data) || request.resource.data.chainId is string) &&
+      (!('branchStoreId' in request.resource.data) || request.resource.data.branchStoreId is string) &&
+      (!('branchId' in request.resource.data) || request.resource.data.branchId is string) &&
+      (!('reporterIsAnonymous' in request.resource.data) || request.resource.data.reporterIsAnonymous is bool) &&
+      (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
     }
 
     match /priceReports/{priceId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn() && (
-        isAdmin() ||
-        resource.data.createdByUid == request.auth.uid
-      );
+      allow create: if signedIn() &&
+        hasSafePriceReportCreatePayload() &&
+        request.resource.data.createdByUid == request.auth.uid &&
+        (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
+        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');
+      allow update: if isAdmin() ||
+        (
+          signedIn() &&
+          resource.data.createdByUid == request.auth.uid &&
+          hasOnlyPriceReportOwnerWritableKeys() &&
+          immutable('createdByUid') &&
+          immutable('status') &&
+          immutable('verificationStatus')
+        );
     }
 
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if signedIn();
-      allow update: if signedIn() && (
-        isAdmin() ||
-        resource.data.userId == request.auth.uid
-      );
+      allow create: if signedIn() &&
+        hasSafeCommentCreatePayload() &&
+        request.resource.data.userId == request.auth.uid &&
+        hasSafeCommentCreateDefaults();
+      allow update: if isAdmin() ||
+        (
+          signedIn() &&
+          resource.data.userId == request.auth.uid &&
+          hasOnlyCommentOwnerWritableKeys() &&
+          immutable('userId') &&
+          immutable('productId') &&
+          immutable('likes') &&
+          immutable('likedBy')
+        );
       allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
 
+    function hasSafePointsEventPayload() {
+      return request.resource.data.keys().hasOnly([
+        'userId',
+        'eventType',
+        'pointsDelta',
+        'points',
+        'meta',
+        'createdAt'
+      ]) &&
+      ('userId' in request.resource.data) &&
+      ('eventType' in request.resource.data) &&
+      ('pointsDelta' in request.resource.data) &&
+      ('createdAt' in request.resource.data) &&
+      (request.resource.data.userId is string) &&
+      (request.resource.data.eventType is string) &&
+      (request.resource.data.pointsDelta is int) &&
+      (request.resource.data.createdAt is timestamp) &&
+      (!('meta' in request.resource.data) || request.resource.data.meta is map) &&
+      (!('points' in request.resource.data) ||
+        ((request.resource.data.points is int) && request.resource.data.points == request.resource.data.pointsDelta));
+    }
+
     match /points_events/{eventId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin() && hasSafePointsEventPayload();
+      allow update, delete: if isAdmin();
+    }
+
+    function hasSafeAdminActionCreatePayload() {
+      return request.resource.data.keys().hasOnly([
+        'actorUid',
+        'action',
+        'targetUid',
+        'targetId',
+        'reason',
+        'meta',
+        'createdAt'
+      ]) &&
+      ('actorUid' in request.resource.data) &&
+      ('action' in request.resource.data) &&
+      ('createdAt' in request.resource.data) &&
+      (request.resource.data.action is string) &&
+      (request.resource.data.createdAt is timestamp) &&
+      (!('targetUid' in request.resource.data) || request.resource.data.targetUid is string) &&
+      (!('targetId' in request.resource.data) || request.resource.data.targetId is string) &&
+      (!('reason' in request.resource.data) || request.resource.data.reason is string) &&
+      (!('meta' in request.resource.data) || request.resource.data.meta is map) &&
+      request.resource.data.action.size() > 0;
     }
 
     match /adminActions/{doc} {
-      allow read, write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.actorUid == request.auth.uid &&
+        hasSafeAdminActionCreatePayload();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

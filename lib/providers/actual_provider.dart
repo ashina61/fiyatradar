@@ -10,20 +10,20 @@ final actualAdminFilterProvider = StateProvider<bool?>((ref) => null);
 final adminActualsProvider = StreamProvider<List<ActualModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   final filter = ref.watch(actualAdminFilterProvider);
-  return ref.watch(firestoreServiceProvider).getActualsForAdmin(isActive: filter);
+  return ref.watch(actualAdminDomainServiceProvider).getActualsForAdmin(isActive: filter);
 });
 
 final latestActiveActualProvider = StreamProvider<ActualModel?>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value(null);
-  return ref.watch(firestoreServiceProvider).getLatestActiveActualForUser();
+  return ref.watch(actualAdminDomainServiceProvider).getLatestActiveActualForUser();
 });
 
 final actualItemsProvider = StreamProvider.family<List<ActualItemModel>, String>((ref, actualId) {
   if (!ref.watch(firebaseInitializedProvider) || actualId.isEmpty) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActualItems(actualId);
+  return ref.watch(actualAdminDomainServiceProvider).getActualItems(actualId);
 });
 
 final adminActualItemsProvider = StreamProvider.family<List<ActualItemModel>, String>((ref, actualId) {
   if (!ref.watch(firebaseInitializedProvider) || actualId.isEmpty) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActualItems(actualId);
+  return ref.watch(actualAdminDomainServiceProvider).getActualItems(actualId);
 });

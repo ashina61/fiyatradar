@@ -33,7 +33,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchTarget() async {
-    final service = ref.read(firestoreServiceProvider);
+    final service = ref.read(adminModerationDomainServiceProvider);
     final targetType = widget.report['targetType'] as String? ?? '';
     final targetId = widget.report['targetId'] as String? ?? '';
     final contextId = widget.report['contextId'] as String?;
@@ -73,7 +73,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     setState(() => _isResolving = true);
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      await ref.read(firestoreServiceProvider).updateReportStatus(
+      await ref.read(adminModerationDomainServiceProvider).updateReportStatus(
             widget.report['id'] as String,
             status,
             resolvedBy: currentUser?.uid,
@@ -250,7 +250,7 @@ class _MissingTargetCard extends StatelessWidget {
             Icon(Icons.warning_amber_rounded, color: AppColors.warning),
             SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Text('Hedef bulunamadi (silinmis olabilir).'),
+              child: Text('Hedef bulunamadı (silinmiş olabilir).'),
             ),
           ],
         ),
@@ -282,22 +282,22 @@ class _CommentTargetCard extends StatelessWidget {
           children: [
             Text('Yorum', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text(comment?.text ?? 'Yorum bulunamadi'),
+            Text(comment?.text ?? 'Yorum bulunamadı'),
             const SizedBox(height: AppSpacing.md),
-            Text('Urun', style: Theme.of(context).textTheme.titleSmall),
+            Text('Ürün', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
             Text(product?.name ?? 'Ürün bulunamadı'),
             const SizedBox(height: AppSpacing.md),
             Text('Yorumcu', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
-            Text(user?.name ?? 'Kullanici bulunamadi'),
+            Text(user?.name ?? 'Kullanıcı bulunamadı'),
             const SizedBox(height: AppSpacing.sm),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: product == null ? null : () => onOpenProduct?.call(product, comment),
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Ilgili urune git'),
+                label: const Text('İlgili ürüne git'),
               ),
             ),
           ],
@@ -334,7 +334,7 @@ class _ProductTargetCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: product == null ? null : () => onOpenProduct?.call(product),
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Urune git'),
+                label: const Text('Ürüne git'),
               ),
             ),
           ],
@@ -357,9 +357,9 @@ class _UserTargetCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Kullanici', style: Theme.of(context).textTheme.titleSmall),
+            Text('Kullanıcı', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text(user?.name ?? 'Kullanici bulunamadi'),
+            Text(user?.name ?? 'Kullanıcı bulunamadı'),
             const SizedBox(height: AppSpacing.xs),
             Text(user?.email ?? ''),
             const SizedBox(height: AppSpacing.xs),
@@ -392,7 +392,7 @@ class _PriceTargetCard extends StatelessWidget {
           children: [
             Text('Fiyat Girdisi', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Urun: ${product?.name ?? 'Bilinmiyor'}'),
+            Text('Ürün: ${product?.name ?? 'Bilinmiyor'}'),
             const SizedBox(height: AppSpacing.xs),
             Text('Market: ${price?.storeName ?? '-'}'),
             const SizedBox(height: AppSpacing.xs),
@@ -403,7 +403,7 @@ class _PriceTargetCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: product == null ? null : () => onOpenProduct?.call(product, price),
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Ilgili urune git'),
+                label: const Text('İlgili ürüne git'),
               ),
             ),
           ],

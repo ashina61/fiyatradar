@@ -44,10 +44,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const double _categoryTileWidth = 110;
   static const double _categoryTileSpacing = 12;
   static const double _categoryListHorizontalPadding = 20;
-  final Set<String> _precachedIcons = <String>{};
-  late final ProviderSubscription<AsyncValue<List<CategoryModel>>>
-      _categoryPrecacheSub;
-
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFade;
 
@@ -55,12 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _startBannerAutoScroll();
-    _categoryPrecacheSub =
-        ref.listenManual<AsyncValue<List<CategoryModel>>>(
-      categoriesProvider,
-      (_, next) => next.whenData(_precacheCategoryIcons),
-      fireImmediately: true,
-    );
     _headerAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -72,21 +62,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _headerAnimController.forward();
   }
 
-  Future<void> _precacheCategoryIcons(List<CategoryModel> categories) async {
-    if (!mounted) return;
-    for (final category in categories) {
-      if (_precachedIcons.contains(category.iconAssetPath)) continue;
-      _precachedIcons.add(category.iconAssetPath);
-      await precacheImage(AssetImage(category.iconAssetPath), context)
-          .catchError((_) {});
-    }
-  }
 
   void _startBannerAutoScroll() {
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
       final banners = ref.read(activeBannersProvider).valueOrNull ?? [];
       if (banners.isEmpty) return;
+      if (!_bannerController.hasClients) return;
       final nextPage = (_currentBannerPage + 1) % banners.length;
       _bannerController.animateToPage(
         nextPage,
@@ -99,7 +81,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _categoryPrecacheSub.close();
     _categoryScrollController.dispose();
     _bannerController.dispose();
     _headerAnimController.dispose();
@@ -238,13 +219,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: trendingAsync.when(
                       data: (products) => _buildProductsSection(
                         theme,
-                        'Trend Urunler',
+                        'Trend Ürünler',
                         products,
                         icon: Icons.local_fire_department_rounded,
                         iconColor: AppColors.error,
                       ),
                       loading: () => _buildProductsLoading(theme,
-                          'Trend Urunler',
+                          'Trend Ürünler',
                           icon: Icons.local_fire_department_rounded,
                           iconColor: AppColors.error),
                       error: (_, __) => const SizedBox.shrink(),
@@ -259,13 +240,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: recommendedAsync.when(
                       data: (products) => _buildProductsSection(
                         theme,
-                        'Onerilen Urunler',
+                        'Önerilen Ürünler',
                         products,
                         icon: Icons.auto_awesome_rounded,
                         iconColor: AppColors.accent,
                       ),
                       loading: () => _buildProductsLoading(theme,
-                          'Onerilen Urunler',
+                          'Önerilen Ürünler',
                           icon: Icons.auto_awesome_rounded,
                           iconColor: AppColors.accent),
                       error: (_, __) => const SizedBox.shrink(),
@@ -301,7 +282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ─── App Bar ───────────────────────────────────────────────────
   Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user,
       AsyncValue<int> unreadCountAsync) {
-    final displayName = user?.name ?? 'Kullanici';
+    final displayName = user?.name ?? 'Kullanıcı';
     final initial =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
@@ -538,7 +519,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Urun, magaza veya kategori ara...',
+                    'Ürün, mağaza veya kategori ara...',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.textHint,
                     ),
@@ -564,7 +545,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             icon: Icons.trending_down_rounded,
             iconColor: AppColors.success,
             label: 'Dusus',
-            value: '$trendingCount urun',
+            value: '$trendingCount ürün',
             bgColor: AppColors.success.withOpacity(0.08),
             borderColor: AppColors.success.withOpacity(0.15),
           ),
@@ -574,8 +555,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: _InsightPill(
             icon: Icons.auto_awesome_rounded,
             iconColor: AppColors.accent,
-            label: 'Oneri',
-            value: '$recommendedCount urun',
+            label: 'Öneri',
+            value: '$recommendedCount ürün',
             bgColor: AppColors.accent.withOpacity(0.08),
             borderColor: AppColors.accent.withOpacity(0.15),
           ),
@@ -1015,7 +996,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               final productId =
                   (item['productId'] ?? item['id'] ?? '').toString();
               final productName =
-                  (item['productName'] ?? 'Urun').toString();
+                  (item['productName'] ?? 'Ürün').toString();
               final imageUrl = (item['imageUrl'] ?? '').toString();
 
               return PremiumPressable(
@@ -1247,7 +1228,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              price.userName ?? 'Anonim',
+                              ((price.reporterName ?? price.userName ?? 'Kullanıcı').trim().isEmpty
+                                  ? 'Kullanıcı'
+                                  : (price.reporterName ?? price.userName ?? 'Kullanıcı')),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textTertiary,
@@ -1454,4 +1437,3 @@ class _AmbientOrb extends StatelessWidget {
     );
   }
 }
-

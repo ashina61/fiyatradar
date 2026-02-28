@@ -1,0 +1,41 @@
+name: Flutter CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test-and-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Firestore rules test dependencies
+        working-directory: firestore_rules_tests
+        run: npm install
+
+      - name: Run Firestore rules emulator tests
+        working-directory: firestore_rules_tests
+        run: npx firebase-tools@13.30.0 emulators:exec --only firestore --project fiyatradar-rules-ci "npm test"

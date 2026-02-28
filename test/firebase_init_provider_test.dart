@@ -4,17 +4,17 @@ import 'package:fiyatradar/providers/firebase_init_provider.dart';
 
 void main() {
   tearDown(() {
-    firebaseInitialized = false;
+    firebaseInitializedNotifier.value = false;
   });
 
-  test('firebaseInitialized getter/setter keeps notifier and provider in sync', () {
+  test('firebaseInitialized notifier and provider stay in sync', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(firebaseInitialized, isFalse);
+    expect(firebaseInitializedNotifier.value, isFalse);
     expect(container.read(firebaseInitializedProvider), isFalse);
 
-    firebaseInitialized = true;
+    firebaseInitializedNotifier.value = true;
 
     expect(firebaseInitializedNotifier.value, isTrue);
     expect(container.read(firebaseInitializedProvider), isTrue);
@@ -32,8 +32,8 @@ void main() {
     );
     addTearDown(sub.close);
 
-    firebaseInitialized = true;
-    firebaseInitialized = false;
+    firebaseInitializedNotifier.value = true;
+    firebaseInitializedNotifier.value = false;
 
     expect(observed, [false, true, false]);
   });

@@ -11,6 +11,7 @@ import '../models/category_theme.dart';
 import '../models/product_suggestion_model.dart';
 import '../services/catalog_service.dart';
 import '../services/firestore_service.dart';
+import '../services/domain_services.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
@@ -19,6 +20,55 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 
 final catalogServiceProvider = Provider<CatalogService>((ref) {
   return CatalogService();
+});
+
+
+final brandDomainServiceProvider = Provider<BrandDomainService>((ref) {
+  return BrandDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final storeDomainServiceProvider = Provider<StoreDomainService>((ref) {
+  return StoreDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminModerationDomainServiceProvider =
+    Provider<AdminModerationDomainService>((ref) {
+  return AdminModerationDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final productSuggestionDomainServiceProvider =
+    Provider<ProductSuggestionDomainService>((ref) {
+  return ProductSuggestionDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminUserManagementDomainServiceProvider =
+    Provider<AdminUserManagementDomainService>((ref) {
+  return AdminUserManagementDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminBrandManagementDomainServiceProvider =
+    Provider<AdminBrandManagementDomainService>((ref) {
+  return AdminBrandManagementDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final actualAdminDomainServiceProvider =
+    Provider<ActualAdminDomainService>((ref) {
+  return ActualAdminDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminCategoryManagementDomainServiceProvider =
+    Provider<AdminCategoryManagementDomainService>((ref) {
+  return AdminCategoryManagementDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminBannerManagementDomainServiceProvider =
+    Provider<AdminBannerManagementDomainService>((ref) {
+  return AdminBannerManagementDomainService(ref.watch(firestoreServiceProvider));
+});
+
+final adminCampaignManagementDomainServiceProvider =
+    Provider<AdminCampaignManagementDomainService>((ref) {
+  return AdminCampaignManagementDomainService(ref.watch(firestoreServiceProvider));
 });
 
 final trendingProductsProvider = StreamProvider<List<ProductModel>>((ref) {
@@ -109,12 +159,6 @@ final categoriesProvider = StreamProvider<List<CategoryModel>>((ref) {
   return ref.watch(firestoreServiceProvider).getCategories();
 });
 
-/// @deprecated Use [allStoresStreamProvider] or [activeStoresProvider] instead.
-final storesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getStores();
-});
-
 // Product by ID (stream version)
 final productByIdProvider = StreamProvider.family<ProductModel?, String>((ref, productId) {
   if (!ref.watch(firebaseInitializedProvider) || productId.isEmpty) return Stream.value(null);
@@ -142,13 +186,13 @@ final latestPricesProvider = StreamProvider<List<PriceModel>>((ref) {
 // Reports (for admin panel)
 final reportsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getReports();
+  return ref.watch(adminModerationDomainServiceProvider).getReports();
 });
 
 // Maintenance mode
 final maintenanceModeProvider = StreamProvider<bool>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value(false);
-  return ref.watch(firestoreServiceProvider).getMaintenanceMode();
+  return ref.watch(adminModerationDomainServiceProvider).getMaintenanceMode();
 });
 
 // =========================================================================
@@ -157,37 +201,37 @@ final maintenanceModeProvider = StreamProvider<bool>((ref) {
 
 final allBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getAllBrands();
+  return ref.watch(brandDomainServiceProvider).getAllBrands();
 });
 
 final activeBrandsProvider = StreamProvider<List<BrandModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActiveBrands();
+  return ref.watch(brandDomainServiceProvider).getActiveBrands();
 });
 
 // =========================================================================
-// STORES (Subeler)
+// STORES (Şubeler)
 // =========================================================================
 
 final allStoresStreamProvider = StreamProvider<List<StoreModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getAllStoresStream();
+  return ref.watch(storeDomainServiceProvider).getAllStoresStream();
 });
 
 final activeStoresProvider = StreamProvider<List<StoreModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getActiveStores();
+  return ref.watch(storeDomainServiceProvider).getActiveStores();
 });
 
 
 final nearbyStoresProvider = StreamProvider<List<StoreModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getNearbyActiveStoresStream();
+  return ref.watch(storeDomainServiceProvider).getNearbyActiveStoresStream();
 });
 
 final onlineStoresProvider = StreamProvider<List<StoreModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getOnlineActiveStoresStream();
+  return ref.watch(storeDomainServiceProvider).getOnlineActiveStoresStream();
 });
 
 final pendingStoreSuggestionsProvider =
@@ -200,7 +244,7 @@ final pendingStoreSuggestionsProvider =
 final pendingProductSuggestionsProvider =
     StreamProvider<List<ProductSuggestionModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getPendingProductSuggestions();
+  return ref.watch(productSuggestionDomainServiceProvider).getPendingProductSuggestions();
 });
 
 

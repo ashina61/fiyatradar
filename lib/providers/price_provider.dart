@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'firebase_init_provider.dart';
 import '../models/price_model.dart';
 import '../services/firestore_service.dart';
@@ -8,7 +9,11 @@ import '../services/location_service.dart';
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import 'auth_provider.dart';
-import 'product_provider.dart';
+
+// Eğer sende zaten varsa, bunu kaldırma. Burada yoksa ekliyoruz.
+final firestoreServiceProvider = Provider<FirestoreService>((ref) {
+  return FirestoreService();
+});
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
@@ -60,13 +65,13 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final currentUser = _authService.currentUser;
       if (currentUser == null) {
-        throw Exception('Kullanici oturumu bulunamadi');
+        throw Exception('Kullanıcı oturumu bulunamadı');
       }
 
       final userModel = await _authService.getUserModel(currentUser.uid);
       final locationData = await _locationService.getLocationData();
 
-      // Create price ID first
+      // Create price ID first (sadece görsel upload path vs için)
       final priceId = DateTime.now().millisecondsSinceEpoch.toString();
 
       // Upload images if any
@@ -91,15 +96,29 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         geoPoint: locationData?.geoPoint,
         images: imageUrls,
         reportedAt: DateTime.now(),
+
+        // Pending / verify alanları sende var
         isPending: true,
+
+        // Snapshot alanları
         addedByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        addedByLevelSnapshot: ((userModel?.points ?? 0) >= 5000) ? 'Elmas' : (((userModel?.points ?? 0) >= 2000) ? 'Gümüş' : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
+        addedByLevelSnapshot: ((userModel?.points ?? 0) >= 5000)
+            ? 'Elmas'
+            : (((userModel?.points ?? 0) >= 2000)
+                ? 'Gümüş'
+                : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
         addedByVerifiedBadge: (userModel?.points ?? 0) >= 5000,
+
         createdByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        createdByBadgeSnapshot: ((userModel?.points ?? 0) >= 5000) ? 'Elmas' : (((userModel?.points ?? 0) >= 2000) ? 'Gümüş' : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
+        createdByBadgeSnapshot: ((userModel?.points ?? 0) >= 5000)
+            ? 'Elmas'
+            : (((userModel?.points ?? 0) >= 2000)
+                ? 'Gümüş'
+                : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
         createdByVerifiedSnapshot: (userModel?.points ?? 0) >= 5000,
       );
 
+      // ✅ Asıl kritik fix: FirestoreService artık status/createdAt’i garanti ediyor
       await _firestoreService.addPriceReport(priceModel);
 
       // Update user stats
@@ -121,7 +140,6 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> verifyPrice(String priceId, bool isVerified) async {
     final currentUser = _authService.currentUser;
     if (currentUser == null) return;
-
     await _firestoreService.verifyPrice(priceId, currentUser.uid, isVerified);
   }
 
@@ -144,7 +162,6 @@ final priceNotifierProvider =
   );
 });
 
-// Location state
 final currentLocationProvider = FutureProvider<LocationData?>((ref) async {
   return ref.watch(locationServiceProvider).getLocationData();
 });

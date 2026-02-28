@@ -23,6 +23,17 @@ import '../utils/safe_query_builder.dart';
 import '../services/storage_service.dart';
 import '../utils/elite_level_engine.dart';
 import 'points_service.dart';
+import 'comment_service.dart';
+import 'notification_service.dart';
+import 'banner_service.dart';
+import 'user_admin_service.dart';
+import 'product_engagement_service.dart';
+import 'product_catalog_service.dart';
+import 'campaign_service.dart';
+import 'search_history_service.dart';
+import 'saved_product_service.dart';
+import 'category_service.dart';
+import 'basket_data_service.dart';
 
 class DuplicatePriceException implements Exception {
   const DuplicatePriceException(this.message);
@@ -72,6 +83,25 @@ class PriceStatusMigrationResult {
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final PointsService _pointsService = PointsService();
+  late final CommentService _commentService =
+      CommentService(firestore: _firestore, pointsService: _pointsService);
+  late final NotificationService _notificationService =
+      NotificationService(firestore: _firestore);
+  late final BannerService _bannerService = BannerService(firestore: _firestore);
+  late final UserAdminService _userAdminService =
+      UserAdminService(firestore: _firestore, pointsService: _pointsService);
+  late final ProductEngagementService _productEngagementService =
+      ProductEngagementService(firestore: _firestore);
+  late final ProductCatalogService _productCatalogService =
+      ProductCatalogService(firestore: _firestore);
+  late final CampaignService _campaignService = CampaignService(firestore: _firestore);
+  late final SearchHistoryService _searchHistoryService =
+      SearchHistoryService(firestore: _firestore);
+  late final SavedProductService _savedProductService =
+      SavedProductService(firestore: _firestore);
+  late final CategoryService _categoryService = CategoryService(firestore: _firestore);
+  late final BasketDataService _basketDataService =
+      BasketDataService(firestore: _firestore);
   final Set<String> _offFetchInFlight = <String>{};
 
   void _logFirestoreQueryError(
@@ -157,7 +187,7 @@ class FirestoreService {
   }
 
   // =========================================================================
-  // STORES (Subeler)
+  // STORES (Şubeler)
   // =========================================================================
 
   Stream<List<StoreModel>> getAllStoresStream() {
@@ -188,11 +218,11 @@ class FirestoreService {
     return _storesRef
         .snapshots()
         .handleError((error, stackTrace) {
-      debugPrint('[AddPrice] nearby branch query error: $error');
+      if (kDebugMode) debugPrint('[AddPrice] nearby branch query error: $error');
       if (error is FirebaseException) {
-        debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
+        if (kDebugMode) debugPrint('[AddPrice] nearby branch Firestore message: ${error.message}');
       }
-      if (stackTrace is StackTrace) {
+      if (stackTrace is StackTrace && kDebugMode) {
         debugPrintStack(stackTrace: stackTrace);
       }
     })
@@ -210,11 +240,11 @@ class FirestoreService {
     return _storesRef
         .snapshots()
         .handleError((error, stackTrace) {
-      debugPrint('[AddPrice] online branch query error: $error');
+      if (kDebugMode) debugPrint('[AddPrice] online branch query error: $error');
       if (error is FirebaseException) {
-        debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
+        if (kDebugMode) debugPrint('[AddPrice] online branch Firestore message: ${error.message}');
       }
-      if (stackTrace is StackTrace) {
+      if (stackTrace is StackTrace && kDebugMode) {
         debugPrintStack(stackTrace: stackTrace);
       }
     })
@@ -412,15 +442,7 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
-    return _productsRef
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => ProductModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
-          return list.take(limit).toList();
-        });
+    return _productCatalogService.getTrendingProducts(limit: limit);
   }
 
   // Maintenance mode
@@ -441,15 +463,7 @@ class FirestoreService {
   }
 
   Stream<List<ProductModel>> getRecommendedProducts({int limit = 10}) {
-    return _productsRef
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => ProductModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-          return list.take(limit).toList();
-        });
+    return _productCatalogService.getRecommendedProducts(limit: limit);
   }
 
   Stream<List<ProductModel>> getAllProducts() {
@@ -520,7 +534,7 @@ class FirestoreService {
 
       return products.take(limit).toList();
     } catch (e) {
-      debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
+      if (kDebugMode) debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
       return const []; 
     }
   }
@@ -602,88 +616,36 @@ class FirestoreService {
 
 
   Future<List<ProductModel>> getProductsByIds(List<String> productIds) async {
-    if (productIds.isEmpty) return const [];
-
-    final uniqueIds = productIds.toSet().toList();
-    final futures = uniqueIds.map((id) => _productsRef.doc(id).get());
-    final docs = await Future.wait(futures);
-    final productMap = <String, ProductModel>{};
-    for (final doc in docs) {
-      if (!doc.exists) continue;
-      final model = ProductModel.fromFirestore(doc);
-      productMap[model.id] = model;
-    }
-
-    return uniqueIds.where(productMap.containsKey).map((id) => productMap[id]!).toList();
+    return _productCatalogService.getProductsByIds(productIds);
   }
 
   Future<List<String>> getCampaignProductIdsForBanner(String bannerId) async {
-    final sub = await _bannersRef.doc(bannerId).collection('campaignProducts').get();
-    return sub.docs
-        .map((doc) => (doc.data()['productId'] ?? doc.id).toString())
-        .where((id) => id.trim().isNotEmpty)
-        .toList();
+    return _campaignService.getCampaignProductIdsForBanner(bannerId);
   }
 
 
   Future<CampaignBasketModel?> getCampaignById(String id) async {
-    if (id.trim().isEmpty) return null;
-    final doc = await _campaignBasketsRef.doc(id).get();
-    if (!doc.exists) return null;
-    return CampaignBasketModel.fromFirestore(doc);
+    return _campaignService.getCampaignById(id);
   }
 
   Stream<List<CampaignBasketModel>> getAllCampaigns() {
-    return _campaignBasketsRef.snapshots().map((snapshot) {
-      final list = snapshot.docs
-          .map((doc) => CampaignBasketModel.fromFirestore(doc))
-          .toList();
-      list.sort((a, b) {
-        final aOrder = a.sortOrder ?? 999999;
-        final bOrder = b.sortOrder ?? 999999;
-        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-        return b.createdAt.compareTo(a.createdAt);
-      });
-      return list;
-    });
+    return _campaignService.getAllCampaigns();
   }
 
   Stream<List<CampaignBasketModel>> getActiveCampaigns() {
-    final query = SafeQueryBuilder.safeWhere(_campaignBasketsRef, 'isActive', true, expectedType: bool);
-    return query
-        .snapshots()
-        .map((snapshot) {
-      final list = snapshot.docs
-          .map((doc) => CampaignBasketModel.fromFirestore(doc))
-          .toList();
-      list.sort((a, b) {
-        final aOrder = a.sortOrder ?? 999999;
-        final bOrder = b.sortOrder ?? 999999;
-        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-        return b.createdAt.compareTo(a.createdAt);
-      });
-      return list;
-    });
+    return _campaignService.getActiveCampaigns();
   }
 
   Future<String> addCampaign(CampaignBasketModel campaign) async {
-    final doc = await _campaignBasketsRef.add({
-      ...campaign.toFirestore(),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    return doc.id;
+    return _campaignService.addCampaign(campaign);
   }
 
   Future<void> updateCampaign(String id, Map<String, dynamic> data) async {
-    await _campaignBasketsRef.doc(id).update({
-      ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    return _campaignService.updateCampaign(id, data);
   }
 
   Future<void> deleteCampaign(String id) async {
-    await _campaignBasketsRef.doc(id).delete();
+    return _campaignService.deleteCampaign(id);
   }
 
   @Deprecated('Use getCampaignById')
@@ -701,22 +663,19 @@ class FirestoreService {
 
 
   Future<void> incrementViewCount(String productId) async {
-    await _productsRef.doc(productId).update({
-      'viewCount': FieldValue.increment(1),
-    });
+    return _productEngagementService.incrementViewCount(productId);
   }
 
   Future<String> addProduct(ProductModel product) async {
-    final doc = await _productsRef.add(product.toFirestore());
-    return doc.id;
+    return _productCatalogService.addProduct(product);
   }
 
   Future<void> updateProduct(String productId, Map<String, dynamic> data) async {
-    await _productsRef.doc(productId).update(data);
+    return _productCatalogService.updateProduct(productId, data);
   }
 
   Future<void> deleteProduct(String productId) async {
-    await _productsRef.doc(productId).delete();
+    return _productCatalogService.deleteProduct(productId);
   }
 
   // =========================================================================
@@ -809,6 +768,13 @@ class FirestoreService {
   }
 
   Future<String> addPriceReport(PriceModel price) async {
+    if (price.productId.trim().isEmpty) {
+      throw Exception('productId zorunludur.');
+    }
+    if (price.userId.trim().isEmpty) {
+      throw Exception('reporterUid zorunludur.');
+    }
+
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
@@ -821,45 +787,66 @@ class FirestoreService {
     );
     final dayKey = _priceDayKey(price.reportedAt);
 
+    final reporterUid = (price.reporterUid ?? price.userId).trim();
+    final reporterNameRaw = (price.reporterName ?? price.userName ?? '').trim();
+    final reporterName = reporterNameRaw.isEmpty ? 'Kullanıcı' : reporterNameRaw;
+
     final priceRef = _pricesRef.doc();
-    final priceEntryRef = _firestore.collection('price_entries').doc(priceRef.id);
     final dedupeRef = _priceDedupeRef.doc(dedupeKey);
+    final productMirrorRef = _productsRef
+        .doc(price.productId)
+        .collection('priceReports')
+        .doc(priceRef.id);
 
     await _firestore.runTransaction((txn) async {
       final dedupeDoc = await txn.get(dedupeRef);
       if (dedupeDoc.exists) {
         throw const DuplicatePriceException('Aynı fiyat zaten girilmiş.');
       }
-      final payload = price.copyWith(id: priceRef.id, dedupeKey: dedupeKey).toFirestore();
-      payload['createdByUid'] = price.userId;
-      payload['dedupeKey'] = dedupeKey;
+
+      final payload = price
+          .copyWith(
+            id: priceRef.id,
+            dedupeKey: dedupeKey,
+            userId: reporterUid,
+            createdByUid: reporterUid,
+            reporterUid: reporterUid,
+            reporterName: reporterName,
+            userName: reporterName,
+          )
+          .toFirestore();
+
       payload['id'] = priceRef.id;
-      payload['verificationStatus'] = payload['verificationStatus'] ?? 'unverified';
+      payload['productId'] = price.productId;
+      payload['productName'] =
+          ((price.productName ?? '').trim().isNotEmpty ? price.productName!.trim() : (productData?['name'] ?? ''));
+      payload['categoryId'] = (price.selectedCategoryId ?? '').trim();
+      payload['storeId'] = price.branchStoreId;
+      payload['storeName'] = (price.storeName ?? '').trim();
+      payload['price'] = price.price;
+      payload['reporterUid'] = reporterUid;
+      payload['createdByUid'] = reporterUid;
+      payload['reporterName'] = reporterName;
+      payload['reporterIsAnonymous'] = price.reporterIsAnonymous;
+      payload['createdAt'] = FieldValue.serverTimestamp();
+      payload['reportedAt'] = Timestamp.fromDate(price.reportedAt);
+      payload['status'] = 'active';
+      payload['isPending'] = price.isPending;
+      payload['verificationStatus'] = 'unverified';
+      payload['dedupeKey'] = dedupeKey;
+      payload['branchStoreId'] = price.branchStoreId;
+      payload['branchId'] = price.branchStoreId;
+      payload['userId'] = reporterUid;
+      payload['userName'] = reporterName;
+
       txn.set(priceRef, payload);
-      txn.set(priceEntryRef, {
-        'productId': price.productId,
-        'storeId': price.chainId,
-        'branchId': price.branchStoreId,
-        'price': price.price,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdByUid': price.userId,
-        'createdByName': price.userName,
-        'createdByTrustScore': price.addedByTrustScoreSnapshot,
-        'status': 'active',
-        'verification': {
-          'upCount': 0,
-          'downCount': 0,
-          'score': 0,
-          'userVotes': <String, String>{},
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      });
+      txn.set(productMirrorRef, payload);
       txn.set(dedupeRef, {
         'productId': price.productId,
         'branchStoreId': price.branchStoreId,
         'price': price.price,
         'day': dayKey,
-        'createdByUid': price.userId,
+        'createdByUid': reporterUid,
         'priceReportId': priceRef.id,
         'dedupeKey': dedupeKey,
         'createdAt': FieldValue.serverTimestamp(),
@@ -876,8 +863,8 @@ class FirestoreService {
     try {
       notificationCount = await _createFollowerNotifications(
         productId: price.productId,
-        priceReporterId: price.userId,
-        productName: productData?['name']?.toString() ?? price.productName ?? 'Urun',
+        priceReporterId: reporterUid,
+        productName: productData?['name']?.toString() ?? price.productName ?? 'Ürün',
         oldPrice: oldPrice,
         newPrice: price.price,
         storeName: price.storeName,
@@ -888,11 +875,15 @@ class FirestoreService {
       _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
     }
 
-    print('[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi');
+    if (kDebugMode) {
+      debugPrint(
+        '[Notifications] Product ${price.productId}: $notificationCount bildirim yazildi',
+      );
+    }
 
     try {
       await _pointsService.awardEvent(
-        uid: price.userId,
+        uid: reporterUid,
         eventType: 'price_add',
         meta: {
           'productId': price.productId,
@@ -901,7 +892,7 @@ class FirestoreService {
           'priceEntryId': priceRef.id,
         },
       );
-      await _pointsService.markReferralFirstContribution(price.userId);
+      await _pointsService.markReferralFirstContribution(reporterUid);
     } catch (e, st) {
       _logFirestoreQueryError('addPriceReport/pointsAward', e, st);
     }
@@ -931,7 +922,7 @@ class FirestoreService {
     final followedSnapshot = await SafeQueryBuilder.safeWhere(
       _firestore.collectionGroup('followedProducts'),
       FieldPath.documentId,
-      productId.trim(), // Query argumanini primitive + trim'li gonder.
+      productId.trim(), // Query argümanını primitive + trim'li gönder.
       expectedType: String,
     ).get();
 
@@ -1272,7 +1263,7 @@ class FirestoreService {
             ensureUniqueByMeta: true,
           );
         } catch (e) {
-          debugPrint('voteOnPrice points award failed: $e');
+          if (kDebugMode) debugPrint('voteOnPrice points award failed: $e');
         }
       }
 
@@ -1294,9 +1285,11 @@ class FirestoreService {
 
   Future<PriceVoteResult> verifyPrice(String priceId, String voterId, bool isVerified) async {
     try {
-      debugPrint(
-        '[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[FirestoreService.verifyPrice] Firestore query => collection=priceReports, where=[documentId == $priceId], orderBy=[]',
+        );
+      }
       final priceSnap = await _pricesRef.doc(priceId).get();
       final data = priceSnap.data() ?? const <String, dynamic>{};
       final ownerUid = ((data['createdByUid'] ?? data['userId']) ?? '').toString();
@@ -1311,11 +1304,13 @@ class FirestoreService {
         voterUid: voterId,
       );
     } catch (e, st) {
-      debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
-      debugPrintStack(
-        stackTrace: st,
-        label: '[FirestoreService.verifyPrice] STACK',
-      );
+      if (kDebugMode) debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
+      if (kDebugMode) {
+        debugPrintStack(
+          stackTrace: st,
+          label: '[FirestoreService.verifyPrice] STACK',
+        );
+      }
       rethrow;
     }
   }
@@ -1423,52 +1418,19 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<CommentModel>> getComments(String productId) {
-    final query = SafeQueryBuilder.safeWhere(_commentsRef, 'productId', productId, expectedType: String);
-    return query
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => CommentModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
-        });
+    return _commentService.getComments(productId);
   }
 
   Future<String> addComment(CommentModel comment) async {
-    final doc = await _commentsRef.add(comment.toFirestore());
-    if (comment.text.trim().length >= 12) {
-      await _pointsService.awardEvent(
-        uid: comment.userId,
-        eventType: 'comment',
-        meta: {'commentId': doc.id, 'productId': comment.productId},
-      );
-    }
-    return doc.id;
+    return _commentService.addComment(comment);
   }
 
   Future<void> likeComment(String commentId, String userId) async {
-    final doc = await _commentsRef.doc(commentId).get();
-    if (doc.exists) {
-      final raw = doc.data();
-      final data = raw is Map<String, dynamic>
-          ? Map<String, dynamic>.from(raw)
-          : null;
-      final likedBy = List<String>.from(data?['likedBy'] ?? []);
-      if (likedBy.contains(userId)) {
-        likedBy.remove(userId);
-      } else {
-        likedBy.add(userId);
-      }
-      await _commentsRef.doc(commentId).update({
-        'likedBy': likedBy,
-        'likes': likedBy.length,
-      });
-    }
+    return _commentService.likeComment(commentId, userId);
   }
 
   Future<void> deleteComment(String commentId) async {
-    await _commentsRef.doc(commentId).delete();
+    return _commentService.deleteComment(commentId);
   }
 
   // =========================================================================
@@ -1476,88 +1438,27 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<NotificationModel>> getNotifications(String userId) {
-    final primary = SafeQueryBuilder.safeWhere(
-      _notificationsRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).snapshots();
-    final legacy = SafeQueryBuilder.safeWhere(
-      _legacyNotificationsRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).snapshots();
-
-    return primary.asyncMap((primarySnapshot) async {
-      final legacySnapshot = await legacy.first;
-      final merged = <NotificationModel>[
-        ...primarySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),
-        ...legacySnapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)),
-      ];
-
-      final byId = <String, NotificationModel>{};
-      for (final notification in merged) {
-        byId[notification.id] = notification;
-      }
-      final list = byId.values.toList();
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list;
-    });
+    return _notificationService.getNotifications(userId);
   }
 
   Stream<int> getUnreadNotificationCount(String userId) {
-    return getNotifications(userId).map(
-      (list) => list.where((item) => !item.isRead).length,
-    );
+    return _notificationService.getUnreadNotificationCount(userId);
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
-    final doc = await _notificationsRef.doc(notificationId).get();
-    if (doc.exists) {
-      await _notificationsRef.doc(notificationId).update({'isRead': true});
-      return;
-    }
-
-    final legacyDoc = await _legacyNotificationsRef.doc(notificationId).get();
-    if (legacyDoc.exists) {
-      await _legacyNotificationsRef.doc(notificationId).update({'isRead': true});
-    }
+    return _notificationService.markNotificationAsRead(notificationId);
   }
 
   Future<void> markAllNotificationsAsRead(String userId) async {
-    final batch = _firestore.batch();
-    final primarySnapshot = await SafeQueryBuilder.safeWhere(
-      _notificationsRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).get();
-    final legacySnapshot = await SafeQueryBuilder.safeWhere(
-      _legacyNotificationsRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).get();
-
-    for (final doc in [...primarySnapshot.docs, ...legacySnapshot.docs]) {
-      final raw = doc.data();
-      final map = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-      final isRead = map['isRead'] == true;
-      if (!isRead) {
-        batch.update(doc.reference, {'isRead': true});
-      }
-    }
-
-    await batch.commit();
+    return _notificationService.markAllNotificationsAsRead(userId);
   }
 
   Future<void> addNotification(NotificationModel notification) async {
-    await _notificationsRef.add(notification.toFirestore());
+    return _notificationService.addNotification(notification);
   }
 
   Future<void> deleteNotification(String notificationId) async {
-    await _notificationsRef.doc(notificationId).delete();
+    return _notificationService.deleteNotification(notificationId);
   }
 
   // =========================================================================
@@ -1565,42 +1466,23 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<BannerModel>> getActiveBanners() {
-    final query = SafeQueryBuilder.safeWhere(_bannersRef, 'isActive', true, expectedType: bool);
-    return query
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => BannerModel.fromFirestore(doc))
-              .where((banner) => banner.shouldShow)
-              .toList();
-          list.sort((a, b) => a.order.compareTo(b.order));
-          return list;
-        });
+    return _bannerService.getActiveBanners();
   }
 
   Stream<List<BannerModel>> getAllBanners() {
-    return _bannersRef
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => BannerModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => a.order.compareTo(b.order));
-          return list;
-        });
+    return _bannerService.getAllBanners();
   }
 
   Future<String> addBanner(BannerModel banner) async {
-    final doc = await _bannersRef.add(banner.toFirestore());
-    return doc.id;
+    return _bannerService.addBanner(banner);
   }
 
   Future<void> updateBanner(String bannerId, Map<String, dynamic> data) async {
-    await _bannersRef.doc(bannerId).update(data);
+    return _bannerService.updateBanner(bannerId, data);
   }
 
   Future<void> deleteBanner(String bannerId) async {
-    await _bannersRef.doc(bannerId).delete();
+    return _bannerService.deleteBanner(bannerId);
   }
 
   // =========================================================================
@@ -1608,38 +1490,23 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<UserModel>> getAllUsers() {
-    return _usersRef
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => UserModel.fromFirestore(doc))
-              .toList();
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
-        });
+    return _userAdminService.getAllUsers();
   }
 
   Future<void> updateUserAdmin(String userId, bool isAdmin) async {
-    await _usersRef.doc(userId).update({
-      'isAdmin': isAdmin,
-    });
+    return _userAdminService.updateUserAdmin(userId, isAdmin);
   }
 
   Future<void> updateUserFcmToken(String userId, String token) async {
-    await _usersRef.doc(userId).update({
-      'fcmToken': token,
-      'fcmUpdatedAt': FieldValue.serverTimestamp(),
-    });
+    return _userAdminService.updateUserFcmToken(userId, token);
   }
 
   Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
-    await _usersRef.doc(userId).update(data);
+    return _userAdminService.updateUserProfile(userId, data);
   }
 
   Future<UserModel?> getUserById(String userId) async {
-    final doc = await _usersRef.doc(userId).get();
-    if (!doc.exists) return null;
-    return UserModel.fromFirestore(doc);
+    return _userAdminService.getUserById(userId);
   }
 
 
@@ -1822,12 +1689,12 @@ class FirestoreService {
 
     return _usersRef.doc(uid).snapshots().map((doc) {
       final data = doc.data() ?? <String, dynamic>{};
-      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
-      final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
-      final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
-      final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
-      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final trustMap = _asStringDynamicMap(data['trust']);
+      final trustPercent = (_toIntSafe(data['trustScorePercent']) ?? _toIntSafe(data['reliabilityScore']) ?? 0).clamp(0, 100);
+      final upTotal = _toIntSafe(data['trustVerifiedTotal']) ?? _toIntSafe(trustMap['upTotal']) ?? 0;
+      final downTotal = _toIntSafe(data['trustWrongTotal']) ?? _toIntSafe(trustMap['downTotal']) ?? 0;
+      final totalVotes = _toIntSafe(data['trustTotalVotes']) ?? (upTotal + downTotal);
+      final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
       final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
       return {
         'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
@@ -1852,12 +1719,12 @@ class FirestoreService {
 
     final doc = await _usersRef.doc(uid).get();
     final data = doc.data() ?? <String, dynamic>{};
-    final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-    final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
-    final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
-    final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
-    final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
-    final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+    final trustMap = _asStringDynamicMap(data['trust']);
+    final trustPercent = (_toIntSafe(data['trustScorePercent']) ?? _toIntSafe(data['reliabilityScore']) ?? 0).clamp(0, 100);
+    final upTotal = _toIntSafe(data['trustVerifiedTotal']) ?? _toIntSafe(trustMap['upTotal']) ?? 0;
+    final downTotal = _toIntSafe(data['trustWrongTotal']) ?? _toIntSafe(trustMap['downTotal']) ?? 0;
+    final totalVotes = _toIntSafe(data['trustTotalVotes']) ?? (upTotal + downTotal);
+    final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
     final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
 
     return {
@@ -1868,6 +1735,21 @@ class FirestoreService {
       'upTotal': upTotal,
       'downTotal': downTotal,
     };
+  }
+
+  Map<String, dynamic> _asStringDynamicMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, val) => MapEntry(key.toString(), val));
+    }
+    return const <String, dynamic>{};
+  }
+
+  int? _toIntSafe(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   Future<void> softDeletePrice({required String priceId, required String deletedByUid}) async {
@@ -1926,15 +1808,7 @@ class FirestoreService {
   }
 
   Future<void> updateUserByAdmin(String userId, Map<String, dynamic> data) async {
-    await _usersRef.doc(userId).set(data, SetOptions(merge: true));
-
-    final hasPointsUpdate = data.containsKey('totalPoints') ||
-        data.containsKey('pointsTotal') ||
-        data.containsKey('points');
-    final hasRoleUpdate = data.containsKey('role') || data.containsKey('isAdmin');
-    if (hasPointsUpdate || hasRoleUpdate) {
-      await _pointsService.recomputeUserGamification(userId);
-    }
+    return _userAdminService.updateUserByAdmin(userId, data);
   }
 
   Future<void> setUserBanStatusByAdmin({
@@ -1943,17 +1817,16 @@ class FirestoreService {
     String? reason,
     String? adminUid,
   }) async {
-    await _usersRef.doc(userId).set({
-      'isBanned': isBanned,
-      'banReason': isBanned ? (reason ?? 'Admin işlemi') : FieldValue.delete(),
-      'bannedAt': isBanned ? FieldValue.serverTimestamp() : FieldValue.delete(),
-      'bannedByUid': isBanned ? (adminUid ?? '') : FieldValue.delete(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    return _userAdminService.setUserBanStatusByAdmin(
+      userId: userId,
+      isBanned: isBanned,
+      reason: reason,
+      adminUid: adminUid,
+    );
   }
 
   Future<void> deleteUserByAdmin(String userId) async {
-    await _usersRef.doc(userId).delete();
+    return _userAdminService.deleteUserByAdmin(userId);
   }
 
   Future<void> registerProductShare({
@@ -1961,18 +1834,11 @@ class FirestoreService {
     String? uid,
     Map<String, dynamic>? payload,
   }) async {
-    final shareRef = _firestore.collection('product_shares').doc();
-    await shareRef.set({
-      'productId': productId,
-      'uid': uid,
-      'createdAt': FieldValue.serverTimestamp(),
-      ...?payload,
-    });
-
-    await _productsRef.doc(productId).set({
-      'shareCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    return _productEngagementService.registerProductShare(
+      productId: productId,
+      uid: uid,
+      payload: payload,
+    );
   }
 
   // =========================================================================
@@ -1980,37 +1846,15 @@ class FirestoreService {
   // =========================================================================
 
   Future<void> saveSearchHistory(String userId, String query) async {
-    final doc = _usersRef.doc(userId).collection('searchHistory').doc();
-    await doc.set({
-      'query': query,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    return _searchHistoryService.saveSearchHistory(userId, query);
   }
 
   Stream<List<String>> getSearchHistory(String userId, {int limit = 10}) {
-    return _usersRef
-        .doc(userId)
-        .collection('searchHistory')
-        .snapshots()
-        .map((snapshot) {
-          final docs = snapshot.docs.toList();
-          docs.sort((a, b) {
-            final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-            final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-            return bTime.compareTo(aTime);
-          });
-          return docs.take(limit).map((doc) => doc.data()['query'] as String).toList();
-        });
+    return _searchHistoryService.getSearchHistory(userId, limit: limit);
   }
 
   Future<void> clearSearchHistory(String userId) async {
-    final batch = _firestore.batch();
-    final snapshot =
-        await _usersRef.doc(userId).collection('searchHistory').get();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
+    return _searchHistoryService.clearSearchHistory(userId);
   }
 
   // =========================================================================
@@ -2018,24 +1862,7 @@ class FirestoreService {
   // =========================================================================
 
   Stream<List<ProductModel>> getSavedProducts(List<String> productIds) {
-    if (productIds.isEmpty) {
-      return Stream.value([]);
-    }
-
-    final uniqueIds = productIds.toSet().toList();
-    return _productsRef.snapshots().map((snapshot) {
-      final productMap = <String, ProductModel>{};
-      for (final doc in snapshot.docs) {
-        final product = ProductModel.fromFirestore(doc);
-        if (uniqueIds.contains(product.id)) {
-          productMap[product.id] = product;
-        }
-      }
-      return uniqueIds
-          .where(productMap.containsKey)
-          .map((id) => productMap[id]!)
-          .toList();
-    });
+    return _savedProductService.getSavedProducts(productIds);
   }
 
 
@@ -2043,26 +1870,8 @@ class FirestoreService {
   // CATEGORIES
   // =========================================================================
 
-  CollectionReference get _categoriesRef => _firestore.collection('categories');
-
   Stream<List<CategoryModel>> getCategories() {
-    return _categoriesRef.snapshots().map((snapshot) {
-      final list = snapshot.docs
-          .map(CategoryModel.fromFirestore)
-          .where((category) => category.isActive)
-          .toList();
-      list.sort((a, b) {
-        final aOrder = a.order;
-        final bOrder = b.order;
-        if (aOrder != null && bOrder != null) {
-          return aOrder.compareTo(bOrder);
-        }
-        if (aOrder != null) return -1;
-        if (bOrder != null) return 1;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
-      return list;
-    });
+    return _categoryService.getCategories();
   }
 
   Future<String> addCategory(
@@ -2073,79 +1882,30 @@ class FirestoreService {
     bool isActive = true,
     int? order,
   }) async {
-    final normalizedId = title
-        .trim()
-        .toLowerCase()
-        .replaceAll('ı', 'i')
-        .replaceAll('ğ', 'g')
-        .replaceAll('ü', 'u')
-        .replaceAll('ş', 's')
-        .replaceAll('ö', 'o')
-        .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    final doc = await _categoriesRef.add({
-      'id': normalizedId,
-      'title': title,
-      'isActive': isActive,
-      if (order != null) 'sort': order,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    return doc.id;
+    return _categoryService.addCategory(
+      title,
+      iconName,
+      imageUrl: imageUrl,
+      imagePath: imagePath,
+      isActive: isActive,
+      order: order,
+    );
   }
 
   Future<void> updateCategory(String categoryId, Map<String, dynamic> data) async {
-    final sanitized = Map<String, dynamic>.from(data)
-      ..remove('iconName')
-      ..remove('imageUrl')
-      ..remove('imagePath')
-      ..remove('name')
-      ..remove('order');
-    if (sanitized.containsKey('title') && sanitized['title'] is String) {
-      final title = (sanitized['title'] as String).trim();
-      sanitized['title'] = title;
-      sanitized['id'] = title
-          .toLowerCase()
-          .replaceAll('ı', 'i')
-          .replaceAll('ğ', 'g')
-          .replaceAll('ü', 'u')
-          .replaceAll('ş', 's')
-          .replaceAll('ö', 'o')
-          .replaceAll('ç', 'c')
-          .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-          .replaceAll(RegExp(r'^_+|_+$'), '');
-    }
-    if (sanitized.containsKey('sort') && sanitized['sort'] is! num) {
-      sanitized.remove('sort');
-    }
-    await _categoriesRef.doc(categoryId).update({
-      ...sanitized,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    return _categoryService.updateCategory(categoryId, data);
   }
 
   Future<void> deleteCategory(String categoryId) async {
-    await _categoriesRef.doc(categoryId).delete();
+    return _categoryService.deleteCategory(categoryId);
   }
 
   // =========================================================================
   // BASKET
   // =========================================================================
 
-  CollectionReference<Map<String, dynamic>> _basketRef(String userId) {
-    return _usersRef.doc(userId).collection('basketItems');
-  }
-
   Stream<List<Map<String, dynamic>>> getBasketItems(String userId) {
-    return _basketRef(userId).snapshots().map((snapshot) {
-      return snapshot.docs
-          .map((doc) => {
-                'id': doc.id,
-                ...doc.data(),
-              })
-          .toList();
-    });
+    return _basketDataService.getBasketItems(userId);
   }
 
   Future<void> upsertBasketItem({
@@ -2155,19 +1915,23 @@ class FirestoreService {
     double? lastKnownPrice,
     bool includeLastKnownPrice = false,
   }) async {
-    await _basketRef(userId).doc(productId).set({
-      'productId': productId,
-      'quantity': quantity,
-      'addedAt': FieldValue.serverTimestamp(),
-      if (includeLastKnownPrice) 'lastKnownPrice': lastKnownPrice,
-    }, SetOptions(merge: true));
+    await _basketDataService.upsertBasketItem(
+      userId: userId,
+      productId: productId,
+      quantity: quantity,
+      lastKnownPrice: lastKnownPrice,
+      includeLastKnownPrice: includeLastKnownPrice,
+    );
   }
 
   Future<void> removeBasketItem({
     required String userId,
     required String productId,
   }) async {
-    await _basketRef(userId).doc(productId).delete();
+    await _basketDataService.removeBasketItem(
+      userId: userId,
+      productId: productId,
+    );
   }
 
   // =========================================================================
@@ -2251,7 +2015,7 @@ class FirestoreService {
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {
-        debugPrint("FIRESTORE QUERY ERROR -> $e");
+        if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
       }
     }
     return results;
@@ -2274,7 +2038,7 @@ class FirestoreService {
         final snapshot = await query.get();
         results.addAll(snapshot.docs.map((doc) => PriceModel.fromFirestore(doc)));
       } catch (e) {
-        debugPrint("FIRESTORE QUERY ERROR -> $e");
+        if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
       }
     }
     return results;
