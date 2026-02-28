@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-// AYIRDIĞIMIZ DOSYALARI İÇERİ ALIYORUZ:
 import 'personal_info_screen.dart';
-// import 'security_screen.dart';       // Bunları oluşturdukça yorum satırından çıkarırsın
-// import 'notification_settings.dart'; // Bunları oluşturdukça yorum satırından çıkarırsın
-// import 'about_screen.dart';          // Bunları oluşturdukça yorum satırından çıkarırsın
+import 'security_screen.dart';       
+import 'notification_settings.dart'; 
+import 'about_screen.dart';          
 
 class FiyatRadarSettingsScreen extends StatelessWidget {
   const FiyatRadarSettingsScreen({super.key});
