@@ -50,7 +50,11 @@ class BasketService {
         continue;
       }
       final productId = price.productId;
-      final storeKey = price.storeId ?? price.storeName;
+      final storeId = price.storeId;
+      final storeName = price.storeName;
+      final storeKey = (storeId != null && storeId.isNotEmpty)
+          ? storeId
+          : (storeName ?? '');
       if (storeKey.isEmpty) continue;
       storeKeys.add(storeKey);
 
