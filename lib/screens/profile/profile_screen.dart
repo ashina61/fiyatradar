@@ -117,7 +117,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        _StatsRow(totalPoints: data.totalPoints),
+                        _StatsRow(totalPoints: data.totalPoints, cityRank: data.cityRank),
                         const SizedBox(height: 12),
                         _QuickActionsGrid(uid: uid),
                         const SizedBox(height: 16),
@@ -182,17 +182,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final resolvedLevel = hasMeaningfulSignals
         ? computedLevel
         : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: computedLevel);
+
     final resolvedLevelName = EliteLevelEngine.getLevelStyle(resolvedLevel).label;
+    final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
+    final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
     return _ProfileData(
-      displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+      displayName: (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? data['userName'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
+      cityRank: cityRank,
       levelName: resolvedLevelName,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
     );
+  }
+
+  Future<int?> _resolveCityRank({required String uid, required String cityName}) async {
+    if (cityName.isEmpty) return null;
+
+    final byCityName = await FirebaseFirestore.instance
+        .collection('users')
+        .where('cityName', isEqualTo: cityName)
+        .orderBy('totalPoints', descending: true)
+        .get();
+    final cityNameRank = _findRank(byCityName.docs, uid);
+    if (cityNameRank != null) return cityNameRank;
+
+    final byCity = await FirebaseFirestore.instance
+        .collection('users')
+        .where('city', isEqualTo: cityName)
+        .orderBy('totalPoints', descending: true)
+        .get();
+    return _findRank(byCity.docs, uid);
+  }
+
+  int? _findRank(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, String uid) {
+    for (var i = 0; i < docs.length; i++) {
+      if (docs[i].id == uid) return i + 1;
+    }
+    return null;
   }
 }
 
@@ -383,9 +413,10 @@ class _Avatar extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.totalPoints});
+  const _StatsRow({required this.totalPoints, required this.cityRank});
 
   final int totalPoints;
+  final int? cityRank;
 
   @override
   Widget build(BuildContext context) {
@@ -395,8 +426,8 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(value: '${(totalPoints / 1000).toStringAsFixed(1)}K', label: 'Radar Puanı'),
         ),
         const SizedBox(width: 12),
-        const Expanded(
-          child: _StatCard(value: '#42', label: 'Şehir Sırası'),
+        Expanded(
+          child: _StatCard(value: cityRank == null ? '-' : '#$cityRank', label: 'Şehir Sırası'),
         ),
       ],
     );
@@ -1339,6 +1370,7 @@ class _ProfileData {
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
+    required this.cityRank,
   });
 
   final String displayName;
@@ -1348,4 +1380,5 @@ class _ProfileData {
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;
+  final int? cityRank;
 }

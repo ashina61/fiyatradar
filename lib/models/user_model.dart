@@ -90,7 +90,7 @@ class UserModel {
     return UserModel(
       uid: doc.id,
       email: data['email'] ?? '',
-      name: data['name'] ?? '',
+      name: (data['name'] ?? data['displayName'] ?? '').toString(),
       photoUrl: data['photoUrl'],
       fcmToken: data['fcmToken'],
       inviteCode: data['inviteCode'],
@@ -141,6 +141,7 @@ class UserModel {
     return {
       'email': email,
       'name': name,
+      'displayName': name,
       'photoUrl': photoUrl,
       'fcmToken': fcmToken,
       'inviteCode': inviteCode,
@@ -287,7 +288,7 @@ class UserModel {
     return UserModel(
       uid: documentId,
       email: data['email'] ?? '',
-      name: data['name'] ?? '',
+      name: (data['name'] ?? data['displayName'] ?? '').toString(),
       photoUrl: data['photoUrl'],
       fcmToken: data['fcmToken'],
       inviteCode: data['inviteCode'],
