@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../providers/profile_provider.dart';
+import '../../utils/cities_tr.dart';
 
 class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -21,33 +22,21 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   final _nameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
+  final _districtCtrl = TextEditingController();
+  final _neighborhoodCtrl = TextEditingController();
   bool _isInit = false;
   bool _isSaving = false;
   String _city = 'İstanbul';
-  String _district = 'Kadıköy';
-  String _neighborhood = 'Cumhuriyet Mah.';
   String? _photoUrl;
 
-  final Map<String, Map<String, List<String>>> _locations = const {
-    'İstanbul': {
-      'Kadıköy': ['Cumhuriyet Mah.', 'Caferağa Mah.', 'Osmanağa Mah.'],
-      'Beşiktaş': ['Abbasağa Mah.', 'Levent Mah.', 'Vişnezade Mah.'],
-      'Üsküdar': ['Altunizade Mah.', 'Mimar Sinan Mah.', 'Acıbadem Mah.'],
-    },
-    'Ankara': {
-      'Çankaya': ['Kızılay Mah.', 'Bahçelievler Mah.', 'Ayrancı Mah.'],
-      'Keçiören': ['Etlik Mah.', 'Aşağı Eğlence Mah.', 'Bağlum Mah.'],
-    },
-    'İzmir': {
-      'Karşıyaka': ['Bostanlı Mah.', 'Mavişehir Mah.', 'Yalı Mah.'],
-      'Bornova': ['Kazımdirik Mah.', 'Erzene Mah.', 'Atatürk Mah.'],
-    },
-  };
+  List<String> get _cities => kCitiesTR.map((city) => city.name).toList(growable: false);
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
+    _districtCtrl.dispose();
+    _neighborhoodCtrl.dispose();
     super.dispose();
   }
 
@@ -76,13 +65,27 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   Future<void> _save(user) async {
     setState(() => _isSaving = true);
     final fullName = _nameCtrl.text.trim();
+    final district = _districtCtrl.text.trim();
+    final neighborhood = _neighborhoodCtrl.text.trim();
+    final selectedCity = kCitiesTR.where((city) => city.name == _city);
+    final cityCode = selectedCity.isEmpty ? null : selectedCity.first.code;
+
+    if (district.isEmpty || neighborhood.isEmpty) {
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İlçe ve mahalle alanları boş bırakılamaz.'), backgroundColor: Color(0xFFDC2626)),
+      );
+      return;
+    }
+
     final updatedUser = user.copyWith(
       name: fullName,
       username: _usernameCtrl.text.trim(),
+      cityCode: cityCode,
       city: _city,
       cityName: _city,
-      district: _district,
-      neighborhood: _neighborhood,
+      district: district,
+      neighborhood: neighborhood,
       photoUrl: _photoUrl,
     );
     final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
@@ -121,16 +124,14 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             _nameCtrl.text = user.name;
             _usernameCtrl.text = user.username ?? '';
             _city = (user.city ?? 'İstanbul');
-            _district = (user.district ?? _locations[_city]!.keys.first);
-            _neighborhood = user.neighborhood ?? _locations[_city]![_district]!.first;
+            if (!_cities.contains(_city)) {
+              _city = 'İstanbul';
+            }
+            _districtCtrl.text = user.district ?? '';
+            _neighborhoodCtrl.text = user.neighborhood ?? '';
             _photoUrl = user.photoUrl;
             _isInit = true;
           }
-
-          final cityDistricts = _locations[_city]!.keys.toList();
-          if (!cityDistricts.contains(_district)) _district = cityDistricts.first;
-          final districtNeighborhoods = _locations[_city]![_district]!;
-          if (!districtNeighborhoods.contains(_neighborhood)) _neighborhood = districtNeighborhoods.first;
 
           final initials = _nameCtrl.text.trim().isEmpty
               ? 'FR'
@@ -197,20 +198,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                 child: Text('KONUM (MARKET ÖNERİLERİ İÇİN)', style: TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w700)),
               ),
               _group([
-                _dropdown('İl', _city, _locations.keys.toList(), (value) {
-                  setState(() {
-                    _city = value;
-                    _district = _locations[_city]!.keys.first;
-                    _neighborhood = _locations[_city]![_district]!.first;
-                  });
-                }),
-                _dropdown('İlçe', _district, cityDistricts, (value) {
-                  setState(() {
-                    _district = value;
-                    _neighborhood = _locations[_city]![_district]!.first;
-                  });
-                }),
-                _dropdown('Mahalle', _neighborhood, districtNeighborhoods, (value) => setState(() => _neighborhood = value)),
+                _dropdown('İl', _city, _cities, (value) => setState(() => _city = value)),
+                _input(label: 'İlçe', controller: _districtCtrl),
+                _input(label: 'Mahalle', controller: _neighborhoodCtrl),
               ]),
               const SizedBox(height: 24),
               ElevatedButton(

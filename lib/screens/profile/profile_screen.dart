@@ -570,24 +570,6 @@ class _MenuSection extends ConsumerWidget {
         ],
         const SizedBox(height: 10),
         _MenuTile(
-          icon: Icons.help_outline_rounded,
-          title: 'Yardım ve SSS',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileHelpScreen()),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _MenuTile(
-          icon: Icons.info_outline_rounded,
-          title: 'Hakkında',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AboutScreen()),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _MenuTile(
           icon: Icons.logout_rounded,
           title: 'Çıkış Yap',
           textColor: Colors.red.shade400,
