@@ -1689,12 +1689,12 @@ class FirestoreService {
 
     return _usersRef.doc(uid).snapshots().map((doc) {
       final data = doc.data() ?? <String, dynamic>{};
-      final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-      final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
-      final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
-      final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
-      final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
-      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final trustMap = _asStringDynamicMap(data['trust']);
+      final trustPercent = (_toIntSafe(data['trustScorePercent']) ?? _toIntSafe(data['reliabilityScore']) ?? 0).clamp(0, 100);
+      final upTotal = _toIntSafe(data['trustVerifiedTotal']) ?? _toIntSafe(trustMap['upTotal']) ?? 0;
+      final downTotal = _toIntSafe(data['trustWrongTotal']) ?? _toIntSafe(trustMap['downTotal']) ?? 0;
+      final totalVotes = _toIntSafe(data['trustTotalVotes']) ?? (upTotal + downTotal);
+      final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
       final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
       return {
         'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
@@ -1719,12 +1719,12 @@ class FirestoreService {
 
     final doc = await _usersRef.doc(uid).get();
     final data = doc.data() ?? <String, dynamic>{};
-    final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
-    final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
-    final upTotal = (data['trustVerifiedTotal'] as num?)?.toInt() ?? (trustMap['upTotal'] as num?)?.toInt() ?? 0;
-    final downTotal = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
-    final totalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? (upTotal + downTotal);
-    final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+    final trustMap = _asStringDynamicMap(data['trust']);
+    final trustPercent = (_toIntSafe(data['trustScorePercent']) ?? _toIntSafe(data['reliabilityScore']) ?? 0).clamp(0, 100);
+    final upTotal = _toIntSafe(data['trustVerifiedTotal']) ?? _toIntSafe(trustMap['upTotal']) ?? 0;
+    final downTotal = _toIntSafe(data['trustWrongTotal']) ?? _toIntSafe(trustMap['downTotal']) ?? 0;
+    final totalVotes = _toIntSafe(data['trustTotalVotes']) ?? (upTotal + downTotal);
+    final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
     final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
 
     return {
@@ -1735,6 +1735,21 @@ class FirestoreService {
       'upTotal': upTotal,
       'downTotal': downTotal,
     };
+  }
+
+  Map<String, dynamic> _asStringDynamicMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, val) => MapEntry(key.toString(), val));
+    }
+    return const <String, dynamic>{};
+  }
+
+  int? _toIntSafe(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   Future<void> softDeletePrice({required String priceId, required String deletedByUid}) async {
