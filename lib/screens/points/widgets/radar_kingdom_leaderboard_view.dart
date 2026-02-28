@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../models/leaderboard_item.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/leaderboard_provider.dart';
+import '../../../utils/elite_level_engine.dart';
 
 class RadarKingdomLeaderboardView extends ConsumerStatefulWidget {
   const RadarKingdomLeaderboardView({super.key});
@@ -335,6 +336,11 @@ class _LeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final levelStyle = EliteLevelEngine.getLevelStyle(
+      EliteLevelEngine.parseLevelLabel(user.levelName),
+    );
+    final levelTextColor = user.isCurrentUser ? levelStyle.borderColor : levelStyle.textColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
@@ -362,7 +368,14 @@ class _LeaderRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(user.isCurrentUser ? '${user.item.name} (Sen)' : user.item.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF3A2B24))),
-                Text(user.levelName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: user.isCurrentUser ? const Color(0xFFAF6B3E) : const Color(0xFF8C7A6B))),
+                Text(
+                  user.levelName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: levelTextColor,
+                  ),
+                ),
               ],
             ),
           ),
@@ -386,11 +399,8 @@ class _RankedUser {
   }
 
   String get levelName {
-    if (item.monthlyPoints >= 25000) return 'Radar Efsanesi';
-    if (item.monthlyPoints >= 18000) return 'Fiyat Lordu';
-    if (item.monthlyPoints >= 10000) return 'Tasarrufçu';
-    if (item.monthlyPoints >= 5000) return 'Avcı';
-    return 'Gözlemci';
+    final finalLevel = EliteLevelEngine.getFinalLevel(item.monthlyPoints, item.trustScorePercent, item.trustTotalVotes);
+    return EliteLevelEngine.getLevelStyle(finalLevel).label;
   }
 }
 
