@@ -171,19 +171,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
-    final trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    Map<String, dynamic> trustProfile = const <String, dynamic>{};
+    try {
+      trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
+    } catch (_) {
+      trustProfile = const <String, dynamic>{};
+    }
     final totalPoints =
         (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
-    final backendLevelName = (data['levelName'] ?? data['tierName'] ?? data['eliteLevel'] ?? '').toString().trim();
-    final computedLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
-    final hasMeaningfulSignals = totalPoints > 0 || trustTotalVotes >= minVotesForTrust;
-    final resolvedLevel = hasMeaningfulSignals
-        ? computedLevel
-        : EliteLevelEngine.parseLevelLabel(backendLevelName, fallback: computedLevel);
-
-    final resolvedLevelName = EliteLevelEngine.getLevelStyle(resolvedLevel).label;
+    final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
+    final pointsLevelName = EliteLevelEngine.getLevelStyle(pointsLevel).label;
     final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
     final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
@@ -193,7 +192,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       totalPoints: totalPoints,
       cityRank: cityRank,
-      levelName: resolvedLevelName,
+      pointsLevelName: pointsLevelName,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
     );
@@ -202,20 +201,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<int?> _resolveCityRank({required String uid, required String cityName}) async {
     if (cityName.isEmpty) return null;
 
-    final byCityName = await FirebaseFirestore.instance
-        .collection('users')
-        .where('cityName', isEqualTo: cityName)
-        .orderBy('totalPoints', descending: true)
-        .get();
-    final cityNameRank = _findRank(byCityName.docs, uid);
-    if (cityNameRank != null) return cityNameRank;
+    try {
+      final byCityName = await FirebaseFirestore.instance.collection('users').where('cityName', isEqualTo: cityName).get();
+      final cityNameRank = _findRank(_sortByPoints(byCityName.docs), uid);
+      if (cityNameRank != null) return cityNameRank;
 
-    final byCity = await FirebaseFirestore.instance
-        .collection('users')
-        .where('city', isEqualTo: cityName)
-        .orderBy('totalPoints', descending: true)
-        .get();
-    return _findRank(byCity.docs, uid);
+      final byCity = await FirebaseFirestore.instance.collection('users').where('city', isEqualTo: cityName).get();
+      return _findRank(_sortByPoints(byCity.docs), uid);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortByPoints(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final sorted = [...docs];
+    sorted.sort((a, b) {
+      final aPoints = (a.data()['totalPoints'] as num?)?.toInt() ??
+          (a.data()['pointsTotal'] as num?)?.toInt() ??
+          (a.data()['points'] as num?)?.toInt() ??
+          0;
+      final bPoints = (b.data()['totalPoints'] as num?)?.toInt() ??
+          (b.data()['pointsTotal'] as num?)?.toInt() ??
+          (b.data()['points'] as num?)?.toInt() ??
+          0;
+      return bPoints.compareTo(aPoints);
+    });
+    return sorted;
   }
 
   int? _findRank(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, String uid) {
@@ -235,9 +246,9 @@ class _BossHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final levelStyle = EliteLevelEngine.getLevelStyle(
-      EliteLevelEngine.parseLevelLabel(data.levelName),
+      EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
     );
-    final currentLevelColor = levelColorMap[data.levelName] ?? levelStyle.borderColor;
+    final currentLevelColor = levelColorMap[data.pointsLevelName] ?? levelStyle.borderColor;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
     return Container(
@@ -289,7 +300,7 @@ class _BossHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           PremiumLevelBadge(
-            levelName: data.levelName,
+            levelName: data.pointsLevelName,
             displayText: data.displayName,
             showVerifiedIcon: true,
           ),
@@ -1366,7 +1377,7 @@ class _ProfileData {
     required this.displayName,
     required this.photoUrl,
     required this.username,
-    required this.levelName,
+    required this.pointsLevelName,
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
@@ -1376,7 +1387,7 @@ class _ProfileData {
   final String displayName;
   final String photoUrl;
   final String username;
-  final String levelName;
+  final String pointsLevelName;
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;
