@@ -55,7 +55,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           if (!_isInit) {
             _nameCtrl.text = user.name;
             _surnameCtrl.text = user.surname;
-            _usernameCtrl.text = user.username;
+            _usernameCtrl.text = user.username ?? '';
             _isInit = true;
           }
 
