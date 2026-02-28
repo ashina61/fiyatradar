@@ -246,12 +246,9 @@ class _BossHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final levelStyle = EliteLevelEngine.getLevelStyle(
-      EliteLevelEngine.parseLevelLabel(data.levelName),
+      EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
     );
-    final currentLevelColor = levelColorMap[data.levelName] ?? levelStyle.borderColor;
-    final badgeTitle = levelStyle.label;
-    final badgeTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : currentLevelColor;
-    final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : Colors.white;
+    final currentLevelColor = levelColorMap[data.pointsLevelName] ?? levelStyle.borderColor;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
     return Container(
@@ -302,28 +299,10 @@ class _BossHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          IntrinsicWidth(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: currentLevelColor.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.85)),
-              ),
-              child: Text(
-                data.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: nameTextColor,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-            ),
+          PremiumLevelBadge(
+            levelName: data.pointsLevelName,
+            displayText: data.displayName,
+            showVerifiedIcon: true,
           ),
           if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -336,37 +315,6 @@ class _BossHeroCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          IntrinsicWidth(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFDFBF9),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.85), width: 1.5),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(levelStyle.icon, size: 16, color: badgeTextColor),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      badgeTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: badgeTextColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,

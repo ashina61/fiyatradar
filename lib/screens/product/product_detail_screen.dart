@@ -431,10 +431,10 @@ class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTicker
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
-          Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
+            Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
