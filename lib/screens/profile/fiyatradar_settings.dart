@@ -15,6 +15,73 @@ const Color borderColor = Color(0x148B4D22);
 const Color danger = Color(0xFFDC2626);
 
 // ============================================================================
+// CUSTOM PREMIUM WIDGETLAR (HTML TASARIMININ BİREBİR AYNISI)
+// ============================================================================
+class PremiumFloatingInput extends StatelessWidget {
+  final String label;
+  final TextEditingController? controller;
+  final String? initialValue;
+  final bool enabled;
+  final bool isPassword;
+
+  const PremiumFloatingInput({super.key, required this.label, this.controller, this.initialValue, this.enabled = true, this.isPassword = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        initialValue: initialValue,
+        enabled: enabled,
+        obscureText: isPassword,
+        style: TextStyle(color: enabled ? textMain : textMuted, fontSize: 16, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: textMuted, fontSize: 15, fontWeight: FontWeight.w500),
+          floatingLabelStyle: const TextStyle(color: sienna, fontSize: 13, fontWeight: FontWeight.bold),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.only(top: 8, bottom: 8),
+        ),
+      ),
+    );
+  }
+}
+
+class PremiumDropdown extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+
+  const PremiumDropdown({super.key, required this.label, required this.value, required this.items, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    String safeValue = items.contains(value) ? value : items.first;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: DropdownButtonFormField<String>(
+        value: safeValue,
+        icon: const Icon(Icons.keyboard_arrow_down, color: sienna),
+        style: const TextStyle(color: textMain, fontSize: 16, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: textMuted, fontSize: 15, fontWeight: FontWeight.w500),
+          floatingLabelStyle: const TextStyle(color: sienna, fontSize: 13, fontWeight: FontWeight.bold),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.only(top: 8, bottom: 8),
+        ),
+        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+// ============================================================================
 // ANA EKRAN: HESAP & AYARLAR
 // ============================================================================
 class FiyatRadarSettingsScreen extends StatelessWidget {
@@ -25,26 +92,21 @@ class FiyatRadarSettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: vanillaDark,
       appBar: AppBar(
-        backgroundColor: vanilla.withOpacity(0.95),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: sienna),
+        backgroundColor: vanilla.withOpacity(0.95), elevation: 0, scrolledUnderElevation: 0, centerTitle: true, iconTheme: const IconThemeData(color: sienna),
         title: const Text('Hesap & Ayarlar', style: TextStyle(color: textMain, fontSize: 17, fontWeight: FontWeight.w600)),
         bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(color: borderColor, height: 1)),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 24),
         children: [
-          // PROFIL KARTI
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor), boxShadow: [BoxShadow(color: sienna.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4))]),
             child: ListTile(
               contentPadding: const EdgeInsets.all(16),
               leading: Container(width: 64, height: 64, decoration: BoxDecoration(color: siennaLight, borderRadius: BorderRadius.circular(18)), alignment: Alignment.center, child: const Text('AB', style: TextStyle(color: sienna, fontSize: 22, fontWeight: FontWeight.bold))),
-              title: const Text('Profilini Düzenle', style: TextStyle(color: textMain, fontSize: 18, fontWeight: FontWeight.w700)),
-              subtitle: const Text('Kişisel bilgilerini ve konumunu güncelle', style: TextStyle(color: textMuted, fontSize: 13)),
+              title: const Text('Adem Bayram', style: TextStyle(color: textMain, fontSize: 18, fontWeight: FontWeight.w700)),
+              subtitle: const Text('Profili, konum ve verileri yönet', style: TextStyle(color: textMuted, fontSize: 13)),
               trailing: const Icon(Icons.chevron_right, color: textMuted),
               onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PersonalInfoScreen())),
             ),
@@ -63,15 +125,9 @@ class FiyatRadarSettingsScreen extends StatelessWidget {
           _buildInsetGroup([
             _buildListTile(icon: Icons.notifications_none, title: 'Bildirim Ayarları', onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const NotificationSettingsScreen()))),
             _buildDivider(),
-            _buildListTile(icon: Icons.cleaning_services_outlined, title: 'Önbelleği Temizle', subtitle: '12 MB (Cihazı rahatlatır)', trailing: const SizedBox.shrink(), onTap: () {
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Önbellek başarıyla temizlendi!'), backgroundColor: Colors.green));
+            _buildListTile(icon: Icons.cleaning_services_outlined, title: 'Önbelleği Temizle', subtitle: '12 MB', trailing: const SizedBox.shrink(), onTap: () {
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Önbellek temizlendi!'), backgroundColor: Colors.green));
             }),
-          ]),
-          const SizedBox(height: 24),
-          
-          _buildSectionTitle('Diğer'),
-          _buildInsetGroup([
-            _buildListTile(icon: Icons.info_outline, title: 'Hakkında ve Destek', onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const AboutScreen()))),
           ]),
         ],
       ),
@@ -101,7 +157,7 @@ class FiyatRadarSettingsScreen extends StatelessWidget {
 }
 
 // ============================================================================
-// 1. KİŞİSEL BİLGİLER SEKME DOLDURULDU (FIRESTORE)
+// 1. KİŞİSEL BİLGİLER (PREMIUM TASARIM + FIRESTORE)
 // ============================================================================
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -140,7 +196,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       _selectedDistrict = user.district.isNotEmpty ? user.district : 'Kadıköy';
       _selectedNeighborhood = user.neighborhood.isNotEmpty ? user.neighborhood : 'Cumhuriyet Mah.';
     } else {
-      _currentUser = UserModel(id: _profileService.currentUserId ?? 'temp', name: '', surname: '', username: '', city: 'İstanbul', district: 'Kadıköy', neighborhood: 'Cumhuriyet Mah.', priceAlarm: true, campaignNotification: true, badgeNotification: true);
+      _currentUser = UserModel(id: _profileService.currentUserId ?? 'temp', name: 'Adem', surname: 'Bayram', username: 'adem', city: 'İstanbul', district: 'Kadıköy', neighborhood: 'Cumhuriyet Mah.', priceAlarm: true, campaignNotification: true, badgeNotification: true);
+      _nameCtrl.text = 'Adem';
+      _surnameCtrl.text = 'Bayram';
+      _usernameCtrl.text = 'adem';
     }
     setState(() => _isLoading = false);
   }
@@ -148,20 +207,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   Future<void> _saveData() async {
     if (_currentUser == null) return;
     setState(() => _isSaving = true);
-
-    final updatedUser = _currentUser!.copyWith(
-      name: _nameCtrl.text.trim(), surname: _surnameCtrl.text.trim(), username: _usernameCtrl.text.trim(),
-      city: _selectedCity, district: _selectedDistrict, neighborhood: _selectedNeighborhood,
-    );
-
+    final updatedUser = _currentUser!.copyWith(name: _nameCtrl.text.trim(), surname: _surnameCtrl.text.trim(), username: _usernameCtrl.text.trim(), city: _selectedCity, district: _selectedDistrict, neighborhood: _selectedNeighborhood);
     bool success = await _profileService.updateUserProfile(updatedUser);
     setState(() => _isSaving = false);
-
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil başarıyla güncellendi!'), backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil güncellendi!'), backgroundColor: Colors.green));
       Navigator.pop(context);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hata oluştu!'), backgroundColor: danger));
     }
   }
 
@@ -178,11 +229,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
             child: Column(
               children: [
-                _buildFloatingInput(label: 'Ad', controller: _nameCtrl),
+                PremiumFloatingInput(label: 'Ad', controller: _nameCtrl),
                 const Divider(height: 1, color: borderColor, indent: 20),
-                _buildFloatingInput(label: 'Soyad', controller: _surnameCtrl),
+                PremiumFloatingInput(label: 'Soyad', controller: _surnameCtrl),
                 const Divider(height: 1, color: borderColor, indent: 20),
-                _buildFloatingInput(label: 'Kullanıcı Adı', controller: _usernameCtrl),
+                PremiumFloatingInput(label: 'Kullanıcı Adı', controller: _usernameCtrl),
               ],
             ),
           ),
@@ -192,11 +243,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
             child: Column(
               children: [
-                _buildDropdown(label: 'İl', value: _selectedCity, items: ['İstanbul', 'Ankara', 'İzmir'], onChanged: (v) => setState(() => _selectedCity = v!)),
+                PremiumDropdown(label: 'İl', value: _selectedCity, items: const ['İstanbul', 'Ankara', 'İzmir'], onChanged: (v) => setState(() => _selectedCity = v!)),
                 const Divider(height: 1, color: borderColor, indent: 20),
-                _buildDropdown(label: 'İlçe', value: _selectedDistrict, items: ['Kadıköy', 'Beşiktaş', 'Üsküdar'], onChanged: (v) => setState(() => _selectedDistrict = v!)),
+                PremiumDropdown(label: 'İlçe', value: _selectedDistrict, items: const ['Kadıköy', 'Beşiktaş', 'Üsküdar'], onChanged: (v) => setState(() => _selectedDistrict = v!)),
                 const Divider(height: 1, color: borderColor, indent: 20),
-                _buildDropdown(label: 'Mahalle', value: _selectedNeighborhood, items: ['Cumhuriyet Mah.', 'Caferağa Mah.', 'Osmanağa Mah.'], onChanged: (v) => setState(() => _selectedNeighborhood = v!)),
+                PremiumDropdown(label: 'Mahalle', value: _selectedNeighborhood, items: const ['Cumhuriyet Mah.', 'Caferağa Mah.', 'Osmanağa Mah.'], onChanged: (v) => setState(() => _selectedNeighborhood = v!)),
               ],
             ),
           ),
@@ -210,30 +261,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       ),
     );
   }
-
-  Widget _buildFloatingInput({required String label, required TextEditingController controller}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: TextFormField(controller: controller, style: const TextStyle(color: textMain, fontSize: 16, fontWeight: FontWeight.w500), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: sienna, fontSize: 14, fontWeight: FontWeight.w600), border: InputBorder.none, isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8))),
-    );
-  }
-
-  Widget _buildDropdown({required String label, required String value, required List<String> items, required ValueChanged<String?> onChanged}) {
-    if (!items.contains(value)) value = items.first; 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: DropdownButtonFormField<String>(
-        value: value, icon: const Icon(Icons.keyboard_arrow_down, color: sienna),
-        decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: sienna, fontSize: 14, fontWeight: FontWeight.w600), border: InputBorder.none, isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8)),
-        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: textMain, fontSize: 16, fontWeight: FontWeight.w500)))).toList(),
-        onChanged: onChanged,
-      ),
-    );
-  }
 }
 
 // ============================================================================
-// 2. GÜVENLİK SEKME DOLDURULDU (FIREBASE AUTH BAĞLANDI)
+// 2. GÜVENLİK
 // ============================================================================
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
@@ -245,24 +276,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _updateSecurity() async {
-    setState(() => _isLoading = true);
-    try {
-      if (_emailCtrl.text.isNotEmpty && _emailCtrl.text != _auth.currentUser?.email) {
-        await _auth.currentUser?.updateEmail(_emailCtrl.text.trim());
-      }
-      if (_passwordCtrl.text.isNotEmpty) {
-        await _auth.currentUser?.updatePassword(_passwordCtrl.text.trim());
-      }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Güvenlik bilgileri güncellendi.'), backgroundColor: Colors.green));
-      _passwordCtrl.clear();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: Çıkış yapıp tekrar girmelisiniz.'), backgroundColor: danger));
-    }
-    setState(() => _isLoading = false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,55 +285,37 @@ class _SecurityScreenState extends State<SecurityScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Padding(padding: EdgeInsets.only(left: 16, bottom: 8), child: Text('E-POSTA VE ŞİFRE', style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600))),
+          const Padding(padding: EdgeInsets.only(left: 16, bottom: 8), child: Text('E-POSTA YÖNETİMİ', style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600))),
           Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
             child: Column(
               children: [
-                _buildInput(label: 'Mevcut E-Posta', initialValue: _auth.currentUser?.email ?? 'Bulunamadı', enabled: false),
+                PremiumFloatingInput(label: 'Mevcut E-Posta', initialValue: _auth.currentUser?.email ?? 'Bulunamadı', enabled: false),
                 const Divider(height: 1, color: borderColor, indent: 20),
-                _buildInput(label: 'Yeni E-Posta', controller: _emailCtrl, hint: 'Boş bırakırsanız değişmez'),
-                const Divider(height: 1, color: borderColor, indent: 20),
-                _buildInput(label: 'Yeni Şifre', controller: _passwordCtrl, hint: '••••••••', isPassword: true),
+                PremiumFloatingInput(label: 'Yeni E-Posta', controller: _emailCtrl),
               ],
             ),
           ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: sienna, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-            onPressed: _isLoading ? null : _updateSecurity,
-            child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Güncelle', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
-          ),
           const SizedBox(height: 24),
-          // ÇIKIŞ YAP BUTONU
-          TextButton.icon(
-            onPressed: () async {
-              await _auth.signOut();
-              // Çıkış yapınca login ekranına yönlendirme kodunu buraya ekleyebilirsin
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.logout, color: danger),
-            label: const Text('Tüm Cihazlardan Çıkış Yap', style: TextStyle(color: danger, fontSize: 15, fontWeight: FontWeight.w600)),
-          )
+          const Padding(padding: EdgeInsets.only(left: 16, bottom: 8), child: Text('ŞİFRE DEĞİŞTİR', style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600))),
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
+            child: Column(
+              children: [
+                PremiumFloatingInput(label: 'Mevcut Şifre', isPassword: true),
+                const Divider(height: 1, color: borderColor, indent: 20),
+                PremiumFloatingInput(label: 'Yeni Şifre', controller: _passwordCtrl, isPassword: true),
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInput({required String label, String? hint, String? initialValue, TextEditingController? controller, bool isPassword = false, bool enabled = true}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: TextFormField(
-        controller: controller, initialValue: initialValue, obscureText: isPassword, enabled: enabled,
-        style: TextStyle(color: enabled ? textMain : textMuted, fontSize: 16, fontWeight: FontWeight.w500),
-        decoration: InputDecoration(labelText: label, hintText: hint, labelStyle: const TextStyle(color: sienna, fontSize: 14, fontWeight: FontWeight.w600), border: InputBorder.none, isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8)),
       ),
     );
   }
 }
 
 // ============================================================================
-// 3. BİLDİRİM SEKME DOLDURULDU (FIRESTORE)
+// 3. BİLDİRİMLER 
 // ============================================================================
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -334,10 +329,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   bool _isLoading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
+  void initState() { super.initState(); _loadData(); }
 
   Future<void> _loadData() async {
     final user = await _profileService.getUserProfile();
@@ -349,7 +341,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     setState(() {
       if (field == 'alarm') _currentUser = _currentUser!.copyWith(priceAlarm: value);
       if (field == 'campaign') _currentUser = _currentUser!.copyWith(campaignNotification: value);
-      if (field == 'badge') _currentUser = _currentUser!.copyWith(badgeNotification: value);
     });
     await _profileService.updateUserProfile(_currentUser!);
   }
@@ -369,12 +360,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 _buildSwitchTile('Fiyat Alarmı', 'Takip ettiğin ürün düştüğünde uyar.', _currentUser?.priceAlarm ?? true, (v) => _updateToggle(v, 'alarm')),
                 const Divider(height: 1, color: borderColor, indent: 20),
                 _buildSwitchTile('Kampanyalar', 'Haftalık indirimleri bildirir.', _currentUser?.campaignNotification ?? true, (v) => _updateToggle(v, 'campaign')),
-                const Divider(height: 1, color: borderColor, indent: 20),
-                _buildSwitchTile('Rozetler', 'Liderlik tablosu değişimleri.', _currentUser?.badgeNotification ?? false, (v) => _updateToggle(v, 'badge')),
               ],
             ),
           ),
-          const Padding(padding: EdgeInsets.only(top: 16, left: 20, right: 20), child: Text('FiyatRadar spam yapmaz, sadece fırsatları iletir.', textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 12)))
         ],
       ),
     );
@@ -386,45 +374,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       title: Text(title, style: const TextStyle(color: textMain, fontSize: 15, fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle, style: const TextStyle(color: textMuted, fontSize: 13)),
       trailing: CupertinoSwitch(value: value, activeColor: sienna, onChanged: onChanged),
-    );
-  }
-}
-
-// ============================================================================
-// 4. HAKKINDA SEKME DOLDURULDU
-// ============================================================================
-class AboutScreen extends StatelessWidget {
-  const AboutScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: vanillaDark,
-      appBar: AppBar(backgroundColor: vanilla, elevation: 0, iconTheme: const IconThemeData(color: sienna), centerTitle: true, title: const Text('Hakkında', style: TextStyle(color: textMain, fontSize: 17, fontWeight: FontWeight.w600))),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const SizedBox(height: 20),
-          Center(child: Container(width: 80, height: 80, decoration: BoxDecoration(color: sienna, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: sienna.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]), child: const Icon(Icons.radar, color: Colors.white, size: 40))),
-          const SizedBox(height: 16),
-          const Center(child: Text('FiyatRadar', style: TextStyle(color: textMain, fontSize: 22, fontWeight: FontWeight.bold))),
-          const Center(child: Text('Sürüm 3.0.0', style: TextStyle(color: textMuted, fontSize: 14))),
-          const SizedBox(height: 40),
-          Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
-            child: Column(
-              children: [
-                ListTile(title: const Text('Kullanım Koşulları', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), trailing: const Icon(Icons.chevron_right, color: textMuted), onTap: () {}),
-                const Divider(height: 1, color: borderColor, indent: 20),
-                ListTile(title: const Text('Gizlilik Politikası', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), trailing: const Icon(Icons.chevron_right, color: textMuted), onTap: () {}),
-                const Divider(height: 1, color: borderColor, indent: 20),
-                ListTile(title: const Text('Bize Ulaşın', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), trailing: const Icon(Icons.chevron_right, color: textMuted), onTap: () {}),
-              ],
-            ),
-          ),
-          const SizedBox(height: 40),
-          const Center(child: Text('© 2026 FiyatRadar A.Ş.\nTüm Hakları Saklıdır.', textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 12))),
-        ],
-      ),
     );
   }
 }
