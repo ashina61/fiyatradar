@@ -246,9 +246,9 @@ class _BossHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final levelStyle = EliteLevelEngine.getLevelStyle(
-      EliteLevelEngine.parseLevelLabel(data.levelName),
+      EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
     );
-    final currentLevelColor = levelColorMap[data.levelName] ?? levelStyle.borderColor;
+    final currentLevelColor = levelColorMap[data.pointsLevelName] ?? levelStyle.borderColor;
     final badgeTitle = levelStyle.label;
     final badgeTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : currentLevelColor;
     final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : Colors.white;
