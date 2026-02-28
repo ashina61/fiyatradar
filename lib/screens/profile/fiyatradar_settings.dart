@@ -137,7 +137,7 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
           _group([
             _tile(
               icon: Icons.info_outline_rounded,
-              title: 'Hakkında ve Destek',
+              title: 'Hakkında, Yardım ve Destek',
               onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const AboutScreen())),
             ),
           ]),
