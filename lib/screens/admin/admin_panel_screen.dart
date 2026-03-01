@@ -13,6 +13,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/material_icon_resolver.dart';
+import '../../utils/elite_level_engine.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/brand_model.dart';
@@ -1151,13 +1152,21 @@ class _ProductManagementTab extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
           FilledButton(
             onPressed: () async {
+              final updatedPoints = int.tryParse(pointsController.text.trim()) ?? user.points;
+              final levelOverride = levelController.text.trim();
+              final computedLevelName = EliteLevelEngine.getLevelStyle(
+                EliteLevelEngine.getPointsLevel(updatedPoints),
+              ).label;
               await ref.read(firestoreServiceProvider).updateUserByAdmin(user.uid, {
                 'name': nameController.text.trim(),
                 'displayName': nameController.text.trim(),
                 'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
                 'isAdmin': roleController.text.trim() == 'admin',
-                'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
-                'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
+                'points': updatedPoints,
+                'pointsTotal': updatedPoints,
+                'totalPoints': updatedPoints,
+                'level': levelOverride.isNotEmpty ? levelOverride : computedLevelName,
+                'levelName': levelOverride.isNotEmpty ? levelOverride : computedLevelName,
                 'verifiedBadge': verifiedBadge,
                 'updatedAt': FieldValue.serverTimestamp(),
               });
