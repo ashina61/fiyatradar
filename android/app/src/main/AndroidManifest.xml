@@ -51,7 +51,7 @@
 
         <!-- Firebase Messaging Service -->
         <service
-            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT"/>

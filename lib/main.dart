@@ -1,25 +1,33 @@
-import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
 
+import 'app_router.dart';
 import 'firebase_options.dart';
-
-import 'utils/theme.dart';
-import 'providers/theme_provider.dart';
-import 'providers/firebase_init_provider.dart';
+import 'l10n/app_localizations.dart';
 import 'providers/app_start_provider.dart';
+import 'providers/firebase_init_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
-import 'app_router.dart';
-import 'l10n/app_localizations.dart';
+import 'services/notification_service.dart';
+import 'utils/theme.dart';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (kDebugMode) {
+    debugPrint('Handling a background message: ${message.messageId}');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
 
   FlutterError.onError = (FlutterErrorDetails details) {
     final exception = details.exceptionAsString();
@@ -53,12 +61,18 @@ void main() async {
     try {
       final fallbackApp = await Firebase.initializeApp();
       firebaseInitializedNotifier.value = true;
-      if (kDebugMode) debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
+      if (kDebugMode) {
+        debugPrint('Firebase varsayılan konfigürasyon ile başlatıldı: ${fallbackApp.name}');
+      }
     } catch (inner) {
       if (kDebugMode) debugPrint('Firebase başlatılamadı, hata: $inner');
       firebaseInitializedNotifier.value = false;
     }
   }
+
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await NotificationService.initializeLocalNotifications();
+  await NotificationService.requestNotificationPermissions();
 
   // Load saved preferences
   final prefs = await SharedPreferences.getInstance();
@@ -91,6 +105,7 @@ class FiyatRadarApp extends ConsumerStatefulWidget {
 
 class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
   late final _router = buildAppRouter(showOnboarding: widget.showOnboarding);
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
@@ -100,6 +115,17 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
       ref.read(themeModeProvider.notifier).setThemeMode(widget.initialThemeMode);
     });
 
+    Future.microtask(() async {
+      final token = await _notificationService.getFCMToken();
+      if (token == null || token.isEmpty) {
+        final cachedToken = await _notificationService.getCachedFCMToken();
+        if (kDebugMode) {
+          debugPrint('Cached FCM Token: $cachedToken');
+        }
+      }
+      await _notificationService.setupForegroundNotifications();
+      _notificationService.setupNotificationOpenedApp();
+    });
   }
 
   @override
@@ -122,9 +148,7 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
       routerConfig: _router,
     );
   }
-
 }
-
 
 class AppStartGate extends ConsumerWidget {
   const AppStartGate({super.key});
