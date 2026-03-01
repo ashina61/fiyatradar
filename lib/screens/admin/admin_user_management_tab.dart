@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../utils/elite_level_engine.dart';
 import '../../utils/theme.dart';
 
 Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dynamic user) async {
@@ -45,13 +46,21 @@ Future<void> _showEditUserDialogGlobal(BuildContext context, WidgetRef ref, dyna
         TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
         FilledButton(
           onPressed: () async {
+            final updatedPoints = int.tryParse(pointsController.text.trim()) ?? user.points;
+            final levelOverride = levelController.text.trim();
+            final computedLevelName = EliteLevelEngine.getLevelStyle(
+              EliteLevelEngine.getPointsLevel(updatedPoints),
+            ).label;
             await ref.read(adminUserManagementDomainServiceProvider).updateUserByAdmin(user.uid, {
               'name': nameController.text.trim(),
               'displayName': nameController.text.trim(),
               'role': roleController.text.trim().isEmpty ? 'user' : roleController.text.trim(),
               'isAdmin': roleController.text.trim() == 'admin',
-              'pointsTotal': int.tryParse(pointsController.text.trim()) ?? user.points,
-              'totalPoints': int.tryParse(pointsController.text.trim()) ?? user.points,
+              'points': updatedPoints,
+              'pointsTotal': updatedPoints,
+              'totalPoints': updatedPoints,
+              'level': levelOverride.isNotEmpty ? levelOverride : computedLevelName,
+              'levelName': levelOverride.isNotEmpty ? levelOverride : computedLevelName,
               'verifiedBadge': verifiedBadge,
               'updatedAt': FieldValue.serverTimestamp(),
             });

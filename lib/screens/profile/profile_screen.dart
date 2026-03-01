@@ -190,6 +190,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       displayName: (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? data['userName'] ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
+      isVerified: (data['verifiedBadge'] as bool?) ?? (data['verified'] as bool?) ?? false,
       totalPoints: totalPoints,
       cityRank: cityRank,
       pointsLevelName: pointsLevelName,
@@ -303,6 +304,7 @@ class _BossHeroCard extends StatelessWidget {
           PremiumLevelBadge(
             levelName: data.pointsLevelName,
             displayText: data.displayName,
+            showVerifiedIcon: data.isVerified,
           ),
           if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -1386,6 +1388,7 @@ class _ProfileData {
     required this.photoUrl,
     required this.username,
     required this.pointsLevelName,
+    required this.isVerified,
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
@@ -1396,6 +1399,7 @@ class _ProfileData {
   final String photoUrl;
   final String username;
   final String pointsLevelName;
+  final bool isVerified;
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;
