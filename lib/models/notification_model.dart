@@ -6,40 +6,53 @@ enum NotificationType {
   system,
 }
 
-class NotificationModel {
+enum NotificationSource {
+  primary,
+  legacy,
+}
+
+class NotificationItem {
   final String id;
-  final String userId;
+  final NotificationSource source;
   final NotificationType type;
   final String title;
   final String body;
-  final String? productId;
-  final String? productName;
-  final String? imageUrl;
-  final bool isRead;
+  final bool read;
   final DateTime createdAt;
-  final Map<String, dynamic>? data;
+  final Map<String, dynamic> meta;
 
-  NotificationModel({
+  NotificationItem({
     required this.id,
-    required this.userId,
+    required this.source,
     required this.type,
     required this.title,
     required this.body,
-    this.productId,
-    this.productName,
-    this.imageUrl,
-    this.isRead = false,
+    this.read = false,
     required this.createdAt,
-    this.data,
+    this.meta = const <String, dynamic>{},
   });
 
-  factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
+  factory NotificationItem.fromPrimaryDoc(DocumentSnapshot doc) {
+    return _fromFirestoreDoc(doc, source: NotificationSource.primary);
+  }
+
+  factory NotificationItem.fromLegacyDoc(DocumentSnapshot doc) {
+    return _fromFirestoreDoc(doc, source: NotificationSource.legacy);
+  }
+
+  static NotificationItem _fromFirestoreDoc(
+    DocumentSnapshot doc, {
+    required NotificationSource source,
+  }) {
     final raw = doc.data();
-    final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final data = raw is Map<String, dynamic>
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final rawType = (data['type'] ?? '').toString();
-    return NotificationModel(
+
+    return NotificationItem(
       id: doc.id,
-      userId: data['userId'] ?? '',
+      source: source,
       type: NotificationType.values.firstWhere(
         (e) => e.name == rawType,
         orElse: () {
@@ -53,15 +66,43 @@ class NotificationModel {
           }
         },
       ),
-      title: data['title'] ?? '',
-      body: data['body'] ?? '',
-      productId: data['productId'],
-      productName: data['productName'],
-      imageUrl: data['imageUrl'],
-      isRead: data['isRead'] == true,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
-      data: data['meta'] as Map<String, dynamic>? ?? data['data'] as Map<String, dynamic>?,
+      title: (data['title'] ?? '').toString(),
+      body: (data['body'] ?? '').toString(),
+      read: (data['read'] ?? data['isRead']) == true,
+      createdAt: _parseCreatedAt(data),
+      meta: _normalizedMeta(data),
     );
+  }
+
+  static DateTime _parseCreatedAt(Map<String, dynamic> data) {
+    final dynamic createdAtRaw =
+        data['createdAt'] ?? data['timestamp'] ?? data['created_at'];
+    if (createdAtRaw is Timestamp) return createdAtRaw.toDate();
+    if (createdAtRaw is DateTime) return createdAtRaw;
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static Map<String, dynamic> _normalizedMeta(Map<String, dynamic> data) {
+    final rawMeta = data['meta'] ?? data['data'];
+    final meta = rawMeta is Map<String, dynamic>
+        ? Map<String, dynamic>.from(rawMeta)
+        : <String, dynamic>{};
+
+    for (final key in [
+      'userId',
+      'eventId',
+      'priceId',
+      'productId',
+      'productName',
+      'storeId',
+      'imageUrl',
+    ]) {
+      if (data[key] != null && !meta.containsKey(key)) {
+        meta[key] = data[key];
+      }
+    }
+
+    return meta;
   }
 
   Map<String, dynamic> toFirestore() {
@@ -72,46 +113,47 @@ class NotificationModel {
     };
 
     return {
-      'userId': userId,
+      'userId': meta['userId'] ?? '',
       'type': typeValue,
       'title': title,
       'body': body,
-      'productId': productId,
-      'productName': productName,
-      'imageUrl': imageUrl,
-      'isRead': isRead,
+      'productId': meta['productId'],
+      'productName': meta['productName'],
+      'imageUrl': meta['imageUrl'],
+      'read': read,
       'createdAt': Timestamp.fromDate(createdAt),
-      'meta': data,
+      'meta': meta,
     };
   }
 
-  NotificationModel copyWith({
+  NotificationItem copyWith({
     String? id,
-    String? userId,
+    NotificationSource? source,
     NotificationType? type,
     String? title,
     String? body,
-    String? productId,
-    String? productName,
-    String? imageUrl,
-    bool? isRead,
+    bool? read,
     DateTime? createdAt,
-    Map<String, dynamic>? data,
+    Map<String, dynamic>? meta,
   }) {
-    return NotificationModel(
+    return NotificationItem(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
+      source: source ?? this.source,
       type: type ?? this.type,
       title: title ?? this.title,
       body: body ?? this.body,
-      productId: productId ?? this.productId,
-      productName: productName ?? this.productName,
-      imageUrl: imageUrl ?? this.imageUrl,
-      isRead: isRead ?? this.isRead,
+      read: read ?? this.read,
       createdAt: createdAt ?? this.createdAt,
-      data: data ?? this.data,
+      meta: meta ?? this.meta,
     );
   }
+
+  bool get isRead => read;
+  String get userId => (meta['userId'] ?? '').toString();
+  String? get productId => meta['productId']?.toString();
+  String? get productName => meta['productName']?.toString();
+  String? get imageUrl => meta['imageUrl']?.toString();
+  Map<String, dynamic> get data => meta;
 
   String get icon {
     switch (type) {
@@ -124,3 +166,5 @@ class NotificationModel {
     }
   }
 }
+
+typedef NotificationModel = NotificationItem;
