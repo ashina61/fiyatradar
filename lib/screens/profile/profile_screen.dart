@@ -20,7 +20,6 @@ import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
-import '../../widgets/premium_level_badge.dart';
 import 'fiyatradar_settings.dart'; 
 import 'update_history_screen.dart';
 
@@ -330,7 +329,7 @@ class _BossHeroCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: currentLevelColor.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.65)),
+                border: Border.all(color: currentLevelColor.withOpacity(0.9), width: 1.5),
               ),
               child: Text(
                 '@${data.username.trim()}',
