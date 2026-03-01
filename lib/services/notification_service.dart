@@ -46,6 +46,11 @@ class NotificationService {
   DocumentReference<Map<String, dynamic>> _userMetaRef(String userId) =>
       _firestore.collection('users').doc(userId);
 
+  CollectionReference<Map<String, dynamic>> _userNotificationItemsRef(
+    String userId,
+  ) =>
+      _firestore.collection('notifications').doc(userId).collection('items');
+
   void _log(String message) {
     if (!_debugLogs || !kDebugMode) return;
     debugPrint('[inbox] $message');
@@ -307,6 +312,89 @@ class NotificationService {
     if (inboxDocs.docs.isNotEmpty) {
       await inboxDocs.docs.first.reference.delete();
     }
+  }
+
+  Future<void> sendToUser(
+    String userId,
+    String title,
+    String body,
+    String type,
+    String? productId,
+  ) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return;
+
+    await _userNotificationItemsRef(normalizedUserId).add({
+      'title': title,
+      'body': body,
+      'productId': productId,
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'type': type,
+    });
+  }
+
+  Future<int> sendToWatchlistUsers(
+    String productId,
+    String title,
+    String body,
+    String type,
+  ) async {
+    final normalizedProductId = productId.trim();
+    if (normalizedProductId.isEmpty) return 0;
+
+    final watchedSnapshot = await SafeQueryBuilder.safeWhere(
+      _firestore.collectionGroup('followedProducts'),
+      FieldPath.documentId,
+      normalizedProductId,
+      expectedType: String,
+    ).get();
+
+    if (watchedSnapshot.docs.isEmpty) return 0;
+
+    final batch = _firestore.batch();
+    var sentCount = 0;
+
+    for (final watchDoc in watchedSnapshot.docs) {
+      final userRef = watchDoc.reference.parent.parent;
+      final uid = userRef?.id;
+      if (uid == null || uid.trim().isEmpty) continue;
+
+      final itemRef = _userNotificationItemsRef(uid).doc();
+      batch.set(itemRef, {
+        'title': title,
+        'body': body,
+        'productId': normalizedProductId,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': type,
+      });
+      sentCount += 1;
+    }
+
+    if (sentCount > 0) {
+      await batch.commit();
+    }
+
+    return sentCount;
+  }
+
+  Future<int> sendSystemToAllUsers(String body) async {
+    final users = await _firestore.collection('users').get();
+    if (users.docs.isEmpty) return 0;
+
+    var sentCount = 0;
+    for (final userDoc in users.docs) {
+      await sendToUser(
+        userDoc.id,
+        '🔧 Sistem Bildirimi',
+        body,
+        'system',
+        null,
+      );
+      sentCount += 1;
+    }
+    return sentCount;
   }
 
   String _typeToWire(NotificationType type) {

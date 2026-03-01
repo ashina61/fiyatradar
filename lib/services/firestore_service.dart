@@ -778,7 +778,6 @@ class FirestoreService {
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
-    final oldPrice = (productData?['lastPrice'] as num?)?.toDouble();
     final dedupeKey = _buildPriceDedupeKey(
       productId: price.productId,
       branchStoreId: price.branchStoreId,
@@ -870,18 +869,19 @@ class FirestoreService {
 
     var notificationCount = 0;
     try {
-      notificationCount = await _createFollowerNotifications(
-        productId: price.productId,
-        priceReporterId: reporterUid,
-        productName: productData?['name']?.toString() ?? price.productName ?? 'Ürün',
-        oldPrice: oldPrice,
-        newPrice: price.price,
-        storeName: price.storeName,
+      final productName =
+          productData?['name']?.toString() ?? price.productName ?? 'Ürün';
+      final priceText = price.price.toStringAsFixed(2);
+      notificationCount = await _notificationService.sendToWatchlistUsers(
+        price.productId,
+        '💰 Yeni Fiyat Eklendi',
+        '$productName için yeni fiyat girildi: ${priceText}₺',
+        'price_added',
       );
     } on FirebaseException catch (e, st) {
-      _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
+      _logFirestoreQueryError('addPriceReport/sendToWatchlistUsers', e, st);
     } catch (e, st) {
-      _logFirestoreQueryError('addPriceReport/_createFollowerNotifications', e, st);
+      _logFirestoreQueryError('addPriceReport/sendToWatchlistUsers', e, st);
     }
 
     if (kDebugMode) {
@@ -907,94 +907,6 @@ class FirestoreService {
     }
 
     return priceRef.id;
-  }
-
-  Future<int> _createFollowerNotifications({
-    required String productId,
-    required String priceReporterId,
-    required String productName,
-    required double? oldPrice,
-    required double newPrice,
-    String? storeName,
-  }) async {
-    if (productId.trim().isEmpty) {
-      if (kDebugMode) {
-        debugPrint('E/FLTFirestoreMsgCodec(_createFollowerNotifications): productId bos, query atlandi');
-      }
-      return 0;
-    }
-
-    final isDrop = oldPrice != null && newPrice < oldPrice;
-    final percentChange =
-        oldPrice != null && oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : null;
-
-    final followedSnapshot = await SafeQueryBuilder.safeWhere(
-      _firestore.collectionGroup('followedProducts'),
-      FieldPath.documentId,
-      productId.trim(), // Query argümanını primitive + trim'li gönder.
-      expectedType: String,
-    ).get();
-
-    final batch = _firestore.batch();
-    var notificationCount = 0;
-
-    for (final followDoc in followedSnapshot.docs) {
-      final userRef = followDoc.reference.parent.parent;
-      final uid = userRef?.id;
-      if (uid == null || uid.isEmpty || uid == priceReporterId) continue;
-
-      final followData = followDoc.data();
-      final notifyOnNewPrice = followData['notifyOnNewPrice'] == true;
-      final notifyOnPriceDrop = followData['notifyOnPriceDrop'] == true;
-
-      if (notifyOnNewPrice) {
-        final ref = _usersRef.doc(uid).collection('inbox').doc();
-        batch.set(ref, {
-          'id': ref.id,
-          'type': 'new_price',
-          'productId': productId,
-          'title': '$productName icin yeni fiyat',
-          'body': storeName == null || storeName.isEmpty
-              ? 'Yeni fiyat girildi: ${newPrice.toStringAsFixed(2)}₺'
-              : '$storeName mağazasında yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',
-          'createdAt': FieldValue.serverTimestamp(),
-          'read': false,
-          'meta': {
-            'oldPrice': oldPrice,
-            'newPrice': newPrice,
-            'storeName': storeName,
-            'percentChange': percentChange,
-          },
-        });
-        notificationCount += 1;
-      }
-
-      if (isDrop && notifyOnPriceDrop) {
-        final ref = _usersRef.doc(uid).collection('inbox').doc();
-        batch.set(ref, {
-          'id': ref.id,
-          'type': 'price_drop',
-          'productId': productId,
-          'title': '$productName fiyat dustu',
-          'body': '${oldPrice!.toStringAsFixed(2)}₺ → ${newPrice.toStringAsFixed(2)}₺',
-          'createdAt': FieldValue.serverTimestamp(),
-          'read': false,
-          'meta': {
-            'oldPrice': oldPrice,
-            'newPrice': newPrice,
-            'storeName': storeName,
-            'percentChange': percentChange,
-          },
-        });
-        notificationCount += 1;
-      }
-    }
-
-    if (notificationCount > 0) {
-      await batch.commit();
-    }
-
-    return notificationCount;
   }
 
   Future<void> setFollowedProduct({
@@ -1304,12 +1216,31 @@ class FirestoreService {
         return const PriceVoteResult(PriceVoteStatus.ignored);
       }
 
-      return voteOnPrice(
+      final result = await voteOnPrice(
         priceId: priceId,
         priceOwnerUid: ownerUid,
         vote: isVerified ? 1 : -1,
         voterUid: voterId,
       );
+
+      if (isVerified &&
+          result.status == PriceVoteStatus.newVote &&
+          ownerUid.trim().isNotEmpty) {
+        final productId = (data['productId'] ?? '').toString();
+        final productName = (data['productName'] ?? 'Ürün').toString();
+        final priceValue = (data['price'] as num?)?.toDouble();
+        final priceText = priceValue != null ? priceValue.toStringAsFixed(2) : '-';
+
+        await _notificationService.sendToUser(
+          ownerUid,
+          '✅ Fiyatınız Doğrulandı',
+          '$productName için girdiğiniz ${priceText}₺ fiyatı doğrulandı',
+          'price_verified',
+          productId.isEmpty ? null : productId,
+        );
+      }
+
+      return result;
     } catch (e, st) {
       if (kDebugMode) debugPrint('[FirestoreService.verifyPrice] ERROR: $e');
       if (kDebugMode) {
@@ -1372,6 +1303,33 @@ class FirestoreService {
       'resolvedBy': null,
       'resolvedAt': null,
     });
+
+    try {
+      final priceSnap = await _pricesRef.doc(priceId).get();
+      if (!priceSnap.exists) return;
+
+      final priceData = priceSnap.data() ?? const <String, dynamic>{};
+      final ownerUid =
+          ((priceData['createdByUid'] ?? priceData['reporterUid'] ?? priceData['userId']) ?? '')
+              .toString()
+              .trim();
+      if (ownerUid.isEmpty) return;
+
+      final productId = (priceData['productId'] ?? '').toString();
+      final productName = (priceData['productName'] ?? 'Ürün').toString();
+
+      await _notificationService.sendToUser(
+        ownerUid,
+        '⚠️ Fiyatınız Raporlandı',
+        '$productName için girdiğiniz fiyat raporlandı, inceliyoruz',
+        'price_reported',
+        productId.isEmpty ? null : productId,
+      );
+    } on FirebaseException catch (e, st) {
+      _logFirestoreQueryError('reportPrice/sendToUser', e, st);
+    } catch (e, st) {
+      _logFirestoreQueryError('reportPrice/sendToUser', e, st);
+    }
   }
 
   Future<void> reportComment({
@@ -1476,6 +1434,12 @@ class FirestoreService {
   Future<void> deleteNotification(String notificationId) async {
     return _notificationService.deleteNotification(notificationId);
   }
+
+
+  Future<int> sendSystemNotificationToAllUsers(String body) {
+    return _notificationService.sendSystemToAllUsers(body);
+  }
+
 
   // =========================================================================
   // BANNERS
