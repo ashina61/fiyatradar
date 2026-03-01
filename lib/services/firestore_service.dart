@@ -851,12 +851,21 @@ class FirestoreService {
         'dedupeKey': dedupeKey,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      txn.update(_productsRef.doc(price.productId), {
+      final productRef = _productsRef.doc(price.productId);
+      final productSnapshot = await txn.get(productRef);
+      final productSnapshotData = productSnapshot.data();
+      final currentLowest = (productSnapshotData?['lowestPrice'] as num?)?.toDouble();
+      final updates = <String, dynamic>{
         'priceEntryCount': FieldValue.increment(1),
         'lastPrice': price.price,
         'lastStore': price.storeName,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (currentLowest == null || price.price < currentLowest) {
+        updates['lowestPrice'] = price.price;
+        updates['lowestPriceUpdatedAt'] = FieldValue.serverTimestamp();
+      }
+      txn.update(productRef, updates);
     });
 
     var notificationCount = 0;

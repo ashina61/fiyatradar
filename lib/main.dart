@@ -16,6 +16,7 @@ import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/notification_service.dart';
+import 'services/price_drop_watcher_service.dart';
 import 'utils/theme.dart';
 
 @pragma('vm:entry-point')
@@ -106,6 +107,7 @@ class FiyatRadarApp extends ConsumerStatefulWidget {
 class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
   late final _router = buildAppRouter(showOnboarding: widget.showOnboarding);
   final NotificationService _notificationService = NotificationService();
+  final PriceDropWatcherService _priceDropWatcherService = PriceDropWatcherService();
 
   @override
   void initState() {
@@ -114,6 +116,8 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
     Future.microtask(() {
       ref.read(themeModeProvider.notifier).setThemeMode(widget.initialThemeMode);
     });
+
+    _priceDropWatcherService.start();
 
     Future.microtask(() async {
       final token = await _notificationService.getFCMToken();
@@ -126,6 +130,12 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
       await _notificationService.setupForegroundNotifications();
       _notificationService.setupNotificationOpenedApp();
     });
+  }
+
+  @override
+  void dispose() {
+    _priceDropWatcherService.dispose();
+    super.dispose();
   }
 
   @override
