@@ -181,8 +181,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
-    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
-    final pointsLevelName = EliteLevelEngine.getLevelStyle(finalLevel).label;
+    // Profil kartında seviye, kullanıcının puan ilerlemesini anlık gösterecek şekilde
+    // doğrudan puana göre hesaplanır. Güven eşiği nedeniyle final seviye kilitli
+    // kalabildiğinden, admin puan güncellemesinden sonra rozetin değişmemesi
+    // kullanıcı tarafında "seviye artmıyor" algısına neden oluyordu.
+    final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
+    final pointsLevelName = EliteLevelEngine.getLevelStyle(pointsLevel).label;
     final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
     final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
