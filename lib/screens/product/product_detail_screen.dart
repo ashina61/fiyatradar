@@ -599,8 +599,12 @@ class _DynamicVipChip extends ConsumerWidget {
     final currentUserModel = ref.watch(userModelStreamProvider).valueOrNull;
 
     if (authUser != null && currentUserModel != null && authUser.uid == userId) {
-      final pointsLevel = EliteLevelEngine.getPointsLevel(currentUserModel.points);
-      final style = EliteLevelEngine.getLevelStyle(pointsLevel);
+      final finalLevel = EliteLevelEngine.getFinalLevel(
+        currentUserModel.points,
+        currentUserModel.trustScorePercent,
+        currentUserModel.trustTotalVotes,
+      );
+      final style = EliteLevelEngine.getLevelStyle(finalLevel);
       final levelName = style.label;
 
       return InkWell(
@@ -627,6 +631,7 @@ class _DynamicVipChip extends ConsumerWidget {
         int totalPoints = 0;
         int trustPercent = 0;
         bool isVerified = false;
+        int trustTotalVotes = 0;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -634,10 +639,11 @@ class _DynamicVipChip extends ConsumerWidget {
           totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
           trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0;
           isVerified = data['verified'] == true;
+          trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
         }
 
-        final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
-        final style = EliteLevelEngine.getLevelStyle(pointsLevel);
+        final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
+        final style = EliteLevelEngine.getLevelStyle(finalLevel);
         final levelName = style.label;
 
         return InkWell(

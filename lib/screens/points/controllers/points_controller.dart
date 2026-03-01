@@ -72,7 +72,7 @@ class PointsController {
 
           return PointsState(
             totalPoints: summary.totalPoints,
-            currentLevelName: summary.levelName,
+            currentLevelName: summary.finalLevelLabel,
             pointsThisWeek: summary.pointsThisWeek,
             nextLevelTargetPoints: summary.nextLevelTarget,
             streakDays: summary.streakDays,

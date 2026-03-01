@@ -15,6 +15,7 @@ import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../utils/level_system.dart';
 import '../../utils/theme.dart';
+import '../../widgets/premium_level_badge.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -180,8 +181,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
     final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
     final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
-    final pointsLevel = EliteLevelEngine.getPointsLevel(totalPoints);
-    final pointsLevelName = EliteLevelEngine.getLevelStyle(pointsLevel).label;
+    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
+    final pointsLevelName = EliteLevelEngine.getLevelStyle(finalLevel).label;
     final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
     final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
@@ -299,28 +300,9 @@ class _BossHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          IntrinsicWidth(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: currentLevelColor,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withOpacity(0.22)),
-              ),
-              child: Text(
-                data.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: nameTextColor,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-            ),
+          PremiumLevelBadge(
+            levelName: data.pointsLevelName,
+            displayText: data.displayName,
           ),
           if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
