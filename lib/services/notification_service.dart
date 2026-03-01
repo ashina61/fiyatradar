@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 import '../models/notification_model.dart';
 import '../utils/safe_query_builder.dart';
@@ -28,21 +29,46 @@ class NotificationService {
       expectedType: String,
     ).snapshots();
 
-    return primary.asyncMap((primarySnapshot) async {
-      final legacySnapshot = await legacy.first;
-      final merged = <NotificationModel>[
-        ...primarySnapshot.docs.map(NotificationModel.fromFirestore),
-        ...legacySnapshot.docs.map(NotificationModel.fromFirestore),
-      ];
+    final controller = StreamController<List<NotificationModel>>();
+    QuerySnapshot<Map<String, dynamic>>? latestPrimary;
+    QuerySnapshot<Map<String, dynamic>>? latestLegacy;
 
+    void emitMerged() {
+      final merged = <NotificationModel>[
+        ...?latestPrimary?.docs.map(NotificationModel.fromFirestore),
+        ...?latestLegacy?.docs.map(NotificationModel.fromFirestore),
+      ];
       final byId = <String, NotificationModel>{};
       for (final notification in merged) {
         byId[notification.id] = notification;
       }
       final list = byId.values.toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list;
-    });
+      controller.add(list);
+    }
+
+    final primarySub = primary.listen(
+      (snapshot) {
+        latestPrimary = snapshot;
+        emitMerged();
+      },
+      onError: controller.addError,
+    );
+
+    final legacySub = legacy.listen(
+      (snapshot) {
+        latestLegacy = snapshot;
+        emitMerged();
+      },
+      onError: controller.addError,
+    );
+
+    controller.onCancel = () async {
+      await primarySub.cancel();
+      await legacySub.cancel();
+    };
+
+    return controller.stream;
   }
 
   Stream<int> getUnreadNotificationCount(String userId) {
