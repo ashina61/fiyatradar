@@ -15,8 +15,11 @@ class PriceDropWatcherService {
 
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _watchlistSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _savedProductsSubscription;
   final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
       _productSubscriptions = {};
+  Set<String> _watchlistProductIds = <String>{};
+  Set<String> _savedProductIds = <String>{};
 
   String? _activeUid;
   bool _started = false;
@@ -31,14 +34,14 @@ class PriceDropWatcherService {
       _resetUserSubscriptions();
       _activeUid = uid;
       if (uid != null && uid.isNotEmpty) {
-        _startWatchlistListener(uid);
+        _startWatchSources(uid);
       }
     });
 
     final currentUid = _auth.currentUser?.uid;
     if (currentUid != null && currentUid.isNotEmpty) {
       _activeUid = currentUid;
-      _startWatchlistListener(currentUid);
+      _startWatchSources(currentUid);
     }
   }
 
@@ -49,35 +52,78 @@ class PriceDropWatcherService {
     _started = false;
   }
 
-  void _startWatchlistListener(String uid) {
+  void _startWatchSources(String uid) {
     _watchlistSubscription = _firestore
         .collection('users')
         .doc(uid)
         .collection('watchlist')
         .snapshots()
         .listen((snapshot) {
-      final nextProductIds = snapshot.docs.map((doc) => doc.id).toSet();
-
-      final removed = _productSubscriptions.keys
-          .where((productId) => !nextProductIds.contains(productId))
-          .toList(growable: false);
-      for (final productId in removed) {
-        _productSubscriptions.remove(productId)?.cancel();
-      }
-
-      for (final productId in nextProductIds) {
-        _productSubscriptions.putIfAbsent(
-          productId,
-          () => _firestore.collection('products').doc(productId).snapshots().listen(
-            (productDoc) => _handleProductSnapshot(
-              uid: uid,
-              productId: productId,
-              productDoc: productDoc,
-            ),
-          ),
-        );
-      }
+      _watchlistProductIds = snapshot.docs
+          .map(_extractProductId)
+          .whereType<String>()
+          .toSet();
+      _syncProductListeners(uid);
     });
+
+    _savedProductsSubscription = _firestore.collection('users').doc(uid).snapshots().listen(
+      (snapshot) {
+        final data = snapshot.data();
+        final rawSavedProducts = data?['savedProducts'];
+
+        if (rawSavedProducts is Iterable) {
+          _savedProductIds = rawSavedProducts
+              .whereType<String>()
+              .map((productId) => productId.trim())
+              .where((productId) => productId.isNotEmpty)
+              .toSet();
+        } else {
+          _savedProductIds = <String>{};
+        }
+
+        _syncProductListeners(uid);
+      },
+    );
+  }
+
+  String? _extractProductId(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final docId = doc.id.trim();
+    if (docId.isNotEmpty) return docId;
+
+    final fieldProductId = doc.data()['productId'];
+    if (fieldProductId is String && fieldProductId.trim().isNotEmpty) {
+      return fieldProductId.trim();
+    }
+
+    return null;
+  }
+
+  void _syncProductListeners(String uid) {
+    final nextProductIds = {..._watchlistProductIds, ..._savedProductIds};
+
+    final removed = _productSubscriptions.keys
+        .where((productId) => !nextProductIds.contains(productId))
+        .toList(growable: false);
+    for (final productId in removed) {
+      _productSubscriptions.remove(productId)?.cancel();
+    }
+
+    for (final productId in nextProductIds) {
+      _productSubscriptions.putIfAbsent(
+        productId,
+        () => _firestore.collection('products').doc(productId).snapshots().listen(
+          (productDoc) => _handleProductSnapshot(
+            uid: uid,
+            productId: productId,
+            productDoc: productDoc,
+          ),
+        ),
+      );
+    }
+
+    print(
+      'PriceDropWatcherService: takip edilen ürün=${nextProductIds.length}, aktif listener=${_productSubscriptions.length}',
+    );
   }
 
   Future<void> _handleProductSnapshot({
@@ -141,10 +187,13 @@ class PriceDropWatcherService {
   void _resetUserSubscriptions() {
     _watchlistSubscription?.cancel();
     _watchlistSubscription = null;
+    _savedProductsSubscription?.cancel();
+    _savedProductsSubscription = null;
+    _watchlistProductIds = <String>{};
+    _savedProductIds = <String>{};
     for (final sub in _productSubscriptions.values) {
       sub.cancel();
     }
     _productSubscriptions.clear();
   }
 }
-
