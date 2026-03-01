@@ -248,7 +248,7 @@ class _BossHeroCard extends StatelessWidget {
     final levelStyle = EliteLevelEngine.getLevelStyle(
       EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
     );
-    final currentLevelColor = levelColorMap[data.pointsLevelName] ?? levelStyle.borderColor;
+    final currentLevelColor = levelStyle.borderColor;
     final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF3E2723) : Colors.white;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
@@ -325,12 +325,20 @@ class _BossHeroCard extends StatelessWidget {
           ),
           if (data.username.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
-              '@${data.username.trim()}',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.65),
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: currentLevelColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: currentLevelColor.withOpacity(0.65)),
+              ),
+              child: Text(
+                '@${data.username.trim()}',
+                style: TextStyle(
+                  color: nameTextColor.withOpacity(0.92),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
