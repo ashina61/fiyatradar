@@ -6,6 +6,7 @@ import '../models/notification_model.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 import 'firebase_init_provider.dart';
+import 'product_provider.dart';
 
 final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) {
