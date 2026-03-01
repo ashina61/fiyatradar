@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +17,7 @@ import '../../providers/user_provider.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../widgets/premium_level_badge.dart';
+import '../../services/watchlist_service.dart';
 
 // ──── CodePen CSS Renk Sabitleri ────
 const _brown900 = Color(0xFF5D4037);
@@ -99,141 +99,42 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     await Share.share("${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}");
   }
 
-  Future<void> _openNotificationSettings(ProductDetailResponse data) async {
+
+  Future<void> _toggleWatchlist(ProductDetailResponse data) async {
     final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bildirim kurmak için giriş yapmalısın.')),
+        const SnackBar(content: Text('Takip listesi için giriş yapmalısın.')),
       );
       return;
     }
 
-    final doc = await ref
-        .read(firestoreServiceProvider)
-        .followedProductStream(userId: user.uid, productId: data.id)
-        .first;
-    final saved = doc.data();
+    final service = WatchlistService();
+    final isWatchlisted = await service.isWatchlisted(user.uid, data.id).first;
+
+    if (isWatchlisted) {
+      await service.removeFromWatchlist(user.uid, data.id);
+    } else {
+      await service.addToWatchlist(
+        user.uid,
+        data.id,
+        data.title,
+        data.bestPrice.price,
+      );
+    }
 
     if (!mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        var notifyOnNewPrice = saved?['notifyOnNewPrice'] == true;
-        var notifyOnPriceDrop = saved?['notifyOnPriceDrop'] == true;
-
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: _cream100,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _brown500.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Ürün bildirimi ayarları',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: _brown900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${data.title} için hangi bildirimleri almak istediğini seç.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: _brown700.withOpacity(0.8),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: notifyOnPriceDrop,
-                      activeColor: _amber600,
-                      title: const Text(
-                        'Fiyat düştüğünde bildir',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: const Text('Ürünün fiyatı daha uygun hale gelirse haber ver.'),
-                      onChanged: (value) => setSheetState(() => notifyOnPriceDrop = value),
-                    ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: notifyOnNewPrice,
-                      activeColor: _amber600,
-                      title: const Text(
-                        'Yeni fiyat girildiğinde bildir',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: const Text('Topluluk bu ürüne yeni fiyat eklediğinde haber ver.'),
-                      onChanged: (value) => setSheetState(() => notifyOnNewPrice = value),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          await ref.read(firestoreServiceProvider).setFollowedProduct(
-                                userId: user.uid,
-                                productId: data.id,
-                                notifyOnNewPrice: notifyOnNewPrice,
-                                notifyOnPriceDrop: notifyOnPriceDrop,
-                              );
-
-                          if (!mounted) return;
-                          Navigator.of(context).pop();
-
-                          final bothDisabled = !notifyOnNewPrice && !notifyOnPriceDrop;
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                bothDisabled
-                                    ? 'Bu ürün için bildirimler kapatıldı.'
-                                    : 'Ürün bildirimi ayarların güncellendi.',
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.check_rounded),
-                        label: const Text('Kaydet'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _amber600,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isWatchlisted
+              ? 'Ürün takip listesinden kaldırıldı.'
+              : 'Ürün takip listene eklendi.',
+        ),
+      ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -246,11 +147,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
               uid: currentUser.uid,
               productId: widget.productId,
             );
-    final followedProductStream = currentUser == null
-        ? const Stream<DocumentSnapshot<Map<String, dynamic>>>.empty()
-        : ref.watch(firestoreServiceProvider).followedProductStream(
-              userId: currentUser.uid,
-              productId: widget.productId,
+    final watchlistedStream = currentUser == null
+        ? const Stream<bool>.empty()
+        : WatchlistService().isWatchlisted(
+              currentUser.uid,
+              widget.productId,
             );
 
     return Scaffold(
@@ -282,11 +183,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                                 data: state.data!,
                                 floatAnimation: _heroFloat,
                                 favoriteStream: favoriteStream,
-                                followedProductStream: followedProductStream,
+                                watchlistedStream: watchlistedStream,
                                 onBack: () => Navigator.of(context).pop(),
                                 onToggleFavorite: () => _toggleFavorite(state.data!),
                                 onShare: () => _shareProduct(state.data!),
-                                onNotificationTap: () => _openNotificationSettings(state.data!),
+                                onNotificationTap: () => _toggleWatchlist(state.data!),
                               ),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 100), // .content-body padding
@@ -321,11 +222,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
 // 1. HERO SECTION (Zıplayan Ürün ve Aktif Butonlar)
 // ═══════════════════════════════════════════════════════════════════
 class HeroSection extends StatelessWidget {
-  const HeroSection({super.key, required this.data, required this.floatAnimation, required this.favoriteStream, required this.followedProductStream, required this.onBack, required this.onToggleFavorite, required this.onShare, required this.onNotificationTap});
+  const HeroSection({super.key, required this.data, required this.floatAnimation, required this.favoriteStream, required this.watchlistedStream, required this.onBack, required this.onToggleFavorite, required this.onShare, required this.onNotificationTap});
   final ProductDetailResponse data;
   final Animation<double> floatAnimation;
   final Stream<bool> favoriteStream;
-  final Stream<DocumentSnapshot<Map<String, dynamic>>> followedProductStream;
+  final Stream<bool> watchlistedStream;
   final VoidCallback onBack, onToggleFavorite, onShare;
   final VoidCallback onNotificationTap;
 
@@ -361,16 +262,13 @@ class HeroSection extends StatelessWidget {
                       },
                     ),
                     const SizedBox(width: 12),
-                    StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      stream: followedProductStream,
+                    StreamBuilder<bool>(
+                      stream: watchlistedStream,
                       builder: (context, snapshot) {
-                        final followed = snapshot.data?.data();
-                        final hasNotification =
-                            (followed?['notifyOnNewPrice'] == true) ||
-                            (followed?['notifyOnPriceDrop'] == true);
+                        final isWatchlisted = snapshot.data ?? false;
                         return GlassIconButton(
-                          icon: hasNotification ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
-                          iconColor: hasNotification ? _amber600 : _brown900,
+                          icon: isWatchlisted ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                          iconColor: isWatchlisted ? _amber600 : _brown900,
                           onTap: onNotificationTap,
                         );
                       },

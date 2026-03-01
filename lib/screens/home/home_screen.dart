@@ -11,7 +11,7 @@ import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/notification_provider.dart';
+import '../../services/notification_center_service.dart';
 import '../../widgets/home_product_card.dart';
 import '../../widgets/category_tile_v3.dart';
 import '../../widgets/staggered_fade_slide.dart';
@@ -22,7 +22,7 @@ import '../points/points_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../product/product_detail_screen.dart';
-import '../notifications/notifications_screen.dart';
+import '../../pages/notification_center_page.dart';
 import '../campaign/campaign_detail_screen.dart';
 import '../campaign/campaigns_screen.dart';
 
@@ -96,7 +96,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
-    final unreadCount = ref.watch(unreadCountProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
     final trendingCount = trendingAsync.valueOrNull?.length ?? 0;
@@ -145,11 +144,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                       child: userAsync.when(
                         data: (user) =>
-                            _buildAppBar(context, theme, user, unreadCount),
+                            _buildAppBar(context, theme, user),
                         loading: () =>
-                            _buildAppBar(context, theme, null, unreadCount),
+                            _buildAppBar(context, theme, null),
                         error: (_, __) =>
-                            _buildAppBar(context, theme, null, unreadCount),
+                            _buildAppBar(context, theme, null),
                       ),
                     ),
                   ),
@@ -280,8 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ─── App Bar ───────────────────────────────────────────────────
-  Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user,
-      int unreadCount) {
+  Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user) {
     final displayName = user?.name ?? 'Kullanıcı';
     final initial =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
@@ -406,67 +404,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
         const SizedBox(width: 10),
-        // Notification bell
-        PremiumPressable(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-            );
-          },
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Stack(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppColors.outline.withOpacity(0.5),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppColors.textSecondary,
-                    size: 22,
-                  ),
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        unreadCount > 99 ? '99+' : '$unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+        const _NotificationBellButton(),
       ],
     );
   }
+
 
   String _getGreetingSubtitle() {
     final hour = DateTime.now().hour;
@@ -1401,6 +1343,82 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationBellButton extends ConsumerWidget {
+  const _NotificationBellButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+    final unreadStream = uid == null
+        ? Stream<int>.value(0)
+        : NotificationCenterService().getUnreadCount(uid);
+
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
+        );
+      },
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Stack(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.outline.withOpacity(0.5),
+                ),
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.textSecondary,
+                size: 22,
+              ),
+            ),
+            StreamBuilder<int>(
+              stream: unreadStream,
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+                if (unreadCount <= 0) return const SizedBox.shrink();
+                return Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
