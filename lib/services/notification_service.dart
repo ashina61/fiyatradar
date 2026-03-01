@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../models/notification_model.dart';
 import '../utils/safe_query_builder.dart';
@@ -8,8 +10,25 @@ class NotificationService {
   NotificationService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static const String channelId = 'high_importance_channel';
+  static const String channelName = 'High Importance Notifications';
+  static const String channelDescription =
+      'This channel is used for important notifications.';
   static const bool _debugLogs = false;
   static const int _inboxPageSize = 50;
+
+  static final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  static const AndroidNotificationChannel _androidChannel =
+      AndroidNotificationChannel(
+        channelId,
+        channelName,
+        description: channelDescription,
+        importance: Importance.high,
+      );
+
+  static bool _isLocalNotificationsInitialized = false;
 
   final FirebaseFirestore _firestore;
 
@@ -27,6 +46,83 @@ class NotificationService {
   void _log(String message) {
     if (!_debugLogs || !kDebugMode) return;
     debugPrint('[inbox] $message');
+  }
+
+  static Future<void> initializeLocalNotifications() async {
+    if (_isLocalNotificationsInitialized) return;
+
+    const initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: DarwinInitializationSettings(),
+    );
+
+    await _localNotificationsPlugin.initialize(initializationSettings);
+
+    await _localNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_androidChannel);
+
+    _isLocalNotificationsInitialized = true;
+  }
+
+  Future<String?> getFCMToken() async {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (kDebugMode) {
+      debugPrint('FCM Token: $token');
+    }
+    return token;
+  }
+
+  Future<void> setupForegroundNotifications() async {
+    await initializeLocalNotifications();
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final notification = message.notification;
+      if (notification == null) return;
+
+      await _localNotificationsPlugin.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            channelName,
+            channelDescription: channelDescription,
+            importance: Importance.max,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(),
+        ),
+      );
+    });
+  }
+
+  void setupNotificationOpenedApp() {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      if (kDebugMode) {
+        debugPrint('Notification tapped: ${message.data}');
+      }
+    });
+  }
+
+  static Future<void> requestNotificationPermissions() async {
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      await _localNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+    }
   }
 
   Stream<List<NotificationItem>> watchInbox(String userId) {
