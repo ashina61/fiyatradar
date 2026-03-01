@@ -939,10 +939,9 @@ class FirestoreService {
       final notifyOnPriceDrop = followData['notifyOnPriceDrop'] == true;
 
       if (notifyOnNewPrice) {
-        final ref = _notificationsRef.doc();
+        final ref = _usersRef.doc(uid).collection('inbox').doc();
         batch.set(ref, {
           'id': ref.id,
-          'userId': uid,
           'type': 'new_price',
           'productId': productId,
           'title': '$productName icin yeni fiyat',
@@ -950,7 +949,7 @@ class FirestoreService {
               ? 'Yeni fiyat girildi: ${newPrice.toStringAsFixed(2)}₺'
               : '$storeName mağazasında yeni fiyat: ${newPrice.toStringAsFixed(2)}₺',
           'createdAt': FieldValue.serverTimestamp(),
-          'isRead': false,
+          'read': false,
           'meta': {
             'oldPrice': oldPrice,
             'newPrice': newPrice,
@@ -962,16 +961,15 @@ class FirestoreService {
       }
 
       if (isDrop && notifyOnPriceDrop) {
-        final ref = _notificationsRef.doc();
+        final ref = _usersRef.doc(uid).collection('inbox').doc();
         batch.set(ref, {
           'id': ref.id,
-          'userId': uid,
           'type': 'price_drop',
           'productId': productId,
           'title': '$productName fiyat dustu',
           'body': '${oldPrice!.toStringAsFixed(2)}₺ → ${newPrice.toStringAsFixed(2)}₺',
           'createdAt': FieldValue.serverTimestamp(),
-          'isRead': false,
+          'read': false,
           'meta': {
             'oldPrice': oldPrice,
             'newPrice': newPrice,
@@ -1447,6 +1445,15 @@ class FirestoreService {
 
   Future<void> markNotificationAsRead(String notificationId) async {
     return _notificationService.markNotificationAsRead(notificationId);
+  }
+
+
+  Future<void> markRead(String userId, String notificationId) async {
+    return _notificationService.markRead(userId, notificationId);
+  }
+
+  Future<void> migrateLegacyToInboxIfNeeded(String userId) async {
+    return _notificationService.migrateLegacyToInboxIfNeeded(userId);
   }
 
   Future<void> markAllNotificationsAsRead(String userId) async {

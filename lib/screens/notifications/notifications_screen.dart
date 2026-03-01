@@ -18,7 +18,7 @@ class NotificationsScreen extends StatelessWidget {
     final stream = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
-        .collection('notifications')
+        .collection('inbox')
         .orderBy('createdAt', descending: true)
         .snapshots();
 
@@ -31,7 +31,7 @@ class NotificationsScreen extends StatelessWidget {
               final snapshot = await FirebaseFirestore.instance
                   .collection('users')
                   .doc(uid)
-                  .collection('notifications')
+                  .collection('inbox')
                   .where('read', isEqualTo: false)
                   .get();
               for (final doc in snapshot.docs) {

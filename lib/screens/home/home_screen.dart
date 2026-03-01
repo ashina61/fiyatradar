@@ -96,7 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
-    final unreadCountAsync = ref.watch(unreadNotificationCountProvider);
+    final unreadCount = ref.watch(unreadCountProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
     final trendingCount = trendingAsync.valueOrNull?.length ?? 0;
@@ -145,11 +145,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                       child: userAsync.when(
                         data: (user) =>
-                            _buildAppBar(context, theme, user, unreadCountAsync),
+                            _buildAppBar(context, theme, user, unreadCount),
                         loading: () =>
-                            _buildAppBar(context, theme, null, unreadCountAsync),
+                            _buildAppBar(context, theme, null, unreadCount),
                         error: (_, __) =>
-                            _buildAppBar(context, theme, null, unreadCountAsync),
+                            _buildAppBar(context, theme, null, unreadCount),
                       ),
                     ),
                   ),
@@ -281,12 +281,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ─── App Bar ───────────────────────────────────────────────────
   Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user,
-      AsyncValue<int> unreadCountAsync) {
+      int unreadCount) {
     final displayName = user?.name ?? 'Kullanıcı';
     final initial =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
     final points = user?.points ?? 0;
-    final unreadCount = unreadCountAsync.valueOrNull ?? 0;
     final rawPhotoUrl = (user?.photoUrl ?? '').toString().trim();
     final photoUrl = rawPhotoUrl.isEmpty ? null : rawPhotoUrl;
 
