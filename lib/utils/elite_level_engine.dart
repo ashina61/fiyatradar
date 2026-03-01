@@ -71,6 +71,13 @@ class EliteLevelResult {
 class EliteLevelEngine {
   const EliteLevelEngine._();
 
+  static int _effectiveTrustPercent(int trustPercent, int totalVotes) {
+    // Güven verisi yetersizse seviyeyi bloke etmeyelim; yalnızca yeterli oy
+    // sayısına ulaşıldığında güven kapıları aktif olsun.
+    if (totalVotes < minVotesForTrust) return 100;
+    return trustPercent.clamp(0, 100);
+  }
+
   static const Map<EliteLevel, String> _levelKeys = {
     EliteLevel.gozlemci: 'gozlemci',
     EliteLevel.avci: 'avci',
@@ -97,7 +104,7 @@ class EliteLevelEngine {
   }
 
   static EliteLevel getTrustLevel(int trustPercent, int totalVotes) {
-    final eligibleTrust = totalVotes < minVotesForTrust ? 0 : trustPercent.clamp(0, 100);
+    final eligibleTrust = _effectiveTrustPercent(trustPercent, totalVotes);
     EliteLevel current = _fromKey(_levels.first.levelKey);
     for (final item in _levels) {
       final threshold = LevelConfig.trustThresholds[item.levelKey] ?? 0;
@@ -117,7 +124,7 @@ class EliteLevelEngine {
     final nextPointsIndex = (pointsIndex + 1).clamp(0, _levels.length - 1).toInt();
     final nextPointsLevel = _fromKey(_levels[nextPointsIndex].levelKey);
     final requiredMinTrust = _levels[nextPointsIndex].minTrustGate;
-    final effectiveTrust = totalVotes < minVotesForTrust ? 0 : trustPercent;
+    final effectiveTrust = _effectiveTrustPercent(trustPercent, totalVotes);
     final isTrustGated = pointsIndex < (_levels.length - 1) && (effectiveTrust < requiredMinTrust);
 
     return EliteLevelResult(
