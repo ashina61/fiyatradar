@@ -116,7 +116,13 @@ class _FiyatRadarAppState extends ConsumerState<FiyatRadarApp> {
     });
 
     Future.microtask(() async {
-      await _notificationService.getFCMToken();
+      final token = await _notificationService.getFCMToken();
+      if (token == null || token.isEmpty) {
+        final cachedToken = await _notificationService.getCachedFCMToken();
+        if (kDebugMode) {
+          debugPrint('Cached FCM Token: $cachedToken');
+        }
+      }
       await _notificationService.setupForegroundNotifications();
       _notificationService.setupNotificationOpenedApp();
     });

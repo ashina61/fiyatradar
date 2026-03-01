@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_model.dart';
 import '../utils/safe_query_builder.dart';
@@ -16,6 +17,7 @@ class NotificationService {
       'This channel is used for important notifications.';
   static const bool _debugLogs = false;
   static const int _inboxPageSize = 50;
+  static const String _fcmTokenPrefsKey = 'fcm_token';
 
   static final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -29,6 +31,7 @@ class NotificationService {
       );
 
   static bool _isLocalNotificationsInitialized = false;
+  static bool _isTokenRefreshListenerRegistered = false;
 
   final FirebaseFirestore _firestore;
 
@@ -69,11 +72,34 @@ class NotificationService {
   }
 
   Future<String?> getFCMToken() async {
+    _registerTokenRefreshListener();
+
     final token = await FirebaseMessaging.instance.getToken();
-    if (kDebugMode) {
-      debugPrint('FCM Token: $token');
-    }
+    await _cacheToken(token);
+    debugPrint('FCM Token: $token');
     return token;
+  }
+
+  Future<String?> getCachedFCMToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmTokenPrefsKey);
+  }
+
+  void _registerTokenRefreshListener() {
+    if (_isTokenRefreshListenerRegistered) return;
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+      await _cacheToken(token);
+      debugPrint('FCM Token refreshed: $token');
+    });
+
+    _isTokenRefreshListenerRegistered = true;
+  }
+
+  static Future<void> _cacheToken(String? token) async {
+    if (token == null || token.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fcmTokenPrefsKey, token);
   }
 
   Future<void> setupForegroundNotifications() async {
