@@ -148,36 +148,36 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Avcı',
           levelColor: Color(0xFFF4511E),
-          backgroundColor: Color(0xFFF4511E),
-          contentColor: Colors.white,
-          borderColor: Color(0xFFFFCCBC),
+          backgroundColor: Color(0xFFFFF3EF),
+          contentColor: Color(0xFFE65100),
+          borderColor: Color(0xFFE65100),
           icon: Icons.gps_fixed_rounded,
         );
       case 'Tasarrufçu':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Tasarrufçu',
           levelColor: Color(0xFF1E88E5),
-          backgroundColor: Color(0xFF1E88E5),
-          contentColor: Colors.white,
-          borderColor: Color(0xFFBBDEFB),
+          backgroundColor: Color(0xFFF1F8FF),
+          contentColor: Color(0xFF1565C0),
+          borderColor: Color(0xFF1565C0),
           icon: Icons.savings_rounded,
         );
       case 'Market Ustası':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Market Ustası',
           levelColor: Color(0xFFFFB300),
-          backgroundColor: Color(0xFFFFB300),
-          contentColor: Color(0xFF3E2723),
-          borderColor: Color(0xFFFFECB3),
+          backgroundColor: Color(0xFFFFF9E8),
+          contentColor: Color(0xFFEF6C00),
+          borderColor: Color(0xFFEF6C00),
           icon: Icons.storefront_rounded,
         );
       case 'Fiyat Lordu':
         return const _PremiumBadgeLevelInfo(
           levelName: 'Fiyat Lordu',
           levelColor: Color(0xFFE040FB),
-          backgroundColor: Color(0xFFE040FB),
-          contentColor: Colors.white,
-          borderColor: Color(0xFFF8BBD0),
+          backgroundColor: Color(0xFFFFF1FF),
+          contentColor: Color(0xFFAB47BC),
+          borderColor: Color(0xFFAB47BC),
           icon: Icons.workspace_premium_rounded,
           hasPulseAnimation: true,
         );
@@ -185,9 +185,9 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Radar Efsanesi',
           levelColor: Color(0xFF00E5FF),
-          backgroundColor: Color(0xFF00BCD4),
-          contentColor: Color(0xFF00363D),
-          borderColor: Color(0xFFB2EBF2),
+          backgroundColor: Color(0xFFF0FDFF),
+          contentColor: Color(0xFF26C6DA),
+          borderColor: Color(0xFF26C6DA),
           icon: Icons.diamond_rounded,
           hasPulseAnimation: true,
         );
@@ -196,9 +196,9 @@ class _PremiumLevelBadgeState extends State<PremiumLevelBadge>
         return const _PremiumBadgeLevelInfo(
           levelName: 'Gözlemci',
           levelColor: Color(0xFF8C7A6B),
-          backgroundColor: Color(0xFF8C7A6B),
-          contentColor: Color(0xFFFFF3E0),
-          borderColor: Color(0xFFD7CCC8),
+          backgroundColor: Color(0xFFFFF7F2),
+          contentColor: Color(0xFF8D6E63),
+          borderColor: Color(0xFF8D6E63),
           icon: Icons.visibility_rounded,
         );
     }

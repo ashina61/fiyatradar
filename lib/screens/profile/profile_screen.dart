@@ -249,9 +249,7 @@ class _BossHeroCard extends StatelessWidget {
       EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
     );
     final currentLevelColor = levelColorMap[data.pointsLevelName] ?? levelStyle.borderColor;
-    final badgeTitle = levelStyle.label;
-    final badgeTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : currentLevelColor;
-    final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF4E342E) : Colors.white;
+    final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF3E2723) : Colors.white;
     final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
 
     return Container(
@@ -307,9 +305,9 @@ class _BossHeroCard extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 300),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: currentLevelColor.withOpacity(0.10),
+                color: currentLevelColor,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.85)),
+                border: Border.all(color: Colors.white.withOpacity(0.22)),
               ),
               child: Text(
                 data.displayName,
@@ -336,37 +334,6 @@ class _BossHeroCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          IntrinsicWidth(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFDFBF9),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.85), width: 1.5),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(levelStyle.icon, size: 16, color: badgeTextColor),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      badgeTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: badgeTextColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,
