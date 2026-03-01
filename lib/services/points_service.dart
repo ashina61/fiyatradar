@@ -354,7 +354,7 @@ class PointsService {
     return _users.doc(uid).snapshots().asyncMap((doc) async {
       final levels = await streamLevels().first;
       final data = doc.data() ?? <String, dynamic>{};
-      final totalPoints = (data['totalPoints'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
+      final totalPoints = _resolveUserTotalPoints(data);
       final weeklyPoints = (data['weeklyPoints'] as num?)?.toInt() ?? 0;
       final monthlyPoints = (data['monthlyPoints'] as num?)?.toInt() ?? 0;
       final trustMap = Map<String, dynamic>.from(data['trust'] as Map? ?? const {});
@@ -562,7 +562,7 @@ class PointsService {
         final awardedDelta = shouldAwardPoints ? pointsDelta : 0;
         final userSnap = await txn.get(userRef);
         final userData = userSnap.data() ?? <String, dynamic>{};
-        final currentPoints = (userData['totalPoints'] as num?)?.toInt() ?? 0;
+        final currentPoints = _resolveUserTotalPoints(userData);
         final newTotal = currentPoints + awardedDelta;
         final previousWeekKey = (userData['weeklyResetKey'] ?? userData['weeklyPointsWeekKey'] ?? '').toString();
         final currentWeeklyPoints = previousWeekKey == activeWeekKey ? (userData['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
@@ -737,10 +737,7 @@ class PointsService {
     if (!userDoc.exists) return;
 
     final userData = userDoc.data() ?? const <String, dynamic>{};
-    final totalPoints = (userData['totalPoints'] as num?)?.toInt() ??
-        (userData['pointsTotal'] as num?)?.toInt() ??
-        (userData['points'] as num?)?.toInt() ??
-        0;
+    final totalPoints = _resolveUserTotalPoints(userData);
     final role = (userData['role'] ?? '').toString();
     final isAdmin = (userData['isAdmin'] as bool?) ?? role == 'admin';
 
@@ -805,6 +802,15 @@ class PointsService {
   String _standardizeTierName(String rawTier) {
     final parsed = EliteLevelEngine.parseLevelLabel(rawTier);
     return EliteLevelEngine.getLevelStyle(parsed).label;
+  }
+
+  int _resolveUserTotalPoints(Map<String, dynamic> data) {
+    final totalPoints = (data['totalPoints'] as num?)?.toInt();
+    final pointsTotal = (data['pointsTotal'] as num?)?.toInt();
+    final points = (data['points'] as num?)?.toInt();
+    final candidates = [totalPoints, pointsTotal, points].whereType<int>().toList();
+    if (candidates.isEmpty) return 0;
+    return candidates.reduce(math.max);
   }
 
   String _dateKey(DateTime date) {
