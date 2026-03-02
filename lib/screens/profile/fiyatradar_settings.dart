@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'about_screen.dart';
 import 'notification_settings.dart';
@@ -30,6 +31,17 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('12 MB önbellek temizlendi.')),
     );
+  }
+
+  Future<void> _rateApp() async {
+    final storeUri = Uri.parse('https://play.google.com/store/apps/details?id=com.fiyatradar.app');
+    final opened = await launchUrl(storeUri, mode: LaunchMode.externalApplication);
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mağaza bağlantısı açılamadı.')),
+      );
+    }
   }
 
   Future<void> _deleteAccount() async {
@@ -130,6 +142,12 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
               title: 'Önbelleği Temizle',
               subtitle: 'Uygulama yavaşlarsa kullan',
               onTap: _clearCache,
+            ),
+            _tile(
+              icon: Icons.star_rate_rounded,
+              title: 'Uygulamayı Puanla',
+              subtitle: 'Deneyimini mağazada değerlendir',
+              onTap: _rateApp,
             ),
           ]),
           const SizedBox(height: 16),

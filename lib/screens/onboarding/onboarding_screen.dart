@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../utils/theme.dart';
 import '../auth/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -15,39 +15,30 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
-  int _currentPage = 0;
+  int _currentIndex = 0;
 
-  final List<_OnboardingPageData> _pages = const [
-    _OnboardingPageData(
-      title: 'Mahallendeki fırsatları keşfet',
-      description:
-          'Yakındaki marketlerde fiyatları canlı takip et, her alışverişte en avantajlı rotayı seç.',
-      icon: Icons.explore_rounded,
-      stats: '150K+ doğrulanmış fiyat',
-      highlights: ['Canlı market karşılaştırması', 'Konuma göre öneriler'],
-      accent: AppColors.primary,
-      glow: Color(0xFFD4874A),
-    ),
-    _OnboardingPageData(
-      title: 'Topluluk gücüyle güvenli veri',
-      description:
-          'Doğrulanan fiyatlara katkı ver, güven puanı yükselt ve premium deneyimi açan ödüller kazan.',
-      icon: Icons.verified_user_rounded,
-      stats: '%98 güvenilirlik skoru',
-      highlights: ['Topluluk onay sistemi', 'Akıllı güven puanı'],
-      accent: AppColors.accent,
-      glow: Color(0xFFE8C9A8),
-    ),
-    _OnboardingPageData(
-      title: 'Sepeti tek dokunuşla optimize et',
-      description:
-          'Ürün listeni ekle, marketleri otomatik kıyasla ve toplam maliyeti tek ekranda düşür.',
-      icon: Icons.shopping_bag_rounded,
-      stats: 'Aylık ort. %23 tasarruf',
-      highlights: ['Akıllı sepet kıyaslama', 'Anlık tasarruf analizi'],
-      accent: AppColors.secondaryDark,
-      glow: Color(0xFFF5EDE6),
-    ),
+  final List<Map<String, dynamic>> _pages = const [
+    {
+      'badge': 'Akıllı Takip',
+      'title': 'Market Rafları Cebinde',
+      'description':
+          'Fiyatları akılda tutma devri bitti. Etrafındaki tüm güncel fiyatları tek ekranda gör, alışverişini akıllıca planla.',
+      'icon': Icons.radar_rounded,
+    },
+    {
+      'badge': 'Gücümüz Topluluk',
+      'title': 'Birlikte Daha Güçlüyüz',
+      'description':
+          'Gördüğün güncel fiyatları paylaşarak ağımıza katıl. Kullanıcıların desteğiyle büyüyen bu sistemde, herkes için en şeffaf fiyat haritasını oluşturalım.',
+      'icon': Icons.groups_rounded,
+    },
+    {
+      'badge': 'Net Tasarruf',
+      'title': 'Bütçenin Kontrolü Sende',
+      'description':
+          'İhtiyaç listeni gir, FiyatRadar senin için en uygun market kombinasyonunu bulsun. Hem zamanını hem paranı koru.',
+      'icon': Icons.account_balance_wallet_rounded,
+    },
   ];
 
   @override
@@ -66,320 +57,262 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
+  void _onNextPressed() {
+    if (_currentIndex < _pages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
       );
-    } else {
-      _completeOnboarding();
+      return;
     }
+    _completeOnboarding();
   }
 
   @override
   Widget build(BuildContext context) {
-    final page = _pages[_currentPage];
-
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFAF6F3), Color(0xFFF5EDE6), Colors.white],
-          ),
-        ),
-        child: Stack(
+      backgroundColor: const Color(0xFFFAF6F0),
+      body: SafeArea(
+        child: Column(
           children: [
-            Positioned(
-              top: -120,
-              right: -80,
-              child: _GlowOrb(color: page.glow, size: 260),
-            ),
-            Positioned(
-              bottom: 120,
-              left: -120,
-              child: _GlowOrb(color: page.accent.withOpacity(0.16), size: 320),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.md,
-                      AppSpacing.lg,
-                      AppSpacing.sm,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: AppColors.outlineVariant,
-                            ),
-                          ),
-                          child: const Text(
-                            'FiyatRadar',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _currentPage == _pages.length - 1
-                              ? null
-                              : _completeOnboarding,
-                          child: const Text('Geç'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: _pages.length,
-                      onPageChanged: (value) => setState(() => _currentPage = value),
-                      itemBuilder: (context, index) => _OnboardingPage(data: _pages[index]),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.md,
-                      AppSpacing.lg,
-                      AppSpacing.lg,
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            _pages.length,
-                            (index) => AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: _currentPage == index ? 34 : 10,
-                              height: 10,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              decoration: BoxDecoration(
-                                gradient: _currentPage == index
-                                    ? AppColors.gradientWarm
-                                    : null,
-                                color: _currentPage == index
-                                    ? null
-                                    : AppColors.outlineVariant,
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton.icon(
-                            onPressed: _nextPage,
-                            icon: Icon(
-                              _currentPage == _pages.length - 1
-                                  ? Icons.auto_awesome_rounded
-                                  : Icons.arrow_forward_rounded,
-                            ),
-                            label: Text(
-                              _currentPage == _pages.length - 1
-                                  ? 'Premium Deneyime Başla'
-                                  : 'Devam Et',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OnboardingPageData {
-  const _OnboardingPageData({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.stats,
-    required this.highlights,
-    required this.accent,
-    required this.glow,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-  final String stats;
-  final List<String> highlights;
-  final Color accent;
-  final Color glow;
-}
-
-class _OnboardingPage extends StatelessWidget {
-  const _OnboardingPage({required this.data});
-
-  final _OnboardingPageData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.95),
-                  data.glow.withOpacity(0.28),
-                ],
-              ),
-              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.7)),
-              boxShadow: [
-                BoxShadow(
-                  color: data.accent.withOpacity(0.16),
-                  blurRadius: 28,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [data.accent, data.glow],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Icon(data.icon, color: Colors.white, size: 40),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.78),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    data.stats,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Text(
-            data.title,
-            textAlign: TextAlign.center,
-            style: textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            data.description,
-            textAlign: TextAlign.center,
-            style: textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.45,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          ...data.highlights.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 18, color: data.accent),
-                  const SizedBox(width: 8),
-                  Flexible(
+                  Text(
+                    'FiyatRadar',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: const Color(0xFF6B4226),
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _completeOnboarding,
                     child: Text(
-                      item,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                      'Atla',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFA38671),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  const _GlowOrb({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              color,
-              color.withOpacity(0.08),
-              Colors.transparent,
-            ],
-            stops: const [0, 0.5, 1],
-          ),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _pages.length,
+                onPageChanged: (index) => setState(() => _currentIndex = index),
+                itemBuilder: (context, index) {
+                  final page = _pages[index];
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            constraints: const BoxConstraints(maxHeight: 320),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFAF6F0),
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.white,
+                                  offset: Offset(-12, -12),
+                                  blurRadius: 24,
+                                ),
+                                BoxShadow(
+                                  color: Color(0x1FA66632),
+                                  offset: Offset(12, 12),
+                                  blurRadius: 24,
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.center,
+                              children: [
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 110,
+                                      height: 110,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFFFAF6F0),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Color(0x26A66632),
+                                            offset: Offset(8, 8),
+                                            blurRadius: 16,
+                                          ),
+                                          BoxShadow(
+                                            color: Color(0xFFFFFFFF),
+                                            offset: Offset(-8, -8),
+                                            blurRadius: 16,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        page['icon'] as IconData,
+                                        size: 52,
+                                        color: const Color(0xFF6B4226),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Positioned(
+                                  bottom: -15,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(100),
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFF6B4226),
+                                          Color(0xFF4A2E1B),
+                                        ],
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x4D6B4226),
+                                          offset: Offset(0, 8),
+                                          blurRadius: 20,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      page['badge'] as String,
+                                      style: GoogleFonts.outfit(
+                                        color: const Color(0xFFFFFFFF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Column(
+                            children: [
+                              Text(
+                                page['title'] as String,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.outfit(
+                                  color: const Color(0xFF4A2E1B),
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.2,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                page['description'] as String,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.outfit(
+                                  color: const Color(0xFF8C6A53),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      _pages.length,
+                      (index) {
+                        final isActive = _currentIndex == index;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: isActive ? 28 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF6B4226)
+                                : const Color(0xFFEAD8C8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF8C5938), Color(0xFF4A2E1B)],
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x406B4226),
+                            offset: Offset(0, 10),
+                            blurRadius: 25,
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _onNextPressed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0x00000000),
+                          shadowColor: const Color(0x00000000),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: Text(
+                          _currentIndex == _pages.length - 1
+                              ? 'Uygulamaya Başla'
+                              : 'Devam Et',
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFFFFFFFF),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
