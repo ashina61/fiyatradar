@@ -11,6 +11,7 @@ import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../services/notification_center_service.dart';
 import '../../widgets/home_product_card.dart';
 import '../../widgets/category_tile_v3.dart';
@@ -40,7 +41,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
   final ScrollController _categoryScrollController = ScrollController();
+  final ScrollController _statsScrollController = ScrollController();
   bool _isSnappingCategories = false;
+  Timer? _statsMarqueeTimer;
 
   static const double _categoryTileWidth = 110;
   static const double _categoryTileSpacing = 12;
@@ -52,6 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _startBannerAutoScroll();
+    _startStatsMarquee();
     _headerAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -79,10 +83,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
+
+  void _startStatsMarquee() {
+    _statsMarqueeTimer = Timer.periodic(const Duration(milliseconds: 45), (_) {
+      if (!mounted || !_statsScrollController.hasClients) return;
+      final position = _statsScrollController.position;
+      final maxScroll = position.maxScrollExtent;
+      if (maxScroll <= 0) return;
+
+      final nextOffset = position.pixels + 1;
+      if (nextOffset >= maxScroll) {
+        _statsScrollController.jumpTo(0);
+      } else {
+        _statsScrollController.jumpTo(nextOffset);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _bannerTimer?.cancel();
     _categoryScrollController.dispose();
+    _statsMarqueeTimer?.cancel();
+    _statsScrollController.dispose();
     _bannerController.dispose();
     _headerAnimController.dispose();
     super.dispose();
@@ -95,10 +118,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final bannersAsync = ref.watch(activeBannersProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
+    final storesAsync = ref.watch(allStoresStreamProvider);
+    final usersAsync = ref.watch(allUsersProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
-    final trendingCount = trendingAsync.valueOrNull?.length ?? 0;
-    final recommendedCount = recommendedAsync.valueOrNull?.length ?? 0;
+    final users = usersAsync.valueOrNull ?? [];
+    final marketCount = storesAsync.valueOrNull?.length ?? 0;
+    final totalUserCount = users.length;
+    final totalPriceCount = users.fold<int>(
+      0,
+      (sum, user) => sum + user.priceEntries,
+    );
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -161,12 +191,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
 
-                // ---------- Quick Insight Pills ----------
+                // ---------- System Stats Marquee ----------
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                    child: _buildQuickInsights(
-                        theme, trendingCount, recommendedCount),
+                    child: _buildSystemStatsMarquee(
+                      theme,
+                      marketCount: marketCount,
+                      totalPriceCount: totalPriceCount,
+                      totalUserCount: totalUserCount,
+                    ),
                   ),
                 ),
 
@@ -468,46 +502,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─── Quick Insights ────────────────────────────────────────────
-  Widget _buildQuickInsights(
-      ThemeData theme, int trendingCount, int recommendedCount) {
-    return Row(
-      children: [
-        Expanded(
-          child: _InsightPill(
-            icon: Icons.trending_down_rounded,
-            iconColor: AppColors.success,
-            label: 'Dusus',
-            value: '$trendingCount ürün',
-            bgColor: AppColors.success.withOpacity(0.08),
-            borderColor: AppColors.success.withOpacity(0.15),
-          ),
+  // ─── System Stats Marquee ───────────────────────────────
+  Widget _buildSystemStatsMarquee(
+    ThemeData theme, {
+    required int marketCount,
+    required int totalPriceCount,
+    required int totalUserCount,
+  }) {
+    final stats = [
+      'Sistemde kayıtlı market sayısı: $marketCount',
+      'Sistemde kayıtlı fiyat sayısı: $totalPriceCount',
+      'Toplam kullanıcı sayısı: $totalUserCount',
+    ];
+
+    final loopedStats = [...stats, ...stats];
+
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withOpacity(0.14)),
+      ),
+      child: ListView.separated(
+        controller: _statsScrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: loopedStats.length,
+        separatorBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Icon(Icons.circle, size: 6, color: AppColors.primary.withOpacity(0.55)),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _InsightPill(
-            icon: Icons.auto_awesome_rounded,
-            iconColor: AppColors.accent,
-            label: 'Öneri',
-            value: '$recommendedCount ürün',
-            bgColor: AppColors.accent.withOpacity(0.08),
-            borderColor: AppColors.accent.withOpacity(0.15),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _InsightPill(
-            icon: Icons.radar_rounded,
-            iconColor: AppColors.primary,
-            label: 'Radar',
-            value: 'Aktif',
-            bgColor: AppColors.primary.withOpacity(0.08),
-            borderColor: AppColors.primary.withOpacity(0.15),
-          ),
-        ),
-      ],
+        itemBuilder: (context, index) {
+          return Center(
+            child: Text(
+              loopedStats[index],
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
+
 
   // ─── Banner Carousel ───────────────────────────────────────────
   Widget _buildBannerCarousel(List<BannerModel> banners, ThemeData theme) {
@@ -1206,66 +1248,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 // ════════════════════════════════════════════════════════════════
 // Supporting Widgets
 // ════════════════════════════════════════════════════════════════
-
-class _InsightPill extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-  final Color bgColor;
-  final Color borderColor;
-
-  const _InsightPill({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-    required this.bgColor,
-    required this.borderColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: iconColor.withOpacity(0.7),
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: iconColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SectionHeader extends StatelessWidget {
   final String title;

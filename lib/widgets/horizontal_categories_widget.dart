@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/category_model.dart';
-import '../providers/product_provider.dart';
+import '../models/category_theme.dart';
 import '../utils/material_icon_resolver.dart';
 
-class HorizontalCategoriesWidget extends ConsumerWidget {
+class HorizontalCategoriesWidget extends StatelessWidget {
   const HorizontalCategoriesWidget({super.key});
 
   static const Color _softBeige = Color(0xFFF5EBE1);
   static const Color _darkBrown = Color(0xFF6B4226);
+  static const Color _accentBrown = Color(0xFFAF6B3E);
+
+  static final List<CategoryModel> _homeCategories =
+      CategoryThemeCatalog.themes
+          .where((theme) => theme.id != 'diger')
+          .map(
+            (theme) => CategoryModel(
+              id: theme.id,
+              title: theme.title,
+              isActive: true,
+              canonicalId: theme.id,
+              sort: theme.sortOrder,
+              iconAssetPath: theme.iconAssetPath,
+              iconName: 'category',
+            ),
+          )
+          .toList(growable: false);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -22,30 +36,23 @@ class HorizontalCategoriesWidget extends ConsumerWidget {
         const SizedBox(height: 15),
         SizedBox(
           height: 108,
-          child: categoriesAsync.when(
-            data: (categories) {
-              if (categories.isEmpty) return const SizedBox.shrink();
-              return ScrollConfiguration(
-                behavior:
-                    ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categories[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        right: index == categories.length - 1 ? 0 : 20,
-                      ),
-                      child: _CategoryItemView(category: category),
-                    );
-                  },
-                ),
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+          child: ScrollConfiguration(
+            behavior:
+                ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _homeCategories.length,
+              itemBuilder: (context, index) {
+                final category = _homeCategories[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == _homeCategories.length - 1 ? 0 : 20,
+                  ),
+                  child: _CategoryItemView(category: category),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -63,7 +70,7 @@ class _CategoriesHeader extends StatelessWidget {
       child: Row(
         children: [
           _AccentLine(),
-          SizedBox(width: 20),
+          SizedBox(width: 12),
           Text(
             'Kategoriler',
             style: TextStyle(
@@ -85,8 +92,11 @@ class _AccentLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 4,
-      height: 38,
-      color: HorizontalCategoriesWidget._darkBrown,
+      height: 24,
+      decoration: BoxDecoration(
+        color: HorizontalCategoriesWidget._accentBrown,
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 }

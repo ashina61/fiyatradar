@@ -1134,6 +1134,44 @@ class CommentsPanel extends ConsumerStatefulWidget {
 class _CommentsPanelState extends ConsumerState<CommentsPanel> {
   bool _justSent = false;
 
+  Future<void> _deleteCommentByAdmin(ProductComment comment) async {
+    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
+    if (currentUser?.isAdmin != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yorumu sil'),
+        content: const Text('Bu yorumu silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(firestoreServiceProvider).deleteComment(comment.id);
+      await widget.notifier.load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorum silindi.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorum silinemedi.')),
+      );
+    }
+  }
+
   void _reportComment(ProductComment comment) {
     final authorName = comment.author;
     showDialog(
@@ -1189,6 +1227,7 @@ class _CommentsPanelState extends ConsumerState<CommentsPanel> {
   Widget build(BuildContext context) {
     final allComments = widget.state.data!.comments;
     final comments = allComments.take(2).toList(); // Ekranda sadece 2 tane göster
+    final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
 
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(24),
@@ -1230,6 +1269,13 @@ class _CommentsPanelState extends ConsumerState<CommentsPanel> {
                               children: [
                                 Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))),
                                 const SizedBox(width: 8),
+                                if (isAdmin) ...[
+                                  GestureDetector(
+                                    onTap: () => _deleteCommentByAdmin(c),
+                                    child: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFF8D6E63)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 // Yorum Raporlama Butonu
                                 GestureDetector(
                                   onTap: () => _reportComment(c),
@@ -1308,7 +1354,7 @@ class _CommentsPanelState extends ConsumerState<CommentsPanel> {
                 child: TextButton(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => AllCommentsScreen(comments: allComments),
+                      builder: (_) => AllCommentsScreen(productId: widget.productId, comments: allComments),
                     ));
                   },
                   child: Text('Tüm Yorumları Gör', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF8D6E63))),
@@ -1324,12 +1370,68 @@ class _CommentsPanelState extends ConsumerState<CommentsPanel> {
 // ═══════════════════════════════════════════════════════════════════
 // TÜM YORUMLAR SAYFASI (Eksiksiz Liste)
 // ═══════════════════════════════════════════════════════════════════
-class AllCommentsScreen extends StatelessWidget {
-  const AllCommentsScreen({super.key, required this.comments});
+class AllCommentsScreen extends ConsumerStatefulWidget {
+  const AllCommentsScreen({super.key, required this.productId, required this.comments});
+  final String productId;
   final List<ProductComment> comments;
 
   @override
+  ConsumerState<AllCommentsScreen> createState() => _AllCommentsScreenState();
+}
+
+class _AllCommentsScreenState extends ConsumerState<AllCommentsScreen> {
+  late List<ProductComment> _comments;
+
+  @override
+  void initState() {
+    super.initState();
+    _comments = List<ProductComment>.from(widget.comments);
+  }
+
+  Future<void> _deleteCommentByAdmin(ProductComment comment) async {
+    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
+    if (currentUser?.isAdmin != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yorumu sil'),
+        content: const Text('Bu yorumu silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(firestoreServiceProvider).deleteComment(comment.id);
+      if (!mounted) return;
+      setState(() {
+        _comments.removeWhere((item) => item.id == comment.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorum silindi.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorum silinemedi.')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F0),
       appBar: AppBar(
@@ -1340,9 +1442,9 @@ class AllCommentsScreen extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(20),
-        itemCount: comments.length,
+        itemCount: _comments.length,
         itemBuilder: (context, index) {
-          final c = comments[index];
+          final c = _comments[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(16),
@@ -1359,8 +1461,22 @@ class AllCommentsScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(c.author, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-                          Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8D6E63))),
+                          Expanded(
+                            child: Text(c.author, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8D6E63))),
+                              if (isAdmin) ...[
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => _deleteCommentByAdmin(c),
+                                  child: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF8D6E63)),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -1376,7 +1492,6 @@ class AllCommentsScreen extends StatelessWidget {
     );
   }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════
 // ORTAK BİLEŞENLER
