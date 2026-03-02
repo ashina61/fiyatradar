@@ -1,38 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HorizontalCategoriesWidget extends StatelessWidget {
+import '../models/category_model.dart';
+import '../providers/product_provider.dart';
+import '../screens/main_screen.dart';
+import '../utils/material_icon_resolver.dart';
+
+class HorizontalCategoriesWidget extends ConsumerWidget {
   const HorizontalCategoriesWidget({super.key});
 
   static const Color _softBeige = Color(0xFFF5EBE1);
   static const Color _darkBrown = Color(0xFF6B4226);
 
-  static const List<_CategoryItem> _mockCategories = [
-    _CategoryItem(name: 'Kişisel Bakım', icon: Icons.face),
-    _CategoryItem(name: 'Kitap', icon: Icons.menu_book),
-    _CategoryItem(name: 'Spor', icon: Icons.sports_soccer),
-    _CategoryItem(name: 'Elektronik', icon: Icons.devices),
-    _CategoryItem(name: 'Giyim', icon: Icons.checkroom),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categories = ref.watch(orderedCategoriesProvider);
+
+    if (categories.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _CategoriesHeader(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 15),
         SizedBox(
-          height: 102,
+          height: 108,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-            child: ListView.separated(
+            child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _mockCategories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemCount: categories.length,
               itemBuilder: (context, index) {
-                final item = _mockCategories[index];
-                return _CategoryItemView(item: item);
+                final category = categories[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == categories.length - 1 ? 0 : 20,
+                  ),
+                  child: _CategoryItemView(
+                    category: category,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(currentTabProvider.notifier).state = 1;
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        ref.read(selectedCategoryIdProvider.notifier).state =
+                            category.canonicalId;
+                        ref.read(selectedCategoryFilterProvider.notifier).state =
+                            category.title;
+                      });
+                    },
+                  ),
+                );
               },
             ),
           ),
@@ -48,17 +67,17 @@ class _CategoriesHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(left: 16, right: 20),
       child: Row(
         children: const [
           _AccentLine(),
-          SizedBox(width: 8),
+          SizedBox(width: 20),
           Text(
             'Kategoriler',
             style: TextStyle(
               color: HorizontalCategoriesWidget._darkBrown,
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -73,63 +92,51 @@ class _AccentLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 3,
-      height: 16,
-      decoration: BoxDecoration(
-        color: HorizontalCategoriesWidget._darkBrown,
-        borderRadius: BorderRadius.circular(99),
-      ),
+      width: 4,
+      height: 38,
+      color: HorizontalCategoriesWidget._darkBrown,
     );
   }
 }
 
 class _CategoryItemView extends StatelessWidget {
-  const _CategoryItemView({required this.item});
+  const _CategoryItemView({required this.category, required this.onTap});
 
-  final _CategoryItem item;
+  final CategoryModel category;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 65,
-          height: 65,
-          decoration: const BoxDecoration(
-            color: HorizontalCategoriesWidget._softBeige,
-            shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 65,
+            height: 65,
+            decoration: const BoxDecoration(
+              color: HorizontalCategoriesWidget._softBeige,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              materialIconFromName(category.iconName),
+              color: HorizontalCategoriesWidget._darkBrown,
+              size: 30,
+            ),
           ),
-          child: Icon(
-            item.icon,
-            color: HorizontalCategoriesWidget._darkBrown,
-            size: 30,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 74,
-          child: Text(
-            item.name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 8),
+          Text(
+            category.title,
             style: const TextStyle(
               color: HorizontalCategoriesWidget._darkBrown,
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              height: 1.2,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-}
-
-class _CategoryItem {
-  const _CategoryItem({required this.name, required this.icon});
-
-  final String name;
-  final IconData icon;
 }
