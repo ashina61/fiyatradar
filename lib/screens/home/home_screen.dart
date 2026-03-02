@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
 import '../../models/banner_model.dart';
+import '../../models/category_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/notification_center_service.dart';
 import '../../widgets/home_product_card.dart';
+import '../../widgets/category_tile_v3.dart';
 import '../../widgets/horizontal_categories_widget.dart';
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
@@ -36,6 +39,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _bannerController = PageController(viewportFraction: 0.88);
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
+  final ScrollController _categoryScrollController = ScrollController();
+  bool _isSnappingCategories = false;
+
+  static const double _categoryTileWidth = 110;
+  static const double _categoryTileSpacing = 12;
+  static const double _categoryListHorizontalPadding = 20;
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFade;
 
@@ -73,6 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _categoryScrollController.dispose();
     _bannerController.dispose();
     _headerAnimController.dispose();
     super.dispose();
@@ -733,6 +743,165 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
       return;
     }
+  }
+
+  // ─── Categories ────────────────────────────────────────────────
+  Widget _buildCategoriesSection(ThemeData theme,
+      List<CategoryModel> categories, String? selectedCategoryId) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Kategoriler',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 142,
+          child: NotificationListener<ScrollEndNotification>(
+            onNotification: (notification) {
+              if (_isSnappingCategories ||
+                  !_categoryScrollController.hasClients ||
+                  categories.length <= 1) {
+                return false;
+              }
+
+              final rawIndex = (_categoryScrollController.offset /
+                      (_categoryTileWidth + _categoryTileSpacing))
+                  .round();
+              final targetIndex =
+                  rawIndex.clamp(0, categories.length - 1);
+              final targetOffset =
+                  targetIndex * (_categoryTileWidth + _categoryTileSpacing);
+
+              if ((_categoryScrollController.offset - targetOffset).abs() <
+                  2) {
+                return false;
+              }
+
+              _isSnappingCategories = true;
+              _categoryScrollController
+                  .animateTo(
+                    targetOffset,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                  )
+                  .whenComplete(() => _isSnappingCategories = false);
+
+              return false;
+            },
+            child: ListView.separated(
+              controller: _categoryScrollController,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: _categoryListHorizontalPadding,
+              ),
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: _categoryTileSpacing),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final isSelected =
+                    selectedCategoryId == category.canonicalId;
+
+                return StaggeredFadeSlide(
+                  index: index,
+                  child: CategoryTileV3(
+                    category: category,
+                    isSelected: isSelected,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(currentTabProvider.notifier).state = 1;
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        ref.read(selectedCategoryIdProvider.notifier).state =
+                            category.canonicalId;
+                        ref
+                            .read(selectedCategoryFilterProvider.notifier)
+                            .state = category.title;
+                      });
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoriesLoading(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Kategoriler',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 142,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(
+                horizontal: _categoryListHorizontalPadding),
+            scrollDirection: Axis.horizontal,
+            itemCount: 5,
+            separatorBuilder: (_, __) =>
+                const SizedBox(width: _categoryTileSpacing),
+            itemBuilder: (_, __) => Container(
+              width: _categoryTileWidth,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // ─── Recently Viewed ───────────────────────────────────────────
