@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/category_model.dart';
 import '../models/category_theme.dart';
+import '../providers/product_provider.dart';
 import '../utils/material_icon_resolver.dart';
 
-class HorizontalCategoriesWidget extends StatelessWidget {
+class HorizontalCategoriesWidget extends ConsumerWidget {
   const HorizontalCategoriesWidget({super.key});
 
   static const Color _softBeige = Color(0xFFF5EBE1);
   static const Color _darkBrown = Color(0xFF6B4226);
   static const Color _accentBrown = Color(0xFFAF6B3E);
 
-  static final List<CategoryModel> _homeCategories =
+  static final List<CategoryModel> _fallbackCategories =
       CategoryThemeCatalog.themes
           .where((theme) => theme.id != 'diger')
           .map(
@@ -28,7 +30,12 @@ class HorizontalCategoriesWidget extends StatelessWidget {
           .toList(growable: false);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(orderedCategoriesProvider);
+    final categories = categoriesAsync.valueOrNull;
+    final visibleCategories =
+        categories != null && categories.isNotEmpty ? categories : _fallbackCategories;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -42,12 +49,12 @@ class HorizontalCategoriesWidget extends StatelessWidget {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _homeCategories.length,
+              itemCount: visibleCategories.length,
               itemBuilder: (context, index) {
-                final category = _homeCategories[index];
+                final category = visibleCategories[index];
                 return Padding(
                   padding: EdgeInsets.only(
-                    right: index == _homeCategories.length - 1 ? 0 : 20,
+                    right: index == visibleCategories.length - 1 ? 0 : 20,
                   ),
                   child: _CategoryItemView(category: category),
                 );
