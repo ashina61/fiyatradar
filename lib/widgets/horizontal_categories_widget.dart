@@ -31,10 +31,9 @@ class HorizontalCategoriesWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(orderedCategoriesProvider);
-    final categories = categoriesAsync.valueOrNull;
+    final categories = ref.watch(orderedCategoriesProvider);
     final visibleCategories =
-        categories != null && categories.isNotEmpty ? categories : _fallbackCategories;
+        categories.isNotEmpty ? categories : _fallbackCategories;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
