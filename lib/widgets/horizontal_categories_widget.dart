@@ -6,12 +6,12 @@ class HorizontalCategoriesWidget extends StatelessWidget {
   static const Color _softBeige = Color(0xFFF5EBE1);
   static const Color _darkBrown = Color(0xFF6B4226);
 
-  static const List<_CategoryItem> _mockCategories = [
-    _CategoryItem(name: 'Kişisel Bakım', icon: Icons.face),
-    _CategoryItem(name: 'Kitap', icon: Icons.menu_book),
-    _CategoryItem(name: 'Spor', icon: Icons.sports_soccer),
-    _CategoryItem(name: 'Elektronik', icon: Icons.devices),
-    _CategoryItem(name: 'Giyim', icon: Icons.checkroom),
+  static const List<Map<String, Object>> _mockCategories = [
+    {'title': 'Kişisel Bakım', 'icon': Icons.face},
+    {'title': 'Kitap', 'icon': Icons.menu_book},
+    {'title': 'Spor', 'icon': Icons.sports_soccer},
+    {'title': 'Elektronik', 'icon': Icons.devices},
+    {'title': 'Giyim', 'icon': Icons.checkroom},
   ];
 
   @override
@@ -20,19 +20,26 @@ class HorizontalCategoriesWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _CategoriesHeader(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 15),
         SizedBox(
-          height: 102,
+          height: 108,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-            child: ListView.separated(
+            child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: _mockCategories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
                 final item = _mockCategories[index];
-                return _CategoryItemView(item: item);
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == _mockCategories.length - 1 ? 0 : 20,
+                  ),
+                  child: _CategoryItemView(
+                    title: item['title']! as String,
+                    icon: item['icon']! as IconData,
+                  ),
+                );
               },
             ),
           ),
@@ -48,17 +55,17 @@ class _CategoriesHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(left: 16, right: 20),
       child: Row(
         children: const [
           _AccentLine(),
-          SizedBox(width: 8),
+          SizedBox(width: 20),
           Text(
             'Kategoriler',
             style: TextStyle(
               color: HorizontalCategoriesWidget._darkBrown,
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -73,20 +80,18 @@ class _AccentLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 3,
-      height: 16,
-      decoration: BoxDecoration(
-        color: HorizontalCategoriesWidget._darkBrown,
-        borderRadius: BorderRadius.circular(99),
-      ),
+      width: 4,
+      height: 38,
+      color: HorizontalCategoriesWidget._darkBrown,
     );
   }
 }
 
 class _CategoryItemView extends StatelessWidget {
-  const _CategoryItemView({required this.item});
+  const _CategoryItemView({required this.title, required this.icon});
 
-  final _CategoryItem item;
+  final String title;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -101,35 +106,21 @@ class _CategoryItemView extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            item.icon,
+            icon,
             color: HorizontalCategoriesWidget._darkBrown,
             size: 30,
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          width: 74,
-          child: Text(
-            item.name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: HorizontalCategoriesWidget._darkBrown,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
+        Text(
+          title,
+          style: const TextStyle(
+            color: HorizontalCategoriesWidget._darkBrown,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
-}
-
-class _CategoryItem {
-  const _CategoryItem({required this.name, required this.icon});
-
-  final String name;
-  final IconData icon;
 }
