@@ -14,6 +14,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/notification_center_service.dart';
 import '../../widgets/home_product_card.dart';
 import '../../widgets/category_tile_v3.dart';
+import '../../widgets/horizontal_categories_widget.dart';
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
 import '../../utils/formatters.dart';
@@ -92,8 +93,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final theme = Theme.of(context);
     final userAsync = ref.watch(userModelStreamProvider);
     final bannersAsync = ref.watch(activeBannersProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final recommendedAsync = ref.watch(recommendedProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
@@ -187,14 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 24),
-                    child: categoriesAsync.when(
-                      data: (_) => _buildCategoriesSection(
-                          theme,
-                          ref.watch(orderedCategoriesProvider),
-                          selectedCategoryId),
-                      loading: () => _buildCategoriesLoading(theme),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
+                    child: const HorizontalCategoriesWidget(),
                   ),
                 ),
 
