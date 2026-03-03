@@ -423,7 +423,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   WidgetSpan(
                     alignment: PlaceholderAlignment.middle,
                     child: GestureDetector(
-                      onTap: () => context.go('/register'),
+                      onTap: () => context.push('/register'),
                       child: Text(
                         'Hemen Katıl',
                         style: GoogleFonts.outfit(

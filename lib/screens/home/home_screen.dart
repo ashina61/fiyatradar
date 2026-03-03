@@ -510,18 +510,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required int totalUserCount,
   }) {
     final stats = [
-      'Sistemde kayıtlı market sayısı: $marketCount',
-      'Sistemde kayıtlı fiyat sayısı: $totalPriceCount',
-      'Toplam kullanıcı sayısı: $totalUserCount',
+      ('🛒', 'Kayıtlı market', marketCount),
+      ('💸', 'Kayıtlı fiyat', totalPriceCount),
+      ('👥', 'Toplam kullanıcı', totalUserCount),
     ];
 
     final loopedStats = [...stats, ...stats];
 
     return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      height: 56,
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.06),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.08),
+            AppColors.accent.withOpacity(0.05),
+          ],
+        ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.primary.withOpacity(0.14)),
       ),
@@ -532,17 +537,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         padding: const EdgeInsets.symmetric(horizontal: 14),
         itemCount: loopedStats.length,
         separatorBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Icon(Icons.circle, size: 6, color: AppColors.primary.withOpacity(0.55)),
         ),
         itemBuilder: (context, index) {
+          final (emoji, label, value) = loopedStats[index];
           return Center(
-            child: Text(
-              loopedStats[index],
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(emoji, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 6),
+                Text(
+                  '$label: ',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  formatCompactCount(value),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           );
         },
