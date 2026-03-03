@@ -85,7 +85,7 @@ class _DynamicBottomDockState extends State<DynamicBottomDock> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
-            color: _activeColor.withValues(alpha: 0.05),
+            color: _activeColor.withOpacity(0.05),
             blurRadius: 25,
             offset: const Offset(0, -5),
           ),
@@ -123,7 +123,7 @@ class _DynamicBottomDockState extends State<DynamicBottomDock> {
               ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
               : const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isActive ? _activeColor.withValues(alpha: 0.10) : Colors.transparent,
+            color: isActive ? _activeColor.withOpacity(0.10) : Colors.transparent,
             borderRadius: BorderRadius.circular(100),
           ),
           child: Row(
@@ -199,7 +199,7 @@ class _DynamicBottomDockState extends State<DynamicBottomDock> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: _activeColor.withValues(alpha: 0.25),
+                      color: _activeColor.withOpacity(0.25),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
