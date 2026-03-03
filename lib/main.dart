@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
-import 'fiyat_radar_bottom_bar.dart'; // Menüyü buradan çağırıyoruz
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// --- SENİN GERÇEK SAYFALARININ İMPORTLARI ---
+import 'add_price/add_price_screen.dart';
+import 'cart/cart_screen_v2.dart';
+import 'home/home_screen.dart';
+import 'profile/profile_screen.dart';
+import 'search/search_screen.dart';
+
+import 'fiyat_radar_bottom_bar.dart'; // Yaptığımız kusursuz menü
 
 void main() {
-  runApp(const FiyatRadarApp());
+  // Senin sistem Riverpod kullandığı için ProviderScope eklemek zorundayız
+  runApp(const ProviderScope(child: FiyatRadarApp()));
 }
 
 class FiyatRadarApp extends StatelessWidget {
@@ -15,7 +25,7 @@ class FiyatRadarApp extends StatelessWidget {
       title: 'Fiyat Radar',
       theme: ThemeData(
         primaryColor: const Color(0xFF6B4226),
-        fontFamily: 'Outfit', // Fontun yüklüyse devreye girer
+        fontFamily: 'Outfit', 
       ),
       home: const MainScreen(),
     );
@@ -31,29 +41,46 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  bool _isNavigating = false;
 
-  // BURASI SENİN EKRANLARININ LİSTESİ
-  final List<Widget> _pages = [
-    const Center(child: Text("Ana Sayfa İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))), 
-    const Center(child: Text("Keşfet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),    
-    const Center(child: Text("Sepet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),     
-    const Center(child: Text("Profil İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),    
+  // İŞTE BURASI DÜZELDİ: Artık boş yazılar değil, senin gerçek sayfaların var!
+  // Menüde 4 sekme olduğu için burada da tam 4 sayfa var.
+  final List<Widget> _pages = const [
+    HomeScreen(key: PageStorageKey('home-tab')),
+    SearchScreen(key: PageStorageKey('search-tab')),
+    CartScreenV2(key: PageStorageKey('basket-tab')),
+    ProfileScreen(key: PageStorageKey('profile-tab')),
   ];
+
+  // Ortadaki Fiyat Ekle butonuna basıldığında çalışacak gerçek yönlendirme
+  Future<void> _onFABPressed() async {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AddPriceScreen()),
+      );
+    } finally {
+      _isNavigating = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF6F0), // Ana uygulamanın bej rengi
+      backgroundColor: const Color(0xFFFAF6F0), 
+      // Sayfa içeriğinin alt menünün altına kadar inmesi için kritik ayar:
+      extendBody: true, 
       
       body: Stack(
         children: [
-          // 1. KATMAN: SENİN SAYFALARIN (Arkada çalışır)
+          // 1. KATMAN: GERÇEK SAYFALARIN (Geçişlerde sayfa yenilenmez, durum korunur)
           IndexedStack(
             index: _selectedIndex,
             children: _pages,
           ),
 
-          // 2. KATMAN: EFSANE YÜZEN ALT MENÜMÜZ (Sayfaların üzerine biner)
+          // 2. KATMAN: EFSANE YÜZEN ALT MENÜMÜZ
           FiyatRadarBottomBar(
             currentIndex: _selectedIndex,
             onTap: (index) {
@@ -61,10 +88,7 @@ class _MainScreenState extends State<MainScreen> {
                 _selectedIndex = index; 
               });
             },
-            onFabTap: () {
-              print("Fiyat Ekle Butonuna Basıldı!");
-              // İleride buraya: Navigator.push(...) gelecek
-            },
+            onFabTap: _onFABPressed, // Gerçek yönlendirme fonksiyonunu bağladık
           ),
         ],
       ),
