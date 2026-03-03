@@ -129,6 +129,12 @@ class _DockNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF6B4226),
+          letterSpacing: 0.1,
+        );
+
     return InkWell(
       borderRadius: BorderRadius.circular(100),
       onTap: onTap,
@@ -136,21 +142,40 @@ class _DockNavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: selected ? 18 : 12,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
             color: selected ? const Color(0xFFFAF6F0) : Colors.transparent,
             borderRadius: BorderRadius.circular(100),
           ),
-          child: AnimatedPadding(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            padding: EdgeInsets.only(bottom: selected ? 3 : 0),
-            child: Icon(
-              selected ? tab.filledIcon : tab.outlinedIcon,
-              size: 26,
-              color: selected ? const Color(0xFF6B4226) : const Color(0xFFA38671),
-              semanticLabel: tab.semanticLabel,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.only(bottom: selected ? 3 : 0),
+                child: Icon(
+                  selected ? tab.filledIcon : tab.outlinedIcon,
+                  size: 26,
+                  color: selected ? const Color(0xFF6B4226) : const Color(0xFFA38671),
+                  semanticLabel: tab.semanticLabel,
+                ),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.centerLeft,
+                child: selected
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text(tab.semanticLabel, style: textStyle, overflow: TextOverflow.fade, softWrap: false),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
           ),
         ),
       ),
