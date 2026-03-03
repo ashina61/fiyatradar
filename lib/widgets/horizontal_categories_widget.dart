@@ -5,7 +5,7 @@ import '../models/category_model.dart';
 import '../models/category_theme.dart';
 import '../providers/product_provider.dart';
 import '../utils/material_icon_resolver.dart';
-import '../screens/main_screen.dart';
+import '../providers/navigation_provider.dart';
 
 class HorizontalCategoriesWidget extends ConsumerWidget {
   const HorizontalCategoriesWidget({super.key});
