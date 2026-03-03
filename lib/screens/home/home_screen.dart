@@ -19,7 +19,7 @@ import '../../widgets/horizontal_categories_widget.dart';
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
 import '../../utils/formatters.dart';
-import '../../providers/navigation_provider.dart';
+import '../main_screen.dart';
 import '../points/points_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
