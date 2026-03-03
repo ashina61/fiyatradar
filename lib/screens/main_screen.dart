@@ -9,6 +9,8 @@ import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'search/search_screen.dart';
 
+final currentTabProvider = StateProvider<int>((ref) => 0);
+
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -18,7 +20,6 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   bool _isNavigating = false;
-  int _selectedIndex = 0;
 
   // İndex 2 boşluktur (Ortadaki Fiyat Ekle Butonunun yeri)
   late final List<Widget> _screens = const [
@@ -43,6 +44,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = ref.watch(currentTabProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F0), // Arka plan
       extendBody: true, // Menünün arkasının şeffaf olması ve taşabilmesi için kritik!
@@ -51,11 +54,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           // 1. KATMAN: SAYFALAR (Arka Planda)
           for (var i = 0; i < _screens.length; i++)
             IgnorePointer(
-              ignoring: _selectedIndex != i,
+              ignoring: selectedIndex != i,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                opacity: _selectedIndex == i ? 1 : 0,
+                opacity: selectedIndex == i ? 1 : 0,
                 child: KeyedSubtree(
                   key: ValueKey('tab-$i'),
                   child: _screens[i],
@@ -69,8 +72,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             right: 0,
             bottom: 0,
             child: _CustomBottomBar(
-              selectedIndex: _selectedIndex,
-              onTabSelected: (index) => setState(() => _selectedIndex = index),
+              selectedIndex: selectedIndex,
+              onTabSelected:
+                  (index) => ref.read(currentTabProvider.notifier).state = index,
               onCenterPressed: _onFABPressed,
             ),
           ),
