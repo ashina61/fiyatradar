@@ -3,11 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/navigation_provider.dart';
 import 'add_price/add_price_screen.dart';
 import 'cart/cart_screen_v2.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'search/search_screen.dart';
+
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -18,7 +20,6 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   bool _isNavigating = false;
-  int _selectedIndex = 0;
 
   late final List<Widget> _screens = const [
     HomeScreen(key: PageStorageKey('home-tab')),
@@ -42,16 +43,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = ref.watch(currentTabProvider);
+
     return Scaffold(
       body: Stack(
         children: [
           for (var i = 0; i < _screens.length; i++)
             IgnorePointer(
-              ignoring: _selectedIndex != i,
+              ignoring: selectedIndex != i,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                opacity: _selectedIndex == i ? 1 : 0,
+                opacity: selectedIndex == i ? 1 : 0,
                 child: KeyedSubtree(
                   key: ValueKey('tab-$i'),
                   child: _screens[i],
@@ -61,8 +64,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ],
       ),
       bottomNavigationBar: _CustomBottomBar(
-        selectedIndex: _selectedIndex,
-        onTabSelected: (index) => setState(() => _selectedIndex = index),
+        selectedIndex: selectedIndex,
+        onTabSelected: (index) => ref.read(currentTabProvider.notifier).state = index,
         onCenterPressed: _onFABPressed,
       ),
     );
