@@ -25,3 +25,17 @@ String formatTRY(
 }
 
 String formatTRYWhole(num value) => formatTRY(value, withDecimals: false);
+
+
+String formatCompactCount(int value) {
+  final absValue = value.abs();
+  if (absValue >= 1000000) {
+    final number = (value / 1000000).toStringAsFixed(value % 1000000 == 0 ? 0 : 1);
+    return '${number.replaceAll('.', ',')}M';
+  }
+  if (absValue >= 1000) {
+    final number = (value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1);
+    return '${number.replaceAll('.', ',')}B';
+  }
+  return NumberFormat.decimalPattern('tr_TR').format(value);
+}

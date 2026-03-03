@@ -5,6 +5,7 @@ import '../models/category_model.dart';
 import '../models/category_theme.dart';
 import '../providers/product_provider.dart';
 import '../utils/material_icon_resolver.dart';
+import '../screens/main_screen.dart';
 
 class HorizontalCategoriesWidget extends ConsumerWidget {
   const HorizontalCategoriesWidget({super.key});
@@ -107,39 +108,46 @@ class _AccentLine extends StatelessWidget {
   }
 }
 
-class _CategoryItemView extends StatelessWidget {
+class _CategoryItemView extends ConsumerWidget {
   const _CategoryItemView({required this.category});
 
   final CategoryModel category;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 65,
-          height: 65,
-          decoration: const BoxDecoration(
-            color: HorizontalCategoriesWidget._softBeige,
-            shape: BoxShape.circle,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(selectedCategoryFilterProvider.notifier).state = category.title;
+        ref.read(selectedCategoryIdProvider.notifier).state = category.id;
+        ref.read(currentTabProvider.notifier).state = 1;
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 65,
+            height: 65,
+            decoration: const BoxDecoration(
+              color: HorizontalCategoriesWidget._softBeige,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              materialIconFromName(category.iconName),
+              color: HorizontalCategoriesWidget._darkBrown,
+              size: 30,
+            ),
           ),
-          child: Icon(
-            materialIconFromName(category.iconName),
-            color: HorizontalCategoriesWidget._darkBrown,
-            size: 30,
+          const SizedBox(height: 8),
+          Text(
+            category.title,
+            style: const TextStyle(
+              color: HorizontalCategoriesWidget._darkBrown,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          category.title,
-          style: const TextStyle(
-            color: HorizontalCategoriesWidget._darkBrown,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

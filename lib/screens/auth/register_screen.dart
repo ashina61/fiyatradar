@@ -7,6 +7,32 @@ import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
 import '../../utils/cities_tr.dart';
 
+
+class DistrictTR {
+  const DistrictTR({required this.name, required this.neighborhoods});
+
+  final String name;
+  final List<String> neighborhoods;
+}
+
+const Map<String, List<DistrictTR>> kDistrictsByCityCode = {
+  '34': [
+    DistrictTR(name: 'Kadıköy', neighborhoods: ['Caferağa', 'Fenerbahçe', 'Kozyatağı']),
+    DistrictTR(name: 'Beşiktaş', neighborhoods: ['Levent', 'Etiler', 'Ortaköy']),
+    DistrictTR(name: 'Üsküdar', neighborhoods: ['Acıbadem', 'Altunizade', 'Çengelköy']),
+  ],
+  '06': [
+    DistrictTR(name: 'Çankaya', neighborhoods: ['Bahçelievler', 'Kızılay', 'Ayrancı']),
+    DistrictTR(name: 'Keçiören', neighborhoods: ['Etlik', 'Aktepe', 'Kalaba']),
+    DistrictTR(name: 'Yenimahalle', neighborhoods: ['Batıkent', 'Demetevler', 'Şentepe']),
+  ],
+  '35': [
+    DistrictTR(name: 'Konak', neighborhoods: ['Alsancak', 'Güzelyalı', 'Mimar Sinan']),
+    DistrictTR(name: 'Karşıyaka', neighborhoods: ['Bostanlı', 'Mavişehir', 'Alaybey']),
+    DistrictTR(name: 'Bornova', neighborhoods: ['Kazımdirik', 'Evka-3', 'Atatürk']),
+  ],
+};
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -32,8 +58,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _selectedDistrict;
   String? _selectedNeighborhood;
 
-  static const List<String> _districts = ['Kadıköy', 'Beşiktaş', 'Çankaya'];
-  static const List<String> _neighborhoods = ['Caferağa', 'Bebek', 'Bahçelievler'];
+  List<DistrictTR> get _availableDistricts {
+    final cityCode = _selectedCity?.code;
+    if (cityCode == null) return const [];
+    return kDistrictsByCityCode[cityCode] ?? const [];
+  }
+
+  List<String> get _availableNeighborhoods {
+    final districtName = _selectedDistrict;
+    if (districtName == null) return const [];
+    for (final district in _availableDistricts) {
+      if (district.name == districtName) return district.neighborhoods;
+    }
+    return const [];
+  }
+
 
   static const _bg = Color(0xFFFAF6F0);
   static const _title = Color(0xFF4A2E1B);
@@ -209,7 +248,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   InkWell(
-                    onTap: () => context.pop(),
+                    onTap: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/login');
+                      }
+                    },
                     borderRadius: BorderRadius.circular(20),
                     child: const SizedBox(
                       width: 24,
@@ -380,7 +425,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) => setState(() => _selectedCity = value),
+                          onChanged: (value) => setState(() {
+                            _selectedCity = value;
+                            _selectedDistrict = null;
+                            _selectedNeighborhood = null;
+                          }),
                           validator: (value) => value == null ? 'Lütfen şehir seçin.' : null,
                         ),
                       ),
@@ -411,10 +460,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   color: _title,
                                   fontSize: 14,
                                 ),
-                                items: _districts
-                                    .map((district) => DropdownMenuItem(value: district, child: Text(district)))
+                                items: _availableDistricts
+                                    .map((district) => DropdownMenuItem(value: district.name, child: Text(district.name)))
                                     .toList(),
-                                onChanged: (value) => setState(() => _selectedDistrict = value),
+                                onChanged: (value) => setState(() {
+                                  _selectedDistrict = value;
+                                  _selectedNeighborhood = null;
+                                }),
                               ),
                             ),
                           ),
@@ -443,9 +495,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   color: _title,
                                   fontSize: 14,
                                 ),
-                                items: _neighborhoods
-                                    .map((neighborhood) =>
-                                        DropdownMenuItem(value: neighborhood, child: Text(neighborhood)))
+                                items: _availableNeighborhoods
+                                    .map((neighborhood) => DropdownMenuItem(value: neighborhood, child: Text(neighborhood)))
                                     .toList(),
                                 onChanged: (value) => setState(() => _selectedNeighborhood = value),
                               ),
