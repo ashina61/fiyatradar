@@ -1,7 +1,30 @@
 import 'package:flutter/material.dart';
-import 'fiyat_radar_bottom_bar.dart'; // ADIM 2'de oluşturduğumuz dosyayı buraya çağırıyoruz
+import 'fiyat_radar_bottom_bar.dart'; // Menüyü buradan çağırıyoruz
+
+void main() {
+  runApp(const FiyatRadarApp());
+}
+
+class FiyatRadarApp extends StatelessWidget {
+  const FiyatRadarApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Fiyat Radar',
+      theme: ThemeData(
+        primaryColor: const Color(0xFF6B4226),
+        fontFamily: 'Outfit', // Fontun yüklüyse devreye girer
+      ),
+      home: const MainScreen(),
+    );
+  }
+}
 
 class MainScreen extends StatefulWidget {
+  const MainScreen({Key? key}) : super(key: key);
+
   @override
   _MainScreenState createState() => _MainScreenState();
 }
@@ -10,48 +33,39 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   // BURASI SENİN EKRANLARININ LİSTESİ
-  // Şimdilik test için boş renkli ekranlar koydum, sen buralara kendi sayfalarını yazacaksın
-  // Örnek: [AnaSayfa(), KesfetSayfasi(), SepetSayfasi(), ProfilSayfasi()]
   final List<Widget> _pages = [
-    Center(child: Text("Ana Sayfa İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))), // 0. İndex
-    Center(child: Text("Keşfet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),    // 1. İndex
-    Center(child: Text("Sepet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),     // 2. İndex
-    Center(child: Text("Profil İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),    // 3. İndex
+    const Center(child: Text("Ana Sayfa İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))), 
+    const Center(child: Text("Keşfet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),    
+    const Center(child: Text("Sepet İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),     
+    const Center(child: Text("Profil İçeriği", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4A2E1B)))),    
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF6F0), // Senin uygulamanın ana bej rengi
+      backgroundColor: const Color(0xFFFAF6F0), // Ana uygulamanın bej rengi
       
-      // DİKKAT: bottomNavigationBar KULLANMIYORUZ!
-      // Onun yerine tüm ekranı bir Stack (üst üste bindirme) yapısına alıyoruz.
       body: Stack(
         children: [
-          
-          // 1. KATMAN: SENİN SAYFALARIN
-          // IndexedStack, sayfalar arası geçerken durumu korur (sayfa yenilenmez)
+          // 1. KATMAN: SENİN SAYFALARIN (Arkada çalışır)
           IndexedStack(
             index: _selectedIndex,
             children: _pages,
           ),
 
-          // 2. KATMAN: BİZİM YÜZEN EFSANE ALT MENÜMÜZ
-          // Stack'in en altına yazdığımız için sayfaların üstünde, havada süzülecek.
+          // 2. KATMAN: EFSANE YÜZEN ALT MENÜMÜZ (Sayfaların üzerine biner)
           FiyatRadarBottomBar(
             currentIndex: _selectedIndex,
             onTap: (index) {
               setState(() {
-                _selectedIndex = index; // Menüye tıklanınca sayfayı değiştirir
+                _selectedIndex = index; 
               });
             },
             onFabTap: () {
-              // ORTADAKİ FİYAT EKLE BUTONUNA BASILINCA OLACAKLAR
               print("Fiyat Ekle Butonuna Basıldı!");
-              // Örnek: Navigator.push(context, MaterialPageRoute(builder: (context) => FiyatEkleSayfasi()));
+              // İleride buraya: Navigator.push(...) gelecek
             },
           ),
-          
         ],
       ),
     );
