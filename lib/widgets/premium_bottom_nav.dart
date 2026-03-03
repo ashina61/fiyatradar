@@ -3,9 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../utils/motion_tokens.dart';
-
-class PremiumBottomNav extends StatefulWidget {
+class PremiumBottomNav extends StatelessWidget {
   const PremiumBottomNav({
     super.key,
     required this.currentIndex,
@@ -17,159 +15,120 @@ class PremiumBottomNav extends StatefulWidget {
   final ValueChanged<int> onTap;
   final VoidCallback onCenterTap;
 
-  @override
-  State<PremiumBottomNav> createState() => _PremiumBottomNavState();
-}
-
-class _PremiumBottomNavState extends State<PremiumBottomNav>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2100),
-  )..repeat(reverse: true);
-
   static const _tabs = <_NavTab>[
-    _NavTab(index: 0, label: 'Ana Sayfa', icon: Icons.home_rounded),
-    _NavTab(index: 1, label: 'Keşfet', icon: Icons.explore_rounded),
-    _NavTab(index: 3, label: 'Sepet', icon: Icons.shopping_basket_rounded),
-    _NavTab(index: 4, label: 'Profil', icon: Icons.person_rounded),
+    _NavTab(index: 0, icon: Icons.home_rounded, semanticLabel: 'Ana Sayfa'),
+    _NavTab(index: 1, icon: Icons.explore_rounded, semanticLabel: 'Keşfet'),
+    _NavTab(index: 3, icon: Icons.shopping_bag_rounded, semanticLabel: 'Sepet'),
+    _NavTab(index: 4, icon: Icons.person_rounded, semanticLabel: 'Profil'),
   ];
 
   @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final width = MediaQuery.sizeOf(context).width * 0.93;
-    final selectedSlot =
-        _tabs.indexWhere((tab) => tab.index == widget.currentIndex).clamp(0, _tabs.length - 1);
-
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.only(bottom: 12),
-      child: SizedBox(
-        height: 104,
-        child: Center(
-          child: SizedBox(
-            width: width,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(32),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                    child: Container(
-                      height: 78,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: scheme.surface.withOpacity(0.94),
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: scheme.outlineVariant.withOpacity(0.8)),
-                        gradient: LinearGradient(
-                          colors: [
-                            scheme.surface.withOpacity(0.94),
-                            scheme.surfaceVariant.withOpacity(0.9),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: SizedBox(
+          height: 102,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: Container(
+                    height: 82,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xE6FFFFFF),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: Colors.white),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x146B4226),
+                          blurRadius: 25,
+                          offset: Offset(0, -5),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: scheme.primary.withOpacity(0.15),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        for (final tab in _tabs.take(2))
+                          Expanded(
+                            child: _DockNavItem(
+                              tab: tab,
+                              selected: tab.index == currentIndex,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onTap(tab.index);
+                              },
+                            ),
                           ),
-                        ],
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final slotWidth = constraints.maxWidth / 5;
-                          final bubbleLeft = selectedSlot < 2
-                              ? selectedSlot * slotWidth
-                              : (selectedSlot + 1) * slotWidth;
-
-                          return Stack(
-                            children: [
-                              AnimatedPositioned(
-                                duration: MotionTokens.navigation,
-                                curve: MotionTokens.standard,
-                                left: bubbleLeft + 8,
-                                top: 14,
-                                child: Container(
-                                  width: slotWidth - 16,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(24),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        scheme.primaryContainer.withOpacity(0.9),
-                                        scheme.secondaryContainer.withOpacity(0.82),
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: scheme.primary.withOpacity(0.2),
-                                        blurRadius: 18,
-                                        offset: const Offset(0, 5),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  for (final tab in _tabs.take(2))
-                                    Expanded(
-                                      child: _NavItem(
-                                        icon: tab.icon,
-                                        label: tab.label,
-                                        selected: widget.currentIndex == tab.index,
-                                        onTap: () {
-                                          HapticFeedback.selectionClick();
-                                          widget.onTap(tab.index);
-                                        },
-                                      ),
-                                    ),
-                                  SizedBox(width: slotWidth),
-                                  for (final tab in _tabs.skip(2))
-                                    Expanded(
-                                      child: _NavItem(
-                                        icon: tab.icon,
-                                        label: tab.label,
-                                        selected: widget.currentIndex == tab.index,
-                                        onTap: () {
-                                          HapticFeedback.selectionClick();
-                                          widget.onTap(tab.index);
-                                        },
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                        const SizedBox(width: 74),
+                        for (final tab in _tabs.skip(2))
+                          Expanded(
+                            child: _DockNavItem(
+                              tab: tab,
+                              selected: tab.index == currentIndex,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onTap(tab.index);
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-                Positioned(
-                  top: -15,
-                  child: _CenterActionButton(
-                    pulse: _pulseController,
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      widget.onCenterTap();
-                    },
-                  ),
-                ),
-              ],
+              ),
+              Positioned(
+                top: 0,
+                child: _HeroSquircleButton(onTap: onCenterTap),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DockNavItem extends StatelessWidget {
+  const _DockNavItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(100),
+      onTap: onTap,
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: const Cubic(0.34, 1.56, 0.64, 1),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFAF6F0) : Colors.transparent,
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: AnimatedSlide(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            offset: selected ? const Offset(0, -0.08) : Offset.zero,
+            child: Icon(
+              tab.icon,
+              size: 26,
+              color: selected ? const Color(0xFF6B4226) : const Color(0xFFA38671),
+              semanticLabel: tab.semanticLabel,
             ),
           ),
         ),
@@ -178,136 +137,59 @@ class _PremiumBottomNavState extends State<PremiumBottomNav>
   }
 }
 
-class _CenterActionButton extends StatelessWidget {
-  const _CenterActionButton({
-    required this.pulse,
-    required this.onTap,
-  });
+class _HeroSquircleButton extends StatelessWidget {
+  const _HeroSquircleButton({required this.onTap});
 
-  final Animation<double> pulse;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedBuilder(
-        animation: pulse,
-        builder: (context, _) {
-          final aura = 0.18 + (pulse.value * 0.16);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      scheme.primaryContainer.withOpacity(0.8),
-                      scheme.secondary.withOpacity(0.76),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withOpacity(aura),
-                      blurRadius: 24,
-                      offset: const Offset(0, 9),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: scheme.primary,
-                        border: Border.all(color: scheme.onPrimary.withOpacity(0.4)),
-                      ),
-                      child: Icon(
-                        Icons.add_rounded,
-                        size: 31,
-                        color: scheme.onPrimary,
-                        semanticLabel: 'Fiyat Ekle',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Fiyat Ekle',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: SizedBox(
-        height: 78,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              duration: MotionTokens.base,
-              curve: MotionTokens.standard,
-              scale: selected ? 1.14 : 1,
-              child: Icon(
-                icon,
-                semanticLabel: label,
-                size: 24,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 2),
-            AnimatedOpacity(
-              duration: MotionTokens.fast,
-              opacity: selected ? 1 : 0.7,
-              child: Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: 62,
+        height: 62,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF6F0),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x406B4226),
+              blurRadius: 20,
+              offset: Offset(0, 10),
             ),
           ],
+        ),
+        child: Transform.rotate(
+          angle: 0.785398,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFFAF6F0), width: 3.5),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF8C5938), Color(0xFF4A2E1B)],
+              ),
+            ),
+            child: Center(
+              child: Transform.rotate(
+                angle: -0.785398,
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 30,
+                  semanticLabel: 'Ekle',
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -315,9 +197,13 @@ class _NavItem extends StatelessWidget {
 }
 
 class _NavTab {
-  const _NavTab({required this.index, required this.label, required this.icon});
+  const _NavTab({
+    required this.index,
+    required this.icon,
+    required this.semanticLabel,
+  });
 
   final int index;
-  final String label;
   final IconData icon;
+  final String semanticLabel;
 }
