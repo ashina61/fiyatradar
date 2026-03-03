@@ -15,7 +15,7 @@ class FiyatRadarBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // VİDEODAKİ O TATLI ZIPLAMA EFEKTİ (CSS: cubic-bezier(0.34, 1.56, 0.64, 1))
+    // Videodaki o tatlı zıplama/yaylanma efekti
     const springCurve = Cubic(0.34, 1.56, 0.64, 1.0);
 
     return Positioned(
@@ -24,11 +24,10 @@ class FiyatRadarBottomBar extends StatelessWidget {
       right: 0,
       child: Stack(
         clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
         children: [
-          // 1. ANA BEYAZ BAR
+          // 1. ANA BEYAZ BAR (Arka plan ve İkonlar)
           Container(
-            padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 24), // CSS ile aynı
+            padding: const EdgeInsets.only(top: 12, bottom: 24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(
@@ -44,64 +43,73 @@ class FiyatRadarBottomBar extends StatelessWidget {
               ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // SOL TARAF
+                // SOL DUVAR (Ne kadar uzarsa uzasın sağa geçemez)
                 Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildNavItem(0, Icons.home_rounded, "Ana Sayfa", springCurve),
-                      _buildNavItem(1, Icons.explore_rounded, "Keşfet", springCurve),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 16.0, right: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildNavItem(0, Icons.home_rounded, "Ana Sayfa", springCurve),
+                        _buildNavItem(1, Icons.explore_rounded, "Keşfet", springCurve),
+                      ],
+                    ),
                   ),
                 ),
-                
-                // ORTASI (Elmas butonun alanı - Asla sağa sola kaymaz)
-                const SizedBox(width: 70),
 
-                // SAĞ TARAF
+                // ORTA GÜVENLİK BÖLGESİ (Bu boşluk asla daralmaz)
+                const SizedBox(width: 74),
+
+                // SAĞ DUVAR
                 Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildNavItem(2, Icons.shopping_bag_rounded, "Sepet", springCurve),
-                      _buildNavItem(3, Icons.person_rounded, "Profil", springCurve),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0, right: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildNavItem(2, Icons.shopping_bag_rounded, "Sepet", springCurve),
+                        _buildNavItem(3, Icons.person_rounded, "Profil", springCurve),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
 
-          // 2. ORTA BUTON (VİDEODAKİ DÖNÜK ELMAS)
+          // 2. EKRANA ÇİVİLENMİŞ ELMAS BUTON (Asla kaymaz!)
           Positioned(
-            top: -12, // CSS: top: -12px
-            child: Transform.rotate(
-              angle: math.pi / 4, // Tam 45 derece döndürüyoruz
-              child: GestureDetector(
-                onTap: onFabTap,
-                child: Container(
-                  width: 54, // CSS: width: 54px
-                  height: 54, // CSS: height: 54px
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8C5938), Color(0xFF4A2E1B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20), // Apple Squircle efekti
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6B4226).withOpacity(0.25),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+            top: -12,
+            left: 0,   // Sola kilitle
+            right: 0,  // Sağa kilitle
+            child: Center( // TAM ORTAYA ÇİVİLE
+              child: Transform.rotate(
+                angle: math.pi / 4, // 45 derece dönük elmas
+                child: GestureDetector(
+                  onTap: onFabTap,
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8C5938), Color(0xFF4A2E1B)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  child: Transform.rotate(
-                    angle: -math.pi / 4, // İçindeki artı (+) işareti çarpı (X) olmasın diye geri çeviriyoruz
-                    child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF6B4226).withOpacity(0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Transform.rotate(
+                      angle: -math.pi / 4, // Artı (+) işareti X olmasın diye geri çeviriyoruz
+                      child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+                    ),
                   ),
                 ),
               ),
@@ -112,7 +120,7 @@ class FiyatRadarBottomBar extends StatelessWidget {
     );
   }
 
-  // VİDEODAKİ GİBİ GENİŞLEYEN SEKME (Birebir CSS Ölçüleri)
+  // Genişleyen Sekme
   Widget _buildNavItem(int index, IconData icon, String label, Curve curve) {
     bool isActive = currentIndex == index;
 
@@ -120,11 +128,10 @@ class FiyatRadarBottomBar extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400), // CSS: 0.4s
-        curve: curve, // Yaylanma animasyonu
-        // CSS'teki padding: 12px 20px (aktif) ve 12px (pasif) mantığı
+        duration: const Duration(milliseconds: 400),
+        curve: curve,
         padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 20.0 : 12.0, 
+          horizontal: isActive ? 16.0 : 12.0,
           vertical: 12.0,
         ),
         decoration: BoxDecoration(
@@ -139,24 +146,22 @@ class FiyatRadarBottomBar extends StatelessWidget {
               color: isActive ? const Color(0xFF6B4226) : const Color(0xFFA38671),
               size: 26,
             ),
-            // YAZININ ÇIKMA ANİMASYONU
             AnimatedSize(
               duration: const Duration(milliseconds: 400),
               curve: curve,
               child: Container(
                 width: isActive ? null : 0,
-                // CSS: margin-left: 8px
-                padding: EdgeInsets.only(left: isActive ? 8.0 : 0.0),
+                padding: EdgeInsets.only(left: isActive ? 6.0 : 0.0),
                 child: Text(
                   isActive ? label : "",
                   style: const TextStyle(
                     color: Color(0xFF6B4226),
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    fontFamily: 'Outfit', // Fontunu da bağladım
+                    fontSize: 13, // Yazıyı bir tık küçülttüm ki sığsın
+                    fontFamily: 'Outfit',
                   ),
                   maxLines: 1,
-                  overflow: TextOverflow.visible,
+                  overflow: TextOverflow.clip, // Yazı haddini aşarsa diğer ikonu itmek yerine kesilir
                 ),
               ),
             ),
