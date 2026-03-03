@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // --- SENİN GERÇEK SAYFALARININ İMPORTLARI ---
-import 'add_price/add_price_screen.dart';
-import 'cart/cart_screen_v2.dart';
-import 'home/home_screen.dart';
-import 'profile/profile_screen.dart';
-import 'search/search_screen.dart';
+import 'screens/add_price/add_price_screen.dart';
+import 'screens/cart/cart_screen_v2.dart';
+import 'screens/home/home_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/search/search_screen.dart';
 
 import 'fiyat_radar_bottom_bar.dart'; // Yaptığımız kusursuz menü
 
