@@ -2494,12 +2494,12 @@ class _CategoryManagementTab extends ConsumerWidget {
                     if (oldPath != null && oldPath.isNotEmpty) {
                       await storageService.deleteByPath(oldPath);
                     }
-                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: cat.id);
+                    final result = await storageService.uploadCategoryImage(file: selectedImage!, categoryId: cat.documentId);
                     imageUrl = result.downloadUrl;
                     imagePath = result.storagePath;
                   }
 
-                  await ref.read(adminCategoryManagementDomainServiceProvider).updateCategory(cat.id, {
+                  await ref.read(adminCategoryManagementDomainServiceProvider).updateCategory(cat.documentId, {
                     'name': nameController.text.trim(),
                     'isActive': isActive,
                     'order': int.tryParse(orderController.text.trim()),
@@ -2612,7 +2612,7 @@ class _CategoryManagementTab extends ConsumerWidget {
                         if (oldPath != null && oldPath.isNotEmpty) {
                           await storageService.deleteByPath(oldPath);
                         }
-                        ref.read(adminCategoryManagementDomainServiceProvider).deleteCategory(cat.id);
+                        ref.read(adminCategoryManagementDomainServiceProvider).deleteCategory(cat.documentId);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('$catName silindi'), behavior: SnackBarBehavior.floating),

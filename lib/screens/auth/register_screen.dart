@@ -116,6 +116,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       });
       return;
     }
+    if (_selectedDistrict == null || _selectedDistrict!.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Lütfen ilçe seçin.';
+      });
+      return;
+    }
+    if (_selectedNeighborhood == null || _selectedNeighborhood!.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Lütfen mahalle seçin.';
+      });
+      return;
+    }
 
     try {
       await ref.read(authServiceProvider).registerWithEmailAndPassword(
@@ -125,6 +139,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             inviteCode: _inviteController.text.trim(),
             cityCode: _selectedCity?.code,
             cityName: _selectedCity?.name,
+            district: _selectedDistrict,
+            neighborhood: _selectedNeighborhood,
           );
 
       if (!mounted) return;
@@ -467,6 +483,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   _selectedDistrict = value;
                                   _selectedNeighborhood = null;
                                 }),
+                                validator: (value) => value == null || value.isEmpty ? 'İlçe seçin' : null,
                               ),
                             ),
                           ),
@@ -499,6 +516,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     .map((neighborhood) => DropdownMenuItem(value: neighborhood, child: Text(neighborhood)))
                                     .toList(),
                                 onChanged: (value) => setState(() => _selectedNeighborhood = value),
+                                validator: (value) => value == null || value.isEmpty ? 'Mahalle seçin' : null,
                               ),
                             ),
                           ),
