@@ -8,6 +8,7 @@ import 'about_screen.dart';
 import 'notification_settings.dart';
 import 'personal_info_screen.dart';
 import 'security_screen.dart';
+import '../auth/login_screen.dart';
 
 class FiyatRadarSettingsScreen extends StatefulWidget {
   const FiyatRadarSettingsScreen({super.key});
@@ -112,6 +113,19 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
               icon: Icons.lock_outline_rounded,
               title: 'Güvenlik ve Giriş',
               onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const SecurityScreen())),
+            ),
+
+            _tile(
+              icon: Icons.logout_rounded,
+              title: 'Çıkış Yap',
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                if (!mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  CupertinoPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
             ),
           ]),
           const SizedBox(height: 16),
