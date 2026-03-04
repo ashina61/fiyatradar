@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +8,7 @@ import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'search/search_screen.dart';
 
+// İŞTE SENİN ORİJİNAL STATE YÖNETİMİN (Onboarding ve Login'i kurtaran kod)
 final currentTabProvider = StateProvider<int>((ref) => 0);
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -21,11 +21,10 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   bool _isNavigating = false;
 
-  // İndex 2 boşluktur (Ortadaki Fiyat Ekle Butonunun yeri)
   late final List<Widget> _screens = const [
     HomeScreen(key: PageStorageKey('home-tab')),
     SearchScreen(key: PageStorageKey('search-tab')),
-    SizedBox.shrink(), // 2. İndex (FAB)
+    SizedBox.shrink(), // Ortadaki elmas butonun indeks boşluğu
     CartScreenV2(key: PageStorageKey('basket-tab')),
     ProfileScreen(key: PageStorageKey('profile-tab')),
   ];
@@ -44,21 +43,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = ref.watch(currentTabProvider);
+    // Artık State'i tekrar Riverpod üzerinden dinliyoruz
+    final currentTab = ref.watch(currentTabProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF6F0), // Arka plan
-      extendBody: true, // Menünün arkasının şeffaf olması ve taşabilmesi için kritik!
+      extendBody: true, // Menü arkası transparanlık için
       body: Stack(
         children: [
-          // 1. KATMAN: SAYFALAR (Arka Planda)
+          // 1. KATMAN: SAYFALAR
           for (var i = 0; i < _screens.length; i++)
             IgnorePointer(
-              ignoring: selectedIndex != i,
+              ignoring: currentTab != i,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                opacity: selectedIndex == i ? 1 : 0,
+                opacity: currentTab == i ? 1 : 0,
                 child: KeyedSubtree(
                   key: ValueKey('tab-$i'),
                   child: _screens[i],
@@ -66,15 +65,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
             ),
             
-          // 2. KATMAN: EFSANE KAYAN MENÜMÜZ (En Üstte)
+          // 2. KATMAN: EFSANE KAYAN MENÜ
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: _CustomBottomBar(
-              selectedIndex: selectedIndex,
-              onTabSelected:
-                  (index) => ref.read(currentTabProvider.notifier).state = index,
+              selectedIndex: currentTab,
+              // Tıklanınca Riverpod Provider'ını güncelliyoruz
+              onTabSelected: (index) => ref.read(currentTabProvider.notifier).state = index,
               onCenterPressed: _onFABPressed,
             ),
           ),
@@ -85,7 +84,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 }
 
 // ==========================================
-// V3 DİNAMİK KAYAN BOTTOM BAR (KUSURSUZ)
+// V3 DİNAMİK KAYAN BOTTOM BAR
 // ==========================================
 class _CustomBottomBar extends StatelessWidget {
   const _CustomBottomBar({
@@ -103,7 +102,6 @@ class _CustomBottomBar extends StatelessWidget {
     const springCurve = Cubic(0.34, 1.56, 0.64, 1.0);
 
     return Container(
-      // Alt boşluk iOS ev çizgisi için
       padding: const EdgeInsets.only(top: 12, left: 12, right: 12, bottom: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -119,7 +117,7 @@ class _CustomBottomBar extends StatelessWidget {
           ),
         ],
       ),
-      // SİHİR BURADA: Expanded KULLANMADIK. Row içinde organik olarak birbirlerini iterler.
+      // SİHİR BURADA: Expanded YARIŞINI BİTİRDİK.
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -129,7 +127,7 @@ class _CustomBottomBar extends StatelessWidget {
             selectedIndex: selectedIndex,
             label: 'Ana Sayfa',
             icon: Icons.home_outlined,
-            activeIcon: Icons.home,
+            activeIcon: Icons.home_rounded,
             onTap: onTabSelected,
             curve: springCurve,
           ),
@@ -138,12 +136,11 @@ class _CustomBottomBar extends StatelessWidget {
             selectedIndex: selectedIndex,
             label: 'Keşfet',
             icon: Icons.explore_outlined,
-            activeIcon: Icons.explore,
+            activeIcon: Icons.explore_rounded,
             onTap: onTabSelected,
             curve: springCurve,
           ),
           
-          // ORTA BUTON (Elmas)
           Transform.translate(
             offset: const Offset(0, -12),
             child: Transform.rotate(
@@ -180,20 +177,20 @@ class _CustomBottomBar extends StatelessWidget {
           ),
 
           _BottomTabItem(
-            index: 3, // İndex 3 Sepet sayfasıdır
+            index: 3, 
             selectedIndex: selectedIndex,
             label: 'Sepet',
             icon: Icons.shopping_bag_outlined,
-            activeIcon: Icons.shopping_bag,
+            activeIcon: Icons.shopping_bag_rounded,
             onTap: onTabSelected,
             curve: springCurve,
           ),
           _BottomTabItem(
-            index: 4, // İndex 4 Profil sayfasıdır
+            index: 4, 
             selectedIndex: selectedIndex,
             label: 'Profil',
             icon: Icons.person_outline,
-            activeIcon: Icons.person,
+            activeIcon: Icons.person_rounded,
             onTap: onTabSelected,
             curve: springCurve,
           ),
@@ -203,7 +200,6 @@ class _CustomBottomBar extends StatelessWidget {
   }
 }
 
-// Yana Doğru Genişleyen Dinamik Sekme
 class _BottomTabItem extends StatelessWidget {
   const _BottomTabItem({
     required this.index,
@@ -261,6 +257,7 @@ class _BottomTabItem extends StatelessWidget {
                     color: Color(0xFF6B4226),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
+                    fontFamily: 'Outfit',
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.visible,
