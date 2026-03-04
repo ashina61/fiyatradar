@@ -107,7 +107,31 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return AppBar(
-      title: const Text('Sepetim'),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: false,
+      title: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFFAF6B3E),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Sepetim',
+            style: TextStyle(
+              color: Color(0xFF3A2B24),
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
         child: Container(
@@ -772,7 +796,7 @@ class _StatsHeader extends StatelessWidget {
                 children: [
                   Icon(Icons.info_outline_rounded,
                       size: 18, color: AppColors.warning),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${estimatedTotal.missingPriceCount} üründe fiyat bilgisi eksik',
@@ -1196,7 +1220,7 @@ class _QuantityControlState extends State<_QuantityControl> {
             onLongPressStart: (_) => _onLongPressStart(-1),
             onLongPressEnd: (_) => _onLongPressEnd(),
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -1267,7 +1291,7 @@ class _AddProductPrompt extends StatelessWidget {
         onTap();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -1279,19 +1303,19 @@ class _AddProductPrompt extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: cs.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.add_rounded, size: 20, color: cs.primary),
+              child: Icon(Icons.add_rounded, size: 18, color: cs.primary),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(
               'Ürün Ekle',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: cs.primary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
             ),
           ],
@@ -1326,7 +1350,7 @@ class _CartActionBar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 96),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
         decoration: BoxDecoration(
