@@ -17,8 +17,9 @@ class HorizontalCategoriesWidget extends ConsumerWidget {
   static final List<CategoryModel> _fallbackCategories =
       CategoryThemeCatalog.themes
           .where((theme) => theme.id != 'diger')
-          .map(
+          .map<CategoryModel>(
             (theme) => CategoryModel(
+              documentId: theme.id,
               id: theme.id,
               title: theme.title,
               isActive: true,
