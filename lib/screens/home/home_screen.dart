@@ -999,7 +999,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 onTap: productId.isEmpty
                     ? null
                     : () {
-                        Navigator.of(context).push(
+                        Navigator.of(context, rootNavigator: true).push(
                           MaterialPageRoute(
                             builder: (_) =>
                                 ProductDetailScreen(productId: productId),
@@ -1099,7 +1099,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   product: product,
                   width: 165,
                   onTap: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(
                         builder: (_) =>
                             ProductDetailScreen(productId: product.id),
@@ -1162,7 +1162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               child: PremiumPressable(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => Navigator.of(context).push(
+                onTap: () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute(
                     builder: (_) =>
                         ProductDetailScreen(productId: price.productId),
