@@ -364,7 +364,7 @@ class _WinnerCard extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFC89B7B), width: 2),
-                  boxShadow: [BoxShadow(color: Colors.white.withValues(alpha: glow), blurRadius: 22)],
+                  boxShadow: [BoxShadow(color: Colors.white.withOpacity(glow), blurRadius: 22)],
                 ),
                 child: Text('${savingAmount.toStringAsFixed(0)}₺ KAZANÇ', style: const TextStyle(fontWeight: FontWeight.w800)),
               );
@@ -505,7 +505,7 @@ class _CompactSummary extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.82), borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.82), borderRadius: BorderRadius.circular(18)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
