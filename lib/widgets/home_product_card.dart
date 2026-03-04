@@ -61,6 +61,7 @@ class HomeProductCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         width: width,
         decoration: BoxDecoration(

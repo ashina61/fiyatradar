@@ -627,7 +627,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 product: item.product,
                 width: cardWidth,
                 showStore: false,
-                onTap: () => Navigator.of(context).push(
+                onTap: () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute(
                     builder: (_) =>
                         ProductDetailScreen(productId: item.product.id),
