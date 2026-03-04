@@ -47,10 +47,17 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF6B4226),
+      brightness: Brightness.light,
+    );
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Fiyat Radar',
       theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: colorScheme,
         primaryColor: const Color(0xFF6B4226),
         scaffoldBackgroundColor: const Color(0xFFFAF6F0),
         fontFamily: 'Outfit',
