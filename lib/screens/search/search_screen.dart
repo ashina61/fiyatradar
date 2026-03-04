@@ -13,6 +13,7 @@ import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
 import '../product/product_detail_screen.dart';
 import '../actual/actuals_screen.dart';
+import '../main_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -73,6 +74,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF3A2B24), size: 20),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+              return;
+            }
+            ref.read(currentTabProvider.notifier).state = 0;
+          },
+        ),
         title: Row(
           children: [
             Container(

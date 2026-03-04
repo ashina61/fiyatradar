@@ -28,6 +28,8 @@ class AuthService {
     required String password,
     String? cityCode,
     String? cityName,
+    String? district,
+    String? neighborhood,
   }) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(
@@ -42,6 +44,8 @@ class AuthService {
             'cityCode': cityCode,
             'cityName': cityName,
             'city': cityName,
+            'district': district,
+            'neighborhood': neighborhood,
           }, SetOptions(merge: true));
         }
         return await getUserModel(credential.user!.uid);
@@ -60,6 +64,8 @@ class AuthService {
     String? inviteCode,
     String? cityCode,
     String? cityName,
+    String? district,
+    String? neighborhood,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -80,6 +86,8 @@ class AuthService {
           cityCode: cityCode,
           cityName: cityName,
           city: cityName,
+          district: district,
+          neighborhood: neighborhood,
           inviteCode: newInviteCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
@@ -93,6 +101,8 @@ class AuthService {
           'displayName': name,
           'photoURL': '',
           'city': cityName,
+          'district': district,
+          'neighborhood': neighborhood,
           'totalPoints': 0,
           'weeklyPoints': 0,
           'monthlyPoints': 0,

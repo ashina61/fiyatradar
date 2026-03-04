@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'category_theme.dart';
 
 class CategoryModel {
+  final String documentId;
   final String id;
   final String title;
   final bool isActive;
@@ -18,6 +19,7 @@ class CategoryModel {
   final Timestamp? updatedAt;
 
   const CategoryModel({
+    required this.documentId,
     required this.id,
     required this.title,
     required this.isActive,
@@ -43,6 +45,7 @@ class CategoryModel {
     );
 
     return CategoryModel(
+      documentId: doc.id,
       id: (data['id'] ?? doc.id).toString(),
       title: title,
       isActive: data['isActive'] != false,
