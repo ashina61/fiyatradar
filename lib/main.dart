@@ -1,97 +1,78 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// --- SENİN GERÇEK SAYFALARININ İMPORTLARI ---
-import 'screens/add_price/add_price_screen.dart';
-import 'screens/cart/cart_screen_v2.dart';
-import 'screens/home/home_screen.dart';
-import 'screens/profile/profile_screen.dart';
-import 'screens/search/search_screen.dart';
+import 'app_router.dart';
+import 'providers/app_start_provider.dart';
+import 'providers/firebase_init_provider.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/main_screen.dart';
 
-import 'fiyat_radar_bottom_bar.dart'; // Yaptığımız kusursuz menü
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
-  // Senin sistem Riverpod kullandığı için ProviderScope eklemek zorundayız
-  runApp(const ProviderScope(child: FiyatRadarApp()));
+  try {
+    await Firebase.initializeApp();
+    firebaseInitializedNotifier.value = true;
+  } catch (_) {
+    firebaseInitializedNotifier.value = false;
+  }
+
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
+  runApp(
+    ProviderScope(
+      child: FiyatRadarApp(showOnboarding: !onboardingComplete),
+    ),
+  );
 }
 
-class FiyatRadarApp extends StatelessWidget {
-  const FiyatRadarApp({Key? key}) : super(key: key);
+class FiyatRadarApp extends StatefulWidget {
+  const FiyatRadarApp({super.key, required this.showOnboarding});
+
+  final bool showOnboarding;
+
+  @override
+  State<FiyatRadarApp> createState() => _FiyatRadarAppState();
+}
+
+class _FiyatRadarAppState extends State<FiyatRadarApp> {
+  late final GoRouter _router =
+      buildAppRouter(showOnboarding: widget.showOnboarding);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Fiyat Radar',
       theme: ThemeData(
         primaryColor: const Color(0xFF6B4226),
-        fontFamily: 'Outfit', 
+        fontFamily: 'Outfit',
       ),
-      home: const MainScreen(),
+      routerConfig: _router,
     );
   }
 }
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+class AppStartGate extends ConsumerWidget {
+  const AppStartGate({super.key});
 
   @override
-  _MainScreenState createState() => _MainScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appStartState = ref.watch(appStartStateProvider);
 
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-  bool _isNavigating = false;
-
-  // İŞTE BURASI DÜZELDİ: Artık boş yazılar değil, senin gerçek sayfaların var!
-  // Menüde 4 sekme olduğu için burada da tam 4 sayfa var.
-  final List<Widget> _pages = const [
-    HomeScreen(key: PageStorageKey('home-tab')),
-    SearchScreen(key: PageStorageKey('search-tab')),
-    CartScreenV2(key: PageStorageKey('basket-tab')),
-    ProfileScreen(key: PageStorageKey('profile-tab')),
-  ];
-
-  // Ortadaki Fiyat Ekle butonuna basıldığında çalışacak gerçek yönlendirme
-  Future<void> _onFABPressed() async {
-    if (_isNavigating) return;
-    _isNavigating = true;
-    try {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const AddPriceScreen()),
-      );
-    } finally {
-      _isNavigating = false;
+    switch (appStartState) {
+      case AppStartState.loading:
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      case AppStartState.login:
+        return const LoginScreen();
+      case AppStartState.authenticated:
+        return const MainScreen();
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAF6F0), 
-      // Sayfa içeriğinin alt menünün altına kadar inmesi için kritik ayar:
-      extendBody: true, 
-      
-      body: Stack(
-        children: [
-          // 1. KATMAN: GERÇEK SAYFALARIN (Geçişlerde sayfa yenilenmez, durum korunur)
-          IndexedStack(
-            index: _selectedIndex,
-            children: _pages,
-          ),
-
-          // 2. KATMAN: EFSANE YÜZEN ALT MENÜMÜZ
-          FiyatRadarBottomBar(
-            currentIndex: _selectedIndex,
-            onTap: (index) {
-              setState(() {
-                _selectedIndex = index; 
-              });
-            },
-            onFabTap: _onFABPressed, // Gerçek yönlendirme fonksiyonunu bağladık
-          ),
-        ],
-      ),
-    );
   }
 }
