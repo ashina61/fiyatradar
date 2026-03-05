@@ -1,12 +1,18 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/basket/cart_comparison_state.dart';
+import '../../features/basket/basket_view_model.dart';
+import '../../models/product_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../services/cart_comparison_service.dart';
+import '../../utils/formatters.dart';
+import '../add_price/add_price_screen.dart';
 import 'fiyatradar_app.dart';
-import 'market_comparison.dart';
-import 'cart_provider.dart';
-import 'comparison_provider.dart';
 import 'tab_provider.dart';
 
 class HomeShellScreen extends ConsumerStatefulWidget {
@@ -19,6 +25,7 @@ class HomeShellScreen extends ConsumerStatefulWidget {
 class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
+  String? _expandedStoreId;
 
   @override
   void initState() {
@@ -37,36 +44,153 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen>
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authStateProvider);
     final activeTab = ref.watch(homeTabProvider);
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.8,
-            colors: [Color(0xFFFFFFFF), FRColors.background],
-          ),
-        ),
-        child: Column(
-          children: [
-            _Header(activeTab: activeTab),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
-                switchInCurve: Curves.easeOut,
-                child: activeTab == HomeTab.sepet
-                    ? const _CartView(key: ValueKey('sepet'))
-                    : _CompareView(
-                        key: const ValueKey('karsilastir'),
-                        pulseController: _pulseController,
-                      ),
+    return auth.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const Scaffold(body: Center(child: Text('Oturum bilgisi alınamadı.'))),
+      data: (user) {
+        if (user == null) {
+          return const Scaffold(
+            body: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Sepet için giriş yapmalısınız.'),
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: const _PremiumBottomNav(),
+          );
+        }
+
+        final vm = ref.watch(basketViewModelProvider);
+
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topLeft,
+                radius: 1.8,
+                colors: [Color(0xFFFFFFFF), FRColors.background],
+              ),
+            ),
+            child: Column(
+              children: [
+                _Header(activeTab: activeTab),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    switchInCurve: Curves.easeOut,
+                    child: activeTab == HomeTab.sepet
+                        ? _CartView(
+                            key: const ValueKey('sepet'),
+                            viewModel: vm,
+                            onAddProduct: () => _showProductPicker(),
+                            onCalculate: () => _triggerCalculate(),
+                            onAddPrice: _navigateToAddPrice,
+                          )
+                        : _CompareView(
+                            key: const ValueKey('karsilastir'),
+                            pulseController: _pulseController,
+                            state: vm.comparisonState,
+                            onCalculate: () => _triggerCalculate(),
+                            expandedStoreId: _expandedStoreId,
+                            onToggleStore: (storeId) {
+                              setState(() {
+                                _expandedStoreId =
+                                    _expandedStoreId == storeId ? null : storeId;
+                              });
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _triggerCalculate() async {
+    final vm = ref.read(basketViewModelProvider);
+    if (vm.items.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(content: Text('Önce sepetine ürün ekle.')));
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(content: Text('Fiyatlar analiz ediliyor...')));
+
+    await vm.calculate();
+    if (!mounted) return;
+    ref.read(homeTabProvider.notifier).setTab(HomeTab.karsilastir);
+  }
+
+  void _navigateToAddPrice(ProductModel? product) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
+    );
+  }
+
+  Future<void> _showProductPicker() async {
+    final vm = ref.read(basketViewModelProvider);
+    final productsAsync = ref.read(allProductsProvider);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final products = productsAsync.valueOrNull ?? const <ProductModel>[];
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.45,
+          maxChildSize: 0.92,
+          builder: (_, controller) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: productsAsync.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : products.isEmpty
+                      ? const Center(child: Text('Eklenebilir ürün bulunamadı.'))
+                      : ListView.separated(
+                          controller: controller,
+                          padding: const EdgeInsets.all(20),
+                          itemBuilder: (_, index) {
+                            final p = products[index];
+                            return ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              tileColor: FRColors.background,
+                              title: Text(
+                                p.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(p.brand.isNotEmpty ? p.brand : 'Marka yok'),
+                              trailing: const Icon(Icons.add_circle_outline),
+                              onTap: () async {
+                                HapticFeedback.lightImpact();
+                                await vm.addProduct(p.id);
+                                if (!mounted) return;
+                                Navigator.of(context).pop();
+                              },
+                            );
+                          },
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemCount: products.length,
+                        ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -215,16 +339,50 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _CartView extends ConsumerWidget {
-  const _CartView({super.key});
+class _CartView extends StatelessWidget {
+  const _CartView({
+    super.key,
+    required this.viewModel,
+    required this.onAddProduct,
+    required this.onCalculate,
+    required this.onAddPrice,
+  });
 
-  String _price(double value) =>
-      '${value.toStringAsFixed(2).replaceAll('.', ',')}₺';
+  final BasketViewModel viewModel;
+  final VoidCallback onAddProduct;
+  final VoidCallback onCalculate;
+  final void Function(ProductModel? product) onAddPrice;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(cartProvider);
-    final total = ref.watch(cartTotalProvider);
+  Widget build(BuildContext context) {
+    if (viewModel.isLoadingItems) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final items = viewModel.items;
+    final estimated = viewModel.computedEstimatedTotal;
+    final totalProducts = items.fold<int>(0, (sum, item) => sum + item.quantity);
+
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.shopping_bag_outlined, size: 42, color: FRColors.muted),
+              const SizedBox(height: 12),
+              const Text('Sepetin şu an boş'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: onAddProduct,
+                child: const Text('Ürün Ekle'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 15, 24, 120),
@@ -235,15 +393,11 @@ class _CartView extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _summaryItem(Icons.shopping_bag_rounded, '${cart.length} Ürün'),
-              Container(
-                width: 1,
-                height: 24,
-                color: FRColors.primary.withOpacity(0.1),
-              ),
+              _summaryItem(Icons.shopping_bag_rounded, '$totalProducts Ürün'),
+              Container(width: 1, height: 24, color: FRColors.primary.withOpacity(0.1)),
               _summaryItem(
                 Icons.payments_rounded,
-                '${_price(total)} Tahmini',
+                '${formatTRY(estimated.total, keepTrailingZeros: true)} Tahmini',
                 iconColor: FRColors.gold,
               ),
             ],
@@ -262,9 +416,7 @@ class _CartView extends ConsumerWidget {
             ),
             Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [FRColors.gold, FRColors.primary],
-                ),
+                gradient: const LinearGradient(colors: [FRColors.gold, FRColors.primary]),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -275,11 +427,7 @@ class _CartView extends ConsumerWidget {
                 ],
               ),
               child: TextButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Ürün arama ekranı açılıyor...')),
-                  );
-                },
+                onPressed: onAddProduct,
                 icon: const Icon(Icons.add_circle, color: FRColors.surface),
                 label: const Text('Ürün Ekle'),
                 style: TextButton.styleFrom(
@@ -291,8 +439,13 @@ class _CartView extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 15),
-        ...cart.map(
-          (item) => Padding(
+        ...items.map((item) {
+          final product = viewModel.productMap[item.productId];
+          final name = product?.name ?? 'Ürün';
+          final image = product?.effectiveImage;
+          final hasPrice = item.lastKnownPrice != null;
+          final linePrice = hasPrice ? item.lastKnownPrice! * item.quantity : null;
+          return Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Container(
               padding: const EdgeInsets.all(14),
@@ -301,11 +454,13 @@ class _CartView extends ConsumerWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: Image.network(
-                      item.imageUrl,
+                    child: Container(
                       width: 85,
                       height: 85,
-                      fit: BoxFit.cover,
+                      color: FRColors.background,
+                      child: image == null || image.isEmpty
+                          ? const Icon(Icons.image_not_supported_outlined, color: FRColors.muted)
+                          : Image.network(image, fit: BoxFit.cover),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -314,23 +469,26 @@ class _CartView extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.name,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: FRColors.dark,
-                                  ),
+                          name,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: FRColors.dark,
+                              ),
                         ),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _price(item.totalPrice),
-                              style: const TextStyle(
-                                color: FRColors.primary,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
+                            Flexible(
+                              child: Text(
+                                hasPrice
+                                    ? formatTRY(linePrice!, keepTrailingZeros: true)
+                                    : 'Fiyat bilgisi yok',
+                                style: TextStyle(
+                                  color: hasPrice ? FRColors.primary : FRColors.muted,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                             Container(
@@ -341,27 +499,36 @@ class _CartView extends ConsumerWidget {
                               child: Row(
                                 children: [
                                   IconButton(
-                                    onPressed: () => ref
-                                        .read(cartProvider.notifier)
-                                        .removeOrDecrease(item.id),
+                                    onPressed: () => viewModel.updateQuantity(
+                                      item.productId,
+                                      item.quantity - 1,
+                                    ),
                                     icon: const Icon(Icons.delete_outline),
                                     color: FRColors.danger,
                                   ),
                                   Text(
                                     '${item.quantity}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.w700),
                                   ),
                                   IconButton(
-                                    onPressed: () => ref
-                                        .read(cartProvider.notifier)
-                                        .increaseQuantity(item.id),
+                                    onPressed: () => viewModel.updateQuantity(
+                                      item.productId,
+                                      item.quantity + 1,
+                                    ),
                                     icon: const Icon(Icons.add),
                                     color: FRColors.dark,
                                   ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => onAddPrice(product),
+                              child: const Text('Fiyat Ekle'),
                             ),
                           ],
                         ),
@@ -371,18 +538,19 @@ class _CartView extends ConsumerWidget {
                 ],
               ),
             ),
+          );
+        }),
+        if (estimated.hasMissingPrices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '${estimated.missingPriceCount} üründe fiyat bilgisi eksik. Yine de hesaplanır.',
+              style: const TextStyle(color: FRColors.warning),
+            ),
           ),
-        ),
         const SizedBox(height: 12),
         InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Fiyatlar analiz ediliyor...')),
-            );
-            Future.delayed(const Duration(milliseconds: 500), () {
-              ref.read(homeTabProvider.notifier).setTab(HomeTab.karsilastir);
-            });
-          },
+          onTap: onCalculate,
           borderRadius: BorderRadius.circular(20),
           child: Ink(
             padding: const EdgeInsets.symmetric(vertical: 18),
@@ -435,15 +603,54 @@ class _CartView extends ConsumerWidget {
   }
 }
 
-class _CompareView extends ConsumerWidget {
-  const _CompareView({super.key, required this.pulseController});
+class _CompareView extends StatelessWidget {
+  const _CompareView({
+    super.key,
+    required this.pulseController,
+    required this.state,
+    required this.onCalculate,
+    required this.expandedStoreId,
+    required this.onToggleStore,
+  });
 
   final AnimationController pulseController;
+  final CartComparisonState state;
+  final VoidCallback onCalculate;
+  final String? expandedStoreId;
+  final ValueChanged<String> onToggleStore;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(comparisonProvider);
-    final winner = data.first;
+  Widget build(BuildContext context) {
+    if (state.status == CartComparisonStatus.idle) {
+      return Center(
+        child: FilledButton.icon(
+          onPressed: onCalculate,
+          icon: const Icon(Icons.calculate),
+          label: const Text('Sepeti Hesapla'),
+        ),
+      );
+    }
+
+    if (state.status == CartComparisonStatus.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.status == CartComparisonStatus.error) {
+      return Center(
+        child: Text(state.errorMessage ?? 'Karşılaştırma yapılırken hata oluştu.'),
+      );
+    }
+
+    final markets = [...state.topMarkets];
+    if (markets.isEmpty) {
+      return Center(
+        child: Text(state.emptyReason ?? 'Karşılaştıracak market verisi bulunamadı.'),
+      );
+    }
+
+    final winner = state.bestMarket ?? markets.first;
+    final winnerTotal = winner.totalPrice;
+    final savings = markets.length > 1 ? (markets[1].totalPrice - winnerTotal) : 0.0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 15, 24, 120),
@@ -471,8 +678,7 @@ class _CompareView extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: FRColors.gold,
                       borderRadius: BorderRadius.circular(10),
@@ -500,10 +706,7 @@ class _CompareView extends ConsumerWidget {
                       return Transform.scale(
                         scale: scale,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: FRColors.surface,
                             borderRadius: BorderRadius.circular(12),
@@ -515,15 +718,16 @@ class _CompareView extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(Icons.savings, size: 18, color: FRColors.gold),
-                              SizedBox(width: 6),
+                              const Icon(Icons.savings, size: 18, color: FRColors.gold),
+                              const SizedBox(width: 6),
                               Text(
-                                '5₺ KAZANÇ',
-                                style: TextStyle(
+                                '${formatTRY(savings < 0 ? 0 : savings)} KAZANÇ',
+                                style: const TextStyle(
                                   color: FRColors.dark,
                                   fontWeight: FontWeight.w800,
+                                  fontSize: 13,
                                 ),
                               ),
                             ],
@@ -538,375 +742,284 @@ class _CompareView extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        winner.marketName,
-                        style: const TextStyle(
-                          color: FRColors.surface,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          winner.storeName,
+                          style: const TextStyle(
+                            color: FRColors.surface,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      Text(
-                        '${winner.distanceKm} km • Tüm ürünler var',
-                        style: TextStyle(
-                          color: FRColors.surface.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                  RichText(
-                    text: TextSpan(
-                      text: winner.totalPrice.toStringAsFixed(0),
-                      style: const TextStyle(
-                        color: FRColors.surface,
-                        fontSize: 42,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      children: const [
-                        TextSpan(
-                          text: '₺',
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_distanceLabel(winner.distanceKm)} • ${winner.missingCount == 0 ? 'Tüm ürünler var' : '${winner.missingCount} eksik'}',
                           style: TextStyle(
-                            fontSize: 20,
-                            color: FRColors.gold,
-                            fontWeight: FontWeight.w600,
+                            color: FRColors.surface.withOpacity(0.72),
+                            fontSize: 13,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  Text(
+                    formatTRY(winner.totalPrice),
+                    style: const TextStyle(
+                      color: FRColors.surface,
+                      fontSize: 38,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('A-101 rotası hazırlanıyor...')),
-                  );
-                },
-                icon: const Icon(Icons.directions_walk),
-                label: const Text('Markete Git'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: FRColors.surface,
-                  foregroundColor: FRColors.dark,
-                  minimumSize: const Size.fromHeight(52),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: FRColors.surface,
+                    foregroundColor: FRColors.dark,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${winner.storeName} rotası hazırlanıyor...')),
+                    );
+                  },
+                  icon: const Icon(Icons.directions_walk),
+                  label: const Text('Markete Git'),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 24),
         Text(
           'Alternatif Marketler',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
                 color: FRColors.dark,
-                fontWeight: FontWeight.w700,
               ),
         ),
-        const SizedBox(height: 15),
+        const SizedBox(height: 14),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: _surfaceDecoration(28),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
-            children: data
-                .where((e) => !e.isBest)
-                .map((market) => _ComparisonRow(market: market))
-                .toList(),
+            children: markets
+                .asMap()
+                .entries
+                .where((entry) => entry.value.storeId != winner.storeId)
+                .map((entry) {
+              final rank = entry.key + 1;
+              final market = entry.value;
+              final expanded = expandedStoreId == market.storeId;
+              final difference = market.totalPrice - winner.totalPrice;
+
+              return InkWell(
+                onTap: () => onToggleStore(market.storeId),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: market.missingCount > 0
+                                      ? FRColors.danger.withOpacity(0.1)
+                                      : (expanded
+                                          ? FRColors.gold
+                                          : FRColors.primary.withOpacity(0.06)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  market.missingCount > 0 ? '!' : '$rank',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: market.missingCount > 0
+                                        ? FRColors.danger
+                                        : (expanded ? FRColors.dark : FRColors.muted),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    market.storeName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: FRColors.dark,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_distanceLabel(market.distanceKm)} • ${market.missingCount == 0 ? 'Eksik Yok' : '${market.missingCount} Eksik'}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: market.missingCount > 0 ? FRColors.danger : FRColors.muted,
+                                      fontWeight: market.missingCount > 0 ? FontWeight.w600 : FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                formatTRY(market.totalPrice),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: FRColors.dark,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: market.missingCount > 0
+                                      ? FRColors.danger.withOpacity(0.1)
+                                      : FRColors.warning.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  market.missingCount > 0
+                                      ? 'Stok Yok'
+                                      : '+${formatTRY(difference)} Fark',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: market.missingCount > 0 ? FRColors.danger : FRColors.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      AnimatedCrossFade(
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: _DetailRows(market: market, winner: winner),
+                        crossFadeState: expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                        duration: const Duration(milliseconds: 250),
+                      ),
+                      if (entry.key != markets.length - 1)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 20),
+                          child: Divider(color: FRColors.primary.withOpacity(0.06), height: 1),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],
     );
   }
-}
 
-class _ComparisonRow extends ConsumerWidget {
-  const _ComparisonRow({required this.market});
-
-  final MarketComparison market;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final expanded = ref.watch(expandedMarketProvider) == market.marketName;
-
-    return InkWell(
-      onTap: () {
-        ref.read(expandedMarketProvider.notifier).state =
-            expanded ? null : market.marketName;
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: FRColors.primary.withOpacity(0.06),
-            ),
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: market.hasMissing
-                            ? FRColors.danger.withOpacity(0.1)
-                            : (expanded
-                                ? FRColors.gold
-                                : FRColors.primary.withOpacity(0.06)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        market.hasMissing ? '!' : '${market.rank}',
-                        style: TextStyle(
-                          color: market.hasMissing
-                              ? FRColors.danger
-                              : (expanded ? FRColors.dark : FRColors.muted),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          market.marketName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: FRColors.dark,
-                          ),
-                        ),
-                        Text(
-                          market.hasMissing
-                              ? '${market.distanceKm} km • ${market.missingCount} Eksik'
-                              : '${market.distanceKm} km • Eksik Yok',
-                          style: TextStyle(
-                            color:
-                                market.hasMissing ? FRColors.danger : FRColors.muted,
-                            fontWeight: market.hasMissing
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${market.totalPrice.toStringAsFixed(0)}₺',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        color: FRColors.dark,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: market.hasMissing
-                            ? FRColors.danger.withOpacity(0.1)
-                            : FRColors.warning.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        market.hasMissing
-                            ? 'Stok Yok'
-                            : '+${market.differenceFromBest.toStringAsFixed(0)}₺ Fark',
-                        style: TextStyle(
-                          color:
-                              market.hasMissing ? FRColors.danger : FRColors.warning,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              height: expanded ? null : 0,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 250),
-                opacity: expanded ? 1 : 0,
-                child: expanded
-                    ? Container(
-                        margin: const EdgeInsets.only(top: 15),
-                        padding: const EdgeInsets.only(top: 15),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: FRColors.primary.withOpacity(0.1),
-                              style: BorderStyle.solid,
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          children: market.details
-                              .map(
-                                (detail) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        detail.productName,
-                                        style: TextStyle(
-                                          color: detail.missing
-                                              ? FRColors.muted
-                                              : FRColors.dark,
-                                          decoration: detail.missing
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                        ),
-                                      ),
-                                      if (detail.missing)
-                                        const Text(
-                                          'Tükendi',
-                                          style: TextStyle(
-                                            color: FRColors.danger,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        )
-                                      else if (detail.diff > 0)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: FRColors.danger
-                                                .withOpacity(0.08),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            '${detail.price.toStringAsFixed(0)}₺ (+${detail.diff.toStringAsFixed(0)}₺)',
-                                            style: const TextStyle(
-                                              color: FRColors.danger,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        Text(
-                                          '${detail.price.toStringAsFixed(0)}₺ (Aynı)',
-                                          style: const TextStyle(
-                                            color: FRColors.muted,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _distanceLabel(double? km) {
+    if (km == null) return 'Mesafe yok';
+    return '${km.toStringAsFixed(1)} km';
   }
 }
 
-class _PremiumBottomNav extends StatelessWidget {
-  const _PremiumBottomNav();
+class _DetailRows extends StatelessWidget {
+  const _DetailRows({required this.market, required this.winner});
+
+  final CartMarketResultSummary market;
+  final CartMarketResultSummary winner;
 
   @override
   Widget build(BuildContext context) {
+    final winnerMap = {
+      for (final line in winner.lines) line.productId: line,
+    };
+
     return Container(
-      height: 90,
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 15),
-      decoration: const BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
+      margin: const EdgeInsets.only(top: 15),
+      padding: const EdgeInsets.only(top: 15),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: FRColors.primary.withOpacity(0.12),
+            style: BorderStyle.solid,
+          ),
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _NavIcon(icon: Icons.home_rounded),
-          _NavIcon(icon: Icons.explore_rounded),
-          _DiamondButton(),
-          _NavIcon(icon: Icons.shopping_bag_rounded, active: true),
-          _NavIcon(icon: Icons.person_rounded),
+      child: Column(
+        children: [
+          for (final line in market.lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      line.productName,
+                      style: const TextStyle(fontSize: 13, color: FRColors.dark),
+                    ),
+                  ),
+                  _lineBadge(line, winnerMap[line.productId]),
+                ],
+              ),
+            ),
+          if (market.missingCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: FRColors.danger, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${market.missingCount} ürün bu markette bulunamadı.',
+                    style: const TextStyle(color: FRColors.danger, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
-}
 
-class _NavIcon extends StatelessWidget {
-  const _NavIcon({required this.icon, this.active = false});
+  Widget _lineBadge(CartMarketProductPrice line, CartMarketProductPrice? bestLine) {
+    final diff = bestLine == null ? 0.0 : (line.unitPrice - bestLine.unitPrice);
+    final same = diff.abs() < 0.005;
 
-  final IconData icon;
-  final bool active;
+    if (same) {
+      return Text(
+        '${formatTRY(line.unitPrice)} (Aynı)',
+        style: const TextStyle(fontSize: 12, color: FRColors.muted, fontWeight: FontWeight.w600),
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: Icon(
-        icon,
-        size: 28,
-        color: active ? FRColors.primary : FRColors.muted,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FRColors.danger.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
       ),
-    );
-  }
-}
-
-class _DiamondButton extends StatelessWidget {
-  const _DiamondButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -20),
-      child: Transform.rotate(
-        angle: 0.785398,
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [FRColors.gold, FRColors.primary]),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: FRColors.primary.withOpacity(0.35),
-                blurRadius: 35,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: Transform.rotate(
-            angle: -0.785398,
-            child: const Icon(Icons.add, size: 34, color: FRColors.surface),
-          ),
-        ),
+      child: Text(
+        '${formatTRY(line.unitPrice)} (+${formatTRY(diff)})',
+        style: const TextStyle(fontSize: 12, color: FRColors.danger, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -916,7 +1029,6 @@ BoxDecoration _surfaceDecoration(double radius) {
   return BoxDecoration(
     color: FRColors.surface,
     borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: FRColors.primary.withOpacity(0.03)),
     boxShadow: [
       BoxShadow(
         color: FRColors.primary.withOpacity(0.04),
@@ -924,5 +1036,6 @@ BoxDecoration _surfaceDecoration(double radius) {
         offset: const Offset(0, 8),
       ),
     ],
+    border: Border.all(color: FRColors.primary.withOpacity(0.03)),
   );
 }
