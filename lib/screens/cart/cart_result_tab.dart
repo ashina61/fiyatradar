@@ -302,10 +302,12 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    const v15Primary = Color(0xFF6B4226);
+    const v15Dark = Color(0xFF2A1A10);
+    const v15Gold = Color(0xFFC89B7B);
     final parallaxY = scrollFactor * 0.15;
     final scale = scrollFactor > 80 ? 0.96 : 1 - ((scrollFactor / 80) * 0.04);
-    final glowOpacity = (0.08 + (scrollFactor / 220) * 0.12).clamp(0.08, 0.2);
+    final glowOpacity = (0.16 + (scrollFactor / 220) * 0.12).clamp(0.16, 0.28);
 
     return Transform.translate(
       offset: Offset(0, parallaxY),
@@ -315,22 +317,19 @@ class _HeroCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                cs.surface.withOpacity(0.96),
-                cs.surfaceContainerHighest.withOpacity(0.8),
-              ],
+              colors: [v15Dark, v15Primary],
             ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.42)),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: v15Gold.withOpacity(0.22)),
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withOpacity(glowOpacity),
-                blurRadius: 30,
+                color: v15Dark.withOpacity(glowOpacity),
+                blurRadius: 40,
                 spreadRadius: 1,
-                offset: const Offset(0, 12),
+                offset: const Offset(0, 16),
               ),
             ],
           ),
@@ -339,15 +338,60 @@ class _HeroCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text('En Uygun Market', style: Theme.of(context).textTheme.titleSmall),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: v15Gold,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'EN UYGUN',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: v15Dark,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
                   const Spacer(),
-                  Icon(Icons.workspace_premium_rounded, color: cs.primary),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: v15Gold, width: 2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.savings_rounded, color: v15Gold, size: 17),
+                        const SizedBox(width: 6),
+                        Text(
+                          '5₺ KAZANÇ',
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: v15Dark,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(best.storeName, style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                best.storeName,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
               const SizedBox(height: 6),
-              Text(_formatCurrency(best.totalPrice), style: Theme.of(context).textTheme.displaySmall),
+              Text(
+                _formatCurrency(best.totalPrice),
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -355,14 +399,14 @@ class _HeroCard extends StatelessWidget {
                 children: [
                   _Pill(
                     text: '$totalProducts ürün • Eksik ${best.missingCount}',
-                    color: cs.secondaryContainer,
-                    fg: cs.onSecondaryContainer,
+                    color: Colors.white.withOpacity(0.16),
+                    fg: Colors.white,
                   ),
                   if (best.distanceKm != null)
                     _Pill(
                       text: '${best.distanceKm!.toStringAsFixed(1)} km',
-                      color: cs.tertiaryContainer,
-                      fg: cs.onTertiaryContainer,
+                      color: Colors.white.withOpacity(0.16),
+                      fg: Colors.white,
                     ),
                 ],
               ),

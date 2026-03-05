@@ -32,6 +32,12 @@ class CartScreenV2 extends ConsumerStatefulWidget {
 
 class _CartScreenV2State extends ConsumerState<CartScreenV2>
     with SingleTickerProviderStateMixin {
+  static const Color _v15Bg = Color(0xFFF9F6F2);
+  static const Color _v15Surface = Color(0xFFFFFFFF);
+  static const Color _v15Primary = Color(0xFF6B4226);
+  static const Color _v15Dark = Color(0xFF2A1A10);
+  static const Color _v15Muted = Color(0xFF9E8E82);
+
   late final TabController _tabController;
 
   @override
@@ -66,7 +72,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
         );
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: _v15Bg,
           appBar: _buildAppBar(context),
           body: PremiumScaffoldShell(
             child: TabBarView(
@@ -105,9 +111,8 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: _v15Bg.withOpacity(0.92),
       elevation: 0,
       centerTitle: false,
       title: Row(
@@ -116,7 +121,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             width: 4,
             height: 24,
             decoration: BoxDecoration(
-              color: const Color(0xFFAF6B3E),
+              color: _v15Primary,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -124,7 +129,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
           const Text(
             'Sepetim',
             style: TextStyle(
-              color: Color(0xFF3A2B24),
+              color: _v15Dark,
               fontSize: 20,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
@@ -137,27 +142,27 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(14),
+            color: _v15Primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(18),
           ),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(5),
           child: TabBar(
             controller: _tabController,
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
             indicator: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(10),
+              color: _v15Surface,
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: cs.shadow.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: _v15Primary.withOpacity(0.16),
+                  blurRadius: 15,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            labelColor: cs.primary,
-            unselectedLabelColor: cs.onSurfaceVariant,
+            labelColor: _v15Primary,
+            unselectedLabelColor: _v15Muted,
             labelStyle: Theme.of(context)
                 .textTheme
                 .labelLarge
@@ -630,7 +635,7 @@ class _CartBodyState extends State<_CartBody> {
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
             children: [
               // ── Stats Header ──
               _StatsHeader(
@@ -643,6 +648,7 @@ class _CartBodyState extends State<_CartBody> {
               _SectionLabel(
                 label: 'Ürünler',
                 trailing: '${widget.viewModel.items.length} çeşit',
+                onAddProduct: widget.onAddProduct,
               ),
               const SizedBox(height: 12),
 
@@ -697,12 +703,7 @@ class _CartBodyState extends State<_CartBody> {
                 );
               }),
 
-              const SizedBox(height: 8),
-
-              // ── Add Product Card ──
-              _AddProductPrompt(onTap: widget.onAddProduct),
-
-              const SizedBox(height: 100),
+              const SizedBox(height: 120),
             ],
           ),
         ),
@@ -712,7 +713,6 @@ class _CartBodyState extends State<_CartBody> {
           estimatedTotal: widget.estimatedTotal,
           isLoading: widget.viewModel.isCalculating,
           onCalculate: widget.onCalculate,
-          onAddProduct: widget.onAddProduct,
         ),
       ],
     );
@@ -734,136 +734,52 @@ class _StatsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.accent.withOpacity(0.05),
-          ],
-        ),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              // Item count
-              Expanded(
-                child: _StatItem(
-                  icon: Icons.shopping_bag_outlined,
-                  value: '$itemCount',
-                  label: 'ürün',
-                  color: cs.primary,
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 44,
-                color: cs.outlineVariant.withOpacity(0.3),
-              ),
-              // Estimated total
-              Expanded(
-                child: _StatItem(
-                  icon: Icons.payments_outlined,
-                  value: formatTRY(estimatedTotal.total, keepTrailingZeros: true),
-                  label: estimatedTotal.hasMissingPrices
-                      ? 'kısmi toplam'
-                      : 'tahmini',
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
+        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B4226).withOpacity(0.05),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
           ),
-          if (estimatedTotal.hasMissingPrices) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 18, color: AppColors.warning),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${estimatedTotal.missingPriceCount} üründe fiyat bilgisi eksik',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.warning,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  const _StatItem({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
+      child: Row(
+        children: [
+          const Icon(Icons.shopping_bag_rounded, size: 20, color: Color(0xFF9E8E82)),
+          const SizedBox(width: 8),
+          Text(
+            '$itemCount Ürün',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: const Color(0xFF2A1A10),
+                  fontWeight: FontWeight.w700,
+                ),
           ),
-          child: Icon(icon, size: 18, color: color),
-        ),
-        const SizedBox(width: 10),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
+          const SizedBox(width: 14),
+          Container(
+            width: 1,
+            height: 24,
+            color: const Color(0xFF6B4226).withOpacity(0.14),
           ),
-        ),
-      ],
+          const SizedBox(width: 14),
+          const Icon(Icons.payments_rounded, size: 20, color: Color(0xFFC89B7B)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${formatTRY(estimatedTotal.total, keepTrailingZeros: true)} Tahmini',
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: const Color(0xFF6B4226),
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -873,40 +789,67 @@ class _StatItem extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, this.trailing});
+  const _SectionLabel({required this.label, this.trailing, this.onAddProduct});
 
   final String label;
   final String? trailing;
+  final VoidCallback? onAddProduct;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Container(
-          width: 3,
-          height: 16,
-          decoration: BoxDecoration(
-            color: cs.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 8),
         Text(
           label,
           style: Theme.of(context)
               .textTheme
               .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w700),
+              ?.copyWith(fontWeight: FontWeight.w800, color: const Color(0xFF2A1A10)),
         ),
         const Spacer(),
-        if (trailing != null)
+        if (onAddProduct != null)
+          GestureDetector(
+            onTap: onAddProduct,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFC89B7B), Color(0xFF6B4226)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6B4226).withOpacity(0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_circle, size: 17, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ürün Ekle',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (trailing != null)
           Text(
             trailing!,
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+                ?.copyWith(color: const Color(0xFF9E8E82)),
           ),
       ],
     );
@@ -942,14 +885,14 @@ class _CartProductCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05)),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF6B4226).withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -962,8 +905,8 @@ class _CartProductCard extends StatelessWidget {
               // Product image
               Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: cs.surfaceContainerHighest.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(18),
+                  color: const Color(0xFF6B4226).withOpacity(0.06),
                 ),
                 child: AppNetworkImage(
                   imageUrl: product?.mainImage,
@@ -971,7 +914,7 @@ class _CartProductCard extends StatelessWidget {
                   width: 68,
                   height: 68,
                   fit: BoxFit.cover,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
               const SizedBox(width: 14),
@@ -1037,7 +980,7 @@ class _CartProductCard extends StatelessWidget {
           // Divider
           Container(
             height: 1,
-            color: cs.outlineVariant.withOpacity(0.2),
+            color: const Color(0xFF6B4226).withOpacity(0.10),
           ),
           const SizedBox(height: 12),
 
@@ -1058,14 +1001,14 @@ class _CartProductCard extends StatelessWidget {
                                     trailingSymbol: true,
                                     keepTrailingZeros: true),
                                 style: theme.textTheme.titleLarge?.copyWith(
-                                  color: AppColors.primary,
+                                  color: const Color(0xFF6B4226),
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
                                 ' /adet',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
+                                  color: const Color(0xFF9E8E82),
                                 ),
                               ),
                             ],
@@ -1128,7 +1071,7 @@ class _CartProductCard extends StatelessWidget {
                                     'Fiyat Ekle',
                                     style:
                                         theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.primary,
+                                      color: const Color(0xFF6B4226),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -1207,9 +1150,9 @@ class _QuantityControlState extends State<_QuantityControl> {
 
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.35),
+        color: const Color(0xFF6B4226).withOpacity(0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1222,14 +1165,22 @@ class _QuantityControlState extends State<_QuantityControl> {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6B4226).withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
                 isOne
                     ? Icons.delete_outline_rounded
                     : Icons.remove_rounded,
                 size: 18,
-                color: isOne ? cs.error : cs.onSurface,
+                    color: isOne ? const Color(0xFFA33333) : const Color(0xFF2A1A10),
               ),
             ),
           ),
@@ -1248,6 +1199,7 @@ class _QuantityControlState extends State<_QuantityControl> {
                 key: ValueKey(widget.quantity),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
+                      color: const Color(0xFF2A1A10),
                     ),
               ),
             ),
@@ -1260,10 +1212,17 @@ class _QuantityControlState extends State<_QuantityControl> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: cs.primary.withOpacity(0.1),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6B4226).withOpacity(0.10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              child: Icon(Icons.add_rounded, size: 18, color: cs.primary),
+              child: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF6B4226)),
             ),
           ),
         ],
@@ -1335,150 +1294,55 @@ class _CartActionBar extends StatelessWidget {
     required this.estimatedTotal,
     required this.isLoading,
     required this.onCalculate,
-    required this.onAddProduct,
   });
 
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
   final bool isLoading;
   final VoidCallback onCalculate;
-  final VoidCallback onAddProduct;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.primary,
-              AppColors.primaryDark,
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: itemCount == 0 || isLoading ? null : onCalculate,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF6B4226),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFF6B4226).withOpacity(0.35),
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              const Text(
+                'En Uygunu Bul',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.east_rounded, size: 18),
             ],
           ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLoading)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    minHeight: 3,
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-              ),
-            Row(
-              children: [
-                // Total info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$itemCount ürün',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: estimatedTotal.total),
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) => Text(
-                          formatTRY(value, keepTrailingZeros: true),
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Add product
-                IconButton(
-                  onPressed: onAddProduct,
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.add_rounded,
-                        color: Colors.white, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // Calculate button
-                _PressScale(
-                  child: FilledButton(
-                    onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                      disabledBackgroundColor: Colors.white.withOpacity(0.3),
-                      disabledForegroundColor: Colors.white.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isLoading)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          )
-                        else
-                          const Padding(
-                            padding: EdgeInsets.only(right: 6),
-                            child: Icon(Icons.compare_arrows_rounded, size: 18),
-                          ),
-                        Text(
-                          'Hesapla',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );
