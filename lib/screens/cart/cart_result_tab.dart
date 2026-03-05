@@ -2,6 +2,7 @@ import '../../utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart'; // Haritalar için eklendi
 
 import '../../features/basket/cart_comparison_state.dart';
 
@@ -154,6 +155,14 @@ class _SuccessStateState extends State<_SuccessState> {
     final minTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a < b ? a : b);
     final maxTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a > b ? a : b);
 
+    // KAZANÇ HESAPLAMASI: İkinci sıradaki market ile birinci sıradaki marketin farkı
+    double calculatedSaving = 0;
+    if (markets.length > 1) {
+      calculatedSaving = markets[1].totalPrice - best.totalPrice;
+    } else {
+      calculatedSaving = maxTotal - best.totalPrice;
+    }
+
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.metrics.axis == Axis.vertical) {
@@ -169,7 +178,13 @@ class _SuccessStateState extends State<_SuccessState> {
             duration: const Duration(milliseconds: 420),
             curve: Curves.easeOutCubic,
             builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child)),
-            child: _HeroCard(best: best, totalProducts: state.missingProducts.length + best.lines.length, scrollFactor: _scrollOffset, nearest: nearest),
+            child: _HeroCard(
+              best: best, 
+              totalProducts: state.missingProducts.length + best.lines.length, 
+              scrollFactor: _scrollOffset, 
+              nearest: nearest,
+              savingAmount: calculatedSaving, // Dinamik kazanç gönderiliyor
+            ),
           ),
           const SizedBox(height: 25),
           const Text('Alternatif Marketler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
@@ -187,7 +202,13 @@ class _SuccessStateState extends State<_SuccessState> {
                     duration: Duration(milliseconds: 320 + (entry.key * 40)),
                     curve: Curves.easeOutCubic,
                     builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child)),
-                    child: _PremiumMarketRowCard(market: entry.value, rank: entry.key + 1, minTotal: minTotal, maxTotal: maxTotal),
+                    child: _PremiumMarketRowCard(
+                      market: entry.value, 
+                      bestMarket: best, // Ürün kıyaslaması için Şampiyon marketi gönderiyoruz
+                      rank: entry.key + 1, 
+                      minTotal: minTotal, 
+                      maxTotal: maxTotal
+                    ),
                   );
               }).toList(),
             ),
@@ -226,7 +247,7 @@ class _SuccessStateState extends State<_SuccessState> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// V15 NEFES ALAN ROZET
+// V15 NEFES ALAN AGRESİF ROZET
 // ─────────────────────────────────────────────────────────────────────────────
 class _PulseSavingsBadge extends StatefulWidget {
   final String text;
@@ -236,32 +257,41 @@ class _PulseSavingsBadge extends StatefulWidget {
 }
 class _PulseSavingsBadgeState extends State<_PulseSavingsBadge> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    // Animasyonu daha dikkat çekici hale getirdik
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
   @override
   void dispose() { _controller.dispose(); super.dispose(); }
+  
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFC89B7B), width: 2),
-            boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.4), blurRadius: 10 + (_controller.value * 15))],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.savings_outlined, color: Color(0xFFC89B7B), size: 18),
-              const SizedBox(width: 6),
-              Text(widget.text, style: const TextStyle(color: Color(0xFF2A1A10), fontWeight: FontWeight.w800, fontSize: 13)),
-            ],
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFC89B7B), width: 2),
+              // Gölgeyi çok daha agresif, parlayan bir Gold yaptık
+              boxShadow: [BoxShadow(color: const Color(0xFFC89B7B).withOpacity(0.6), blurRadius: 15 + (_controller.value * 25), spreadRadius: _controller.value * 4)],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.savings_outlined, color: Color(0xFFC89B7B), size: 18),
+                const SizedBox(width: 6),
+                Text(widget.text, style: const TextStyle(color: Color(0xFF2A1A10), fontWeight: FontWeight.w900, fontSize: 13)),
+              ],
+            ),
           ),
         );
       },
@@ -273,21 +303,32 @@ class _PulseSavingsBadgeState extends State<_PulseSavingsBadge> with SingleTicke
 // V15 ŞAMPİYON KART (_HeroCard)
 // ─────────────────────────────────────────────────────────────────────────────
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor, required this.nearest});
+  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor, required this.nearest, required this.savingAmount});
   final CartMarketResultSummary best;
   final int totalProducts;
   final double scrollFactor;
   final CartMarketResultSummary? nearest;
+  final double savingAmount;
+
+  // Haritaları Açma Fonksiyonu (En Yakın Markete Göre)
+  Future<void> _openMaps(BuildContext context) async {
+    // Eğer nearest (en yakın) market varsa ona, yoksa best (en uygun) markete git
+    final targetStoreName = nearest?.storeName ?? best.storeName;
+    final query = Uri.encodeComponent(targetStoreName);
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    
+    if (await canLaunchUrl(url)) { 
+      await launchUrl(url, mode: LaunchMode.externalApplication); 
+    } else { 
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haritalar açılamadı. Lütfen uygulamayı kontrol edin.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final parallaxY = scrollFactor * 0.15;
     final scale = scrollFactor > 80 ? 0.96 : 1 - ((scrollFactor / 80) * 0.04);
-    
-    // Nearest ile Best arasındaki fark, tasarrufu verir
-    final saving = nearest != null && nearest!.storeId != best.storeId 
-        ? nearest!.totalPrice - best.totalPrice 
-        : 5.0; // Mock default
 
     return Transform.translate(
       offset: Offset(0, parallaxY),
@@ -312,7 +353,8 @@ class _HeroCard extends StatelessWidget {
                     decoration: BoxDecoration(color: const Color(0xFFC89B7B), borderRadius: BorderRadius.circular(10)),
                     child: const Row(children: [Icon(Icons.star_rounded, size: 14, color: Color(0xFF2A1A10)), SizedBox(width: 6), Text('EN UYGUN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10)))]),
                   ),
-                  _PulseSavingsBadge(text: "${formatTRY(saving)} KAZANÇ"), 
+                  if (savingAmount > 0)
+                    _PulseSavingsBadge(text: "${formatTRY(savingAmount)} KAZANÇ"), 
                 ],
               ),
               const SizedBox(height: 25),
@@ -338,9 +380,16 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 25),
               ElevatedButton(
-                onPressed: () {}, // TODO: Markete git rotası
+                onPressed: () => _openMaps(context),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF2A1A10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 14), minimumSize: const Size(double.infinity, 50)),
-                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text("Markete Git", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)), SizedBox(width: 8), Icon(Icons.directions_walk_rounded, size: 20)]),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center, 
+                  children: [
+                    Text(nearest != null ? "En Yakın Markete Git" : "Markete Git", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)), 
+                    const SizedBox(width: 8), 
+                    const Icon(Icons.directions_walk_rounded, size: 20)
+                  ],
+                ),
               )
             ],
           ),
@@ -354,8 +403,9 @@ class _HeroCard extends StatelessWidget {
 // V15 ALTERNATİF MARKET AKORDEONU (_PremiumMarketRowCard)
 // ─────────────────────────────────────────────────────────────────────────────
 class _PremiumMarketRowCard extends StatefulWidget {
-  const _PremiumMarketRowCard({required this.market, required this.rank, required this.minTotal, required this.maxTotal});
+  const _PremiumMarketRowCard({required this.market, required this.bestMarket, required this.rank, required this.minTotal, required this.maxTotal});
   final CartMarketResultSummary market;
+  final CartMarketResultSummary bestMarket; 
   final int rank;
   final double minTotal;
   final double maxTotal;
@@ -421,6 +471,16 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
               padding: const EdgeInsets.only(top: 15, left: 46),
               child: Column(
                 children: widget.market.lines.map((line) {
+                  
+                  // Fiyat Farkı Hesaplama (En ucuz marketle bu ürünü kıyasla)
+                  double diff = 0;
+                  try {
+                    final bestLine = widget.bestMarket.lines.firstWhere((l) => l.productName == line.productName);
+                    diff = line.lineTotal - bestLine.lineTotal;
+                  } catch (e) {
+                    diff = 0;
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
@@ -428,10 +488,19 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                       children: [
                         Expanded(child: Text('${line.quantity}x ${line.productName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF2A1A10)))),
                         const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: const Color(0x14A33333), borderRadius: BorderRadius.circular(8)),
-                          child: Text(formatTRY(line.lineTotal), style: const TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 12)),
+                        
+                        Row(
+                          children: [
+                            if (diff > 0) ...[
+                              Text('(+${formatTRY(diff)})', style: const TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 11)),
+                              const SizedBox(width: 4),
+                            ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: diff > 0 ? const Color(0x14A33333) : const Color(0x146B4226), borderRadius: BorderRadius.circular(8)),
+                              child: Text(formatTRY(line.lineTotal), style: TextStyle(color: diff > 0 ? const Color(0xFFA33333) : const Color(0xFF2A1A10), fontWeight: FontWeight.w800, fontSize: 12)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
