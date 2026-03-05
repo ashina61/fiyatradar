@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+<<<<<<< codex/kodla-sepet-ekrann-ve-bagla-firebase-g4d8zs
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,11 +13,20 @@ import '../../utils/formatters.dart';
 import '../add_price/add_price_screen.dart';
 import 'fiyatradar_app.dart';
 import 'tab_provider.dart';
+=======
 
-class HomeShellScreen extends ConsumerStatefulWidget {
+import 'cart_screen_v2.dart';
+>>>>>>> claude/fiyatradar-app-oKr5R
+
+/// Legacy entrypoint kept for existing navigation wiring.
+///
+/// We now delegate to [CartScreenV2], which is backed by Firestore/Firebase
+/// data flow via `BasketViewModel` instead of local mock providers.
+class HomeShellScreen extends StatelessWidget {
   const HomeShellScreen({super.key});
 
   @override
+<<<<<<< codex/kodla-sepet-ekrann-ve-bagla-firebase-g4d8zs
   ConsumerState<HomeShellScreen> createState() => _HomeShellScreenState();
 }
 
@@ -1038,4 +1046,7 @@ BoxDecoration _surfaceDecoration(double radius) {
     ],
     border: Border.all(color: FRColors.primary.withOpacity(0.03)),
   );
+=======
+  Widget build(BuildContext context) => const CartScreenV2();
+>>>>>>> claude/fiyatradar-app-oKr5R
 }
