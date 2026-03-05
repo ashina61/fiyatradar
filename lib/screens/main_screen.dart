@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/cart_analysis/views/cart_analysis_screen.dart';
+import 'cart/home_shell_screen.dart';
 import 'add_price/add_price_screen.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
@@ -25,7 +25,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     HomeScreen(key: PageStorageKey('home-tab')),
     SearchScreen(key: PageStorageKey('search-tab')),
     SizedBox.shrink(), // Ortadaki elmas butonun indeks boşluğu
-    CartAnalysisScreen(key: PageStorageKey('basket-tab')),
+    HomeShellScreen(key: PageStorageKey('basket-tab')),
     ProfileScreen(key: PageStorageKey('profile-tab')),
   ];
 
