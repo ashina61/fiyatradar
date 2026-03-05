@@ -20,7 +20,7 @@ import '../../widgets/premium_scaffold_shell.dart';
 import 'cart_result_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CartScreenV2 – Premium Redesign
+// CartScreenV2 – Premium Redesign (V15)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CartScreenV2 extends ConsumerStatefulWidget {
@@ -32,6 +32,7 @@ class CartScreenV2 extends ConsumerStatefulWidget {
 
 class _CartScreenV2State extends ConsumerState<CartScreenV2>
     with SingleTickerProviderStateMixin {
+  // V15 Renk Paleti
   static const Color _v15Bg = Color(0xFFF9F6F2);
   static const Color _v15Surface = Color(0xFFFFFFFF);
   static const Color _v15Primary = Color(0xFF6B4226);
@@ -77,6 +78,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
           body: PremiumScaffoldShell(
             child: TabBarView(
               controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(), // Kaydırmayı kapattık, lüks butonlarla geçilecek
               children: [
                 // ── Tab 1: Sepetim ──
                 _CartBody(
@@ -104,12 +106,13 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
         );
       },
       loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF6B4226))),
       ),
       error: (_, __) => const Scaffold(body: SizedBox.shrink()),
     );
   }
 
+  // ── V15 Premium AppBar ──
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: _v15Bg.withOpacity(0.92),
@@ -130,20 +133,20 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             'Sepetim',
             style: TextStyle(
               color: _v15Dark,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
             ),
           ),
         ],
       ),
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
+        preferredSize: const Size.fromHeight(60),
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: BoxDecoration(
             color: _v15Primary.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           padding: const EdgeInsets.all(5),
           child: TabBar(
@@ -152,21 +155,18 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             dividerColor: Colors.transparent,
             indicator: BoxDecoration(
               color: _v15Surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: _v15Primary.withOpacity(0.16),
-                  blurRadius: 15,
-                  offset: const Offset(0, 4),
+                  color: _v15Primary.withOpacity(0.10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             labelColor: _v15Primary,
             unselectedLabelColor: _v15Muted,
-            labelStyle: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             tabs: const [
               Tab(text: 'Sepet'),
               Tab(text: 'Karşılaştır'),
@@ -185,18 +185,38 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
           SnackBar(
             content: const Text('Hesaplama için en az bir ürün ekleyin.'),
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       return;
     }
+    
+    // Lüks geçiş hissiyatı
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFFC89B7B)),
+            SizedBox(width: 8),
+            Text("Fiyatlar analiz ediliyor...", style: TextStyle(color: Color(0xFFC89B7B), fontWeight: FontWeight.bold)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2A1A10),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+      ),
+    );
+
     HapticFeedback.mediumImpact();
     await viewModel.calculate();
+    
     if (!mounted) return;
     if (viewModel.comparisonState.status != CartComparisonStatus.loading &&
         viewModel.comparisonState.status != CartComparisonStatus.idle) {
-      _tabController.animateTo(1);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _tabController.animateTo(1);
+      });
     }
   }
 
@@ -206,9 +226,8 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
     );
   }
 
-  // ── Store Filter Bottom Sheet ──
-  Future<void> _showStoreFilterSheet(
-      BuildContext context, BasketViewModel viewModel) async {
+  // ── Store Filter Bottom Sheet (Senin Orijinal Kodun) ──
+  Future<void> _showStoreFilterSheet(BuildContext context, BasketViewModel viewModel) async {
     await viewModel.loadStoresIfNeeded();
     if (!context.mounted) return;
 
@@ -234,11 +253,9 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.store_outlined,
-                            size: 40, color: cs.onSurfaceVariant),
+                        Icon(Icons.store_outlined, size: 40, color: cs.onSurfaceVariant),
                         const SizedBox(height: 12),
-                        Text('Bu sekmede mağaza bulunamadı.',
-                            style: Theme.of(context).textTheme.bodyMedium),
+                        Text('Bu sekmede mağaza bulunamadı.', style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                   ),
@@ -254,32 +271,21 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? cs.primaryContainer.withOpacity(0.3)
-                          : Colors.transparent,
+                      color: isSelected ? const Color(0xFF6B4226).withOpacity(0.1) : Colors.transparent,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: CheckboxListTile(
+                      activeColor: const Color(0xFF6B4226),
                       value: isSelected,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      title: Text(store.displayName,
-                          style: Theme.of(context).textTheme.titleMedium),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      title: Text(store.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
                       subtitle: Text(
-                        store.isOnline
-                            ? 'Online'
-                            : [store.neighborhood, store.district]
-                                .where((e) => e.isNotEmpty)
-                                .join(', '),
-                        style: Theme.of(context).textTheme.bodySmall,
+                        store.isOnline ? 'Online' : [store.neighborhood, store.district].where((e) => e.isNotEmpty).join(', '),
+                        style: const TextStyle(color: Color(0xFF9E8E82)),
                       ),
                       onChanged: (value) {
                         setModalState(() {
-                          if (value == true) {
-                            tempSelection.add(store.id);
-                          } else {
-                            tempSelection.remove(store.id);
-                          }
+                          if (value == true) { tempSelection.add(store.id); } else { tempSelection.remove(store.id); }
                         });
                       },
                     ),
@@ -290,49 +296,25 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
 
             return Container(
               height: MediaQuery.of(ctx).size.height * 0.75,
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: DefaultTabController(
                 length: 2,
                 child: Column(
                   children: [
                     const SizedBox(height: 12),
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: cs.outlineVariant,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                    Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE8D8C8), borderRadius: BorderRadius.circular(2))),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: Text('Mağaza Seç',
-                                style:
-                                    Theme.of(context).textTheme.headlineSmall),
-                          ),
+                          const Expanded(child: Text('Mağaza Seç', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10)))),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: cs.primaryContainer.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${tempSelection.length} seçili',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
-                                  ?.copyWith(
-                                      color: cs.primary,
-                                      fontWeight: FontWeight.w700),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                            child: Text('${tempSelection.length} seçili', style: const TextStyle(color: Color(0xFF6B4226), fontWeight: FontWeight.w800)),
                           ),
                         ],
                       ),
@@ -342,26 +324,17 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                       child: TabBar(
                         indicatorSize: TabBarIndicatorSize.tab,
                         dividerColor: Colors.transparent,
-                        indicator: BoxDecoration(
-                          color: cs.primaryContainer.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        tabs: const [
-                          Tab(text: 'Yakınımda'),
-                          Tab(text: 'Online'),
-                        ],
+                        labelColor: const Color(0xFF6B4226),
+                        unselectedLabelColor: const Color(0xFF9E8E82),
+                        indicator: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                        tabs: const [Tab(text: 'Yakınımda'), Tab(text: 'Online')],
                       ),
                     ),
                     const SizedBox(height: 4),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: TabBarView(
-                          children: [
-                            buildStoreList(nearbyStores),
-                            buildStoreList(onlineStores),
-                          ],
-                        ),
+                        child: TabBarView(children: [buildStoreList(nearbyStores), buildStoreList(onlineStores)]),
                       ),
                     ),
                     SafeArea(
@@ -372,15 +345,11 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                           height: 52,
                           child: FilledButton(
                             onPressed: () {
-                              viewModel.setSelectedStoreIds(
-                                  Set<String>.from(tempSelection));
+                              viewModel.setSelectedStoreIds(Set<String>.from(tempSelection));
                               Navigator.of(ctx).pop();
                             },
-                            style: FilledButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: const Text('Uygula'),
+                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                            child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           ),
                         ),
                       ),
@@ -395,10 +364,8 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
     );
   }
 
-  // ── Product Picker Bottom Sheet ──
+  // ── Product Picker Bottom Sheet (Senin Orijinal Kodun) ──
   void _showProductPicker(BuildContext context, BasketViewModel viewModel) {
-    final cs = Theme.of(context).colorScheme;
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -408,84 +375,44 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
         return StatefulBuilder(
           builder: (_, setModalState) {
             final query = controller.text.trim().toLowerCase();
-            final allProducts =
-                ref.watch(allProductsProvider).valueOrNull ?? [];
+            final allProducts = ref.watch(allProductsProvider).valueOrNull ?? [];
             final filtered = allProducts.where((product) {
               if (query.isEmpty) return true;
-              return product.name.toLowerCase().contains(query) ||
-                  product.brand.toLowerCase().contains(query);
+              return product.name.toLowerCase().contains(query) || product.brand.toLowerCase().contains(query);
             }).toList();
 
             return Container(
-              height: MediaQuery.of(ctx).size.height * 0.72,
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
+              height: MediaQuery.of(ctx).size.height * 0.80,
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE8D8C8), borderRadius: BorderRadius.circular(2))),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Ürün Ekle',
-                            style: Theme.of(context).textTheme.headlineSmall),
+                        const Text('Ürün Ekle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
                         const SizedBox(height: 12),
                         TextField(
                           controller: controller,
                           onChanged: (_) => setModalState(() {}),
                           decoration: InputDecoration(
                             hintText: 'Ürün veya marka ara...',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            suffixIcon: query.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      controller.clear();
-                                      setModalState(() {});
-                                    },
-                                  )
-                                : null,
+                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF9E8E82)),
+                            suffixIcon: query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () { controller.clear(); setModalState(() {}); }) : null,
                             filled: true,
-                            fillColor:
-                                cs.surfaceContainerHighest.withOpacity(0.5),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
+                            fillColor: const Color(0xFFF9F6F2),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                         ),
                       ],
                     ),
                   ),
                   if (filtered.isEmpty)
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.search_off_rounded,
-                                size: 48, color: cs.onSurfaceVariant),
-                            const SizedBox(height: 12),
-                            Text('Ürün bulunamadı',
-                                style: Theme.of(context).textTheme.titleMedium),
-                          ],
-                        ),
-                      ),
-                    )
+                    const Expanded(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.search_off_rounded, size: 48, color: Color(0xFF9E8E82)), SizedBox(height: 12), Text('Ürün bulunamadı', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2A1A10)))])))
                   else
                     Expanded(
                       child: ListView.separated(
@@ -505,72 +432,32 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                                 Navigator.pop(ctx);
                               },
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                                 child: Row(
                                   children: [
-                                    AppNetworkImage(
-                                      imageUrl: product.mainImage,
-                                      cacheKey: product.id,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    AppNetworkImage(imageUrl: product.mainImage, cacheKey: product.id, width: 50, height: 50, fit: BoxFit.cover, borderRadius: BorderRadius.circular(12)),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(product.name,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium),
+                                          Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
                                           const SizedBox(height: 2),
-                                          Text(
-                                            product.brand.isNotEmpty
-                                                ? product.brand
-                                                : 'Marka bilgisi yok',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall,
-                                          ),
+                                          Text(product.brand.isNotEmpty ? product.brand : 'Marka bilgisi yok', style: const TextStyle(fontSize: 12, color: Color(0xFF9E8E82))),
                                         ],
                                       ),
                                     ),
                                     if (hasPrice)
                                       Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: cs.primaryContainer
-                                              .withOpacity(0.3),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          formatTRY(product.lastPrice!),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelMedium
-                                              ?.copyWith(
-                                                color: cs.primary,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                        child: Text(formatTRY(product.lastPrice!), style: const TextStyle(color: Color(0xFF6B4226), fontWeight: FontWeight.w800)),
                                       ),
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: cs.primary.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(Icons.add_rounded,
-                                          size: 18, color: cs.primary),
+                                      decoration: BoxDecoration(color: const Color(0xFF6B4226), shape: BoxShape.circle),
+                                      child: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
                                     ),
                                   ],
                                 ),
@@ -591,7 +478,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _CartBody – The main cart tab content
+// _CartBody – V15 Layout
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CartBody extends StatefulWidget {
@@ -622,7 +509,7 @@ class _CartBodyState extends State<_CartBody> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(color: Color(0xFF6B4226)),
         ),
       );
     }
@@ -635,22 +522,22 @@ class _CartBodyState extends State<_CartBody> {
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            padding: const EdgeInsets.fromLTRB(24, 15, 24, 24),
+            physics: const BouncingScrollPhysics(),
             children: [
-              // ── Stats Header ──
+              // ── V15 Stats Header ──
               _StatsHeader(
                 itemCount: widget.itemCount,
                 estimatedTotal: widget.estimatedTotal,
               ),
               const SizedBox(height: 24),
 
-              // ── Section Label ──
+              // ── V15 Section Label ──
               _SectionLabel(
-                label: 'Ürünler',
-                trailing: '${widget.viewModel.items.length} çeşit',
+                label: 'Alışveriş Listeniz',
                 onAddProduct: widget.onAddProduct,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 15),
 
               // ── Cart Items ──
               ...widget.viewModel.items.asMap().entries.map((entry) {
@@ -670,24 +557,23 @@ class _CartBodyState extends State<_CartBody> {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 14),
                     child: Dismissible(
                       key: ValueKey('dismiss_${item.productId}'),
                       direction: DismissDirection.endToStart,
                       onDismissed: (_) {
                         HapticFeedback.mediumImpact();
-                        widget.viewModel
-                            .updateQuantity(item.productId, 0);
+                        widget.viewModel.updateQuantity(item.productId, 0);
                       },
                       background: Container(
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.only(right: 24),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error,
-                          borderRadius: BorderRadius.circular(20),
+                          color: const Color(0xFFA33333),
+                          borderRadius: BorderRadius.circular(24),
                         ),
                         child: const Icon(Icons.delete_outline_rounded,
-                            color: Colors.white, size: 24),
+                            color: Colors.white, size: 28),
                       ),
                       child: _CartProductCard(
                         item: item,
@@ -702,12 +588,10 @@ class _CartBodyState extends State<_CartBody> {
                   ),
                 );
               }),
-
-              const SizedBox(height: 120),
             ],
           ),
         ),
-        // ── Bottom Action Bar ──
+        // ── V15 Bottom Action Bar ──
         _CartActionBar(
           itemCount: widget.itemCount,
           estimatedTotal: widget.estimatedTotal,
@@ -720,63 +604,40 @@ class _CartBodyState extends State<_CartBody> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _StatsHeader – Top summary with item count & estimated total
+// V15 KUSURSUZ ÖZET BARI (_StatsHeader)
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _StatsHeader extends StatelessWidget {
-  const _StatsHeader({
-    required this.itemCount,
-    required this.estimatedTotal,
-  });
-
+  const _StatsHeader({required this.itemCount, required this.estimatedTotal});
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6B4226).withOpacity(0.05),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: const Color(0xFF6B4226).withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8))],
+        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.03)),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          const Icon(Icons.shopping_bag_rounded, size: 20, color: Color(0xFF9E8E82)),
-          const SizedBox(width: 8),
-          Text(
-            '$itemCount Ürün',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: const Color(0xFF2A1A10),
-                  fontWeight: FontWeight.w700,
-                ),
+          Row(
+            children: [
+              const Icon(Icons.shopping_bag_rounded, color: Color(0xFF9E8E82), size: 20),
+              const SizedBox(width: 8),
+              Text('$itemCount Ürün', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2A1A10), fontSize: 14)),
+            ],
           ),
-          const SizedBox(width: 14),
-          Container(
-            width: 1,
-            height: 24,
-            color: const Color(0xFF6B4226).withOpacity(0.14),
-          ),
-          const SizedBox(width: 14),
-          const Icon(Icons.payments_rounded, size: 20, color: Color(0xFFC89B7B)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${formatTRY(estimatedTotal.total, keepTrailingZeros: true)} Tahmini',
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF6B4226),
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
+          Container(width: 1, height: 24, color: const Color(0xFF6B4226).withOpacity(0.1)),
+          Row(
+            children: [
+              const Icon(Icons.payments_rounded, color: Color(0xFFC89B7B), size: 20),
+              const SizedBox(width: 8),
+              Text('${formatTRY(estimatedTotal.total, keepTrailingZeros: true)} Tahmini', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2A1A10), fontSize: 14)),
+            ],
           ),
         ],
       ),
@@ -785,12 +646,10 @@ class _StatsHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _SectionLabel
+// V15 BAŞLIK VE LÜKS EKLE BUTONU (_SectionLabel)
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.label, this.trailing, this.onAddProduct});
-
   final String label;
   final String? trailing;
   final VoidCallback? onAddProduct;
@@ -798,68 +657,38 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w800, color: const Color(0xFF2A1A10)),
-        ),
-        const Spacer(),
+        Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
         if (onAddProduct != null)
-          GestureDetector(
+          InkWell(
             onTap: onAddProduct,
+            borderRadius: BorderRadius.circular(14),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFC89B7B), Color(0xFF6B4226)],
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFFC89B7B), Color(0xFF6B4226)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6B4226).withOpacity(0.28),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: const Color(0xFF6B4226).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4))],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_circle, size: 17, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Ürün Ekle',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
+                children: const [
+                  Icon(Icons.add_circle, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('Ürün Ekle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
                 ],
               ),
             ),
           )
-        else if (trailing != null)
-          Text(
-            trailing!,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: const Color(0xFF9E8E82)),
-          ),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _CartProductCard – Premium product card with price display
+// V15 ÜRÜN KARTI (_CartProductCard)
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _CartProductCard extends StatelessWidget {
   const _CartProductCard({
     required this.item,
@@ -877,218 +706,47 @@ class _CartProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
     final hasPrice = item.lastKnownPrice != null;
-    final lineTotal = hasPrice ? item.lastKnownPrice! * item.quantity : null;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6B4226).withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: const Color(0xFF6B4226).withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
+        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.03)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          // ── Top Row: Image + Info ──
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product image
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: const Color(0xFF6B4226).withOpacity(0.06),
-                ),
-                child: AppNetworkImage(
-                  imageUrl: product?.mainImage,
-                  cacheKey: product?.id ?? item.productId,
-                  width: 68,
-                  height: 68,
-                  fit: BoxFit.cover,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Product info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            width: 85, height: 85,
+            decoration: BoxDecoration(color: const Color(0xFFF9F6F2), borderRadius: BorderRadius.circular(18)),
+            child: AppNetworkImage(imageUrl: product?.mainImage, cacheKey: product?.id ?? item.productId, width: 85, height: 85, fit: BoxFit.cover, borderRadius: BorderRadius.circular(18)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(product?.name ?? 'Ürün', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF2A1A10))),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      product?.name ?? 'Ürün',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (product?.brand.isNotEmpty == true)
-                          Text(
-                            product!.brand,
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        if (product?.brand.isNotEmpty == true &&
-                            (product?.category ?? '').isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Container(
-                              width: 3,
-                              height: 3,
-                              decoration: BoxDecoration(
-                                color: cs.onSurfaceVariant,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        if ((product?.category ?? '').isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: cs.primaryContainer.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              product!.category,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
+                    hasPrice 
+                      ? Text(formatTRY(item.lastKnownPrice!), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19, color: Color(0xFF6B4226)))
+                      : GestureDetector(
+                          onTap: onAddPrice,
+                          child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFA33333).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text("Fiyat Ekle", style: TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 12))),
+                        ),
+                    _QuantityControl(
+                      quantity: item.quantity,
+                      onChanged: onQuantityChanged,
+                      onRemove: onRemove,
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-          // Divider
-          Container(
-            height: 1,
-            color: const Color(0xFF6B4226).withOpacity(0.10),
-          ),
-          const SizedBox(height: 12),
-
-          // ── Bottom Row: Price + Quantity ──
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Price section
-              Expanded(
-                child: hasPrice
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                formatTRY(item.lastKnownPrice!,
-                                    trailingSymbol: true,
-                                    keepTrailingZeros: true),
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: const Color(0xFF6B4226),
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                ' /adet',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFF9E8E82),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (item.quantity > 1 && lineTotal != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                'Toplam: ${formatTRY(lineTotal, trailingSymbol: true, keepTrailingZeros: true)}',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: cs.errorContainer.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.warning_amber_rounded,
-                                        size: 14,
-                                        color: cs.onErrorContainer),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Fiyat yok',
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                        color: cs.onErrorContainer,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: onAddPrice,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: cs.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: cs.primary.withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    'Fiyat Ekle',
-                                    style:
-                                        theme.textTheme.labelSmall?.copyWith(
-                                      color: const Color(0xFF6B4226),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-              ),
-              // Quantity control
-              _QuantityControl(
-                quantity: item.quantity,
-                onChanged: onQuantityChanged,
-                onRemove: onRemove,
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1097,16 +755,10 @@ class _CartProductCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _QuantityControl – Modern quantity stepper
+// V15 _QuantityControl (Uzun basma animasyonlu mantığı korundu)
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _QuantityControl extends StatefulWidget {
-  const _QuantityControl({
-    required this.quantity,
-    required this.onChanged,
-    required this.onRemove,
-  });
-
+  const _QuantityControl({required this.quantity, required this.onChanged, required this.onRemove});
   final int quantity;
   final ValueChanged<int> onChanged;
   final VoidCallback onRemove;
@@ -1117,112 +769,60 @@ class _QuantityControl extends StatefulWidget {
 
 class _QuantityControlState extends State<_QuantityControl> {
   Timer? _repeatTimer;
-
   @override
-  void dispose() {
-    _repeatTimer?.cancel();
-    super.dispose();
-  }
+  void dispose() { _repeatTimer?.cancel(); super.dispose(); }
 
   void _changeBy(int delta) {
     HapticFeedback.selectionClick();
     final next = widget.quantity + delta;
-    if (next <= 0) {
-      widget.onRemove();
-      return;
-    }
+    if (next <= 0) { widget.onRemove(); return; }
     widget.onChanged(next);
   }
 
   void _onLongPressStart(int delta) {
     _changeBy(delta);
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(
-        const Duration(milliseconds: 140), (_) => _changeBy(delta));
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 140), (_) => _changeBy(delta));
   }
 
   void _onLongPressEnd() => _repeatTimer?.cancel();
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isOne = widget.quantity <= 1;
-
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF6B4226).withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.16)),
-      ),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.06), borderRadius: BorderRadius.circular(14)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Minus / Delete
           GestureDetector(
             onTap: () => _changeBy(-1),
             onLongPressStart: (_) => _onLongPressStart(-1),
             onLongPressEnd: (_) => _onLongPressEnd(),
             child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6B4226).withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                isOne
-                    ? Icons.delete_outline_rounded
-                    : Icons.remove_rounded,
-                size: 18,
-                    color: isOne ? const Color(0xFFA33333) : const Color(0xFF2A1A10),
-              ),
+              width: 30, height: 30,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)]),
+              child: Icon(isOne ? Icons.delete_outline_rounded : Icons.remove_rounded, size: 18, color: isOne ? const Color(0xFFA33333) : const Color(0xFF2A1A10)),
             ),
           ),
-          // Count
           Container(
-            constraints: const BoxConstraints(minWidth: 36),
+            constraints: const BoxConstraints(minWidth: 32),
             alignment: Alignment.center,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 150),
-              transitionBuilder: (child, animation) => ScaleTransition(
-                scale: animation,
-                child: child,
-              ),
-              child: Text(
-                '${widget.quantity}',
-                key: ValueKey(widget.quantity),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF2A1A10),
-                    ),
-              ),
+              transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+              child: Text('${widget.quantity}', key: ValueKey(widget.quantity), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF2A1A10))),
             ),
           ),
-          // Plus
           GestureDetector(
             onTap: () => _changeBy(1),
             onLongPressStart: (_) => _onLongPressStart(1),
             onLongPressEnd: (_) => _onLongPressEnd(),
             child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6B4226).withOpacity(0.10),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF6B4226)),
+              width: 30, height: 30,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)]),
+              child: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF2A1A10)),
             ),
           ),
         ],
@@ -1232,70 +832,10 @@ class _QuantityControlState extends State<_QuantityControl> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _AddProductPrompt – Dashed-border card to add products
+// V15 HESAPLA BUTONU (_CartActionBar) - Alt Menü Hatası Giderildi
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _AddProductPrompt extends StatelessWidget {
-  const _AddProductPrompt({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: cs.primary.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: cs.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.add_rounded, size: 18, color: cs.primary),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Ürün Ekle',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _CartActionBar – Premium bottom action bar
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _CartActionBar extends StatelessWidget {
-  const _CartActionBar({
-    required this.itemCount,
-    required this.estimatedTotal,
-    required this.isLoading,
-    required this.onCalculate,
-  });
-
+  const _CartActionBar({required this.itemCount, required this.estimatedTotal, required this.isLoading, required this.onCalculate});
   final int itemCount;
   final BasketEstimatedTotal estimatedTotal;
   final bool isLoading;
@@ -1304,43 +844,25 @@ class _CartActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: itemCount == 0 || isLoading ? null : onCalculate,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF6B4226),
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: const Color(0xFF6B4226).withOpacity(0.35),
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            elevation: 0,
+      minimum: const EdgeInsets.fromLTRB(24, 0, 24, 120), // Alt menünün arkasında kalmasın diye 120px boşluk
+      child: InkWell(
+        onTap: itemCount == 0 || isLoading ? null : onCalculate,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6B4226),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: const Color(0xFF6B4226).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              if (isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              const Text(
-                'En Uygunu Bul',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-              ),
+              if (isLoading) const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+              else const Text('En Uygunu Bul', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(width: 8),
-              const Icon(Icons.east_rounded, size: 18),
+              const Icon(Icons.east_rounded, color: Colors.white, size: 20),
             ],
           ),
         ),
@@ -1350,80 +872,35 @@ class _CartActionBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _EmptyCartView
+// _EmptyCartView (V15 Uyumlu)
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _EmptyCartView extends StatelessWidget {
   const _EmptyCartView({required this.onAdd});
-
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon container
             Container(
               padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primary.withOpacity(0.08),
-                    AppColors.accent.withOpacity(0.06),
-                  ],
-                ),
-                shape: BoxShape.circle,
-                border:
-                    Border.all(color: AppColors.primary.withOpacity(0.12)),
-              ),
-              child: Icon(
-                Icons.shopping_cart_outlined,
-                size: 48,
-                color: AppColors.primary.withOpacity(0.6),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.08), shape: BoxShape.circle),
+              child: const Icon(Icons.shopping_cart_outlined, size: 48, color: Color(0xFF6B4226)),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Sepetiniz boş',
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
+            const Text('Sepetiniz boş', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
             const SizedBox(height: 8),
-            Text(
-              'Ürün ekleyerek marketler arasında\nfiyat karşılaştırması yapın.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
-            ),
+            const Text('Ürün ekleyerek marketler arasında\nfiyat karşılaştırması yapın.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9E8E82), height: 1.5)),
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Ürün Ekle'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 28, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Seç  ·  Hesapla  ·  Karşılaştır',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-                letterSpacing: 0.5,
-              ),
+              label: const Text('Ürün Ekle', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226), padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             ),
           ],
         ),
@@ -1435,63 +912,29 @@ class _EmptyCartView extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // _LoginPromptCard
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _LoginPromptCard extends StatelessWidget {
   const _LoginPromptCard();
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF9F6F2),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.lock_outline_rounded,
-                    size: 40, color: cs.primary),
-              ),
+              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF6B4226).withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.lock_outline_rounded, size: 40, color: Color(0xFF6B4226))),
               const SizedBox(height: 20),
-              Text(
-                'Giriş Yapın',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
+              const Text('Giriş Yapın', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
               const SizedBox(height: 8),
-              Text(
-                'Sepet özelliğini kullanmak için\nhesabınıza giriş yapmalısınız.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
+              const Text('Sepet özelliğini kullanmak için\nhesabınıza giriş yapmalısınız.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9E8E82), height: 1.5)),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Devam etmek için giriş yapın.')),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text('Giriş Yap'),
+                onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Devam etmek için giriş yapın.'))); },
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226), padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                child: const Text('Giriş Yap', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1504,200 +947,21 @@ class _LoginPromptCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // _PressScale – Tap animation wrapper
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _PressScale extends StatefulWidget {
   const _PressScale({required this.child});
   final Widget child;
-
   @override
   State<_PressScale> createState() => _PressScaleState();
 }
-
 class _PressScaleState extends State<_PressScale> {
   double _scale = 1;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.96),
       onTapCancel: () => setState(() => _scale = 1),
       onTapUp: (_) => setState(() => _scale = 1),
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CartResultSheet – Legacy compatibility (kept for external usage)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class CartResultSheet extends StatelessWidget {
-  const CartResultSheet({
-    super.key,
-    required this.result,
-    required this.hasLocationPermission,
-    this.notice,
-  });
-
-  final CartComparisonResult result;
-  final bool hasLocationPermission;
-  final String? notice;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final best = result.bestMarket;
-    final alternatives = result.lowestThree;
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Hesaplama Sonucu',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            if (notice != null)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(notice!,
-                    style: Theme.of(context).textTheme.bodySmall),
-              ),
-            if (best != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('En uygun market',
-                        style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 4),
-                    Text(best.marketName,
-                        style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text(formatTRY(best.total),
-                        style: Theme.of(context).textTheme.titleLarge),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            if (hasLocationPermission && result.nearestMarket != null)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('En yakın market'),
-                subtitle: Text(
-                  '${result.nearestMarket!.marketName} • ${result.nearestMarket!.distanceKm?.toStringAsFixed(1)} km',
-                ),
-                trailing: Text(formatTRY(result.nearestMarket!.total)),
-              )
-            else
-              const ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('En yakın market'),
-                subtitle: Text(
-                    'Konum izni verirsen yakın marketi gösterebiliriz.'),
-              ),
-            const SizedBox(height: 16),
-            Text('En düşük 3 market',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ...alternatives.take(3).map(
-                  (entry) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.storefront_outlined),
-                    title: Row(
-                      children: [
-                        Expanded(child: Text(entry.marketName)),
-                        if (entry.hasMissingProducts)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: cs.errorContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Eksik ürün',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(color: cs.onErrorContainer),
-                            ),
-                          )
-                      ],
-                    ),
-                    subtitle: Text(
-                      () {
-                        final details = [
-                          if (entry.distanceKm != null)
-                            '${entry.distanceKm!.toStringAsFixed(1)} km',
-                          if (entry.missingProductIds.isNotEmpty)
-                            'Eksik ürün: ${entry.missingProductIds.length}',
-                        ];
-                        return details.isEmpty
-                            ? 'Tüm ürünler mevcut'
-                            : details.join(' • ');
-                      }(),
-                    ),
-                    trailing: Text(formatTRY(entry.total)),
-                  ),
-                ),
-            const SizedBox(height: 12),
-            Text('Ürün bazlı fiyatlar',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ...result.sortedMarkets.map(
-              (entry) {
-                return ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(bottom: 8),
-                  title: Text(entry.marketName),
-                  subtitle: Text(
-                    entry.hasMissingProducts
-                        ? 'Eksik ürün: ${entry.missingProductIds.length}'
-                        : 'Toplam ${formatTRY(entry.total)}',
-                  ),
-                  children: [
-                    for (final line in entry.lines)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(line.productName),
-                        subtitle: Text(
-                          '${line.quantity} adet • ${formatTRY(line.unitPrice)}',
-                        ),
-                        trailing: Text(formatTRY(line.lineTotal)),
-                      ),
-                    if (entry.hasMissingProducts)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                            'Eksik ürün sayısı: ${entry.missingProductIds.length}'),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+      child: AnimatedScale(scale: _scale, duration: const Duration(milliseconds: 140), curve: Curves.easeOutCubic, child: widget.child),
     );
   }
 }
