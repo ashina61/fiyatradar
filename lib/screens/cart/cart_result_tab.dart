@@ -50,48 +50,34 @@ class CartResultTab extends StatelessWidget {
 
 class _IdleState extends StatelessWidget {
   const _IdleState({required this.onCalculate, required this.onGoToCart});
-
   final VoidCallback onCalculate;
   final VoidCallback onGoToCart;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 460),
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.6)),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.auto_graph_rounded, size: 52, color: cs.primary),
+              const Icon(Icons.auto_graph_rounded, size: 52, color: Color(0xFF6B4226)),
               const SizedBox(height: 16),
-              Text('Sonuçları görmek için Hesapla', style: theme.textTheme.headlineSmall),
+              const Text('Sonuçları görmek için Hesapla', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
               const SizedBox(height: 8),
-              Text(
-                'Market bazlı toplamları premium karşılaştırma görünümünde görmek için hesaplamayı başlat.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-              ),
+              const Text('Market bazlı toplamları premium karşılaştırma görünümünde görmek için hesaplamayı başlat.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9E8E82))),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  onCalculate();
-                },
+                onPressed: () { HapticFeedback.mediumImpact(); onCalculate(); },
                 icon: const Icon(Icons.calculate_rounded),
                 label: const Text('Hesapla'),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
               ),
-              TextButton(onPressed: onGoToCart, child: const Text('Sepete dön')),
+              TextButton(onPressed: onGoToCart, child: const Text('Sepete dön', style: TextStyle(color: Color(0xFF6B4226)))),
             ],
           ),
         ),
@@ -102,59 +88,34 @@ class _IdleState extends StatelessWidget {
 
 class _LoadingState extends StatefulWidget {
   const _LoadingState();
-
   @override
   State<_LoadingState> createState() => _LoadingStateState();
 }
-
 class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1100),
-  )..repeat(reverse: true);
-
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _controller.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, __) {
         final alpha = 0.16 + (0.22 * _controller.value);
-        final shimmer = cs.surfaceContainerHighest.withOpacity(alpha);
+        final shimmer = const Color(0xFF6B4226).withOpacity(alpha * 0.5);
         Widget block({double height = 16, double? width}) {
-          return Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(color: shimmer, borderRadius: BorderRadius.circular(14)),
-          );
+          return Container(width: width, height: height, decoration: BoxDecoration(color: shimmer, borderRadius: BorderRadius.circular(14)));
         }
-
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
             block(height: 170),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: block(height: 96)),
-                const SizedBox(width: 10),
-                Expanded(child: block(height: 96)),
-              ],
-            ),
+            Row(children: [Expanded(child: block(height: 96)), const SizedBox(width: 10), Expanded(child: block(height: 96))]),
             const SizedBox(height: 20),
             block(height: 20, width: 190),
             const SizedBox(height: 10),
-            block(height: 84),
-            const SizedBox(height: 8),
-            block(height: 84),
-            const SizedBox(height: 8),
-            block(height: 84),
+            block(height: 84), const SizedBox(height: 8), block(height: 84), const SizedBox(height: 8), block(height: 84),
           ],
         );
       },
@@ -164,7 +125,6 @@ class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderS
 
 class _SuccessState extends StatefulWidget {
   const _SuccessState({required this.state, required this.selectedStoreNames});
-
   final CartComparisonState state;
   final List<String> selectedStoreNames;
 
@@ -202,65 +162,37 @@ class _SuccessStateState extends State<_SuccessState> {
         return false;
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 120), // Alt bar için boşluk
         children: [
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: const Duration(milliseconds: 420),
             curve: Curves.easeOutCubic,
-            builder: (context, value, child) => Opacity(
-              opacity: value,
-              child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child),
-            ),
-            child: _HeroCard(
-              best: best,
-              totalProducts: state.missingProducts.length + best.lines.length,
-              scrollFactor: _scrollOffset,
-            ),
+            builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child)),
+            child: _HeroCard(best: best, totalProducts: state.missingProducts.length + best.lines.length, scrollFactor: _scrollOffset, nearest: nearest),
           ),
-          const SizedBox(height: 12),
-          _MiniInsights(best: best, nearest: nearest),
-          const SizedBox(height: 20),
-          Text('Market Karşılaştırma', style: Theme.of(context).textTheme.titleLarge),
-          Text(
-            'Sepetin toplamı markete göre değişebilir.',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
+          const SizedBox(height: 25),
+          const Text('Alternatif Marketler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
           if (widget.selectedStoreNames.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
-              'Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
+            Text('Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}', style: const TextStyle(color: Color(0xFF9E8E82), fontSize: 12)),
           ],
-          const SizedBox(height: 10),
-          ...markets.asMap().entries.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TweenAnimationBuilder<double>(
+          const SizedBox(height: 15),
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
+            child: Column(
+              children: markets.asMap().entries.map((entry) {
+                  return TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: 1),
                     duration: Duration(milliseconds: 320 + (entry.key * 40)),
                     curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => Opacity(
-                      opacity: value,
-                      child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child),
-                    ),
-                    child: _PremiumMarketRowCard(
-                      market: entry.value,
-                      rank: entry.key + 1,
-                      minTotal: minTotal,
-                      maxTotal: maxTotal,
-                    ),
-                  ),
-                ),
-              ),
-          const SizedBox(height: 8),
+                    builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child)),
+                    child: _PremiumMarketRowCard(market: entry.value, rank: entry.key + 1, minTotal: minTotal, maxTotal: maxTotal),
+                  );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 25),
           Row(
             children: [
               Expanded(
@@ -269,12 +201,11 @@ class _SuccessStateState extends State<_SuccessState> {
                     final text = _buildShareText(markets.take(3).toList());
                     await Clipboard.setData(ClipboardData(text: text));
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Sonuç panoya kopyalandı.')),
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sonuç panoya kopyalandı.')));
                   },
-                  icon: const Icon(Icons.content_copy_rounded),
-                  label: const Text('Kopyala'),
+                  icon: const Icon(Icons.content_copy_rounded, color: Color(0xFF6B4226)),
+                  label: const Text('Kopyala', style: TextStyle(color: Color(0xFF6B4226))),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6B4226))),
                 ),
               ),
               const SizedBox(width: 8),
@@ -283,6 +214,7 @@ class _SuccessStateState extends State<_SuccessState> {
                   onPressed: () => Share.share(_buildShareText(markets.take(3).toList())),
                   icon: const Icon(Icons.share_rounded),
                   label: const Text('Paylaş'),
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
                 ),
               ),
             ],
@@ -293,21 +225,69 @@ class _SuccessStateState extends State<_SuccessState> {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor});
+// ─────────────────────────────────────────────────────────────────────────────
+// V15 NEFES ALAN ROZET
+// ─────────────────────────────────────────────────────────────────────────────
+class _PulseSavingsBadge extends StatefulWidget {
+  final String text;
+  const _PulseSavingsBadge({required this.text});
+  @override
+  State<_PulseSavingsBadge> createState() => _PulseSavingsBadgeState();
+}
+class _PulseSavingsBadgeState extends State<_PulseSavingsBadge> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+  }
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFC89B7B), width: 2),
+            boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.4), blurRadius: 10 + (_controller.value * 15))],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.savings_outlined, color: Color(0xFFC89B7B), size: 18),
+              const SizedBox(width: 6),
+              Text(widget.text, style: const TextStyle(color: Color(0xFF2A1A10), fontWeight: FontWeight.w800, fontSize: 13)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// V15 ŞAMPİYON KART (_HeroCard)
+// ─────────────────────────────────────────────────────────────────────────────
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor, required this.nearest});
   final CartMarketResultSummary best;
   final int totalProducts;
   final double scrollFactor;
+  final CartMarketResultSummary? nearest;
 
   @override
   Widget build(BuildContext context) {
-    const v15Primary = Color(0xFF6B4226);
-    const v15Dark = Color(0xFF2A1A10);
-    const v15Gold = Color(0xFFC89B7B);
     final parallaxY = scrollFactor * 0.15;
     final scale = scrollFactor > 80 ? 0.96 : 1 - ((scrollFactor / 80) * 0.04);
-    final glowOpacity = (0.16 + (scrollFactor / 220) * 0.12).clamp(0.16, 0.28);
+    
+    // Nearest ile Best arasındaki fark, tasarrufu verir
+    final saving = nearest != null && nearest!.storeId != best.storeId 
+        ? nearest!.totalPrice - best.totalPrice 
+        : 5.0; // Mock default
 
     return Transform.translate(
       offset: Offset(0, parallaxY),
@@ -315,101 +295,53 @@ class _HeroCard extends StatelessWidget {
         scale: scale,
         alignment: Alignment.topCenter,
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [v15Dark, v15Primary],
-            ),
+            gradient: const LinearGradient(colors: [Color(0xFF2A1A10), Color(0xFF6B4226)], begin: Alignment.topLeft, end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: v15Gold.withOpacity(0.22)),
-            boxShadow: [
-              BoxShadow(
-                color: v15Dark.withOpacity(glowOpacity),
-                blurRadius: 40,
-                spreadRadius: 1,
-                offset: const Offset(0, 16),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: const Color(0xFF2A1A10).withOpacity(0.2), blurRadius: 40, offset: const Offset(0, 20))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: v15Gold,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'EN UYGUN',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: v15Dark,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: const Color(0xFFC89B7B), borderRadius: BorderRadius.circular(10)),
+                    child: const Row(children: [Icon(Icons.star_rounded, size: 14, color: Color(0xFF2A1A10)), SizedBox(width: 6), Text('EN UYGUN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10)))]),
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: v15Gold, width: 2),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.savings_rounded, color: v15Gold, size: 17),
-                        const SizedBox(width: 6),
-                        Text(
-                          '5₺ KAZANÇ',
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: v15Dark,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _PulseSavingsBadge(text: "${formatTRY(saving)} KAZANÇ"), 
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                best.storeName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _formatCurrency(best.totalPrice),
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              const SizedBox(height: 25),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _Pill(
-                    text: '$totalProducts ürün • Eksik ${best.missingCount}',
-                    color: Colors.white.withOpacity(0.16),
-                    fg: Colors.white,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(best.storeName, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+                      Text(best.missingCount > 0 ? '${best.missingCount} ürün eksik' : 'Tüm ürünler var', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                    ],
                   ),
-                  if (best.distanceKm != null)
-                    _Pill(
-                      text: '${best.distanceKm!.toStringAsFixed(1)} km',
-                      color: Colors.white.withOpacity(0.16),
-                      fg: Colors.white,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(best.totalPrice.toInt().toString(), style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w800, height: 1)),
+                      const Padding(padding: EdgeInsets.only(left: 2, top: 4), child: Text("₺", style: TextStyle(color: Color(0xFFC89B7B), fontSize: 20, fontWeight: FontWeight.w600))),
+                    ],
+                  )
                 ],
               ),
+              const SizedBox(height: 25),
+              ElevatedButton(
+                onPressed: () {}, // TODO: Markete git rotası
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF2A1A10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 14), minimumSize: const Size(double.infinity, 50)),
+                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text("Markete Git", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)), SizedBox(width: 8), Icon(Icons.directions_walk_rounded, size: 20)]),
+              )
             ],
           ),
         ),
@@ -418,152 +350,15 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _MiniInsights extends StatelessWidget {
-  const _MiniInsights({required this.best, required this.nearest});
-
-  final CartMarketResultSummary best;
-  final CartMarketResultSummary? nearest;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final sameMarket = nearest != null && nearest!.storeId == best.storeId;
-    final saving = nearest != null ? (nearest!.totalPrice - best.totalPrice) : null;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  cs.surfaceContainer.withOpacity(0.95),
-                  cs.surfaceContainerHigh.withOpacity(0.82),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: cs.outlineVariant.withOpacity(0.32)),
-            ),
-            child: nearest == null
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('EN YAKIN', style: Theme.of(context).textTheme.labelLarge),
-                      const SizedBox(height: 6),
-                      Text('Konum izni kapalı', style: Theme.of(context).textTheme.bodyMedium),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Konum izni için cihaz ayarlarını açın.')),
-                          );
-                        },
-                        child: const Text('Konum izni ver'),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('EN YAKIN', style: Theme.of(context).textTheme.labelLarge),
-                      const SizedBox(height: 4),
-                      Text(nearest!.storeName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(
-                        '${nearest!.distanceKm?.toStringAsFixed(1) ?? '-'} km',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(_formatCurrency(nearest!.totalPrice), style: Theme.of(context).textTheme.titleMedium),
-                    ],
-                  ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  cs.surfaceContainer.withOpacity(0.95),
-                  cs.surfaceContainerHigh.withOpacity(0.82),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: cs.outlineVariant.withOpacity(0.32)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('TASARRUF', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 6),
-                Text(
-                  nearest == null
-                      ? 'Konum verisi yok'
-                      : sameMarket
-                          ? 'En yakın = en uygun 🎉'
-                          : 'En yakına göre',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  nearest == null
-                      ? '—'
-                      : sameMarket
-                          ? 'Harika seçim'
-                          : _formatCurrency(saving ?? 0),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Returns a brand-specific background/foreground color pair and abbreviation
-/// for a store name, so each chain is visually distinct.
-({Color bg, Color fg, String abbr}) _storeBrand(String name) {
-  final n = name.trim().toUpperCase();
-  if (n.contains('BİM') || n == 'BIM') {
-    return (bg: const Color(0xFFE53935), fg: Colors.white, abbr: 'BİM');
-  } else if (n.contains('A-101') || n.contains('A101')) {
-    return (bg: const Color(0xFFE65100), fg: Colors.white, abbr: 'A101');
-  } else if (n.contains('ŞOK') || n.contains('SOK')) {
-    return (bg: const Color(0xFF1565C0), fg: Colors.white, abbr: 'ŞOK');
-  } else if (n.contains('CARREFOUR') || n.contains('CARREFOURSA')) {
-    return (bg: const Color(0xFF0D47A1), fg: Colors.white, abbr: 'CAR');
-  } else if (n.contains('MİGROS') || n.contains('MIGROS')) {
-    return (bg: const Color(0xFFF57C00), fg: Colors.white, abbr: 'MİG');
-  } else if (n.contains('İMECE') || n.contains('IMECE')) {
-    return (bg: const Color(0xFF388E3C), fg: Colors.white, abbr: 'İME');
-  } else if (n.contains('FILE') || n.contains('FİLE')) {
-    return (bg: const Color(0xFF6A1B9A), fg: Colors.white, abbr: 'FİL');
-  }
-  // Generic fallback — first 3 chars of the name
-  final abbr = name.length >= 3 ? name.substring(0, 3).toUpperCase() : name.toUpperCase();
-  return (bg: const Color(0xFF546E7A), fg: Colors.white, abbr: abbr);
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// V15 ALTERNATİF MARKET AKORDEONU (_PremiumMarketRowCard)
+// ─────────────────────────────────────────────────────────────────────────────
 class _PremiumMarketRowCard extends StatefulWidget {
-  const _PremiumMarketRowCard({
-    required this.market,
-    required this.rank,
-    required this.minTotal,
-    required this.maxTotal,
-  });
-
+  const _PremiumMarketRowCard({required this.market, required this.rank, required this.minTotal, required this.maxTotal});
   final CartMarketResultSummary market;
   final int rank;
   final double minTotal;
   final double maxTotal;
-
   @override
   State<_PremiumMarketRowCard> createState() => _PremiumMarketRowCardState();
 }
@@ -573,205 +368,76 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final market = widget.market;
-    final hideBar = widget.maxTotal == widget.minTotal;
-    final normalized = hideBar
-        ? 0.0
-        : ((market.totalPrice - widget.minTotal) / (widget.maxTotal - widget.minTotal)).clamp(0.0, 1.0);
-    final rankLabel = widget.rank == 1 ? '#1 En Uygun' : '#${widget.rank}';
-
+    final isError = widget.market.missingCount > 0;
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.surface.withOpacity(0.95),
-            cs.surfaceContainerHigh.withOpacity(0.88),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(widget.rank == 1 ? 0.12 : 0.08),
-            blurRadius: widget.rank == 1 ? 22 : 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0x0F6B4226))),
       ),
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _expanded = !_expanded);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Builder(builder: (_) {
-                    final brand = _storeBrand(market.storeName);
-                    return CircleAvatar(
-                      radius: 18,
-                      backgroundColor: brand.bg,
-                      child: Text(
-                        brand.abbr.length > 3 ? brand.abbr.substring(0, 3) : brand.abbr,
-                        style: TextStyle(
-                          color: brand.fg,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
+            onTap: () { HapticFeedback.selectionClick(); setState(() => _expanded = !_expanded); },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(color: isError ? const Color(0x1AA33333) : (widget.rank == 1 ? const Color(0xFFC89B7B) : const Color(0x0F6B4226)), borderRadius: BorderRadius.circular(10)),
+                      child: Center(child: Text(isError ? '!' : '${widget.rank}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: isError ? 16 : 14, color: isError ? const Color(0xFFA33333) : (widget.rank == 1 ? const Color(0xFF2A1A10) : const Color(0xFF9E8E82))))),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(market.storeName, style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 2),
+                        Text(widget.market.storeName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF2A1A10))),
+                        Text(isError ? '${widget.market.missingCount} Eksik' : '${widget.market.distanceKm?.toStringAsFixed(1) ?? "0.5"} km • Eksik Yok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isError ? const Color(0xFFA33333) : const Color(0xFF9E8E82))),
+                      ],
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(formatTRY(widget.market.totalPrice), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFF2A1A10))),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: isError ? const Color(0x1AA33333) : const Color(0x1FB58461), borderRadius: BorderRadius.circular(8)),
+                      child: Text(isError ? 'Stok Yok' : '+${formatTRY(widget.market.totalPrice - widget.minTotal)} Fark', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isError ? const Color(0xFFA33333) : const Color(0xFFB58461))),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: !_expanded ? const SizedBox.shrink() : Padding(
+              padding: const EdgeInsets.only(top: 15, left: 46),
+              child: Column(
+                children: widget.market.lines.map((line) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Text('${line.quantity}x ${line.productName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF2A1A10)))),
+                        const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: widget.rank == 1 ? cs.secondaryContainer : cs.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (widget.rank == 1) Icon(Icons.workspace_premium_rounded, size: 14, color: cs.primary),
-                              if (widget.rank == 1) const SizedBox(width: 4),
-                              Text(
-                                rankLabel,
-                                style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: const Color(0x14A33333), borderRadius: BorderRadius.circular(8)),
+                          child: Text(formatTRY(line.lineTotal), style: const TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 12)),
                         ),
                       ],
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(_formatCurrency(market.totalPrice), style: Theme.of(context).textTheme.titleLarge),
-                      Text(
-                        market.distanceKm != null ? '${market.distanceKm!.toStringAsFixed(1)} km' : '-',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                      AnimatedRotation(
-                        turns: _expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeOutBack,
-                        child: const Icon(Icons.expand_more_rounded, size: 20),
-                      ),
-                    ],
-                  ),
-                ],
+                  );
+                }).toList(),
               ),
-            ),
-          ),
-          if (market.missingCount > 0)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 6, bottom: 8),
-                child: _Pill(
-                  text: 'Eksik ${market.missingCount} ürün',
-                  color: cs.errorContainer,
-                  fg: cs.onErrorContainer,
-                ),
-              ),
-            ),
-          if (!hideBar)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: Container(
-                        height: 7,
-                        color: cs.surfaceContainerHighest,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) => TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0, end: 0.2 + (normalized * 0.55)),
-                              duration: const Duration(milliseconds: 420),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, value, _) => Container(
-                                width: constraints.maxWidth * value,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: widget.rank == 1
-                                        ? [cs.primary, cs.tertiary]
-                                        : [cs.secondary, cs.secondary.withOpacity(0.68)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.rank == 1 ? 'En iyi' : '+${_formatCurrency(market.totalPrice - widget.minTotal)}',
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ],
-              ),
-            ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutBack,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 220),
-              opacity: _expanded ? 1 : 0,
-              child: !_expanded
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        children: [
-                          for (final line in market.lines)
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(line.productName),
-                              subtitle: Text('${line.quantity} adet × ${_formatCurrency(line.unitPrice)}'),
-                              trailing: Text(_formatCurrency(line.lineTotal)),
-                            ),
-                          if (market.missingCount > 0)
-                            for (var index = 0; index < market.missingCount; index++)
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  'Ürün #${index + 1}',
-                                  style: TextStyle(color: cs.onSurfaceVariant),
-                                ),
-                                trailing: Text(
-                                  'Fiyat yok',
-                                  style: TextStyle(color: cs.onSurfaceVariant),
-                                ),
-                              ),
-                        ],
-                      ),
-                    ),
             ),
           ),
         ],
@@ -780,6 +446,9 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Boş, Hata vs State'leri
+// ─────────────────────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.state,
@@ -797,40 +466,23 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-          ),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Yeterli fiyat verisi yok', style: Theme.of(context).textTheme.titleMedium),
+              const Text('Yeterli fiyat verisi yok', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
               const SizedBox(height: 8),
               if (state.missingProducts.isNotEmpty) ...[
-                Text('Fiyatı olmayan ürünler', style: Theme.of(context).textTheme.labelLarge),
+                const Text('Fiyatı olmayan ürünler:', style: TextStyle(color: Color(0xFFA33333))),
                 const SizedBox(height: 8),
-                ...state.missingProducts.take(5).map(
-                      (name) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text('• $name'),
-                      ),
-                    ),
+                ...state.missingProducts.take(5).map((name) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Text('• $name', style: const TextStyle(color: Color(0xFF9E8E82))))),
               ],
-              if (selectedStoreNames.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Seçili mağazalar: ${selectedStoreNames.join(', ')}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 15),
               Wrap(
                 spacing: 8,
                 children: [
@@ -838,11 +490,13 @@ class _EmptyState extends StatelessWidget {
                     onPressed: onAddPrice,
                     icon: const Icon(Icons.add_business_rounded),
                     label: const Text('Fiyat Ekle'),
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
                   ),
                   OutlinedButton.icon(
                     onPressed: onSelectStores,
-                    icon: const Icon(Icons.store_mall_directory_rounded),
-                    label: const Text('Mağaza Seç'),
+                    icon: const Icon(Icons.store_mall_directory_rounded, color: Color(0xFF6B4226)),
+                    label: const Text('Mağaza Seç', style: TextStyle(color: Color(0xFF6B4226))),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6B4226))),
                   ),
                 ],
               ),
@@ -854,41 +508,27 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-String _buildShareText(List<CartMarketResultSummary> markets) {
-  final rows = markets.map((m) => '${m.storeName} ${_formatCurrency(m.totalPrice)}').join(' | ');
-  return 'FiyatSepeti Sonuç: $rows';
-}
-
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.state, required this.onRetry});
-
   final CartComparisonState state;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cs.errorContainer,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: const Color(0x1AA33333), borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, color: cs.onErrorContainer, size: 36),
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFA33333), size: 36),
               const SizedBox(height: 10),
-              Text(
-                state.errorMessage ?? 'Bir hata oluştu.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onErrorContainer),
-              ),
+              Text(state.errorMessage ?? 'Bir hata oluştu.', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFA33333))),
               const SizedBox(height: 10),
-              FilledButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
+              FilledButton(onPressed: onRetry, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFA33333)), child: const Text('Tekrar Dene')),
             ],
           ),
         ),
@@ -897,21 +537,9 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.text, required this.color, required this.fg});
-
-  final String text;
-  final Color color;
-  final Color fg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
-      child: Text(text, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg)),
-    );
-  }
+String _buildShareText(List<CartMarketResultSummary> markets) {
+  final rows = markets.map((m) => '${m.storeName} ${_formatCurrency(m.totalPrice)}').join(' | ');
+  return 'FiyatRadar Sonuç: $rows';
 }
 
 String _formatCurrency(num value) => formatTRY(value);
