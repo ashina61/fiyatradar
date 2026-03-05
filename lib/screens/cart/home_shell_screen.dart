@@ -3,11 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/fiyatradar_app.dart';
-import '../models/market_comparison.dart';
-import '../providers/cart_provider.dart';
-import '../providers/comparison_provider.dart';
-import '../providers/tab_provider.dart';
+import 'fiyatradar_app.dart';
+import 'market_comparison.dart';
+import 'cart_provider.dart';
+import 'comparison_provider.dart';
+import 'tab_provider.dart';
 
 class HomeShellScreen extends ConsumerStatefulWidget {
   const HomeShellScreen({super.key});

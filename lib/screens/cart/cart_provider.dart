@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/cart_item.dart';
+import 'cart_item.dart';
 
 class CartNotifier extends StateNotifier<List<CartItem>> {
   CartNotifier() : super(_mockCartItems);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../screens/home_shell_screen.dart';
+import 'home_shell_screen.dart';
 
 class FRColors {
   static const background = Color(0xFFF9F6F2);

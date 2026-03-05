@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/market_comparison.dart';
+import 'market_comparison.dart';
 
 final comparisonProvider = Provider<List<MarketComparison>>((ref) {
   return const [
