@@ -40,6 +40,8 @@ class V15Colors {
   static const Color primaryDark = Color(0xFF2A1A10);  // Koyu Kahve
   static const Color gold = Color(0xFFC89B7B);         // Premium Altın
   static const Color goldLight = Color(0xFFE8D8C8);
+  static const Color primaryLight = Color(0xFFD4874A);
+  static const Color borderLight = Color(0x1F2D241E);
   
   static const Color textMain = Color(0xFF2D241E);
   static const Color textMuted = Color(0xFF9A9188);
@@ -118,6 +120,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         _statsScrollController.jumpTo(nextOffset);
       }
     });
+  }
+
+  void _onBannerTap(BannerModel banner) {
+    final targetType = (banner.targetType ?? banner.actionType ?? '').toLowerCase();
+    final targetId = (banner.targetId ?? banner.productId ?? '').trim();
+
+    if (targetType == 'product' && targetId.isNotEmpty) {
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: targetId)),
+      );
+      return;
+    }
+
+    if (targetType == 'campaign') {
+      if (targetId.isNotEmpty) {
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(builder: (_) => CampaignDetailScreen(campaignId: targetId)),
+        );
+      } else {
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(builder: (_) => const CampaignsScreen()),
+        );
+      }
+      return;
+    }
+
+    if (targetId.isNotEmpty) {
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: targetId)),
+      );
+    }
   }
 
   @override
@@ -758,7 +791,7 @@ class _UltraPremiumProductCard extends StatelessWidget {
     // Modelden gelen veriler (Örnek mantıkla varsayılan atamalar)
     final title = product.name;
     final brand = (product.brand ?? 'MARKA').toUpperCase();
-    final priceStr = product.lowestPrice != null ? formatTRY(product.lowestPrice!) : '---';
+    final priceStr = product.lastPrice != null ? formatTRY(product.lastPrice!) : '---';
     final isDrop = true; // Düşüşte mi yükselişte mi mantığı (örnek)
 
     return PremiumPressable(
