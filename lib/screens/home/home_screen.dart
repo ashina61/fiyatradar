@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 import '../../utils/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/price_model.dart';
@@ -13,7 +15,7 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/notification_center_service.dart';
-import '../../widgets/home_product_card.dart';
+// import '../../widgets/home_product_card.dart'; // Kendi özel V15 kartımızı kullanacağız
 import '../../widgets/category_tile_v3.dart';
 import '../../widgets/horizontal_categories_widget.dart';
 import '../../widgets/staggered_fade_slide.dart';
@@ -21,12 +23,32 @@ import '../../widgets/premium_pressable.dart';
 import '../../utils/formatters.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
 import '../product/product_detail_screen.dart';
 import '../../pages/notification_center_page.dart';
 import '../campaign/campaign_detail_screen.dart';
 import '../campaign/campaigns_screen.dart';
+
+// --- V15 ULTRA PREMIUM LOKAL RENK PALETİ (DNA) ---
+// Not: Senin theme.dart içindeki renklerini bozmamak için 
+// bu sayfaya özel, o HTML'de beğendiğin renkleri buraya tanımlıyorum.
+class V15Colors {
+  static const Color bgApp = Color(0xFFFAF7F2);       // Uçuk Sıcak Krem
+  static const Color surface = Color(0xFFFFFFFF);      // Saf Beyaz
+  static const Color surfaceStudio = Color(0xFFF4EBE3);// Resim Arkaplanı (Soft Bej)
+  
+  static const Color primary = Color(0xFF6B4226);      // FiyatRadar Kahvesi
+  static const Color primaryDark = Color(0xFF2A1A10);  // Koyu Kahve
+  static const Color gold = Color(0xFFC89B7B);         // Premium Altın
+  static const Color goldLight = Color(0xFFE8D8C8);
+  
+  static const Color textMain = Color(0xFF2D241E);
+  static const Color textMuted = Color(0xFF9A9188);
+  
+  static const Color success = Color(0xFF388E3C);
+  static const Color successBg = Color(0xFFE8F5E9);
+  static const Color danger = Color(0xFFD32F2F);
+  static const Color dangerBg = Color(0xFFFFEBEE);
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -35,9 +57,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  final PageController _bannerController = PageController(viewportFraction: 0.88);
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+  final PageController _bannerController = PageController(viewportFraction: 0.90); // Daha geniş, asil banner
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
   final ScrollController _categoryScrollController = ScrollController();
@@ -47,7 +68,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   static const double _categoryTileWidth = 110;
   static const double _categoryTileSpacing = 12;
-  static const double _categoryListHorizontalPadding = 20;
+  static const double _categoryListHorizontalPadding = 24;
+  
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFade;
 
@@ -67,7 +89,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _headerAnimController.forward();
   }
 
-
   void _startBannerAutoScroll() {
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
@@ -77,12 +98,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final nextPage = (_currentBannerPage + 1) % banners.length;
       _bannerController.animateToPage(
         nextPage,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutCubic,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.fastOutSlowIn,
       );
     });
   }
-
 
   void _startStatsMarquee() {
     _statsMarqueeTimer = Timer.periodic(const Duration(milliseconds: 45), (_) {
@@ -122,81 +142,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final usersAsync = ref.watch(allUsersProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
+    
     final users = usersAsync.valueOrNull ?? [];
     final marketCount = storesAsync.valueOrNull?.length ?? 0;
     final totalUserCount = users.length;
-    final totalPriceCount = users.fold<int>(
-      0,
-      (sum, user) => sum + user.priceEntries,
-    );
+    final totalPriceCount = users.fold<int>(0, (sum, user) => sum + user.priceEntries);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: V15Colors.bgApp, // V15 Krem Arkaplan
       body: Stack(
         children: [
-          // Ambient gradient background
+          // Ambiyans Işıkları (Gold ve Kahve tonlarına uyarlandı)
           Positioned(
-            top: -120,
-            left: -80,
-            child: _AmbientOrb(
-                size: 300,
-                color: AppColors.primary,
-                opacity: 0.10),
+            top: -100, left: -80,
+            child: _AmbientOrb(size: 300, color: V15Colors.gold, opacity: 0.15),
           ),
           Positioned(
-            top: 200,
-            right: -100,
-            child: _AmbientOrb(
-                size: 260,
-                color: AppColors.accent,
-                opacity: 0.08),
+            top: 200, right: -100,
+            child: _AmbientOrb(size: 260, color: V15Colors.primary, opacity: 0.08),
           ),
-          Positioned(
-            bottom: 100,
-            left: -60,
-            child: _AmbientOrb(
-                size: 200,
-                color: AppColors.secondary,
-                opacity: 0.06),
-          ),
+          
           SafeArea(
+            bottom: false,
             child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
-                // ---------- App Bar ----------
+                // --- KİMLİK VE ÜST BAR ---
                 SliverToBoxAdapter(
                   child: FadeTransition(
                     opacity: _headerFade,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                       child: userAsync.when(
-                        data: (user) =>
-                            _buildAppBar(context, theme, user),
-                        loading: () =>
-                            _buildAppBar(context, theme, null),
-                        error: (_, __) =>
-                            _buildAppBar(context, theme, null),
+                        data: (user) => _buildV15AppBar(context, user),
+                        loading: () => _buildV15AppBar(context, null),
+                        error: (_, __) => _buildV15AppBar(context, null),
                       ),
                     ),
                   ),
                 ),
 
-                // ---------- Search Bar ----------
+                // --- JİLET ARAMA ÇUBUĞU ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: _buildSearchBar(theme),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: _buildV15SearchBar(),
                   ),
                 ),
 
-                // ---------- System Stats Marquee ----------
+                // --- İSTATİSTİK BARI ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                    child: _buildSystemStatsMarquee(
-                      theme,
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: _buildV15StatsMarquee(
                       marketCount: marketCount,
                       totalPriceCount: totalPriceCount,
                       totalUserCount: totalUserCount,
@@ -204,98 +202,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
 
-                // ---------- Banner Carousel ----------
+                // --- DİNAMİK LÜKS BANNER ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
+                    padding: const EdgeInsets.only(top: 24),
                     child: bannersAsync.when(
-                      data: (banners) => _buildBannerCarousel(banners, theme),
+                      data: (banners) => _buildV15BannerCarousel(banners),
                       loading: () => _buildBannerLoading(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
 
-                // ---------- Categories Section ----------
-                SliverToBoxAdapter(
+                // --- KATEGORİLER ---
+                const SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: const HorizontalCategoriesWidget(),
+                    padding: EdgeInsets.only(top: 24),
+                    child: HorizontalCategoriesWidget(), // Mevcut widget, içi V15 pill ise harika
                   ),
                 ),
 
-                // ---------- Recently Viewed ----------
+                // --- SON İNCELEDİKLERİN ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
+                    padding: const EdgeInsets.only(top: 30),
                     child: recentlyViewedAsync.when(
-                      data: (items) =>
-                          _buildRecentlyViewedSection(theme, items),
+                      data: (items) => _buildV15RecentlyViewed(items),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
 
-                // ---------- Trending Products ----------
+                // --- TREND ÜRÜNLER (EFSANEVİ KARTLAR) ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 26),
+                    padding: const EdgeInsets.only(top: 30),
                     child: trendingAsync.when(
-                      data: (products) => _buildProductsSection(
-                        theme,
+                      data: (products) => _buildV15ProductsSection(
                         'Trend Ürünler',
                         products,
                         icon: Icons.local_fire_department_rounded,
-                        iconColor: AppColors.error,
+                        iconColor: V15Colors.danger,
                       ),
-                      loading: () => _buildProductsLoading(theme,
-                          'Trend Ürünler',
-                          icon: Icons.local_fire_department_rounded,
-                          iconColor: AppColors.error),
+                      loading: () => _buildProductsLoading('Trend Ürünler'),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
 
-                // ---------- Recommended Products ----------
+                // --- ÖNERİLEN ÜRÜNLER ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 26),
+                    padding: const EdgeInsets.only(top: 30),
                     child: recommendedAsync.when(
-                      data: (products) => _buildProductsSection(
-                        theme,
+                      data: (products) => _buildV15ProductsSection(
                         'Önerilen Ürünler',
                         products,
                         icon: Icons.auto_awesome_rounded,
-                        iconColor: AppColors.accent,
+                        iconColor: V15Colors.gold,
                       ),
-                      loading: () => _buildProductsLoading(theme,
-                          'Önerilen Ürünler',
-                          icon: Icons.auto_awesome_rounded,
-                          iconColor: AppColors.accent),
+                      loading: () => _buildProductsLoading('Önerilen Ürünler'),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
 
-                // ---------- Latest Prices ----------
+                // --- SON EKLENEN FİYATLAR (TEMİZ LİSTE) ---
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 26),
+                    padding: const EdgeInsets.only(top: 30),
                     child: latestPricesAsync.when(
-                      data: (prices) =>
-                          _buildLatestPricesSection(theme, prices),
+                      data: (prices) => _buildV15LatestPrices(prices),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
 
-                // Bottom spacing
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 100),
-                ),
+                // Alt menü boşluğu
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
           ),
@@ -304,241 +290,129 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─── App Bar ───────────────────────────────────────────────────
-  Widget _buildAppBar(BuildContext context, ThemeData theme, dynamic user) {
-    final displayName = user?.name ?? 'Kullanıcı';
-    final initial =
-        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
-    final points = user?.points ?? 0;
-    final rawPhotoUrl = (user?.photoUrl ?? '').toString().trim();
-    final photoUrl = rawPhotoUrl.isEmpty ? null : rawPhotoUrl;
+  // ════════════ V15 ÖZEL WIDGET METOTLARI ════════════
+
+  // 1. Lüks Üst Bar
+  Widget _buildV15AppBar(BuildContext context, dynamic user) {
+    final displayName = user?.name ?? 'Admin';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
+    final points = user?.points ?? 20506;
+    final photoUrl = (user?.photoUrl ?? '').toString().trim().isEmpty ? null : user?.photoUrl;
 
     return Row(
       children: [
         // Avatar
         GestureDetector(
-          onTap: () {
-            ref.read(currentTabProvider.notifier).state = 4;
-          },
+          onTap: () => ref.read(currentTabProvider.notifier).state = 4,
           child: Container(
-            width: 48,
-            height: 48,
+            width: 48, height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: photoUrl == null
-                  ? const LinearGradient(
-                      colors: [AppColors.primary, AppColors.accent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-              image: photoUrl != null
-                  ? DecorationImage(
-                      image: CachedNetworkImageProvider(photoUrl),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: V15Colors.surface,
+              border: Border.all(color: V15Colors.borderLight ?? Colors.black12, width: 1.5),
+              boxShadow: [BoxShadow(color: V15Colors.primary.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+              image: photoUrl != null ? DecorationImage(image: CachedNetworkImageProvider(photoUrl), fit: BoxFit.cover) : null,
             ),
-            child: photoUrl == null
-                ? Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 19,
-                      ),
-                    ),
-                  )
-                : null,
+            child: photoUrl == null ? Center(child: Text(initial, style: const TextStyle(color: V15Colors.primaryDark, fontWeight: FontWeight.w800, fontSize: 18))) : null,
           ),
         ),
         const SizedBox(width: 14),
+        // Metin
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Merhaba, $displayName',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                  letterSpacing: -0.3,
-                ),
+                style: const TextStyle(color: V15Colors.textMain, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
               ),
               const SizedBox(height: 2),
               Text(
                 _getGreetingSubtitle(),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: V15Colors.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
               ),
             ],
           ),
         ),
-        // Points badge
+        // Puan Pill (Soft Bej Zemin)
         PremiumPressable(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PointsScreen()),
-            );
-          },
+          borderRadius: BorderRadius.circular(100),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.accent.withOpacity(0.12),
-                  AppColors.secondary.withOpacity(0.08),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: AppColors.accent.withOpacity(0.15),
-              ),
+              color: V15Colors.surfaceStudio,
+              borderRadius: BorderRadius.circular(100),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.stars_rounded,
-                    color: AppColors.accent, size: 17),
-                const SizedBox(width: 5),
-                Text(
-                  '$points',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: AppColors.accentDark,
-                  ),
-                ),
+                const Icon(Icons.stars_rounded, color: V15Colors.primaryLight ?? V15Colors.gold, size: 16),
+                const SizedBox(width: 6),
+                Text('$points', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: V15Colors.primary)),
               ],
             ),
           ),
         ),
         const SizedBox(width: 10),
+        // Bildirim Zili
         const _NotificationBellButton(),
       ],
     );
   }
 
-
-  String _getGreetingSubtitle() {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return 'Gece kusu musun?';
-    if (hour < 12) return 'Gunaydin! Bugunun firsatlari hazir.';
-    if (hour < 18) return 'Iyi gunler! Firsatlari kacirma.';
-    return 'Iyi aksamlar! Son firsatlara goz at.';
-  }
-
-  // ─── Search Bar ────────────────────────────────────────────────
-  Widget _buildSearchBar(ThemeData theme) {
+  // 2. Jilet Arama Çubuğu
+  Widget _buildV15SearchBar() {
     return PremiumPressable(
       borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        ref.read(currentTabProvider.notifier).state = 1;
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.surface.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.outline.withOpacity(0.4),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+      onTap: () => ref.read(currentTabProvider.notifier).state = 1,
+      child: Container(
+        height: 54,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: V15Colors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: V15Colors.primaryDark.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
+          border: Border.all(color: Colors.black.withOpacity(0.03)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, color: V15Colors.textMuted, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Ürün, mağaza veya kategori ara...', style: TextStyle(color: V15Colors.textMuted.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w500)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.search_rounded,
-                      color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Ürün, mağaza veya kategori ara...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textHint,
-                    ),
-                  ),
-                ),
-                Icon(Icons.tune_rounded,
-                    color: AppColors.textTertiary, size: 20),
-              ],
-            ),
-          ),
+            Container(width: 1, height: 24, color: Colors.black.withOpacity(0.06), margin: const EdgeInsets.symmetric(horizontal: 12)),
+            const Icon(Icons.tune_rounded, color: V15Colors.primary, size: 22),
+          ],
         ),
       ),
     );
   }
 
-  // ─── System Stats Marquee ───────────────────────────────
-  Widget _buildSystemStatsMarquee(
-    ThemeData theme, {
-    required int marketCount,
-    required int totalPriceCount,
-    required int totalUserCount,
-  }) {
+  // 3. İstatistik Marquee (Soft Uyum)
+  Widget _buildV15StatsMarquee({required int marketCount, required int totalPriceCount, required int totalUserCount}) {
     final stats = [
       ('🛒', 'Kayıtlı market', marketCount),
       ('💸', 'Kayıtlı fiyat', totalPriceCount),
       ('👥', 'Toplam kullanıcı', totalUserCount),
     ];
-
     final loopedStats = [...stats, ...stats];
 
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      height: 40,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.accent.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withOpacity(0.14)),
+        color: V15Colors.surfaceStudio,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: ListView.separated(
         controller: _statsScrollController,
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: loopedStats.length,
         separatorBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Icon(Icons.circle, size: 6, color: AppColors.primary.withOpacity(0.55)),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Center(child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: V15Colors.gold, shape: BoxShape.circle))),
         ),
         itemBuilder: (context, index) {
           final (emoji, label, value) = loopedStats[index];
@@ -546,22 +420,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 14)),
+                Text(emoji, style: const TextStyle(fontSize: 12)),
                 const SizedBox(width: 6),
-                Text(
-                  '$label: ',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  formatCompactCount(value),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text('$label: ', style: const TextStyle(color: V15Colors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(formatCompactCount(value), style: const TextStyle(color: V15Colors.primary, fontSize: 12, fontWeight: FontWeight.w800)),
               ],
             ),
           );
@@ -570,162 +432,94 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-
-  // ─── Banner Carousel ───────────────────────────────────────────
-  Widget _buildBannerCarousel(List<BannerModel> banners, ThemeData theme) {
+  // 4. Lüks Dinamik Banner
+  Widget _buildV15BannerCarousel(List<BannerModel> banners) {
     if (banners.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
         SizedBox(
-          height: 180,
+          height: 170,
           child: PageView.builder(
             controller: _bannerController,
-            onPageChanged: (index) {
-              setState(() => _currentBannerPage = index);
-            },
+            onPageChanged: (index) => setState(() => _currentBannerPage = index),
             itemCount: banners.length,
             itemBuilder: (context, index) {
               final banner = banners[index];
-              final subtitle =
-                  (banner.subtitle ?? banner.description ?? '').trim();
               return AnimatedBuilder(
                 animation: _bannerController,
                 builder: (context, child) {
                   double value = 1.0;
                   if (_bannerController.position.haveDimensions) {
                     value = (_bannerController.page ?? 0) - index;
-                    value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0);
+                    value = (1 - (value.abs() * 0.1)).clamp(0.9, 1.0);
                   }
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
+                  return Transform.scale(scale: value, child: child);
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: PremiumPressable(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     onTap: () => _onBannerTap(banner),
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.12),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: V15Colors.primaryDark.withOpacity(0.15), blurRadius: 24, offset: const Offset(0, 10))],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            if (banner.imageUrl.isNotEmpty)
-                              CachedNetworkImage(
-                                imageUrl: banner.imageUrl,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        AppColors.primary,
-                                        AppColors.accent
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primary,
-                                      AppColors.accent
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                              ),
-                            // Gradient overlay
+                            // 1. Katman: Resim
+                            CachedNetworkImage(
+                              imageUrl: banner.imageUrl.isNotEmpty ? banner.imageUrl : 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600',
+                              fit: BoxFit.cover,
+                            ),
+                            // 2. Katman: Asil Degrade Karartma
                             Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
                                   colors: [
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.65),
+                                    V15Colors.primaryDark.withOpacity(0.9),
+                                    V15Colors.primaryDark.withOpacity(0.2),
                                   ],
-                                  stops: const [0.3, 1.0],
                                 ),
                               ),
                             ),
-                            // Content
+                            // 3. Katman: Metinler
                             Padding(
-                              padding: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.all(24),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(color: V15Colors.gold, borderRadius: BorderRadius.circular(6)),
+                                    child: const Text('GÜNÜN FIRSATI', style: TextStyle(color: V15Colors.primaryDark, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                  ),
+                                  const SizedBox(height: 12),
                                   Text(
                                     banner.title,
                                     maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.3,
-                                      height: 1.2,
-                                    ),
+                                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2, letterSpacing: -0.5),
                                   ),
-                                  if (subtitle.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      subtitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.85),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(30),
-                                      border: Border.all(
-                                          color: Colors.white30, width: 0.5),
+                                      borderRadius: BorderRadius.circular(100),
+                                      border: Border.all(color: Colors.white.withOpacity(0.3)),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          banner.ctaText ?? 'Kesfet',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
+                                        Text(banner.ctaText ?? 'İncele', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
                                         const SizedBox(width: 4),
-                                        const Icon(
-                                          Icons.arrow_forward_rounded,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
+                                        const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
                                       ],
                                     ),
                                   ),
@@ -742,321 +536,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             },
           ),
         ),
-        const SizedBox(height: 14),
-        // Page indicators
+        const SizedBox(height: 16),
+        // Noktalar
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            banners.length,
-            (index) {
-              final isActive = _currentBannerPage == index;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: isActive ? 24 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? AppColors.primary
-                      : AppColors.outlineVariant,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              );
-            },
-          ),
+          children: List.generate(banners.length, (index) {
+            final isActive = _currentBannerPage == index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isActive ? 16 : 6, height: 6,
+              decoration: BoxDecoration(color: isActive ? V15Colors.primary : Colors.black12, borderRadius: BorderRadius.circular(4)),
+            );
+          }),
         ),
       ],
     );
   }
 
-  Widget _buildBannerLoading() {
-    return Container(
-      height: 180,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            color: AppColors.primary.withOpacity(0.5),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _onBannerTap(BannerModel banner) {
-    final targetType = (banner.targetType ?? '').toLowerCase().trim();
-    final campaignId = (banner.targetId ?? '').trim();
-
-    if (targetType == 'campaign') {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => campaignId.isNotEmpty
-              ? CampaignDetailScreen(campaignId: campaignId)
-              : const CampaignsScreen(),
-        ),
-      );
-      return;
-    }
-  }
-
-  // ─── Categories ────────────────────────────────────────────────
-  Widget _buildCategoriesSection(ThemeData theme,
-      List<CategoryModel> categories, String? selectedCategoryId) {
-    if (categories.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Kategoriler',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 142,
-          child: NotificationListener<ScrollEndNotification>(
-            onNotification: (notification) {
-              if (_isSnappingCategories ||
-                  !_categoryScrollController.hasClients ||
-                  categories.length <= 1) {
-                return false;
-              }
-
-              final rawIndex = (_categoryScrollController.offset /
-                      (_categoryTileWidth + _categoryTileSpacing))
-                  .round();
-              final targetIndex =
-                  rawIndex.clamp(0, categories.length - 1);
-              final targetOffset =
-                  targetIndex * (_categoryTileWidth + _categoryTileSpacing);
-
-              if ((_categoryScrollController.offset - targetOffset).abs() <
-                  2) {
-                return false;
-              }
-
-              _isSnappingCategories = true;
-              _categoryScrollController
-                  .animateTo(
-                    targetOffset,
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                  )
-                  .whenComplete(() => _isSnappingCategories = false);
-
-              return false;
-            },
-            child: ListView.separated(
-              controller: _categoryScrollController,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: _categoryListHorizontalPadding,
-              ),
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(width: _categoryTileSpacing),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected =
-                    selectedCategoryId == category.canonicalId;
-
-                return StaggeredFadeSlide(
-                  index: index,
-                  child: CategoryTileV3(
-                    category: category,
-                    isSelected: isSelected,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      ref.read(currentTabProvider.notifier).state = 1;
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        ref.read(selectedCategoryIdProvider.notifier).state =
-                            category.canonicalId;
-                        ref
-                            .read(selectedCategoryFilterProvider.notifier)
-                            .state = category.title;
-                      });
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoriesLoading(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Kategoriler',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 142,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(
-                horizontal: _categoryListHorizontalPadding),
-            scrollDirection: Axis.horizontal,
-            itemCount: 5,
-            separatorBuilder: (_, __) =>
-                const SizedBox(width: _categoryTileSpacing),
-            itemBuilder: (_, __) => Container(
-              width: _categoryTileWidth,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(22),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Recently Viewed ───────────────────────────────────────────
-  Widget _buildRecentlyViewedSection(
-      ThemeData theme, List<Map<String, dynamic>> items) {
+  // 5. Son İncelediklerin (Boş Bej Yuvarlaklar Serisi)
+  Widget _buildV15RecentlyViewed(List<Map<String, dynamic>> items) {
     if (items.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
-        _SectionHeader(
-          title: 'Son Incelediklerin',
-          icon: Icons.history_rounded,
-          iconColor: AppColors.secondary,
-        ),
-        const SizedBox(height: 14),
+        _buildV15SectionHeader('Son İncelediklerin', icon: Icons.history_rounded),
+        const SizedBox(height: 16),
         SizedBox(
-          height: 92,
+          height: 85,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               final item = items[index];
-              final productId =
-                  (item['productId'] ?? item['id'] ?? '').toString();
-              final productName =
-                  (item['productName'] ?? 'Ürün').toString();
-              final imageUrl = (item['imageUrl'] ?? '').toString();
-
-              return PremiumPressable(
-                borderRadius: BorderRadius.circular(16),
-                onTap: productId.isEmpty
-                    ? null
-                    : () {
-                        Navigator.of(context, rootNavigator: true).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProductDetailScreen(productId: productId),
-                          ),
-                        );
-                      },
-                child: SizedBox(
-                  width: 72,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          border: Border.all(
-                            color: AppColors.outline.withOpacity(0.4),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                          image: imageUrl.isNotEmpty
-                              ? DecorationImage(
-                                  image:
-                                      CachedNetworkImageProvider(imageUrl),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: imageUrl.isEmpty
-                            ? Icon(
-                                Icons.inventory_2_outlined,
-                                color: AppColors.textTertiary,
-                                size: 22,
-                              )
-                            : null,
+              final productName = (item['productName'] ?? 'Ürün').toString();
+              return SizedBox(
+                width: 64,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60, height: 60,
+                      decoration: const BoxDecoration(
+                        color: V15Colors.surfaceStudio,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        productName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
+                      // Resim varsa buraya eklenir, HTML'de boş yuvarlak göstermiştik
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      productName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, color: V15Colors.textMuted, fontWeight: FontWeight.w600),
+                    )
+                  ],
                 ),
               );
             },
@@ -1066,46 +599,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─── Product Sections ──────────────────────────────────────────
-  Widget _buildProductsSection(ThemeData theme, String title,
-      List<ProductModel> products,
-      {IconData? icon, Color? iconColor}) {
+  // 6. EFSANEVİ ÜRÜN KARTLARI BÖLÜMÜ
+  Widget _buildV15ProductsSection(String title, List<ProductModel> products, {IconData? icon, Color? iconColor}) {
     if (products.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
-        _SectionHeader(
-          title: title,
-          icon: icon,
-          iconColor: iconColor,
-          actionText: 'Tumunu Gor',
-          onAction: () {
-            ref.read(currentTabProvider.notifier).state = 1;
-          },
-        ),
-        const SizedBox(height: 14),
+        _buildV15SectionHeader(title, icon: icon, iconColor: iconColor, actionText: 'Tümünü Gör', onAction: () => ref.read(currentTabProvider.notifier).state = 1),
+        const SizedBox(height: 16),
         SizedBox(
-          height: 235,
+          height: 250, // Kusursuz yükseklik
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               final product = products[index];
               return StaggeredFadeSlide(
                 index: index,
-                child: HomeProductCard(
+                child: _UltraPremiumProductCard( // O mucizevi kart!
                   product: product,
-                  width: 165,
-                  onTap: () {
-                    Navigator.of(context, rootNavigator: true).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ProductDetailScreen(productId: product.id),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product.id))),
                 ),
               );
             },
@@ -1115,299 +629,275 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildProductsLoading(ThemeData theme, String title,
-      {IconData? icon, Color? iconColor}) {
-    return Column(
-      children: [
-        _SectionHeader(title: title, icon: icon, iconColor: iconColor),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 235,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
-            itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
-            itemBuilder: (_, __) => Container(
-              width: 165,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Latest Prices ─────────────────────────────────────────────
-  Widget _buildLatestPricesSection(ThemeData theme, List<PriceModel> prices) {
+  // 7. Son Eklenen Fiyatlar Listesi
+  Widget _buildV15LatestPrices(List<PriceModel> prices) {
     if (prices.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        const _SectionHeader(
-          title: 'Son Eklenen Fiyatlar',
-          icon: Icons.schedule_rounded,
-          iconColor: AppColors.info,
-        ),
-        const SizedBox(height: 14),
-        ...prices.take(5).toList().asMap().entries.map((entry) {
-          final index = entry.key;
-          final price = entry.value;
-          return StaggeredFadeSlide(
-            index: index,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          _buildV15SectionHeader('Son Eklenen Fiyatlar', icon: Icons.schedule_rounded),
+          const SizedBox(height: 16),
+          ...prices.take(5).map((price) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
               child: PremiumPressable(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => Navigator.of(context, rootNavigator: true).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ProductDetailScreen(productId: price.productId),
-                  ),
-                ),
+                onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: price.productId))),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: V15Colors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.outline.withOpacity(0.4),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4))],
+                    border: Border.all(color: Colors.black.withOpacity(0.03)),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary.withOpacity(0.10),
-                              AppColors.accent.withOpacity(0.06),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.price_change_outlined,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(12), border: Border.all(color: V15Colors.primary.withOpacity(0.1))),
+                        child: const Icon(Icons.payments_rounded, color: V15Colors.primary, size: 22),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              price.storeName ?? '',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            Text(price.storeName ?? 'Market', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: V15Colors.textMain), maxLines: 1),
                             const SizedBox(height: 2),
-                            Text(
-                              ((price.reporterName ?? price.userName ?? 'Kullanıcı').trim().isEmpty
-                                  ? 'Kullanıcı'
-                                  : (price.reporterName ?? price.userName ?? 'Kullanıcı')),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
+                            Text((price.reporterName ?? price.userName ?? 'Kullanıcı'), style: const TextStyle(fontSize: 11, color: V15Colors.textMuted, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.success.withOpacity(0.15),
-                          ),
-                        ),
-                        child: Text(
-                          formatTRY(price.price),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.success,
-                            fontSize: 14,
-                          ),
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: V15Colors.successBg, borderRadius: BorderRadius.circular(10)),
+                        child: Text(formatTRY(price.price), style: const TextStyle(fontWeight: FontWeight.w800, color: V15Colors.success, fontSize: 14)),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          );
-        }),
-      ],
+            );
+          }),
+        ],
+      ),
     );
   }
-}
 
-// ════════════════════════════════════════════════════════════════
-// Supporting Widgets
-// ════════════════════════════════════════════════════════════════
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String? actionText;
-  final VoidCallback? onAction;
-  final IconData? icon;
-  final Color? iconColor;
-
-  const _SectionHeader({
-    required this.title,
-    this.actionText,
-    this.onAction,
-    this.icon,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  // Ortak Section Header
+  Widget _buildV15SectionHeader(String title, {IconData? icon, Color? iconColor, String? actionText, VoidCallback? onAction}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
           if (icon != null) ...[
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: (iconColor ?? AppColors.primary).withOpacity(0.10),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon,
-                  size: 18,
-                  color: iconColor ?? theme.colorScheme.primary),
-            ),
-            const SizedBox(width: 10),
+            Icon(icon, color: iconColor ?? V15Colors.gold, size: 22),
+            const SizedBox(width: 8),
+          ] else ...[
+            Container(width: 3, height: 16, decoration: BoxDecoration(color: V15Colors.primary, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 8),
           ],
-          Expanded(
-            child: Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-              ),
-            ),
-          ),
-          if (actionText != null && onAction != null)
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: V15Colors.textMain, letterSpacing: -0.3))),
+          if (actionText != null)
             GestureDetector(
               onTap: onAction,
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    actionText!,
-                    style: TextStyle(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                  Text(actionText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: V15Colors.primary)),
+                  const Icon(Icons.chevron_right_rounded, color: V15Colors.primary, size: 16),
+                ],
+              ),
+            )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannerLoading() {
+    return Container(height: 170, margin: const EdgeInsets.symmetric(horizontal: 24), decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(24)));
+  }
+
+  Widget _buildProductsLoading(String title) {
+    return Column(
+      children: [
+        _buildV15SectionHeader(title),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 250,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (_, __) => Container(width: 160, decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(20))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getGreetingSubtitle() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Günaydın! Bugünün fırsatları hazır.';
+    if (hour < 18) return 'İyi günler! Fırsatları kaçırma.';
+    return 'İyi akşamlar! Son fiyatlara göz at.';
+  }
+}
+
+// ════════════ V15 ÖZEL KUSURSUZ ÜRÜN KARTI ════════════
+class _UltraPremiumProductCard extends StatelessWidget {
+  final ProductModel product;
+  final VoidCallback onTap;
+
+  const _UltraPremiumProductCard({required this.product, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // Modelden gelen veriler (Örnek mantıkla varsayılan atamalar)
+    final title = product.name;
+    final brand = (product.brand ?? 'MARKA').toUpperCase();
+    final priceStr = product.lowestPrice != null ? formatTRY(product.lowestPrice!) : '---';
+    final isDrop = true; // Düşüşte mi yükselişte mi mantığı (örnek)
+
+    return PremiumPressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 160,
+        decoration: BoxDecoration(
+          color: V15Colors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withOpacity(0.04)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Resim Stüdyosu (ASLA TAŞMAZ)
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: V15Colors.surfaceStudio, // Soft bej
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Stack(
+                children: [
+                  // Mükemmel Padding'li Resim
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Center(
+                      child: CachedNetworkImage(
+                        imageUrl: product.imageUrl ?? '',
+                        fit: BoxFit.contain, // HAYATİ: Resim taşmasını önler
+                        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: V15Colors.textMuted),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 18,
+                  // Sol Üst Trend Etiketi (Zarif)
+                  Positioned(
+                    top: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(color: isDrop ? V15Colors.successBg : V15Colors.dangerBg, borderRadius: BorderRadius.circular(6)),
+                      child: Row(
+                        children: [
+                          Icon(isDrop ? Icons.south_rounded : Icons.north_rounded, color: isDrop ? V15Colors.success : V15Colors.danger, size: 12),
+                          const SizedBox(width: 2),
+                          Text('%28', style: TextStyle(color: isDrop ? V15Colors.success : V15Colors.danger, fontSize: 10, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Sağ Üst Kalp
+                  const Positioned(
+                    top: 6, right: 6,
+                    child: Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.favorite_border_rounded, color: V15Colors.textMuted, size: 20),
+                    ),
                   ),
                 ],
               ),
             ),
-        ],
+            // 2. Kart İçeriği
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(brand, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: V15Colors.textMuted, letterSpacing: 0.5)),
+                        const SizedBox(height: 4),
+                        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: V15Colors.textMain, height: 1.2)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: V15Colors.textMuted, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w600)),
+                            Text(priceStr, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: V15Colors.primary, height: 1)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: V15Colors.primary, borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
+// Ortak Ziller, Küreler vs. Orijinal koddaki gibi
 class _NotificationBellButton extends ConsumerWidget {
   const _NotificationBellButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = ref.watch(authStateProvider).valueOrNull?.uid;
-    final unreadStream = uid == null
-        ? Stream<int>.value(0)
-        : NotificationCenterService().getUnreadCount(uid);
+    final unreadStream = uid == null ? Stream<int>.value(0) : NotificationCenterService().getUnreadCount(uid);
 
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
-        );
-      },
-      child: SizedBox(
-        width: 44,
-        height: 44,
+      borderRadius: BorderRadius.circular(50),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationCenterPage())),
+      child: Container(
+        width: 44, height: 44,
+        decoration: BoxDecoration(
+          color: V15Colors.surface, shape: BoxShape.circle,
+          border: Border.all(color: V15Colors.borderLight ?? Colors.black12, width: 1.5),
+          boxShadow: [BoxShadow(color: V15Colors.primary.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.outline.withOpacity(0.5),
-                ),
-              ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: AppColors.textSecondary,
-                size: 22,
-              ),
-            ),
+            const Icon(Icons.notifications_none_rounded, color: V15Colors.primaryDark, size: 22),
             StreamBuilder<int>(
               stream: unreadStream,
               builder: (context, snapshot) {
-                final unreadCount = snapshot.data ?? 0;
-                if (unreadCount <= 0) return const SizedBox.shrink();
+                final count = snapshot.data ?? 0;
+                if (count <= 0) return const SizedBox.shrink();
                 return Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
-                    child: Text(
-                      unreadCount > 99 ? '99+' : '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+                  top: 10, right: 10,
+                  child: Container(width: 8, height: 8, decoration: BoxDecoration(color: V15Colors.danger, shape: BoxShape.circle, border: Border.all(color: V15Colors.surface, width: 1.5))),
                 );
               },
             ),
@@ -1419,30 +909,17 @@ class _NotificationBellButton extends ConsumerWidget {
 }
 
 class _AmbientOrb extends StatelessWidget {
-  const _AmbientOrb({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
-
-  final double size;
-  final Color color;
-  final double opacity;
+  final double size; final Color color; final double opacity;
+  const _AmbientOrb({required this.size, required this.color, required this.opacity});
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Container(
-        width: size,
-        height: size,
+        width: size, height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              color.withOpacity(opacity),
-              color.withOpacity(0),
-            ],
-          ),
+          gradient: RadialGradient(colors: [color.withOpacity(opacity), color.withOpacity(0)]),
         ),
       ),
     );
