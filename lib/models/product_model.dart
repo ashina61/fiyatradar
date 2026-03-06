@@ -53,6 +53,9 @@ class ProductModel {
 
   bool get isTrending => priceEntryCount >= 10 || viewCount >= 100;
 
+  /// Backward-compatible alias used by older UI widgets.
+  double? get lowestPrice => lastPrice;
+
   String get category => categories.isNotEmpty ? categories.first : '';
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
