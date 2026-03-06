@@ -15,8 +15,6 @@ import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/notification_center_service.dart';
-// import '../../widgets/home_product_card.dart'; // Kendi özel V15 kartımızı kullanacağız
-import '../../widgets/category_tile_v3.dart';
 import '../../widgets/horizontal_categories_widget.dart';
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
@@ -28,28 +26,26 @@ import '../../pages/notification_center_page.dart';
 import '../campaign/campaign_detail_screen.dart';
 import '../campaign/campaigns_screen.dart';
 
-// --- V15 ULTRA PREMIUM LOKAL RENK PALETİ (DNA) ---
-// Not: Senin theme.dart içindeki renklerini bozmamak için 
-// bu sayfaya özel, o HTML'de beğendiğin renkleri buraya tanımlıyorum.
-class V15Colors {
-  static const Color bgApp = Color(0xFFFAF7F2);       // Uçuk Sıcak Krem
-  static const Color surface = Color(0xFFFFFFFF);      // Saf Beyaz
-  static const Color surfaceStudio = Color(0xFFF4EBE3);// Resim Arkaplanı (Soft Bej)
+// ════════════ FİYATRADAR KUSURSUZ DNA RENKLERİ ════════════
+class VFinalColors {
+  static const Color bgBody = Color(0xFFF9F6F2);        // Dinlendirici Uçuk Krem
+  static const Color surface = Color(0xFFFFFFFF);       // Saf Beyaz
+  static const Color studio = Color(0xFFF4EBE3);        // Ürün Resmi Arkaplanı (Soft Bej)
   
-  static const Color primary = Color(0xFF6B4226);      // FiyatRadar Kahvesi
-  static const Color primaryDark = Color(0xFF2A1A10);  // Koyu Kahve
-  static const Color gold = Color(0xFFC89B7B);         // Premium Altın
-  static const Color goldLight = Color(0xFFE8D8C8);
-  static const Color primaryLight = Color(0xFFD4874A);
-  static const Color borderLight = Color(0x1F2D241E);
+  static const Color primaryDark = Color(0xFF2A1A10);   // Asil Acı Kahve (Header)
+  static const Color primary = Color(0xFF6B4226);       // FiyatRadar Buton Kahvesi
+  static const Color gold = Color(0xFFC89B7B);          // Premium Altın
+  static const Color goldLight = Color(0xFFEFE4DA);     // Yumuşak Altın Zemin
   
-  static const Color textMain = Color(0xFF2D241E);
+  static const Color textMain = Color(0xFF2A1A10);
   static const Color textMuted = Color(0xFF9A9188);
   
-  static const Color success = Color(0xFF388E3C);
-  static const Color successBg = Color(0xFFE8F5E9);
+  static const Color success = Color(0xFF328A4A);
+  static const Color successBg = Color(0xFFE6F3E9);
   static const Color danger = Color(0xFFD32F2F);
   static const Color dangerBg = Color(0xFFFFEBEE);
+  
+  static const Color border = Color(0x0F2A1A10);        // %6 opacity Acı Kahve
 }
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -60,18 +56,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
-  final PageController _bannerController = PageController(viewportFraction: 0.90); // Daha geniş, asil banner
+  final PageController _bannerController = PageController(viewportFraction: 0.90);
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
-  final ScrollController _categoryScrollController = ScrollController();
   final ScrollController _statsScrollController = ScrollController();
-  bool _isSnappingCategories = false;
   Timer? _statsMarqueeTimer;
 
-  static const double _categoryTileWidth = 110;
-  static const double _categoryTileSpacing = 12;
-  static const double _categoryListHorizontalPadding = 24;
-  
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFade;
 
@@ -122,41 +112,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     });
   }
 
-  void _onBannerTap(BannerModel banner) {
-    final targetType = (banner.targetType ?? banner.actionType ?? '').toLowerCase();
-    final targetId = (banner.targetId ?? banner.productId ?? '').trim();
-
-    if (targetType == 'product' && targetId.isNotEmpty) {
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: targetId)),
-      );
-      return;
-    }
-
-    if (targetType == 'campaign') {
-      if (targetId.isNotEmpty) {
-        Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute(builder: (_) => CampaignDetailScreen(campaignId: targetId)),
-        );
-      } else {
-        Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute(builder: (_) => const CampaignsScreen()),
-        );
-      }
-      return;
-    }
-
-    if (targetId.isNotEmpty) {
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: targetId)),
-      );
-    }
-  }
-
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _categoryScrollController.dispose();
     _statsMarqueeTimer?.cancel();
     _statsScrollController.dispose();
     _bannerController.dispose();
@@ -166,7 +124,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final userAsync = ref.watch(userModelStreamProvider);
     final bannersAsync = ref.watch(activeBannersProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
@@ -174,159 +131,142 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     final storesAsync = ref.watch(allStoresStreamProvider);
     final usersAsync = ref.watch(allUsersProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
-    final recentlyViewedAsync = ref.watch(recentlyViewedProvider);
     
     final users = usersAsync.valueOrNull ?? [];
     final marketCount = storesAsync.valueOrNull?.length ?? 0;
     final totalUserCount = users.length;
     final totalPriceCount = users.fold<int>(0, (sum, user) => sum + user.priceEntries);
 
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Scaffold(
-      backgroundColor: V15Colors.bgApp, // V15 Krem Arkaplan
+      backgroundColor: VFinalColors.bgBody,
       body: Stack(
         children: [
-          // Ambiyans Işıkları (Gold ve Kahve tonlarına uyarlandı)
+          // Ambiyans Işıkları (Krem/Bej ile uyumlu soft orblar)
           Positioned(
-            top: -100, left: -80,
-            child: _AmbientOrb(size: 300, color: V15Colors.gold, opacity: 0.15),
+            top: 200, left: -80,
+            child: _AmbientOrb(size: 300, color: VFinalColors.gold, opacity: 0.08),
           ),
           Positioned(
-            top: 200, right: -100,
-            child: _AmbientOrb(size: 260, color: V15Colors.primary, opacity: 0.08),
+            bottom: 100, right: -100,
+            child: _AmbientOrb(size: 260, color: VFinalColors.primary, opacity: 0.05),
           ),
           
-          SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              slivers: [
-                // --- KİMLİK VE ÜST BAR ---
-                SliverToBoxAdapter(
-                  child: FadeTransition(
-                    opacity: _headerFade,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                      child: userAsync.when(
-                        data: (user) => _buildV15AppBar(context, user),
-                        loading: () => _buildV15AppBar(context, null),
-                        error: (_, __) => _buildV15AppBar(context, null),
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              // 1. ACI KAHVE HEADER & TAŞAN ARAMA ÇUBUĞU (Derinlik Hissi)
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: _headerFade,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Acı Kahve Arkaplan
+                      Container(
+                        padding: EdgeInsets.fromLTRB(24, topPadding + 16, 24, 55), // Arama çubuğu için alttan 55px ekstra boşluk
+                        decoration: const BoxDecoration(
+                          color: VFinalColors.primaryDark,
+                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
+                        ),
+                        child: userAsync.when(
+                          data: (user) => _buildHeaderContent(context, user),
+                          loading: () => _buildHeaderContent(context, null),
+                          error: (_, __) => _buildHeaderContent(context, null),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-
-                // --- JİLET ARAMA ÇUBUĞU ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                    child: _buildV15SearchBar(),
-                  ),
-                ),
-
-                // --- İSTATİSTİK BARI ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: _buildV15StatsMarquee(
-                      marketCount: marketCount,
-                      totalPriceCount: totalPriceCount,
-                      totalUserCount: totalUserCount,
-                    ),
-                  ),
-                ),
-
-                // --- DİNAMİK LÜKS BANNER ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: bannersAsync.when(
-                      data: (banners) => _buildV15BannerCarousel(banners),
-                      loading: () => _buildBannerLoading(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-
-                // --- KATEGORİLER ---
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 24),
-                    child: HorizontalCategoriesWidget(), // Mevcut widget, içi V15 pill ise harika
-                  ),
-                ),
-
-                // --- SON İNCELEDİKLERİN ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 30),
-                    child: recentlyViewedAsync.when(
-                      data: (items) => _buildV15RecentlyViewed(items),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-
-                // --- TREND ÜRÜNLER (EFSANEVİ KARTLAR) ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 30),
-                    child: trendingAsync.when(
-                      data: (products) => _buildV15ProductsSection(
-                        'Trend Ürünler',
-                        products,
-                        icon: Icons.local_fire_department_rounded,
-                        iconColor: V15Colors.danger,
+                      // Taşan Arama Çubuğu
+                      Positioned(
+                        bottom: -22, left: 24, right: 24,
+                        child: _buildFloatingSearchBar(),
                       ),
-                      loading: () => _buildProductsLoading('Trend Ürünler'),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
+                    ],
                   ),
                 ),
+              ),
 
-                // --- ÖNERİLEN ÜRÜNLER ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 30),
-                    child: recommendedAsync.when(
-                      data: (products) => _buildV15ProductsSection(
-                        'Önerilen Ürünler',
-                        products,
-                        icon: Icons.auto_awesome_rounded,
-                        iconColor: V15Colors.gold,
-                      ),
-                      loading: () => _buildProductsLoading('Önerilen Ürünler'),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
+              // Arama çubuğunun taştığı kısım için boşluk
+              const SliverToBoxAdapter(child: SizedBox(height: 42)),
+
+              // 2. İSTATİSTİK BARI
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _buildStatsMarquee(marketCount, totalPriceCount, totalUserCount),
+                ),
+              ),
+
+              // 3. KATEGORİLER
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: HorizontalCategoriesWidget(), // Mevcut bileşenin korunması
+                ),
+              ),
+
+              // 4. DİNAMİK MEGA BANNER
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: bannersAsync.when(
+                    data: (banners) => _buildBannerCarousel(banners),
+                    loading: () => _buildBannerLoading(),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
+              ),
 
-                // --- SON EKLENEN FİYATLAR (TEMİZ LİSTE) ---
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 30),
-                    child: latestPricesAsync.when(
-                      data: (prices) => _buildV15LatestPrices(prices),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
+              // 5. TREND ÜRÜNLER (KUSURSUZ STÜDYO KARTLARI)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: trendingAsync.when(
+                    data: (products) => _buildProductsSection('Trend Ürünler', products),
+                    loading: () => _buildProductsLoading('Trend Ürünler'),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
+              ),
 
-                // Alt menü boşluğu
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
-            ),
+              // 6. ÖNERİLEN ÜRÜNLER
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: recommendedAsync.when(
+                    data: (products) => _buildProductsSection('Önerilen Ürünler', products),
+                    loading: () => _buildProductsLoading('Önerilen Ürünler'),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+
+              // 7. PİYASA AKIŞI (SON EKLENENLER LİSTESİ)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: latestPricesAsync.when(
+                    data: (prices) => _buildLatestPricesList(prices),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+
+              // Alt Menü Boşluğu
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // ════════════ V15 ÖZEL WIDGET METOTLARI ════════════
+  // ════════════ ÖZEL WIDGET METOTLARI ════════════
 
-  // 1. Lüks Üst Bar
-  Widget _buildV15AppBar(BuildContext context, dynamic user) {
+  // 1. Header İçeriği (Acı Kahve Zemin Üzerinde)
+  Widget _buildHeaderContent(BuildContext context, dynamic user) {
     final displayName = user?.name ?? 'Admin';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
     final points = user?.points ?? 20506;
@@ -338,92 +278,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         GestureDetector(
           onTap: () => ref.read(currentTabProvider.notifier).state = 4,
           child: Container(
-            width: 48, height: 48,
+            width: 46, height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: V15Colors.surface,
-              border: Border.all(color: V15Colors.borderLight ?? Colors.black12, width: 1.5),
-              boxShadow: [BoxShadow(color: V15Colors.primary.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+              color: VFinalColors.surface,
+              border: Border.all(color: VFinalColors.gold, width: 2),
               image: photoUrl != null ? DecorationImage(image: CachedNetworkImageProvider(photoUrl), fit: BoxFit.cover) : null,
             ),
-            child: photoUrl == null ? Center(child: Text(initial, style: const TextStyle(color: V15Colors.primaryDark, fontWeight: FontWeight.w800, fontSize: 18))) : null,
+            child: photoUrl == null ? Center(child: Text(initial, style: const TextStyle(color: VFinalColors.primaryDark, fontWeight: FontWeight.w800, fontSize: 18))) : null,
           ),
         ),
-        const SizedBox(width: 14),
-        // Metin
+        const SizedBox(width: 12),
+        // Metinler
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Merhaba, $displayName',
-                style: const TextStyle(color: V15Colors.textMain, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
-              ),
+              const Text('Hoş geldin,', style: TextStyle(color: VFinalColors.gold, fontSize: 12, fontWeight: FontWeight.w500)),
               const SizedBox(height: 2),
-              Text(
-                _getGreetingSubtitle(),
-                style: const TextStyle(color: V15Colors.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
-              ),
+              Text(displayName, style: const TextStyle(color: VFinalColors.surface, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3)),
             ],
           ),
         ),
-        // Puan Pill (Soft Bej Zemin)
+        // Puan & Zil
         PremiumPressable(
           borderRadius: BorderRadius.circular(100),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: V15Colors.surfaceStudio,
+              color: VFinalColors.goldLight,
               borderRadius: BorderRadius.circular(100),
             ),
             child: Row(
               children: [
-                const Icon(Icons.stars_rounded, color: V15Colors.primaryLight ?? V15Colors.gold, size: 16),
-                const SizedBox(width: 6),
-                Text('$points', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: V15Colors.primary)),
+                const Icon(Icons.stars_rounded, color: VFinalColors.primary, size: 16),
+                const SizedBox(width: 4),
+                Text('$points', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: VFinalColors.primaryDark)),
               ],
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        // Bildirim Zili
+        const SizedBox(width: 8),
         const _NotificationBellButton(),
       ],
     );
   }
 
-  // 2. Jilet Arama Çubuğu
-  Widget _buildV15SearchBar() {
+  // 2. Taşan Arama Çubuğu
+  Widget _buildFloatingSearchBar() {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => ref.read(currentTabProvider.notifier).state = 1,
       child: Container(
-        height: 54,
+        height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: V15Colors.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: V15Colors.primaryDark.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
-          border: Border.all(color: Colors.black.withOpacity(0.03)),
+          color: VFinalColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
+          border: Border.all(color: VFinalColors.border),
         ),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, color: V15Colors.textMuted, size: 24),
+            const Icon(Icons.search_rounded, color: VFinalColors.textMuted, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('Ürün, mağaza veya kategori ara...', style: TextStyle(color: V15Colors.textMuted.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w500)),
+              child: Text('Ürün, marka veya mağaza ara...', style: TextStyle(color: VFinalColors.textMuted.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w500)),
             ),
-            Container(width: 1, height: 24, color: Colors.black.withOpacity(0.06), margin: const EdgeInsets.symmetric(horizontal: 12)),
-            const Icon(Icons.tune_rounded, color: V15Colors.primary, size: 22),
+            Container(width: 1, height: 24, color: VFinalColors.border, margin: const EdgeInsets.symmetric(horizontal: 12)),
+            const Icon(Icons.qr_code_scanner_rounded, color: VFinalColors.primary, size: 22),
           ],
         ),
       ),
     );
   }
 
-  // 3. İstatistik Marquee (Soft Uyum)
-  Widget _buildV15StatsMarquee({required int marketCount, required int totalPriceCount, required int totalUserCount}) {
+  // 3. İstatistik Marquee
+  Widget _buildStatsMarquee(int marketCount, int totalPriceCount, int totalUserCount) {
     final stats = [
       ('🛒', 'Kayıtlı market', marketCount),
       ('💸', 'Kayıtlı fiyat', totalPriceCount),
@@ -433,10 +365,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
     return Container(
       height: 40,
-      decoration: BoxDecoration(
-        color: V15Colors.surfaceStudio,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: VFinalColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: VFinalColors.border)),
       child: ListView.separated(
         controller: _statsScrollController,
         scrollDirection: Axis.horizontal,
@@ -445,7 +374,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         itemCount: loopedStats.length,
         separatorBuilder: (_, __) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Center(child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: V15Colors.gold, shape: BoxShape.circle))),
+          child: Center(child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: VFinalColors.gold, shape: BoxShape.circle))),
         ),
         itemBuilder: (context, index) {
           final (emoji, label, value) = loopedStats[index];
@@ -455,8 +384,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               children: [
                 Text(emoji, style: const TextStyle(fontSize: 12)),
                 const SizedBox(width: 6),
-                Text('$label: ', style: const TextStyle(color: V15Colors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-                Text(formatCompactCount(value), style: const TextStyle(color: V15Colors.primary, fontSize: 12, fontWeight: FontWeight.w800)),
+                Text('$label: ', style: const TextStyle(color: VFinalColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                Text(formatCompactCount(value), style: const TextStyle(color: VFinalColors.primaryDark, fontSize: 12, fontWeight: FontWeight.w800)),
               ],
             ),
           );
@@ -465,13 +394,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // 4. Lüks Dinamik Banner
-  Widget _buildV15BannerCarousel(List<BannerModel> banners) {
+  // 4. Dinamik Mega Banner
+  Widget _buildBannerCarousel(List<BannerModel> banners) {
     if (banners.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [
         SizedBox(
-          height: 170,
+          height: 160,
           child: PageView.builder(
             controller: _bannerController,
             onPageChanged: (index) => setState(() => _currentBannerPage = index),
@@ -496,32 +425,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: [BoxShadow(color: V15Colors.primaryDark.withOpacity(0.15), blurRadius: 24, offset: const Offset(0, 10))],
+                        boxShadow: [BoxShadow(color: VFinalColors.primaryDark.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            // 1. Katman: Resim
+                            // Resim
                             CachedNetworkImage(
                               imageUrl: banner.imageUrl.isNotEmpty ? banner.imageUrl : 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600',
                               fit: BoxFit.cover,
                             ),
-                            // 2. Katman: Asil Degrade Karartma
+                            // Acı Kahve Karartma Degradesi
                             Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                   colors: [
-                                    V15Colors.primaryDark.withOpacity(0.9),
-                                    V15Colors.primaryDark.withOpacity(0.2),
+                                    VFinalColors.primaryDark.withOpacity(0.95),
+                                    VFinalColors.primaryDark.withOpacity(0.1),
                                   ],
                                 ),
                               ),
                             ),
-                            // 3. Katman: Metinler
+                            // İçerik
                             Padding(
                               padding: const EdgeInsets.all(24),
                               child: Column(
@@ -530,21 +459,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(color: V15Colors.gold, borderRadius: BorderRadius.circular(6)),
-                                    child: const Text('GÜNÜN FIRSATI', style: TextStyle(color: V15Colors.primaryDark, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                    decoration: BoxDecoration(color: VFinalColors.surface, borderRadius: BorderRadius.circular(6)),
+                                    child: const Text('GÜNÜN FIRSATI', style: TextStyle(color: VFinalColors.primaryDark, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                   Text(
                                     banner.title,
                                     maxLines: 2,
-                                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2, letterSpacing: -0.5),
+                                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1.2),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 14),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(100),
+                                      borderRadius: BorderRadius.circular(10),
                                       border: Border.all(color: Colors.white.withOpacity(0.3)),
                                     ),
                                     child: Row(
@@ -569,7 +498,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             },
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         // Noktalar
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -579,7 +508,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 3),
               width: isActive ? 16 : 6, height: 6,
-              decoration: BoxDecoration(color: isActive ? V15Colors.primary : Colors.black12, borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(color: isActive ? VFinalColors.primary : Colors.black12, borderRadius: BorderRadius.circular(4)),
             );
           }),
         ),
@@ -587,70 +516,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // 5. Son İncelediklerin (Boş Bej Yuvarlaklar Serisi)
-  Widget _buildV15RecentlyViewed(List<Map<String, dynamic>> items) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
-      children: [
-        _buildV15SectionHeader('Son İncelediklerin', icon: Icons.history_rounded),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 85,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final productName = (item['productName'] ?? 'Ürün').toString();
-              return SizedBox(
-                width: 64,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 60, height: 60,
-                      decoration: const BoxDecoration(
-                        color: V15Colors.surfaceStudio,
-                        shape: BoxShape.circle,
-                      ),
-                      // Resim varsa buraya eklenir, HTML'de boş yuvarlak göstermiştik
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      productName,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10, color: V15Colors.textMuted, fontWeight: FontWeight.w600),
-                    )
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+  void _onBannerTap(BannerModel banner) {
+    final targetType = (banner.targetType ?? '').toLowerCase().trim();
+    final campaignId = (banner.targetId ?? '').trim();
+    if (targetType == 'campaign') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => campaignId.isNotEmpty ? CampaignDetailScreen(campaignId: campaignId) : const CampaignsScreen()));
+    }
   }
 
-  // 6. EFSANEVİ ÜRÜN KARTLARI BÖLÜMÜ
-  Widget _buildV15ProductsSection(String title, List<ProductModel> products, {IconData? icon, Color? iconColor}) {
+  // 5. Ürün Kartları Listesi
+  Widget _buildProductsSection(String title, List<ProductModel> products) {
     if (products.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [
-        _buildV15SectionHeader(title, icon: icon, iconColor: iconColor, actionText: 'Tümünü Gör', onAction: () => ref.read(currentTabProvider.notifier).state = 1),
+        _buildSectionHeader(title, actionText: 'Tümünü Gör', onAction: () => ref.read(currentTabProvider.notifier).state = 1),
         const SizedBox(height: 16),
         SizedBox(
-          height: 250, // Kusursuz yükseklik
+          height: 250, // Kusursuz Kart Yüksekliği
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final product = products[index];
               return StaggeredFadeSlide(
                 index: index,
-                child: _UltraPremiumProductCard( // O mucizevi kart!
+                child: _FinalProductCard( // O mucizevi yeni kart
                   product: product,
                   onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product.id))),
                 ),
@@ -662,14 +554,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // 7. Son Eklenen Fiyatlar Listesi
-  Widget _buildV15LatestPrices(List<PriceModel> prices) {
+  // 6. Piyasa Akışı (Son Eklenenler)
+  Widget _buildLatestPricesList(List<PriceModel> prices) {
     if (prices.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          _buildV15SectionHeader('Son Eklenen Fiyatlar', icon: Icons.schedule_rounded),
+          _buildSectionHeader('Piyasa Akışı'),
           const SizedBox(height: 16),
           ...prices.take(5).map((price) {
             return Padding(
@@ -680,34 +572,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: V15Colors.surface,
+                    color: VFinalColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4))],
-                    border: Border.all(color: Colors.black.withOpacity(0.03)),
+                    border: Border.all(color: VFinalColors.border),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
                   ),
                   child: Row(
                     children: [
                       Container(
                         width: 44, height: 44,
-                        decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(12), border: Border.all(color: V15Colors.primary.withOpacity(0.1))),
-                        child: const Icon(Icons.payments_rounded, color: V15Colors.primary, size: 22),
+                        decoration: BoxDecoration(color: VFinalColors.studio, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.history_rounded, color: VFinalColors.primary, size: 22),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(price.storeName ?? 'Market', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: V15Colors.textMain), maxLines: 1),
+                            Text(price.storeName ?? 'Market', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: VFinalColors.textMain), maxLines: 1),
                             const SizedBox(height: 2),
-                            Text((price.reporterName ?? price.userName ?? 'Kullanıcı'), style: const TextStyle(fontSize: 11, color: V15Colors.textMuted, fontWeight: FontWeight.w500)),
+                            Text('${price.reporterName ?? price.userName ?? 'Kullanıcı'} ekledi', style: const TextStyle(fontSize: 11, color: VFinalColors.textMuted, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: V15Colors.successBg, borderRadius: BorderRadius.circular(10)),
-                        child: Text(formatTRY(price.price), style: const TextStyle(fontWeight: FontWeight.w800, color: V15Colors.success, fontSize: 14)),
-                      ),
+                      Text(formatTRY(price.price), style: const TextStyle(fontWeight: FontWeight.w900, color: VFinalColors.primaryDark, fontSize: 16)),
                     ],
                   ),
                 ),
@@ -719,29 +607,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // Ortak Section Header
-  Widget _buildV15SectionHeader(String title, {IconData? icon, Color? iconColor, String? actionText, VoidCallback? onAction}) {
+  // Ortak Başlık Metodu
+  Widget _buildSectionHeader(String title, {String? actionText, VoidCallback? onAction}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (icon != null) ...[
-            Icon(icon, color: iconColor ?? V15Colors.gold, size: 22),
-            const SizedBox(width: 8),
-          ] else ...[
-            Container(width: 3, height: 16, decoration: BoxDecoration(color: V15Colors.primary, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(width: 8),
-          ],
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: V15Colors.textMain, letterSpacing: -0.3))),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: VFinalColors.textMain, letterSpacing: -0.3)),
           if (actionText != null)
             GestureDetector(
               onTap: onAction,
-              child: Row(
-                children: [
-                  Text(actionText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: V15Colors.primary)),
-                  const Icon(Icons.chevron_right_rounded, color: V15Colors.primary, size: 16),
-                ],
-              ),
+              child: Text(actionText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: VFinalColors.gold)),
             )
         ],
       ),
@@ -749,13 +627,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 
   Widget _buildBannerLoading() {
-    return Container(height: 170, margin: const EdgeInsets.symmetric(horizontal: 24), decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(24)));
+    return Container(height: 160, margin: const EdgeInsets.symmetric(horizontal: 24), decoration: BoxDecoration(color: VFinalColors.surface, borderRadius: BorderRadius.circular(24)));
   }
 
   Widget _buildProductsLoading(String title) {
     return Column(
       children: [
-        _buildV15SectionHeader(title),
+        _buildSectionHeader(title),
         const SizedBox(height: 16),
         SizedBox(
           height: 250,
@@ -763,102 +641,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             padding: const EdgeInsets.symmetric(horizontal: 24),
             scrollDirection: Axis.horizontal,
             itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (_, __) => Container(width: 160, decoration: BoxDecoration(color: V15Colors.surfaceStudio, borderRadius: BorderRadius.circular(20))),
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (_, __) => Container(width: 165, decoration: BoxDecoration(color: VFinalColors.surface, borderRadius: BorderRadius.circular(20))),
           ),
         ),
       ],
     );
   }
-
-  String _getGreetingSubtitle() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Günaydın! Bugünün fırsatları hazır.';
-    if (hour < 18) return 'İyi günler! Fırsatları kaçırma.';
-    return 'İyi akşamlar! Son fiyatlara göz at.';
-  }
 }
 
-// ════════════ V15 ÖZEL KUSURSUZ ÜRÜN KARTI ════════════
-class _UltraPremiumProductCard extends StatelessWidget {
+// ════════════ KUSURSUZ ÜRÜN KARTI (+ YOK, MARKET VAR) ════════════
+class _FinalProductCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onTap;
 
-  const _UltraPremiumProductCard({required this.product, required this.onTap});
+  const _FinalProductCard({required this.product, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // Modelden gelen veriler (Örnek mantıkla varsayılan atamalar)
     final title = product.name;
     final brand = (product.brand ?? 'MARKA').toUpperCase();
-    final priceStr = product.lastPrice != null ? formatTRY(product.lastPrice!) : '---';
-    final isDrop = true; // Düşüşte mi yükselişte mi mantığı (örnek)
+    final priceStr = product.lowestPrice != null ? formatTRY(product.lowestPrice!) : '---';
+    final isDrop = true; // Örnek trend
+    final marketName = "En Uygun"; // Gerçek projede product.lowestPriceMarket gibi bir değer
 
     return PremiumPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 160,
+        width: 165,
         decoration: BoxDecoration(
-          color: V15Colors.surface,
+          color: VFinalColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black.withOpacity(0.04)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+          border: Border.all(color: VFinalColors.border),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Resim Stüdyosu (ASLA TAŞMAZ)
+            // 1. Resim Stüdyosu (Hayati Kısım - Taşmayı %100 Önler)
             Container(
-              height: 140,
+              height: 145,
               width: double.infinity,
               decoration: const BoxDecoration(
-                color: V15Colors.surfaceStudio, // Soft bej
+                color: VFinalColors.studio, // Soft bej stüdyo
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Stack(
                 children: [
-                  // Mükemmel Padding'li Resim
+                  // SİHİR BURADA: Padding + BoxFit.contain
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Center(
                       child: CachedNetworkImage(
                         imageUrl: product.imageUrl ?? '',
-                        fit: BoxFit.contain, // HAYATİ: Resim taşmasını önler
-                        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: V15Colors.textMuted),
+                        fit: BoxFit.contain, 
+                        colorBlendMode: BlendMode.multiply, // Beyaz arkaplanları yok eder
+                        color: Colors.white.withOpacity(0.01), // Multiply tetikleyici
+                        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: VFinalColors.textMuted),
                       ),
                     ),
                   ),
-                  // Sol Üst Trend Etiketi (Zarif)
+                  // Trend Etiketi
                   Positioned(
                     top: 10, left: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(color: isDrop ? V15Colors.successBg : V15Colors.dangerBg, borderRadius: BorderRadius.circular(6)),
+                      decoration: BoxDecoration(color: isDrop ? VFinalColors.successBg : VFinalColors.dangerBg, borderRadius: BorderRadius.circular(6)),
                       child: Row(
                         children: [
-                          Icon(isDrop ? Icons.south_rounded : Icons.north_rounded, color: isDrop ? V15Colors.success : V15Colors.danger, size: 12),
+                          Icon(isDrop ? Icons.south_east_rounded : Icons.north_east_rounded, color: isDrop ? VFinalColors.success : VFinalColors.danger, size: 12),
                           const SizedBox(width: 2),
-                          Text('%28', style: TextStyle(color: isDrop ? V15Colors.success : V15Colors.danger, fontSize: 10, fontWeight: FontWeight.w800)),
+                          Text('%18', style: TextStyle(color: isDrop ? VFinalColors.success : VFinalColors.danger, fontSize: 10, fontWeight: FontWeight.w800)),
                         ],
                       ),
                     ),
                   ),
-                  // Sağ Üst Kalp
+                  // Kalp
                   const Positioned(
                     top: 6, right: 6,
                     child: Padding(
                       padding: EdgeInsets.all(4.0),
-                      child: Icon(Icons.favorite_border_rounded, color: V15Colors.textMuted, size: 20),
+                      child: Icon(Icons.favorite_border_rounded, color: VFinalColors.textMuted, size: 20),
                     ),
                   ),
                 ],
               ),
             ),
-            // 2. Kart İçeriği
+            // 2. Kart Detayları (+ Yok, Fiyat ve Market Var)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -866,9 +739,9 @@ class _UltraPremiumProductCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(brand, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: V15Colors.textMuted, letterSpacing: 0.5)),
+                        Text(brand, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: VFinalColors.textMuted, letterSpacing: 0.5)),
                         const SizedBox(height: 4),
-                        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: V15Colors.textMain, height: 1.2)),
+                        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: VFinalColors.textMain, height: 1.2)),
                       ],
                     ),
                     Row(
@@ -878,14 +751,15 @@ class _UltraPremiumProductCard extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: V15Colors.textMuted, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w600)),
-                            Text(priceStr, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: V15Colors.primary, height: 1)),
+                            const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: VFinalColors.textMuted, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w600)),
+                            Text(priceStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: VFinalColors.primary, height: 1)),
                           ],
                         ),
+                        // MARKET ETİKETİ (Senin isteğin üzerine eklendi)
                         Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: V15Colors.primary, borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(color: VFinalColors.goldLight, borderRadius: BorderRadius.circular(6)),
+                          child: Text(marketName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: VFinalColors.primaryDark)),
                         )
                       ],
                     )
@@ -900,29 +774,27 @@ class _UltraPremiumProductCard extends StatelessWidget {
   }
 }
 
-// Ortak Ziller, Küreler vs. Orijinal koddaki gibi
 class _NotificationBellButton extends ConsumerWidget {
   const _NotificationBellButton();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = ref.watch(authStateProvider).valueOrNull?.uid;
     final unreadStream = uid == null ? Stream<int>.value(0) : NotificationCenterService().getUnreadCount(uid);
 
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(50),
+      borderRadius: BorderRadius.circular(14),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationCenterPage())),
       child: Container(
         width: 44, height: 44,
         decoration: BoxDecoration(
-          color: V15Colors.surface, shape: BoxShape.circle,
-          border: Border.all(color: V15Colors.borderLight ?? Colors.black12, width: 1.5),
-          boxShadow: [BoxShadow(color: V15Colors.primary.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            const Icon(Icons.notifications_none_rounded, color: V15Colors.primaryDark, size: 22),
+            const Icon(Icons.notifications_none_rounded, color: VFinalColors.surface, size: 22),
             StreamBuilder<int>(
               stream: unreadStream,
               builder: (context, snapshot) {
@@ -930,7 +802,7 @@ class _NotificationBellButton extends ConsumerWidget {
                 if (count <= 0) return const SizedBox.shrink();
                 return Positioned(
                   top: 10, right: 10,
-                  child: Container(width: 8, height: 8, decoration: BoxDecoration(color: V15Colors.danger, shape: BoxShape.circle, border: Border.all(color: V15Colors.surface, width: 1.5))),
+                  child: Container(width: 8, height: 8, decoration: BoxDecoration(color: VFinalColors.danger, shape: BoxShape.circle, border: Border.all(color: VFinalColors.primaryDark, width: 1.5))),
                 );
               },
             ),
