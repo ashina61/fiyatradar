@@ -619,7 +619,7 @@ class _DynamicProductCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Eğer oldPrice gibi bir değişkenin yoksa burayı kaldırabilirsin. Şimdilik fiyat yapısına uygun boşluk bıraktım.
-                    Text(formatTRY(product.price ?? 0), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: FRColors.textMain)),
+                    Text(formatTRY(product.lastPrice ?? 0), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: FRColors.textMain)),
                   ],
                 ),
                 Container(
