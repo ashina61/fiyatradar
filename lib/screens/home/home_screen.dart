@@ -526,7 +526,7 @@ class _OriginalProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = product.name;
     final brand = (product.brand ?? 'MARKA').toUpperCase();
-    final priceStr = product.price != null ? formatTRY(product.price!) : '---';
+    final priceStr = product.lastPrice != null ? formatTRY(product.lastPrice!) : '---';
     final marketName = "En Uygun"; // Veya Trendyol M.
 
     return Container(
