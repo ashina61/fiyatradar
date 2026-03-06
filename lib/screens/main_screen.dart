@@ -22,7 +22,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   bool _isNavigating = false;
 
   late final List<Widget> _screens = const [
-    HomeScreen(key: PageStorageKey('home-tab')),
+    HomePage(key: PageStorageKey('home-tab')),
     SearchScreen(key: PageStorageKey('search-tab')),
     SizedBox.shrink(), // Ortadaki elmas butonun indeks boşluğu
     HomeShellScreen(key: PageStorageKey('basket-tab')),
