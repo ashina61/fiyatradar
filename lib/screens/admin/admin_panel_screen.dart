@@ -970,6 +970,10 @@ class _ProductManagementTab extends ConsumerWidget {
     final descriptionController = TextEditingController(text: product.description ?? '');
     final Set<String> selectedCategories = {...product.categories};
     bool isSaving = false;
+    bool isEditorPick = product.isEditorPick;
+    final editorPickRankController = TextEditingController(
+      text: product.editorPickRank?.toString() ?? '',
+    );
     File? selectedImageFile;
     String? currentImageUrl = product.effectiveImage;
     String? currentImagePath = product.imagePath;
@@ -991,6 +995,28 @@ class _ProductManagementTab extends ConsumerWidget {
                 TextField(controller: barcodeController, decoration: const InputDecoration(labelText: 'Barkod (Opsiyonel)')),
                 const SizedBox(height: AppSpacing.md),
                 TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Marka')),
+                const SizedBox(height: AppSpacing.md),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Editörün seçimi olarak öne çıkar'),
+                  subtitle: const Text(
+                    'Home ekranındaki Editörün Seçimi alanında gösterilir.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: isEditorPick,
+                  onChanged: (value) => setDialogState(() => isEditorPick = value),
+                ),
+                if (isEditorPick) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: editorPickRankController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Editör sırası (opsiyonel)',
+                      hintText: '1 en yüksek öncelik',
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -1091,6 +1117,10 @@ class _ProductManagementTab extends ConsumerWidget {
                           'imagePath': nextImagePath,
                           'imageSource': selectedImageFile != null ? 'admin_upload' : product.imageSource,
                           'imageApproved': (nextImageUrl ?? '').isNotEmpty,
+                          'isEditorPick': isEditorPick,
+                          'editorPickRank': isEditorPick
+                              ? int.tryParse(editorPickRankController.text.trim())
+                              : null,
                           'updatedAt': DateTime.now(),
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -1248,6 +1278,15 @@ class _ProductManagementTab extends ConsumerWidget {
                           _InfoChip(icon: Icons.category_outlined, label: product.categories.join(', ')),
                           const SizedBox(width: AppSpacing.xs),
                           if (product.lastStore != null) _InfoChip(icon: Icons.store_outlined, label: product.lastStore!),
+                          if (product.isEditorPick) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            _InfoChip(
+                              icon: Icons.workspace_premium_rounded,
+                              label: product.editorPickRank != null
+                                  ? 'Editör #${product.editorPickRank}'
+                                  : 'Editör Seçimi',
+                            ),
+                          ],
                         ]),
                         if ((product.effectiveImage ?? '').isEmpty)
                           const Padding(

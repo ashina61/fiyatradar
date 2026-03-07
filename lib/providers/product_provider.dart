@@ -81,6 +81,11 @@ final recommendedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   return ref.watch(catalogServiceProvider).getRecommendedProducts();
 });
 
+final editorPickProductsProvider = StreamProvider<List<ProductModel>>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
+  return ref.watch(catalogServiceProvider).getEditorPickProducts(limit: 3);
+});
+
 final allProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(catalogServiceProvider).getAllProducts();
