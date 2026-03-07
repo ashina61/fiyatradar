@@ -11,8 +11,6 @@ import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
-// Kategori provider'ının adını kendi projene göre güncelle (Örn: categoriesProvider veya allCategoriesProvider)
-import '../../providers/category_provider.dart'; 
 import '../../services/notification_center_service.dart';
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
@@ -396,7 +394,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 
   Widget _buildAnalysisCard(ProductModel product) {
-    final price = product.price ?? 0;
+    final price = product.lastPrice ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -448,7 +446,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildChartRow(product.storeName ?? 'Market', price, 100, isBest: true),
+                  _buildChartRow(product.lastStore ?? 'Market', price, 100, isBest: true),
                   const SizedBox(height: 8),
                   _buildChartRow('Ortalama', price * 1.15, 75, isBest: false),
                 ],
@@ -559,14 +557,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(formatTRY((product.price ?? 0) * 1.15), style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4), decoration: TextDecoration.lineThrough)),
-                                Text(formatTRY(product.price ?? 0), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                Text(formatTRY((product.lastPrice ?? 0) * 1.15), style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4), decoration: TextDecoration.lineThrough)),
+                                Text(formatTRY(product.lastPrice ?? 0), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                               ],
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                               decoration: BoxDecoration(color: FRColors.gold, borderRadius: BorderRadius.circular(6)),
-                              child: Text(product.storeName ?? 'Market', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: FRColors.darkMain)),
+                              child: Text(product.lastStore ?? 'Market', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: FRColors.darkMain)),
                             )
                           ],
                         )
@@ -612,7 +610,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: price.productId))),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(border: isLast ? null : Border.all(color: Colors.transparent), borderBottom: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFEBE5DF)))),
+                    decoration: BoxDecoration(
+                      border: isLast
+                          ? null
+                          : const Border(
+                              bottom: BorderSide(color: Color(0xFFEBE5DF)),
+                            ),
+                    ),
                     child: Row(
                       children: [
                         Container(
