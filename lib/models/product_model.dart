@@ -22,6 +22,8 @@ class ProductModel {
   final int priceEntryCount;
   final double? lastPrice;
   final String? lastStore;
+  final bool isEditorPick;
+  final int? editorPickRank;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -47,6 +49,8 @@ class ProductModel {
     this.priceEntryCount = 0,
     this.lastPrice,
     this.lastStore,
+    this.isEditorPick = false,
+    this.editorPickRank,
     required this.createdAt,
     this.updatedAt,
   });
@@ -85,6 +89,10 @@ class ProductModel {
       priceEntryCount: data['priceEntryCount'] ?? 0,
       lastPrice: (data['lastPrice'] as num?)?.toDouble(),
       lastStore: data['lastStore'],
+      isEditorPick: data['isEditorPick'] == true,
+      editorPickRank: data['editorPickRank'] is num
+          ? (data['editorPickRank'] as num).toInt()
+          : int.tryParse((data['editorPickRank'] ?? '').toString()),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -113,6 +121,8 @@ class ProductModel {
       'priceEntryCount': priceEntryCount,
       'lastPrice': lastPrice,
       'lastStore': lastStore,
+      'isEditorPick': isEditorPick,
+      'editorPickRank': editorPickRank,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -140,6 +150,8 @@ class ProductModel {
     int? priceEntryCount,
     double? lastPrice,
     String? lastStore,
+    bool? isEditorPick,
+    int? editorPickRank,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -165,6 +177,8 @@ class ProductModel {
       priceEntryCount: priceEntryCount ?? this.priceEntryCount,
       lastPrice: lastPrice ?? this.lastPrice,
       lastStore: lastStore ?? this.lastStore,
+      isEditorPick: isEditorPick ?? this.isEditorPick,
+      editorPickRank: editorPickRank ?? this.editorPickRank,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

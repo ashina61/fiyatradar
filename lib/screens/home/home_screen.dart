@@ -54,7 +54,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
-  String? _selectedCategoryTitle;
 
   @override
   void initState() {
@@ -85,36 +84,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final bannersAsync = ref.watch(activeBannersProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
-    final recommendedAsync = ref.watch(recommendedProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final usersAsync = ref.watch(allUsersProvider);
     final unreadCount = ref.watch(unreadCountProvider);
 
-    final selectedCategory = _selectedCategoryTitle;
-    final trendingProducts = _filterProductsByCategory(
-      trendingAsync.valueOrNull ?? const [],
-      selectedCategory,
-    );
-    final recommendedProducts = _filterProductsByCategory(
-      recommendedAsync.valueOrNull ?? const [],
-      selectedCategory,
-    );
+    final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
+    final latestPrices = latestPricesAsync.valueOrNull ?? const <PriceModel>[];
+    final editorPickAsync = ref.watch(editorPickProductsProvider);
+    final editorPickProduct = editorPickAsync.valueOrNull?.isNotEmpty == true
+        ? editorPickAsync.valueOrNull!.first
+        : null;
 
     return Scaffold(
       backgroundColor: FRColors.bgApp,
       body: Stack(
         children: [
           Positioned(
-            top: 180,
-            right: -70,
+            top: 220,
+            right: -90,
             child: _ambientBlob(
-              size: 220,
+              size: 200,
               color: const Color(0x33C29B78),
             ),
           ),
           Positioned(
-            bottom: 120,
-            left: -60,
+            bottom: 160,
+            left: -72,
             child: _ambientBlob(
               size: 180,
               color: const Color(0x1A211510),
@@ -131,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: _buildCategories(categoriesAsync.valueOrNull ?? const []),
+                child: _buildCategories(context, categoriesAsync.valueOrNull ?? const []),
               ),
               SliverToBoxAdapter(
                 child: _buildBannerSection(
@@ -146,6 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildTrendProducts(
                   context,
                   trendingProducts,
+                  latestPrices,
                   userAsync.valueOrNull?.savedProducts.toSet() ??
                       const <String>{},
                 ),
@@ -153,13 +149,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: _buildEditorChoice(
                   context,
-                  recommendedProducts.isNotEmpty
-                      ? recommendedProducts.first
-                      : null,
+                  editorPickProduct,
                 ),
               ),
               SliverToBoxAdapter(
-                child: _buildLatestPrices(latestPricesAsync.valueOrNull ?? const []),
+                child: _buildLatestPrices(latestPrices),
               ),
               SliverToBoxAdapter(
                 child: _buildLeaders(usersAsync.valueOrNull ?? const []),
@@ -244,8 +238,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'RADAR AKTİF',
+                      Text(
+                        _greetingByHour(),
                         style: TextStyle(
                           fontSize: 11,
                           letterSpacing: 1,
@@ -404,35 +398,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCategories(List<CategoryModel> categories) {
-    return SizedBox(
-      height: 58,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _categoryPill(
-              title: 'Tümü',
-              icon: Icons.grid_view_rounded,
-              active: _selectedCategoryTitle == null,
-              onTap: () => setState(() => _selectedCategoryTitle = null),
-            );
-          }
-          final item = categories[index - 1];
-          final active = _selectedCategoryTitle == item.title;
-          return _categoryPill(
-            title: item.title,
-            icon: _categoryIcon(item.title),
-            active: active,
-            onTap: () => setState(() {
-              _selectedCategoryTitle = active ? null : item.title;
-            }),
-          );
-        },
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemCount: categories.length + 1,
+  Widget _buildCategories(BuildContext context, List<CategoryModel> categories) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _categoryPill(
+            title: 'Tümü',
+            icon: Icons.grid_view_rounded,
+            onTap: () {
+              ref.read(selectedCategoryFilterProvider.notifier).state = 'Tumu';
+              ref.read(selectedCategoryIdProvider.notifier).state = null;
+              ref.read(currentTabProvider.notifier).state = 1;
+            },
+          ),
+          ...categories.map(
+            (item) => _categoryPill(
+              title: item.title,
+              icon: _categoryIcon(item.title),
+              onTap: () {
+                ref.read(selectedCategoryFilterProvider.notifier).state = item.title;
+                ref.read(selectedCategoryIdProvider.notifier).state = item.id;
+                ref.read(currentTabProvider.notifier).state = 1;
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -441,7 +434,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String title,
     required IconData icon,
     required VoidCallback onTap,
-    bool active = false,
   }) {
     return PremiumPressable(
       borderRadius: BorderRadius.circular(100),
@@ -451,29 +443,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? FRColors.darkMain : FRColors.surface,
+          color: FRColors.surface,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: active ? FRColors.darkMain : FRColors.border,
+            color: FRColors.border,
           ),
           boxShadow: [
             BoxShadow(
-              color: active ? const Color(0x33211510) : FRColors.cardShadow,
-              blurRadius: active ? 20 : 15,
+              color: FRColors.cardShadow,
+              blurRadius: 15,
               offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: active ? FRColors.gold : FRColors.textMuted),
+            Icon(icon, size: 18, color: FRColors.textMuted),
             const SizedBox(width: 6),
             Text(
               title,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: active ? FRColors.gold : FRColors.textMain,
+                color: FRColors.textMain,
               ),
             ),
           ],
@@ -636,23 +628,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final advantage = ((max - min) / max * 100).round();
       widgets.add(
         _insightCard(
-          icon: Icons.savings,
+          icon: Icons.savings_rounded,
           iconBg: FRColors.successBg,
           iconColor: FRColors.success,
           label: 'SEPET AVANTAJI',
           value: '%$advantage',
-          meta: 'Seçili trend ürünlerde min/maks fiyat farkından hesaplandı.',
+          meta: 'Trend ürünlerde min/maks fiyat farkından hesaplandı.',
         ),
       );
 
       widgets.add(
         _insightCard(
-          icon: Icons.trending_down,
+          icon: Icons.stacked_line_chart_rounded,
           iconBg: const Color(0x26C29B78),
           iconColor: FRColors.gold,
           label: 'FİYAT ARALIĞI',
           value: formatTRY(max - min, withDecimals: false),
-          meta: 'Trend listesindeki görülen en yüksek fiyat farkı.',
+          meta: 'Trend listesinde görülen fiyat aralığı.',
         ),
       );
     }
@@ -660,19 +652,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 36, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.18,
+            childAspectRatio: 1.05,
             children: widgets,
           ),
         ],
@@ -689,21 +681,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String meta,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: _cardDecoration(radius: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration:
-                BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -711,24 +704,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               letterSpacing: 0.5,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: FRColors.darkMain,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            meta,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
-              color: FRColors.textMuted,
-              height: 1.3,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: FRColors.darkMain,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Text(
+              meta,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                color: FRColors.textMuted,
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -739,12 +737,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildTrendProducts(
     BuildContext context,
     List<ProductModel> products,
+    List<PriceModel> latestPrices,
     Set<String> savedProducts,
   ) {
     if (products.isEmpty) return const SizedBox.shrink();
+    final trendByProduct = _resolveTrendByProduct(latestPrices);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 32),
+      padding: const EdgeInsets.only(top: 36),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -758,48 +758,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 250,
+            height: 262,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
               itemBuilder: (context, index) {
                 final product = products[index];
                 final hasPrice = (product.lastPrice ?? 0) > 0;
+                final trend = trendByProduct[product.id];
 
                 return PremiumPressable(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ProductDetailScreen(productId: product.id),
                     ),
                   ),
                   child: Container(
-                    width: 165,
-                    decoration: _cardDecoration(radius: 20),
+                    width: 174,
+                    decoration: _cardDecoration(radius: 22),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          height: 140,
+                          height: 146,
                           width: double.infinity,
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(16),
                           decoration: const BoxDecoration(
                             color: FRColors.studio,
-                            borderRadius:
-                                BorderRadius.vertical(top: Radius.circular(20)),
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                           ),
                           child: Stack(
                             children: [
-                              if (savedProducts.contains(product.id))
-                                const Positioned(
-                                  right: 0,
+                              if (trend != null)
+                                Positioned(
+                                  left: 0,
                                   top: 0,
-                                  child: Icon(
-                                    Icons.favorite_rounded,
-                                    color: FRColors.danger,
-                                    size: 16,
-                                  ),
+                                  child: _TrendBadge(changePercent: trend),
                                 ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Icon(
+                                  savedProducts.contains(product.id)
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  color: savedProducts.contains(product.id)
+                                      ? FRColors.danger
+                                      : FRColors.textMuted,
+                                  size: 18,
+                                ),
+                              ),
                               Center(
                                 child: CachedNetworkImage(
                                   imageUrl: product.effectiveImage ?? '',
@@ -815,19 +824,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  product.brand.toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: FRColors.gold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
                                 Text(
                                   product.name,
                                   maxLines: 2,
@@ -835,44 +835,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  product.lastStore ?? 'Mağaza bilgisi yok',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: FRColors.textMuted,
                                   ),
                                 ),
                                 const Spacer(),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        hasPrice
-                                            ? formatTRY(product.lastPrice ?? 0)
-                                            : 'Fiyat bekleniyor',
-                                        style: TextStyle(
-                                          fontSize: hasPrice ? 18 : 11,
-                                          fontWeight: hasPrice
-                                              ? FontWeight.w900
-                                              : FontWeight.w600,
-                                          color: hasPrice
-                                              ? FRColors.darkMain
-                                              : FRColors.textMuted,
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: FRColors.studio,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        product.lastStore ?? 'Mağaza',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  hasPrice
+                                      ? formatTRY(product.lastPrice ?? 0)
+                                      : 'Fiyat bekleniyor',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: hasPrice ? 18 : 11,
+                                    fontWeight: hasPrice ? FontWeight.w900 : FontWeight.w600,
+                                    color: hasPrice ? FRColors.darkMain : FRColors.textMuted,
+                                  ),
                                 ),
                               ],
                             ),
@@ -883,7 +871,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 );
               },
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemCount: products.length,
             ),
           ),
@@ -1088,7 +1076,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               bottom: BorderSide(color: FRColors.border),
                             ),
                     ),
-                    child: _latestPriceRow(rows[i]),
+                    child: _latestPriceRow(context, rows[i]),
                   ),
               ],
             ),
@@ -1098,7 +1086,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _latestPriceRow(PriceModel item) {
+  Widget _latestPriceRow(BuildContext context, PriceModel item) {
     final verificationDelta = item.upVotes - item.downVotes;
     final iconBg = verificationDelta == 0
         ? FRColors.studio
@@ -1117,7 +1105,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ? 'Doğrulama +$verificationDelta'
             : 'İtiraz ${verificationDelta.abs()}';
 
-    return Row(
+    final productId = item.productId.trim().isNotEmpty ? item.productId.trim() : null;
+
+    final row = Row(
       children: [
         Container(
           width: 42,
@@ -1182,6 +1172,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ],
+    );
+
+    if (productId == null) return row;
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(productId: productId),
+        ),
+      ),
+      child: row,
     );
   }
 
@@ -1377,39 +1378,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 28),
-          Opacity(
-            opacity: 0.6,
-            child: Column(
-              children: const [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Color(0x14211510),
-                  child: Icon(Icons.radar_rounded,
-                      color: FRColors.textMain, size: 18),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'FiyatRadar',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    color: FRColors.textMain,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'V3.0 Porsche Edition • Türkiye\'nin Akıllı Fiyat Motoru',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: FRColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -1468,33 +1436,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  List<ProductModel> _filterProductsByCategory(
-    List<ProductModel> products,
-    String? categoryTitle,
-  ) {
-    if (categoryTitle == null || categoryTitle.trim().isEmpty) {
-      return products;
-    }
-
-    final needle = _normalize(categoryTitle);
-    return products.where((product) {
-      for (final category in product.categories) {
-        if (_normalize(category) == needle) return true;
-      }
-      return _normalize(product.category) == needle;
-    }).toList();
+  String _greetingByHour() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 11) return 'Günaydın';
+    if (hour >= 11 && hour < 18) return 'İyi günler';
+    if (hour >= 18 && hour < 23) return 'İyi akşamlar';
+    return 'İyi geceler';
   }
 
-  String _normalize(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll('ı', 'i')
-        .replaceAll('ğ', 'g')
-        .replaceAll('ü', 'u')
-        .replaceAll('ş', 's')
-        .replaceAll('ö', 'o')
-        .replaceAll('ç', 'c');
+  Map<String, double> _resolveTrendByProduct(List<PriceModel> latestPrices) {
+    final grouped = <String, List<PriceModel>>{};
+    for (final price in latestPrices) {
+      final id = price.productId.trim();
+      if (id.isEmpty) continue;
+      grouped.putIfAbsent(id, () => <PriceModel>[]).add(price);
+    }
+
+    final trendMap = <String, double>{};
+    grouped.forEach((productId, prices) {
+      if (prices.length < 2) return;
+      prices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final current = prices[0].price;
+      final previous = prices[1].price;
+      if (previous <= 0) return;
+      trendMap[productId] = ((current - previous) / previous) * 100;
+    });
+
+    return trendMap;
   }
 
   IconData _categoryIcon(String title) {
@@ -1523,6 +1491,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (parts.isEmpty) return 'FR';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+  }
+}
+
+class _TrendBadge extends StatelessWidget {
+  const _TrendBadge({required this.changePercent});
+
+  final double changePercent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUp = changePercent > 0;
+    final color = isUp ? FRColors.danger : FRColors.success;
+    final bgColor = isUp ? FRColors.dangerBg : FRColors.successBg;
+    final arrow = isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(arrow, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '%${changePercent.abs().toStringAsFixed(1)}',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

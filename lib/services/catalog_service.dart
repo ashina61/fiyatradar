@@ -40,6 +40,21 @@ class CatalogService {
     });
   }
 
+
+  Stream<List<ProductModel>> getEditorPickProducts({int limit = 1}) {
+    return _productsRef.snapshots().map((snapshot) {
+      final list = snapshot.docs.map(ProductModel.fromFirestore).where((p) => p.isEditorPick).toList();
+      list.sort((a, b) {
+        final rankA = a.editorPickRank ?? 1 << 30;
+        final rankB = b.editorPickRank ?? 1 << 30;
+        final byRank = rankA.compareTo(rankB);
+        if (byRank != 0) return byRank;
+        return b.updatedAt?.compareTo(a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0)) ?? 0;
+      });
+      return list.take(limit).toList();
+    });
+  }
+
   Stream<List<ProductModel>> getAllProducts() {
     return _productsRef.snapshots().map((snapshot) {
       final list = snapshot.docs.map(ProductModel.fromFirestore).toList();
