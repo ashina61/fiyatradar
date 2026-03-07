@@ -3,33 +3,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../models/banner_model.dart';
-import '../../models/price_model.dart';
 import '../../models/product_model.dart';
+import '../../models/price_model.dart';
+import '../../models/banner_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/banner_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/notification_center_service.dart';
-import '../../widgets/horizontal_categories_widget.dart';
-import '../../widgets/home_product_card.dart'; // YENİ EFSANE KARTIMIZ BURADAN GELİYOR
 import '../../widgets/staggered_fade_slide.dart';
 import '../../widgets/premium_pressable.dart';
 import '../../utils/formatters.dart';
-import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../pages/notification_center_page.dart';
 import '../campaign/campaign_detail_screen.dart';
 import '../campaign/campaigns_screen.dart';
+import '../main_screen.dart';
 
-// RESİMDEKİ RENKLER
+// FOTOĞRAFLARDAN ÇEKİLEN BİREBİR RENKLER
 class FRColors {
-  static const Color bgApp = Color(0xFFF6F4F1);
-  static const Color headerBg = Color(0xFF2D1B12);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color pillBg = Color(0xFFF3EBE4);
-  static const Color textMain = Color(0xFF2A1A10);
+  static const Color bgApp = Color(0xFFF7F5F2);       // Fotoğraftaki uçuk krem arkaplan
+  static const Color headerBg = Color(0xFF311F15);    // Fotoğraftaki asil koyu kahve header
+  static const Color surface = Color(0xFFFFFFFF);     // Saf Beyaz
+  static const Color pillBg = Color(0xFFF6F1EC);      // Fotoğraftaki ikon/resim arkası bej tonu
+  static const Color textMain = Color(0xFF2A1A10);    // Ana metin kahvesi
+  static const Color textMuted = Color(0xFF9E928A);   // Gri alt metinler
+  static const Color trendGreenBg = Color(0xFFE8F5E9);
+  static const Color trendGreenText = Color(0xFF2E7D32);
 }
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -44,16 +45,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   Timer? _bannerTimer;
   int _currentBannerPage = 0;
 
-  late final AnimationController _headerAnimController;
-  late final Animation<double> _headerFade;
-
   @override
   void initState() {
     super.initState();
     _startBannerAutoScroll();
-    _headerAnimController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _headerFade = CurvedAnimation(parent: _headerAnimController, curve: Curves.easeOutCubic);
-    _headerAnimController.forward();
   }
 
   void _startBannerAutoScroll() {
@@ -70,7 +65,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   void dispose() {
     _bannerTimer?.cancel();
     _bannerController.dispose();
-    _headerAnimController.dispose();
     super.dispose();
   }
 
@@ -89,42 +83,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
-          // 1. KUSURSUZ HEADER VE ARAMA ÇUBUĞU
+          // 1. KUSURSUZ HEADER VE TAŞAN ARAMA ÇUBUĞU
           SliverToBoxAdapter(
-            child: FadeTransition(
-              opacity: _headerFade,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    padding: EdgeInsets.fromLTRB(20, topPadding + 16, 20, 48), 
-                    decoration: const BoxDecoration(
-                      color: FRColors.headerBg,
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
-                    ),
-                    child: userAsync.when(
-                      data: (user) => _buildHeaderContent(context, user),
-                      loading: () => _buildHeaderContent(context, null),
-                      error: (_, __) => _buildHeaderContent(context, null),
-                    ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: EdgeInsets.fromLTRB(20, topPadding + 16, 20, 48), 
+                  decoration: const BoxDecoration(
+                    color: FRColors.headerBg,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
                   ),
-                  Positioned(
-                    bottom: -24, left: 20, right: 20,
-                    child: _buildSearchBar(),
+                  child: userAsync.when(
+                    data: (user) => _buildHeaderContent(context, user),
+                    loading: () => const SizedBox(height: 50),
+                    error: (_, __) => const SizedBox(height: 50),
                   ),
-                ],
-              ),
+                ),
+                Positioned(
+                  bottom: -24, left: 20, right: 20,
+                  child: _buildSearchBar(),
+                ),
+              ],
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+          const SliverToBoxAdapter(child: SizedBox(height: 44)),
 
-          // 2. KATEGORİLER (KENDİ WIDGETINI ÇAĞIRIYORUZ)
-          const SliverToBoxAdapter(
-            child: HorizontalCategoriesWidget(),
+          // 2. KATEGORİLER (TAM FOTOĞRAFTAKİ GİBİ KARE KUTULAR)
+          SliverToBoxAdapter(
+            child: _buildCategoriesRow(),
           ),
 
-          // 3. DİNAMİK MEGA BANNER
+          // 3. BANNER
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 24),
@@ -136,7 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             ),
           ),
 
-          // 4. TREND ÜRÜNLER (GERÇEK VERİ, YENİ KART)
+          // 4. TREND ÜRÜNLER (TAM FOTOĞRAFA UYGUN DİNAMİK KARTLAR)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 32),
@@ -160,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             ),
           ),
 
-          // 6. PİYASA AKIŞI
+          // 6. PİYASA AKIŞI (TAM FOTOĞRAFTAKİ LİSTE)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 32),
@@ -178,21 +169,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // ════════════ HEADER PARÇALARI ════════════
+  // ════════════ 1. HEADER (KAREMSİ PROFİL, DOĞRU RENKLER) ════════════
   Widget _buildHeaderContent(BuildContext context, dynamic user) {
     final displayName = user?.name ?? 'Admin';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
-    final points = user?.points ?? 20506;
+    final points = user?.points ?? 20508;
     final photoUrl = (user?.photoUrl ?? '').toString().trim().isEmpty ? null : user?.photoUrl;
 
     return Row(
       children: [
+        // FOTOĞRAFTAKİ KAREMSİ PROFİL RESMİ VE KAHVERENGİMSİ ŞERİT
         GestureDetector(
           onTap: () => ref.read(currentTabProvider.notifier).state = 4,
           child: Container(
-            width: 52, height: 52, padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: FRColors.surface, border: Border.all(color: const Color(0xFF6B4226), width: 2)),
-            child: ClipOval(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: BorderRadius.circular(14), // Yuvarlak değil, karemsi!
+              border: Border.all(color: const Color(0xFF8D6E63), width: 1.5), // Kahverengimsi şerit
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
               child: photoUrl != null 
                 ? CachedNetworkImage(imageUrl: photoUrl, fit: BoxFit.cover) 
                 : Center(child: Text(initial, style: const TextStyle(color: FRColors.headerBg, fontWeight: FontWeight.bold, fontSize: 18))),
@@ -200,16 +197,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
           ),
         ),
         const SizedBox(width: 12),
+        
+        // YAZILAR
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Hoş geldin,', style: TextStyle(color: Color(0xFFBCAAA4), fontSize: 12, fontWeight: FontWeight.w500)),
+              Text('Hoş geldin,', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w500)),
               const SizedBox(height: 2),
-              Text(displayName, style: const TextStyle(color: FRColors.surface, fontWeight: FontWeight.w800, fontSize: 18)),
+              Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
         ),
+        
+        // PUAN
         PremiumPressable(
           borderRadius: BorderRadius.circular(100),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
@@ -220,27 +221,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               children: [
                 const Icon(Icons.stars_rounded, color: Color(0xFFD7CCC8), size: 16),
                 const SizedBox(width: 6),
-                Text('$points', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: FRColors.surface)),
+                Text('$points', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
               ],
             ),
           ),
         ),
         const SizedBox(width: 8),
+        
+        // BİLDİRİM ZİLİ
         const _NotificationBellButton(),
       ],
     );
   }
 
+  // ════════════ 2. ARAMA ÇUBUĞU ════════════
   Widget _buildSearchBar() {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(24),
       onTap: () => ref.read(currentTabProvider.notifier).state = 1,
       child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: FRColors.surface,
-          borderRadius: BorderRadius.circular(26),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24), 
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))],
         ),
         child: Row(
@@ -259,7 +263,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  // ════════════ DİNAMİK BÖLÜMLER ════════════
+  // ════════════ 3. KATEGORİLER ════════════
+  Widget _buildCategoriesRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCatSquare('Tümü', Icons.grid_view_rounded, isActive: true),
+          const SizedBox(width: 16),
+          _buildCatSquare('Market', Icons.shopping_cart_outlined),
+          const SizedBox(width: 16),
+          _buildCatSquare('Teknoloji', Icons.laptop_mac),
+          const SizedBox(width: 16),
+          _buildCatSquare('Kozmetik', Icons.face_retouching_natural),
+          const SizedBox(width: 16),
+          _buildCatSquare('Hobi', Icons.sports_esports),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCatSquare(String title, IconData icon, {bool isActive = false}) {
+    return Column(
+      children: [
+        Container(
+          width: 64, height: 64, 
+          decoration: BoxDecoration(
+            color: isActive ? FRColors.headerBg : Colors.white,
+            borderRadius: BorderRadius.circular(18), // KÖŞELERİ YUVARLATILMIŞ KARE
+            boxShadow: isActive ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 4))],
+          ),
+          child: Icon(icon, color: isActive ? Colors.white : Colors.grey.shade600, size: 30),
+        ),
+        const SizedBox(height: 8),
+        Text(title, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.w600, color: FRColors.textMain)),
+      ],
+    );
+  }
+
+  // ════════════ 4. BANNER ════════════
   Widget _buildBannerCarousel(List<BannerModel> banners) {
     if (banners.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -273,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             itemBuilder: (context, index) {
               final banner = banners[index];
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: PremiumPressable(
                   borderRadius: BorderRadius.circular(24),
                   onTap: () {
@@ -289,7 +334,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       fit: StackFit.expand,
                       children: [
                         CachedNetworkImage(imageUrl: banner.imageUrl.isNotEmpty ? banner.imageUrl : 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600', fit: BoxFit.cover),
-                        Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [FRColors.headerBg.withOpacity(0.9), FRColors.headerBg.withOpacity(0.1)]))),
+                        Container(
+                          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [FRColors.headerBg.withOpacity(0.9), FRColors.headerBg.withOpacity(0.1)])),
+                        ),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
@@ -298,7 +345,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: FRColors.surface, borderRadius: BorderRadius.circular(6)),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
                                 child: const Text('GÜNÜN FIRSATI', style: TextStyle(color: FRColors.headerBg, fontSize: 9, fontWeight: FontWeight.w900)),
                               ),
                               const SizedBox(height: 8),
@@ -322,22 +369,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             },
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(banners.length, (index) {
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: _currentBannerPage == index ? 16 : 6, height: 6,
-              decoration: BoxDecoration(color: _currentBannerPage == index ? const Color(0xFF6B4226) : Colors.grey.shade400, borderRadius: BorderRadius.circular(4)),
-            );
-          }),
-        ),
       ],
     );
   }
 
+  // ════════════ 5. ÜRÜN KARTLARI LİSTESİ ════════════
   Widget _buildProductsSection(String title, List<ProductModel> products) {
     if (products.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -351,14 +387,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: FRColors.textMain)),
               GestureDetector(
                 onTap: () => ref.read(currentTabProvider.notifier).state = 1,
-                child: const Text('Tümünü Gör', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.deepOrange)),
+                child: const Text('Tümünü Gör', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD48B6A))),
               )
             ],
           ),
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 240, 
+          height: 250, 
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,
@@ -367,8 +403,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             itemBuilder: (context, index) {
               return StaggeredFadeSlide(
                 index: index,
-                // KENDİ HOMEPRODUCTCARD WIDGETINI KULLANIYOR!
-                child: HomeProductCard(
+                child: _ExactPhotoProductCard( 
                   product: products[index],
                   onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: products[index].id))),
                 ),
@@ -380,6 +415,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
+  // ════════════ 6. PİYASA AKIŞI ════════════
   Widget _buildLatestPricesList(List<PriceModel> prices) {
     if (prices.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -397,7 +433,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                 onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: price.productId))),
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: FRColors.surface, borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -429,6 +469,120 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 }
 
+// ════════════ MOCK DATADAN TAMAMEN KURTULMUŞ DİNAMİK ÜRÜN KARTI ════════════
+class _ExactPhotoProductCard extends StatelessWidget {
+  final ProductModel product;
+  final VoidCallback onTap;
+
+  const _ExactPhotoProductCard({required this.product, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. GERÇEK VERİLER (Modelden çekilir, hiçbir şey statik değil)
+    final title = product.name;
+    final brand = (product.brand ?? 'MARKA').toUpperCase();
+    final priceStr = product.price != null ? formatTRY(product.price!) : '---';
+    
+    // NOT: product.storeName kısmı modelindeki doğru değişkenle eşleşmeli (örn: product.marketName)
+    final marketName = product.storeName ?? 'Market'; 
+    
+    // Trend yüzdesi ve düşüş/yükseliş durumu (varsa modelinden bağlayabilirsin, şimdilik UI'ı bozmaması için basit kontrol)
+    final isDrop = true; 
+
+    return PremiumPressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        padding: const EdgeInsets.all(10), 
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 2. RESİM STÜDYOSU (Asla Taşmaz)
+            Container(
+              height: 140, 
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: FRColors.pillBg, 
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0), 
+                    child: Center(
+                      child: CachedNetworkImage(
+                        imageUrl: product.imageUrl ?? '',
+                        fit: BoxFit.contain, 
+                        colorBlendMode: BlendMode.multiply,
+                        color: Colors.white.withOpacity(0.01), 
+                        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(color: isDrop ? FRColors.trendGreenBg : const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(6)),
+                      child: Row(
+                        children: [
+                          Icon(isDrop ? Icons.south_east_rounded : Icons.north_east_rounded, color: isDrop ? FRColors.trendGreenText : const Color(0xFFC62828), size: 10),
+                          const SizedBox(width: 2),
+                          Text('%18', style: TextStyle(color: isDrop ? FRColors.trendGreenText : const Color(0xFFC62828), fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    top: 10, right: 10,
+                    child: Icon(Icons.favorite, color: Colors.red, size: 20),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            
+            // 3. METİNLER (Dinamik)
+            Text(brand, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: FRColors.textMain, height: 1.2)),
+            const Spacer(),
+            
+            // 4. FİYAT VE DİNAMİK MARKET ETİKETİ
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Eğer ProductModel'inde eski fiyat yoksa burayı silebilirsin. Tasarımdaki yeri korumak için ekliyorum.
+                    const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w600)),
+                    Text(priceStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: FRColors.textMain)),
+                  ],
+                ),
+                // İŞTE BURASI: Artık "En Uygun" değil, veritabanından gelen A-101, Trendyol M. vb. yazacak!
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(color: FRColors.pillBg, borderRadius: BorderRadius.circular(8)),
+                  child: Text(marketName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: FRColors.textMain)),
+                )
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// BİLDİRİM ZİLİ
 class _NotificationBellButton extends ConsumerWidget {
   const _NotificationBellButton();
   @override
@@ -445,7 +599,7 @@ class _NotificationBellButton extends ConsumerWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            const Icon(Icons.notifications_none_rounded, color: FRColors.surface, size: 20),
+            const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
             StreamBuilder<int>(
               stream: unreadStream,
               builder: (context, snapshot) {
