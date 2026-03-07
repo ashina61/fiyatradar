@@ -420,7 +420,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSpacing: 14,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.35,
+            // 💥 KUTULAR NEFES ALSIN DİYE ORAN DÜŞÜRÜLDÜ 💥
+            childAspectRatio: 1.20, 
             children: [
               _insightCard(
                 icon: Icons.savings,
@@ -454,7 +455,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String meta,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: FRColors.surface,
         borderRadius: BorderRadius.circular(24),
@@ -470,12 +471,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: FRColors.textMuted)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: FRColors.darkMain)),
-          const SizedBox(height: 6),
-          Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: FRColors.textMuted)),
+          const SizedBox(height: 10),
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: FRColors.textMuted)),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: FRColors.darkMain)),
+          const Spacer(),
+          Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: FRColors.textMuted, height: 1.2)),
         ],
       ),
     );
@@ -516,6 +517,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final oldPrice = (product.lastPrice ?? 0) * 1.15;
                 final newPrice = product.lastPrice ?? 0;
                 final dropPercent = oldPrice <= 0 ? 0 : (((oldPrice - newPrice) / oldPrice) * 100).round();
+                
                 return PremiumPressable(
                   borderRadius: BorderRadius.circular(20),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product.id))),
@@ -534,18 +536,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           height: 140,
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: FRColors.studio, borderRadius: BorderRadius.circular(20)),
+                          decoration: const BoxDecoration(color: FRColors.studio, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                           child: Stack(
+                            clipBehavior: Clip.none,
                             children: [
+                              // 💥 YAZI KAYMASINI ENGELLEYEN ROZET YAPISI 💥
                               Positioned(
-                                left: 0,
-                                top: 0,
+                                left: -10,
+                                top: -10,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                                   decoration: BoxDecoration(color: const Color(0x264CAF50), borderRadius: BorderRadius.circular(6)),
-                                  child: Text(
-                                    '↓ %$dropPercent',
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: FRColors.success),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.arrow_downward_rounded, color: FRColors.success, size: 10),
+                                      const SizedBox(width: 2),
+                                      Text('%$dropPercent', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: FRColors.success)),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -632,9 +640,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    flex: 12,
+                    flex: 6, // 💥 YAZI ALANI BÜYÜTÜLDÜ 💥
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -644,10 +652,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, color: FRColors.surface, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 12),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(formatTRY(oldPrice), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, decoration: TextDecoration.lineThrough)),
                               const SizedBox(width: 8),
-                              Text(formatTRY(newPrice), style: const TextStyle(color: FRColors.surface, fontSize: 22, fontWeight: FontWeight.w900)),
+                              Text(formatTRY(newPrice), style: const TextStyle(color: FRColors.surface, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
                             ],
                           ),
                         ],
@@ -655,29 +664,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: 8,
+                    flex: 4, // 💥 RESİM ALANI KÜÇÜLTÜLDÜ 💥
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.03),
                         border: Border(left: BorderSide(color: Colors.white.withOpacity(0.05))),
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
                       ),
-                      padding: const EdgeInsets.all(16),
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
+                          // 💥 ROZET KESİLMESİN DİYE İÇERİ ALINDI 💥
                           Positioned(
-                            top: 4,
-                            right: 4,
+                            top: 12,
+                            right: 12,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(color: FRColors.danger, borderRadius: BorderRadius.circular(8)),
                               child: Text('-${formatTRY(discount, withDecimals: false)}', style: const TextStyle(color: FRColors.surface, fontSize: 11, fontWeight: FontWeight.w900)),
                             ),
                           ),
-                          Center(
-                            child: CachedNetworkImage(
-                              imageUrl: product.effectiveImage ?? '',
-                              fit: BoxFit.contain,
-                              errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported_rounded, color: FRColors.textMuted),
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Center(
+                              child: CachedNetworkImage(
+                                imageUrl: product.effectiveImage ?? '',
+                                fit: BoxFit.contain,
+                                errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported_rounded, color: FRColors.textMuted),
+                              ),
                             ),
                           ),
                         ],
@@ -761,7 +775,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Text(item.productName ?? 'Ürün', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
-              Text('${item.storeName ?? 'Mağaza'} • ${item.userName ?? item.reporterName ?? 'Sistem'}', style: const TextStyle(fontSize: 11, color: FRColors.textMuted, fontWeight: FontWeight.w600)),
+              Text('${item.storeName ?? 'Mağaza'} • ${item.userName ?? item.reporterName ?? 'Sistem'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: FRColors.textMuted, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -836,7 +850,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(u.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                        Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 2),
                         Text('Bu hafta ${u.priceEntries} doğrulanmış fiyat', style: const TextStyle(fontSize: 11, color: FRColors.textMuted)),
                       ],
@@ -863,8 +877,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildFooter() {
+    // 💥 FAB BUTONU ALTINDA EZİLMESİN DİYE PADDING 160 YAPILDI 💥
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 160),
       child: Column(
         children: [
           Container(
