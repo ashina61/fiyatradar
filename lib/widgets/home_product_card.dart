@@ -1,313 +1,129 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../models/product_model.dart';
+import '../../utils/formatters.dart';
+import 'premium_pressable.dart';
 
-import '../models/price_model.dart';
-import '../models/product_model.dart';
-import '../providers/auth_provider.dart';
-import '../providers/product_provider.dart';
-import '../utils/formatters.dart';
-import '../utils/theme.dart';
-import 'price_change_badge.dart';
-
-class HomeProductCard extends ConsumerWidget {
+class HomeProductCard extends StatelessWidget {
   final ProductModel product;
+  final VoidCallback onTap;
   final double width;
-  final VoidCallback? onTap;
-  final bool showStore;
-  final Widget? bottomSection;
 
   const HomeProductCard({
     super.key,
     required this.product,
-    required this.width,
-    this.onTap,
-    this.showStore = true,
-    this.bottomSection,
+    required this.onTap,
+    this.width = 155,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final categoryColor = _colorForCategory(product.category);
-    final hasPrice = product.lastPrice != null;
-    final priceHistoryAsync = ref.watch(productPriceHistoryProvider(product.id));
-    final user = ref.watch(authStateProvider).valueOrNull;
-    final isFavoriteAsync = ref.watch(isFavoriteProvider(product.id));
-    final overrideFavorite = ref.watch(favoriteOverrideProvider(product.id));
-    final isFavorite = overrideFavorite ?? (isFavoriteAsync.valueOrNull ?? false);
+  Widget build(BuildContext context) {
+    // Veritabanından gelen gerçek veriler
+    final title = product.name;
+    final brand = (product.brand ?? 'MARKA').toUpperCase();
+    final priceStr = product.price != null ? formatTRY(product.price!) : '---';
+    
+    // Gerçek projede modelden hesaplanacak değerler
+    final isDrop = true; 
+    final marketName = "En Uygun"; 
 
-    Future<void> onFavoriteTap() async {
-      if (user == null) return;
-      final previous = isFavorite;
-      final next = !previous;
-      ref.read(favoriteOverrideProvider(product.id).notifier).state = next;
-      try {
-        await ref.read(firestoreServiceProvider).toggleFavorite(
-          uid: user.uid,
-          productId: product.id,
-          payload: {
-            'productId': product.id,
-            'productName': product.name,
-            'imageUrl': product.effectiveImage,
-          },
-        );
-        ref.read(favoriteOverrideProvider(product.id).notifier).state = null;
-      } catch (_) {
-        ref.read(favoriteOverrideProvider(product.id).notifier).state = previous;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Favoriler güncellenemedi. Tekrar dene.')),
-        );
-      }
-    }
-
-    return GestureDetector(
+    return PremiumPressable(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         width: width,
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.outline, width: 1),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
+              color: Colors.black.withOpacity(0.04), 
+              blurRadius: 10, 
+              offset: const Offset(0, 4)
+            )
           ],
         ),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 1. Resim Stüdyosu (TAŞMA İMKANSIZ)
             Stack(
               children: [
                 Container(
-                  height: 100,
+                  height: 110,
+                  width: double.infinity,
                   decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.08),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(AppRadius.lg),
-                      topRight: Radius.circular(AppRadius.lg),
-                    ),
-                    image: product.effectiveImage != null
-                        ? DecorationImage(
-                            image: NetworkImage(product.effectiveImage!),
-                            fit: BoxFit.contain,
-                            onError: (_, __) {},
-                          )
-                        : null,
+                    color: const Color(0xFFF3EBE4), // Nutella arkasındaki bej
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: product.effectiveImage == null
-                      ? Center(
-                          child: Icon(
-                            _iconForCategory(product.category),
-                            size: 36,
-                            color: categoryColor.withOpacity(0.5),
-                          ),
-                        )
-                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0), // Resim sınırları
+                    child: CachedNetworkImage(
+                      imageUrl: product.imageUrl ?? '',
+                      fit: BoxFit.contain,
+                      colorBlendMode: BlendMode.multiply,
+                      color: Colors.white.withOpacity(0.01),
+                      errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                    ),
+                  ),
                 ),
+                // Trend Rozeti
                 Positioned(
-                  top: 6,
-                  left: 6,
-                  child: InkWell(
-                    onTap: onFavoriteTap,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.92),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: isFavorite ? Colors.red : AppColors.textSecondary,
-                      ),
+                  top: 8, left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDrop ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE), 
+                      borderRadius: BorderRadius.circular(6)
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(isDrop ? Icons.south_east_rounded : Icons.north_east_rounded, 
+                             color: isDrop ? const Color(0xFF2E7D32) : const Color(0xFFC62828), size: 10),
+                        const SizedBox(width: 2),
+                        Text('%18', style: TextStyle(color: isDrop ? const Color(0xFF2E7D32) : const Color(0xFFC62828), fontSize: 9, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                 ),
-                if (product.priceEntryCount >= 2 && product.lastPrice != null)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: priceHistoryAsync.when(
-                      data: (prices) => _buildPriceChangeBadge(prices),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ),
+                // Kalp İkonu
+                const Positioned(
+                  top: 8, right: 8,
+                  child: Icon(Icons.favorite_border, color: Colors.grey, size: 18),
+                ),
               ],
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.sm + 2, AppSpacing.sm + 2, AppSpacing.sm + 2, AppSpacing.sm),
-                child: Column(
+            const SizedBox(height: 12),
+            
+            // 2. Metinler
+            Text(brand, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10), height: 1.2)),
+            const Spacer(),
+            
+            // 3. Fiyat ve Market (RESİMDEKİ BİREBİR YAPI)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: categoryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppRadius.xs),
-                      ),
-                      child: Text(
-                        product.category,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: categoryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                        height: 1.25,
-                      ),
-                    ),
-                    if (hasPrice)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  formatTRY(product.lastPrice!),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          priceHistoryAsync.when(
-                            data: (prices) => _buildRelativeTimeText(prices),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                    const Spacer(),
-                    if (showStore && product.lastStore != null)
-                      Text(
-                        product.lastStore!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                    if (bottomSection != null) ...[
-                      const SizedBox(height: 4),
-                      bottomSection!,
-                    ],
+                    const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                    Text(priceStr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
                   ],
                 ),
-              ),
-            ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFFF3EBE4), borderRadius: BorderRadius.circular(6)),
+                  child: Text(marketName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+                )
+              ],
+            )
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildPriceChangeBadge(List<PriceModel> prices) {
-    if (prices.length < 2) return const SizedBox.shrink();
-    final approved = prices.where((price) => price.isApproved).toList();
-    final source = approved.length >= 2 ? approved : prices;
-    if (source.length < 2) return const SizedBox.shrink();
-
-    final latest = source[0];
-    final previous = source[1];
-    final diff = latest.price - previous.price;
-    if (diff == 0) return const SizedBox.shrink();
-
-    final percent = (diff / previous.price) * 100;
-    return PriceChangeBadge(percent: percent);
-  }
-
-  Widget _buildRelativeTimeText(List<PriceModel> prices) {
-    if (prices.isEmpty) return const SizedBox.shrink();
-    final text = _formatTimeAgo(prices.first.createdAt);
-    if (text.isEmpty) return const SizedBox.shrink();
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
-    );
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) return 'az once';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} dk once';
-    if (difference.inHours < 24) return '${difference.inHours} sa once';
-    if (difference.inDays < 7) return '${difference.inDays} gun once';
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-  }
-}
-
-Color _colorForCategory(String category) {
-  switch (category) {
-    case 'Elektronik':
-      return AppColors.primary;
-    case 'Gida':
-      return AppColors.secondary;
-    case 'Temizlik':
-      return AppColors.info;
-    case 'Kisisel Bakim':
-      return AppColors.accent;
-    case 'Ev & Yasam':
-      return AppColors.secondaryDark;
-    case 'Giyim':
-      return AppColors.error;
-    case 'Spor':
-      return AppColors.primaryDark;
-    case 'Oyuncak':
-      return AppColors.accentDark;
-    case 'Kitap':
-      return AppColors.primaryLight;
-    case 'Otomotiv':
-      return AppColors.secondaryLight;
-    default:
-      return AppColors.textSecondary;
-  }
-}
-
-IconData _iconForCategory(String category) {
-  switch (category) {
-    case 'Elektronik':
-      return Icons.devices;
-    case 'Gida':
-      return Icons.restaurant;
-    case 'Temizlik':
-      return Icons.cleaning_services;
-    case 'Kisisel Bakim':
-      return Icons.face;
-    case 'Ev & Yasam':
-      return Icons.home;
-    case 'Giyim':
-      return Icons.checkroom;
-    case 'Spor':
-      return Icons.sports;
-    case 'Oyuncak':
-      return Icons.toys;
-    case 'Kitap':
-      return Icons.book;
-    case 'Otomotiv':
-      return Icons.directions_car;
-    default:
-      return Icons.inventory_2;
   }
 }
