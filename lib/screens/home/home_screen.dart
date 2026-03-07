@@ -175,7 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isSelected ? 0.16 : 0.05),
+                          color: Colors.black.withOpacity(isSelected ? 0.16 : 0.05),
                           blurRadius: isSelected ? 20 : 12,
                           offset: const Offset(0, 8),
                         ),
@@ -238,7 +238,7 @@ class _EliteHeader extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: const CachedNetworkImage(
+                    child: CachedNetworkImage(
                       imageUrl:
                           'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop',
                       fit: BoxFit.cover,
@@ -281,8 +281,8 @@ class _EliteHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(99),
-              color: Colors.white.withValues(alpha: 0.08),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              color: Colors.white.withOpacity(0.08),
+              border: Border.all(color: Colors.white.withOpacity(0.10)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -306,8 +306,8 @@ class _EliteHeader extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: Colors.white.withValues(alpha: 0.05),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              color: Colors.white.withOpacity(0.05),
+              border: Border.all(color: Colors.white.withOpacity(0.10)),
             ),
             child: Stack(
               clipBehavior: Clip.none,
@@ -346,7 +346,7 @@ class _FloatingSearchBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -394,7 +394,7 @@ class _MegaBannerCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const CachedNetworkImage(
+            CachedNetworkImage(
               imageUrl:
                   'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=900&auto=format&fit=crop',
               fit: BoxFit.cover,
@@ -405,8 +405,8 @@ class _MegaBannerCard extends StatelessWidget {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    FRColors.darkMain.withValues(alpha: 0.95),
-                    FRColors.darkMain.withValues(alpha: 0.10),
+                    FRColors.darkMain.withOpacity(0.95),
+                    FRColors.darkMain.withOpacity(0.10),
                   ],
                 ),
               ),
@@ -468,7 +468,7 @@ class _RadarAnalysisCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: FRColors.darkMain.withValues(alpha: 0.08),
+            color: FRColors.darkMain.withOpacity(0.08),
             blurRadius: 26,
             offset: const Offset(0, 12),
           ),
@@ -594,7 +594,7 @@ class _AnalysisBarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillColor = row.isBest ? FRColors.gold : FRColors.textMuted.withValues(alpha: 0.50);
+    final fillColor = row.isBest ? FRColors.gold : FRColors.textMuted.withOpacity(0.50);
     final marketColor = row.isBest ? FRColors.gold : FRColors.textMuted;
     final priceColor = row.isBest ? FRColors.gold : FRColors.textMain;
 
@@ -720,7 +720,7 @@ class _HardDropCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: FRColors.darkSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Column(
         children: [
@@ -729,7 +729,7 @@ class _HardDropCard extends StatelessWidget {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              color: Colors.white.withValues(alpha: 0.03),
+              color: Colors.white.withOpacity(0.03),
             ),
             child: Stack(
               children: [
@@ -745,9 +745,9 @@ class _HardDropCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF69F0AE).withValues(alpha: 0.14),
+                      color: const Color(0xFF69F0AE).withOpacity(0.14),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF69F0AE).withValues(alpha: 0.3)),
+                      border: Border.all(color: const Color(0xFF69F0AE).withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -806,7 +806,7 @@ class _HardDropCard extends StatelessWidget {
                           Text(
                             item.oldPriceText,
                             style: GoogleFonts.outfit(
-                              color: Colors.white.withValues(alpha: 0.42),
+                              color: Colors.white.withOpacity(0.42),
                               fontSize: 10,
                               decoration: TextDecoration.lineThrough,
                             ),
@@ -875,7 +875,7 @@ class _LatestScansBlock extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: FRColors.darkMain.withValues(alpha: 0.05),
+                color: FRColors.darkMain.withOpacity(0.05),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -990,7 +990,7 @@ class _LatestScanRow extends StatelessWidget {
             thickness: 1,
             indent: 20,
             endIndent: 20,
-            color: FRColors.darkMain.withValues(alpha: 0.05),
+            color: FRColors.darkMain.withOpacity(0.05),
           ),
       ],
     );
