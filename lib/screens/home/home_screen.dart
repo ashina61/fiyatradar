@@ -399,33 +399,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCategories(BuildContext context, List<CategoryModel> categories) {
+    final selectedCategory = ref.watch(selectedCategoryFilterProvider);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          _categoryPill(
-            title: 'Tümü',
-            icon: Icons.grid_view_rounded,
-            onTap: () {
-              ref.read(selectedCategoryFilterProvider.notifier).state = 'Tumu';
-              ref.read(selectedCategoryIdProvider.notifier).state = null;
-              ref.read(currentTabProvider.notifier).state = 1;
-            },
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: SizedBox(
+        height: 46,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _categoryPill(
+                title: 'Tümü',
+                icon: Icons.grid_view_rounded,
+                isActive: selectedCategory == 'Tumu',
+                onTap: () {
+                  ref.read(selectedCategoryFilterProvider.notifier).state = 'Tumu';
+                  ref.read(selectedCategoryIdProvider.notifier).state = null;
+                  ref.read(currentTabProvider.notifier).state = 1;
+                },
+              ),
+              ...categories.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: _categoryPill(
+                    title: item.title,
+                    icon: _categoryIcon(item.title),
+                    isActive: selectedCategory == item.title,
+                    onTap: () {
+                      ref.read(selectedCategoryFilterProvider.notifier).state = item.title;
+                      ref.read(selectedCategoryIdProvider.notifier).state = item.id;
+                      ref.read(currentTabProvider.notifier).state = 1;
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          ...categories.map(
-            (item) => _categoryPill(
-              title: item.title,
-              icon: _categoryIcon(item.title),
-              onTap: () {
-                ref.read(selectedCategoryFilterProvider.notifier).state = item.title;
-                ref.read(selectedCategoryIdProvider.notifier).state = item.id;
-                ref.read(currentTabProvider.notifier).state = 1;
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -433,6 +445,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _categoryPill({
     required String title,
     required IconData icon,
+    required bool isActive,
     required VoidCallback onTap,
   }) {
     return PremiumPressable(
@@ -441,31 +454,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: FRColors.surface,
+          color: isActive ? FRColors.darkMain : FRColors.surface,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: FRColors.border,
+            color: isActive ? FRColors.darkMain : FRColors.border,
           ),
           boxShadow: [
             BoxShadow(
-              color: FRColors.cardShadow,
-              blurRadius: 15,
-              offset: const Offset(0, 5),
+              color: isActive ? const Color(0x2B211510) : FRColors.cardShadow,
+              blurRadius: isActive ? 16 : 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: FRColors.textMuted),
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? FRColors.surface : FRColors.textMuted,
+            ),
             const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: FRColors.textMain,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isActive ? FRColors.surface : FRColors.textMain,
+                ),
               ),
             ),
           ],
@@ -478,7 +501,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (banners.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
       child: SizedBox(
         height: 160,
         child: PageView.builder(
@@ -633,7 +656,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           iconColor: FRColors.success,
           label: 'SEPET AVANTAJI',
           value: '%$advantage',
-          meta: 'Trend ürünlerde min/maks fiyat farkından hesaplandı.',
+          meta: 'Trend ürünlerde kaydedilen en düşük ve en yüksek fiyat karşılaştırıldı.',
         ),
       );
 
@@ -644,7 +667,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           iconColor: FRColors.gold,
           label: 'FİYAT ARALIĞI',
           value: formatTRY(max - min, withDecimals: false),
-          meta: 'Trend listesinde görülen fiyat aralığı.',
+          meta: 'Trend listesinde aynı ürünlerde görülen toplam fiyat oynaklığını gösterir.',
         ),
       );
     }
@@ -652,19 +675,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 36, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 34, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
+            mainAxisSpacing: 12,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.05,
+            childAspectRatio: 1.12,
             children: widgets,
           ),
         ],
@@ -681,7 +704,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String meta,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: _cardDecoration(radius: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,7 +715,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Text(
             label,
             maxLines: 1,
@@ -704,28 +727,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 21,
               fontWeight: FontWeight.w900,
               color: FRColors.darkMain,
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Expanded(
             child: Text(
               meta,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 color: FRColors.textMuted,
-                height: 1.35,
+                height: 1.32,
               ),
             ),
           ),
@@ -758,7 +781,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 262,
+            height: 258,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
@@ -766,6 +789,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final product = products[index];
                 final hasPrice = (product.lastPrice ?? 0) > 0;
                 final trend = trendByProduct[product.id];
+                final hasReliableTrend = trend != null && trend.isFinite && trend.abs() >= 0.1;
 
                 return PremiumPressable(
                   borderRadius: BorderRadius.circular(22),
@@ -781,41 +805,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          height: 146,
+                          height: 136,
                           width: double.infinity,
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                           decoration: const BoxDecoration(
                             color: FRColors.studio,
                             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                           ),
                           child: Stack(
                             children: [
-                              if (trend != null)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: CachedNetworkImage(
+                                    imageUrl: product.effectiveImage ?? '',
+                                    fit: BoxFit.contain,
+                                    errorWidget: (_, __, ___) => const Icon(
+                                      Icons.image_not_supported_rounded,
+                                      color: FRColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (hasReliableTrend)
                                 Positioned(
                                   left: 0,
                                   top: 0,
-                                  child: _TrendBadge(changePercent: trend),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x33170D08),
+                                          blurRadius: 12,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: _TrendBadge(changePercent: trend),
+                                  ),
                                 ),
                               Positioned(
                                 right: 0,
                                 top: 0,
-                                child: Icon(
-                                  savedProducts.contains(product.id)
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: savedProducts.contains(product.id)
-                                      ? FRColors.danger
-                                      : FRColors.textMuted,
-                                  size: 18,
-                                ),
-                              ),
-                              Center(
-                                child: CachedNetworkImage(
-                                  imageUrl: product.effectiveImage ?? '',
-                                  fit: BoxFit.contain,
-                                  errorWidget: (_, __, ___) => const Icon(
-                                    Icons.image_not_supported_rounded,
-                                    color: FRColors.textMuted,
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: FRColors.surface.withOpacity(0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x33170D08),
+                                        blurRadius: 10,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    savedProducts.contains(product.id)
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: savedProducts.contains(product.id)
+                                        ? FRColors.danger
+                                        : FRColors.textMuted,
+                                    size: 16,
                                   ),
                                 ),
                               ),
@@ -824,10 +878,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text(
+                                  product.brand.isNotEmpty ? product.brand : 'Marka yok',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: FRColors.textMuted,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
                                 Text(
                                   product.name,
                                   maxLines: 2,
@@ -835,7 +901,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    height: 1.3,
+                                    height: 1.25,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -857,7 +923,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: hasPrice ? 18 : 11,
+                                    fontSize: hasPrice ? 17 : 11,
                                     fontWeight: hasPrice ? FontWeight.w900 : FontWeight.w600,
                                     color: hasPrice ? FRColors.darkMain : FRColors.textMuted,
                                   ),
