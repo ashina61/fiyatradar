@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../models/category_model.dart';
+import 'premium_pressable.dart';
 
-import '../models/category_model.dart';
-import '../utils/material_icon_resolver.dart';
+class CategoryTileV3 extends StatelessWidget {
+  final CategoryModel category;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-class CategoryTileV3 extends StatefulWidget {
   const CategoryTileV3({
     super.key,
     required this.category,
@@ -11,109 +14,54 @@ class CategoryTileV3 extends StatefulWidget {
     required this.onTap,
   });
 
-  final CategoryModel category;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  State<CategoryTileV3> createState() => _CategoryTileV3State();
-}
-
-class _CategoryTileV3State extends State<CategoryTileV3> {
-  bool _isPressed = false;
-
-  void _setPressed(bool value) {
-    if (_isPressed == value) return;
-    setState(() => _isPressed = value);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isSelected = widget.isSelected;
-    final scale = _isPressed ? 0.98 : (isSelected ? 1.05 : 1.0);
+    // Modelden gelen başlığa göre ikon atama
+    IconData catIcon = Icons.category;
+    final catTitle = category.title.toLowerCase();
+    
+    if(catTitle.contains('market')) catIcon = Icons.shopping_cart_outlined;
+    if(catTitle.contains('tekno')) catIcon = Icons.laptop_mac;
+    if(catTitle.contains('kozmetik')) catIcon = Icons.face_retouching_natural;
+    if(catTitle.contains('spor') || catTitle.contains('hobi')) catIcon = Icons.sports_esports;
+    if(catTitle.contains('tümü')) catIcon = Icons.grid_view_rounded;
 
-    return GestureDetector(
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: scale,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        child: Transform.rotate(
-          angle: isSelected ? -0.012 : 0,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            width: 110,
-            height: 130,
-            padding: const EdgeInsets.all(14),
+    return PremiumPressable(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 60, height: 60,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: LinearGradient(
-                colors: isSelected
-                    ? const [Color(0xFFF8EFE2), Color(0xFFEEDCC7)]
-                    : const [Color(0xFFF7F1EA), Color(0xFFF0E6DA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFFD8B98F)
-                    : const Color(0xFFE5D6C6).withOpacity(0.7),
-              ),
+              // Seçiliyse Acı Kahve, değilse Beyaz
+              color: isSelected ? const Color(0xFF2D1B12) : Colors.white,
+              // Tümü butonu karemsi, diğerleri yuvarlak (Fotoğraftaki yapı)
+              borderRadius: isSelected ? BorderRadius.circular(16) : BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-                if (isSelected)
-                  BoxShadow(
-                    color: const Color(0xFFB97A3A).withOpacity(0.18),
-                    blurRadius: 22,
-                    offset: const Offset(0, 8),
-                  ),
+                  color: Colors.black.withOpacity(0.03), 
+                  blurRadius: 8, 
+                  offset: const Offset(0, 4)
+                )
               ],
             ),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2, bottom: 8),
-                    child: Center(
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFDFBF9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          materialIconFromName(widget.category.iconName),
-                          color: const Color(0xFF8B4D22),
-                          size: 30,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Text(
-                  widget.category.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B4E2E),
-                  ),
-                ),
-              ],
+            child: Icon(
+              catIcon, 
+              // Seçiliyse ikon beyaz, değilse gri
+              color: isSelected ? Colors.white : Colors.grey.shade600, 
+              size: 28
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            category.title, 
+            style: TextStyle(
+              fontSize: 12, 
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, 
+              color: const Color(0xFF2A1A10)
+            )
+          ),
+        ],
       ),
     );
   }
