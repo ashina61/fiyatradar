@@ -670,8 +670,8 @@ class _HardDropsSection extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (_, i) {
                     final product = filtered[i];
-                    final price = product.lastPrice ?? 0;
-                    final oldPrice = price == 0 ? 0 : price * 1.14;
+                    final price = (product.lastPrice ?? 0).toDouble();
+                    final oldPrice = price == 0 ? 0.0 : price * 1.14;
                     final dropPercent = oldPrice == 0 ? 0 : (((oldPrice - price) / oldPrice) * 100).round();
                     return Container(
                       width: 180,
