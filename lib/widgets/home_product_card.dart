@@ -8,12 +8,16 @@ class HomeProductCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onTap;
   final double width;
+  final bool showStore;
+  final Widget? bottomSection;
 
   const HomeProductCard({
     super.key,
     required this.product,
     required this.onTap,
     this.width = 155,
+    this.showStore = true,
+    this.bottomSection,
   });
 
   @override
@@ -21,7 +25,8 @@ class HomeProductCard extends StatelessWidget {
     // Veritabanından gelen gerçek veriler
     final title = product.name;
     final brand = (product.brand ?? 'MARKA').toUpperCase();
-    final priceStr = product.price != null ? formatTRY(product.price!) : '---';
+    final priceStr =
+        product.lastPrice != null ? formatTRY(product.lastPrice!) : '---';
     
     // Gerçek projede modelden hesaplanacak değerler
     final isDrop = true; 
@@ -103,24 +108,28 @@ class HomeProductCard extends StatelessWidget {
             const Spacer(),
             
             // 3. Fiyat ve Market (RESİMDEKİ BİREBİR YAPI)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
-                    Text(priceStr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFFF3EBE4), borderRadius: BorderRadius.circular(6)),
-                  child: Text(marketName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
-                )
-              ],
-            )
+            if (bottomSection != null)
+              bottomSection!
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Ort: 40,00₺', style: TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                      Text(priceStr, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+                    ],
+                  ),
+                  if (showStore)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: const Color(0xFFF3EBE4), borderRadius: BorderRadius.circular(6)),
+                      child: Text(marketName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+                    )
+                ],
+              )
           ],
         ),
       ),
