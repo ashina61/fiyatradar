@@ -480,11 +480,10 @@ class _ExactPhotoProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. GERÇEK VERİLER (Modelden çekilir, hiçbir şey statik değil)
     final title = product.name;
-    final brand = (product.brand ?? 'MARKA').toUpperCase();
-    final priceStr = product.price != null ? formatTRY(product.price!) : '---';
+    final brand = product.brand.toUpperCase();
+    final priceStr = product.lastPrice != null ? formatTRY(product.lastPrice!) : '---';
     
-    // NOT: product.storeName kısmı modelindeki doğru değişkenle eşleşmeli (örn: product.marketName)
-    final marketName = product.storeName ?? 'Market'; 
+    final marketName = product.lastStore ?? 'Market'; 
     
     // Trend yüzdesi ve düşüş/yükseliş durumu (varsa modelinden bağlayabilirsin, şimdilik UI'ı bozmaması için basit kontrol)
     final isDrop = true; 
@@ -517,7 +516,7 @@ class _ExactPhotoProductCard extends StatelessWidget {
                     padding: const EdgeInsets.all(16.0), 
                     child: Center(
                       child: CachedNetworkImage(
-                        imageUrl: product.imageUrl ?? '',
+                        imageUrl: product.effectiveImage ?? '',
                         fit: BoxFit.contain, 
                         colorBlendMode: BlendMode.multiply,
                         color: Colors.white.withOpacity(0.01), 
