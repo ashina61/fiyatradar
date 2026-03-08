@@ -12,6 +12,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../pages/notification_center_page.dart';
 import '../../utils/material_icon_resolver.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../utils/theme.dart';
@@ -27,6 +28,7 @@ import '../../providers/banner_provider.dart';
 import '../../providers/campaign_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../services/storage_service.dart';
 
 import '../../widgets/barcode_scanner_sheet.dart';
@@ -228,6 +230,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
     _tabController = TabController(length: 10, vsync: this);
   }
 
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -262,80 +265,528 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen>
   }
 
   Scaffold _buildAdminScaffold(BuildContext context) {
+    final usersAsync = ref.watch(allUsersProvider);
+    final reportsAsync = ref.watch(reportsProvider);
+    final pendingSuggestionsAsync = ref.watch(pendingProductSuggestionsProvider);
+    final maintenanceAsync = ref.watch(maintenanceModeProvider);
+    final unreadNotificationCount = ref.watch(unreadNotificationCountProvider);
+    final todayPricesAsync = ref.watch(_todayAddedPricesProvider);
+
+    final pendingReportsCount = reportsAsync.maybeWhen(
+      data: (reports) => reports.where((report) => report['status'] == 'pending').length,
+      orElse: () => 0,
+    );
+    final pendingSuggestionCount = pendingSuggestionsAsync.valueOrNull?.length ?? 0;
+    final hasNotificationBadge = unreadNotificationCount > 0;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Paneli'),
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              onPressed: _isProductImportRunning ? null : () => _importProducts(context),
-              icon: _isProductImportRunning
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.inventory_2_outlined),
-              label: Text(
-                _isProductImportRunning
-                    ? 'Ürünler Yükleniyor...'
-                    : 'Ürün Veritabanını Güncelle',
+      backgroundColor: const Color(0xFFEFE9E4),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _AdminConsoleHeader(
+              unreadCount: unreadNotificationCount,
+              onBack: () => Navigator.of(context).maybePop(),
+              onNotificationsTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
+                );
+              },
+              maintenanceAsync: maintenanceAsync,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AdminStatCard(
+                            icon: Icons.group,
+                            title: usersAsync.valueOrNull?.length.toString(),
+                            label: 'Toplam Kullanıcı',
+                            isLoading: usersAsync.isLoading,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _AdminStatCard(
+                            icon: Icons.price_check,
+                            title: todayPricesAsync.valueOrNull?.toString(),
+                            label: 'Bugün Eklenen',
+                            isLoading: todayPricesAsync.isLoading,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 1.12,
+                      children: [
+                        _AdminActionCard(
+                          title: 'Kullanıcılar',
+                          subtitle: 'Hesap ve yetki',
+                          icon: Icons.manage_accounts,
+                          onTap: () => _tabController.animateTo(7),
+                        ),
+                        _AdminActionCard(
+                          title: 'Raporlar',
+                          subtitle: 'Hata ve şikayet',
+                          icon: Icons.flag,
+                          iconTint: const Color(0xFFFF3B30),
+                          iconBackground: const Color(0xFFFF3B30).withOpacity(0.12),
+                          onTap: () => _tabController.animateTo(6),
+                          badgeLabel: pendingReportsCount > 0 ? '$pendingReportsCount Bekleyen' : null,
+                          badgeColor: const Color(0xFFFF3B30),
+                        ),
+                        _AdminActionCard(
+                          title: 'Ürün Önerileri',
+                          subtitle: 'Onay bekleyenler',
+                          icon: Icons.playlist_add_check,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const _AdminModuleScaffold(title: 'Ürün Önerileri', child: AdminProductSuggestionsTab())),
+                            );
+                          },
+                          badgeLabel: pendingSuggestionCount > 0 ? '$pendingSuggestionCount Yeni' : null,
+                          badgeColor: const Color(0xFFFF9500),
+                        ),
+                        _AdminActionCard(
+                          title: 'Markalar',
+                          subtitle: 'Market listesi',
+                          icon: Icons.storefront,
+                          onTap: () => _tabController.animateTo(1),
+                        ),
+                        _AdminActionCard(
+                          title: 'Aktüeller',
+                          subtitle: 'Katalog & Broşür',
+                          icon: Icons.auto_stories,
+                          onTap: () => _tabController.animateTo(5),
+                        ),
+                        _AdminActionCard(
+                          title: 'Rozetler',
+                          subtitle: 'Oyunlaştırma',
+                          icon: Icons.military_tech,
+                          iconTint: const Color(0xFF1A110D),
+                          iconBackground: const Color(0xFFC29B78),
+                          onTap: () => _tabController.animateTo(9),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    if (hasNotificationBadge)
+                      _AdminSubtleAction(
+                        icon: Icons.notifications_active_outlined,
+                        label: 'Okunmamış bildirimler ($unreadNotificationCount)',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 16),
+                    _AdminSubtleAction(
+                      icon: Icons.inventory_2_outlined,
+                      label: _isProductImportRunning
+                          ? 'Ürünler yükleniyor...'
+                          : 'Ürün Veritabanını Güncelle',
+                      onTap: _isProductImportRunning ? null : () => _importProducts(context),
+                    ),
+                    const SizedBox(height: 10),
+                    _AdminSubtleAction(
+                      icon: Icons.cloud_upload_outlined,
+                      label: _isMarketImportRunning
+                          ? 'Veritabanı yükleniyor...'
+                          : 'Market Veritabanını Güncelle',
+                      onTap: _isMarketImportRunning ? null : _importMarketsFromAsset,
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      height: 660,
+                      child: Column(
+                        children: [
+                          TabBar(
+                            controller: _tabController,
+                            isScrollable: true,
+                            indicatorColor: AppColors.primary,
+                            indicatorWeight: 3,
+                            labelColor: Theme.of(context).textTheme.bodyLarge?.color,
+                            unselectedLabelColor: Theme.of(context).hintColor,
+                            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            tabs: const [
+                              Tab(text: 'Ürünler', icon: Icon(Icons.inventory_2_outlined)),
+                              Tab(text: 'Mağazalar', icon: Icon(Icons.storefront_outlined)),
+                              Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
+                              Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
+                              Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
+                              Tab(text: 'Aktüel Yönetimi', icon: Icon(Icons.local_offer_outlined)),
+                              Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
+                              Tab(text: 'Kullanıcılar', icon: Icon(Icons.people_outlined)),
+                              Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
+                              Tab(text: 'Rozet Olaylari', icon: Icon(Icons.workspace_premium_outlined)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: const [
+                                _ProductHubTab(),
+                                _StoreHubTab(),
+                                _CategoryManagementTab(),
+                                _BannerManagementTab(),
+                                _CampaignManagementTab(),
+                                ActualManagementTab(),
+                                AdminReportsManagementTab(),
+                                AdminUserManagementTab(),
+                                AdminStatisticsTab(),
+                                AdminBadgeAchievementsTab(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              onPressed: _isMarketImportRunning ? null : _importMarketsFromAsset,
-              icon: _isMarketImportRunning
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.cloud_upload_outlined),
-              label: Text(_isMarketImportRunning ? 'Yükleniyor...' : 'Veritabanını Güncelle'),
-            ),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 3,
-          labelColor: Theme.of(context).textTheme.bodyLarge?.color,
-          unselectedLabelColor: Theme.of(context).hintColor,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          tabs: const [
-            Tab(text: 'Ürünler', icon: Icon(Icons.inventory_2_outlined)),
-            Tab(text: 'Mağazalar', icon: Icon(Icons.storefront_outlined)),
-            Tab(text: 'Kategoriler', icon: Icon(Icons.category_outlined)),
-            Tab(text: 'Bannerlar', icon: Icon(Icons.view_carousel_outlined)),
-            Tab(text: 'Kampanyalar', icon: Icon(Icons.campaign_outlined)),
-            Tab(text: 'Aktüel Yönetimi', icon: Icon(Icons.local_offer_outlined)),
-            Tab(text: 'Raporlar', icon: Icon(Icons.flag_outlined)),
-            Tab(text: 'Kullanıcılar', icon: Icon(Icons.people_outlined)),
-            Tab(text: 'Istatistikler', icon: Icon(Icons.bar_chart_outlined)),
-            Tab(text: 'Rozet Olaylari', icon: Icon(Icons.workspace_premium_outlined)),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _ProductHubTab(),
-          _StoreHubTab(),
-          _CategoryManagementTab(),
-          _BannerManagementTab(),
-          _CampaignManagementTab(),
-          ActualManagementTab(),
-          AdminReportsManagementTab(),
-          AdminUserManagementTab(),
-          const AdminStatisticsTab(),
-          AdminBadgeAchievementsTab(),
+    );
+  }
+}
+
+final _todayAddedPricesProvider = StreamProvider<int>((ref) {
+  final now = DateTime.now();
+  final startOfDay = DateTime(now.year, now.month, now.day);
+
+  return FirebaseFirestore.instance
+      .collection('priceReports')
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+      .snapshots()
+      .map((snapshot) => snapshot.docs.length);
+});
+
+class _AdminModuleScaffold extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _AdminModuleScaffold({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: child,
+    );
+  }
+}
+
+class _AdminConsoleHeader extends StatelessWidget {
+  final int unreadCount;
+  final VoidCallback onBack;
+  final VoidCallback onNotificationsTap;
+  final AsyncValue<bool> maintenanceAsync;
+
+  const _AdminConsoleHeader({
+    required this.unreadCount,
+    required this.onBack,
+    required this.onNotificationsTap,
+    required this.maintenanceAsync,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMaintenance = maintenanceAsync.valueOrNull;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A110D),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Row(
+        children: [
+          _HeaderIconButton(icon: Icons.arrow_back_ios_new, onTap: onBack),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              children: [
+                const Text(
+                  'Admin Konsolu',
+                  style: TextStyle(
+                    color: Color(0xFFFCFAF8),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (isMaintenance != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isMaintenance
+                          ? const Color(0xFFFF9500).withOpacity(0.12)
+                          : const Color(0xFF34C759).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: isMaintenance
+                            ? const Color(0xFFFF9500).withOpacity(0.3)
+                            : const Color(0xFF34C759).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      isMaintenance ? 'Bakım Modu' : 'Sistem Aktif',
+                      style: TextStyle(
+                        color: isMaintenance ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  const Text(
+                    'Sistem durumu izleniyor',
+                    style: TextStyle(color: Color(0xFFC29B78), fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
+          _HeaderIconButton(
+            icon: Icons.notifications,
+            onTap: onNotificationsTap,
+            badgeText: unreadCount > 0 ? unreadCount.toString() : null,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? badgeText;
+
+  const _HeaderIconButton({required this.icon, required this.onTap, this.badgeText});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFC29B78).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, size: 20, color: const Color(0xFFC29B78)),
+          ),
+        ),
+        if (badgeText != null)
+          Positioned(
+            right: -3,
+            top: -3,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF3B30),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: const Color(0xFF1A110D), width: 2),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                badgeText!,
+                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AdminStatCard extends StatelessWidget {
+  final IconData icon;
+  final String? title;
+  final String label;
+  final bool isLoading;
+
+  const _AdminStatCard({
+    required this.icon,
+    required this.title,
+    required this.label,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCFAF8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x1F6A442A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(alignment: Alignment.topRight, child: Icon(icon, color: const Color(0x336A442A), size: 28)),
+          Text(
+            isLoading ? '—' : (title ?? 'Veri yok'),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF211510)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF8C7B70), fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? badgeLabel;
+  final Color badgeColor;
+  final Color iconBackground;
+  final Color iconTint;
+
+  const _AdminActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.badgeLabel,
+    this.badgeColor = const Color(0xFF6A442A),
+    this.iconBackground = const Color(0x266A442A),
+    this.iconTint = const Color(0xFF6A442A),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFCFAF8),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0x1F6A442A)),
+          ),
+          child: Stack(
+            children: [
+              if (badgeLabel != null)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text(
+                      badgeLabel!,
+                      style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: iconBackground,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: iconTint),
+                  ),
+                  const Spacer(),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8C7B70)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminSubtleAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _AdminSubtleAction({required this.icon, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFCFAF8),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0x4D6A442A), style: BorderStyle.solid),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: const Color(0xFF8C7B70)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF211510)),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF8C7B70)),
+            ],
+          ),
+        ),
       ),
     );
   }
