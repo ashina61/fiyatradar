@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/banner_model.dart';
-import '../../models/campaign_basket_model.dart';
-import '../../models/product_model.dart';
-import '../../providers/banner_provider.dart';
-import '../../providers/campaign_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../utils/theme.dart';
+import '../../../models/banner_model.dart';
+import '../../../models/campaign_basket_model.dart';
+import '../../../models/product_model.dart';
+import '../../../providers/banner_provider.dart';
+import '../../../providers/campaign_provider.dart';
+import '../../../providers/product_provider.dart';
+import '../../../utils/theme.dart';
 
 // --- PREMIUM RENK PALETİ ---
 const Color pBrandBrown = Color(0xFF6A442A);
@@ -18,6 +18,7 @@ const Color pStudio = Color(0xFFEBE5DF);
 const Color pTextMain = Color(0xFF211510);
 const Color pTextMuted = Color(0xFF8C7B70);
 const Color pAlert = Color(0xFFFF3B30);
+const Color pAlertLight = Color(0x1AFF3B30);
 const Color pSuccess = Color(0xFF34C759);
 const Color pSuccessLight = Color(0x2634C759);
 const Color pBorder = Color(0x1F6A442A);
