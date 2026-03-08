@@ -11,19 +11,22 @@ import '../../utils/theme.dart';
 
 // --- PREMIUM RENK PALETİ ---
 const Color pBrandBrown = Color(0xFF6A442A);
-const Color pBrandBrownLight = Color(0x266A442A); // 15% Opacity
+const Color pBrandBrownLight = Color(0x266A442A);
 const Color pBgApp = Color(0xFFF8F6F4);
 const Color pSurface = Color(0xFFFFFFFF);
 const Color pStudio = Color(0xFFEBE5DF);
 const Color pGold = Color(0xFFC29B78);
-const Color pGoldLight = Color(0x33C29B78); // 20%
+const Color pGoldLight = Color(0x33C29B78);
+
+// EKSİK OLAN SATIR TAM OLARAK BU AŞAĞIDAKİ:
+const Color pDarkHeader = Color(0xFF1A110D); 
+
 const Color pTextMain = Color(0xFF211510);
 const Color pTextMuted = Color(0xFF8C7B70);
 const Color pAlert = Color(0xFFFF3B30);
 const Color pAlertLight = Color(0x1AFF3B30);
 const Color pSuccess = Color(0xFF34C759);
 const Color pBorder = Color(0x1F6A442A);
-const Color pDarkHeader = Color(0xFF1A110D);
 
 
 // ---------------------------------------------------------------------------
