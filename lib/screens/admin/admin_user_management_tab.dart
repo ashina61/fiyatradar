@@ -23,6 +23,8 @@ const Color pAlert = Color(0xFFFF3B30);
 const Color pAlertLight = Color(0x1AFF3B30);
 const Color pSuccess = Color(0xFF34C759);
 const Color pBorder = Color(0x1F6A442A);
+const Color pDarkHeader = Color(0xFF1A110D);
+
 
 // ---------------------------------------------------------------------------
 // Tab 6: Kullanıcı Yönetimi
