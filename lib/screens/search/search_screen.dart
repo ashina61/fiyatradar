@@ -91,52 +91,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F3F0),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF3A2B24),
-            size: 20,
-          ),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-              return;
-            }
-            ref.read(currentTabProvider.notifier).state = 0;
-          },
-        ),
-        title: const Text(
-          'Keşfet',
-          style: TextStyle(
-            color: Color(0xFF211510),
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: _buildBrandPill(),
-          ),
-        ],
-      ),
       body: SafeArea(
-        top: false,
+        bottom: false,
         child: FadeTransition(
           opacity: _fadeAnim,
           child: Column(
             children: [
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildSearchBar(theme, state),
+              _buildPremiumHeader(),
+              Transform.translate(
+                offset: const Offset(0, -24),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildSearchBar(theme, state),
+                ),
               ),
-              const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildModeTabs(state),
@@ -152,13 +120,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     );
   }
 
+  Widget _buildPremiumHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 42),
+      decoration: BoxDecoration(
+        color: const Color(0xFF211510),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF211510).withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFFF5F3F0),
+              size: 20,
+            ),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+                return;
+              }
+              ref.read(currentTabProvider.notifier).state = 0;
+            },
+          ),
+          const SizedBox(width: 4),
+          const Expanded(
+            child: Text(
+              'Keşfet',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          _buildBrandPill(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBrandPill() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF211510).withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF211510).withOpacity(0.1)),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
@@ -170,7 +187,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF211510),
+              color: Color(0xFFC29B78),
             ),
           ),
         ],
