@@ -159,6 +159,9 @@ class _PxShowroom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryCategory = data.categories.isNotEmpty ? data.categories.first : 'KATEGORİ';
+    final brandLabel = data.categories.length > 1 ? data.categories[1] : 'FIYATRADAR';
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 20),
@@ -215,9 +218,9 @@ class _PxShowroom extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(data.brand.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: pxGold, letterSpacing: 2)),
+                    Text(brandLabel.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: pxGold, letterSpacing: 2)),
                     const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('•', style: TextStyle(color: pxCaramel))),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(6), color: Colors.white.withOpacity(0.05)), child: Text(data.category.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white70))),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(6), color: Colors.white.withOpacity(0.05)), child: Text(primaryCategory.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white70))),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -237,7 +240,7 @@ class _PxShowroom extends StatelessWidget {
 // 2. YÜZEN FİYAT KARTI
 // ---------------------------------------------------------------------------
 class _PxDashboardCluster extends StatefulWidget {
-  final ProductPrice bestPrice;
+  final BestPrice bestPrice;
   const _PxDashboardCluster({required this.bestPrice});
   @override
   State<_PxDashboardCluster> createState() => _PxDashboardClusterState();
@@ -318,7 +321,7 @@ class _PxCreamContent extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    width: 48, height: 48, borderRadius: BorderRadius.circular(16),
+                    width: 48, height: 48,
                     decoration: BoxDecoration(gradient: goldGradient, boxShadow: [BoxShadow(color: pxGold.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4))]),
                     child: const Icon(Icons.workspace_premium, color: pxWhite, size: 26),
                   ),
