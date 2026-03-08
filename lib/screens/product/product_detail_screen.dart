@@ -1,47 +1,43 @@
 import 'dart:math' as math;
 import 'dart:ui';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// --- PROJE YOLLARINI KONTROL ET ---
 import '../../models/product_detail_api_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
-import '../add_price/add_price_screen.dart';
-import '../../utils/elite_level_engine.dart';
-import '../../widgets/premium_level_badge.dart';
 import '../../services/watchlist_service.dart';
+import '../../utils/elite_level_engine.dart';
+import '../add_price/add_price_screen.dart';
 
-// ──── CodePen CSS Renk Sabitleri ────
-const _brown900 = Color(0xFF5D4037);
-const _brown700 = Color(0xFF795548);
-const _brown500 = Color(0xFF8D6E63);
-const _amber600 = Color(0xFFC8956C);
-const _amber400 = Color(0xFFD4A574);
-const _cream100 = Color(0xFFFFF8F0);
-const _cream200 = Color(0xFFF5EDE4);
-const _cream300 = Color(0xFFEDE0D4);
-const _success = Color(0xFF2E7D32);
-const _successBg = Color(0xFFE8F5E9);
-const _danger = Color(0xFFC62828);
-const _dangerBg = Color(0xFFFFEBEE);
+// ---------------------------------------------------------------------------
+// 🎨 PORSCHE DNA RENK PALETİ
+// ---------------------------------------------------------------------------
+const Color pxDark = Color(0xFF0D0805);        
+const Color pxSurface = Color(0xFF17100B);     
+const Color pxCream = Color(0xFFF4EFEA);       
+const Color pxGold = Color(0xFFD4AF37);        
+const Color pxCaramel = Color(0xFF6A442A);     
+const Color pxWhite = Color(0xFFFFFFFF);
+const Color pxSuccess = Color(0xFF35D04F);     
+const Color pxAlert = Color(0xFFE53935);
+const Color pxMuted = Color(0xFF8C7B70);
+
+// --- SEVİYE GRADİENTLERİ ---
+const LinearGradient goldGradient = LinearGradient(colors: [Color(0xFFF3E5AB), Color(0xFFD4AF37), Color(0xFFAA771C)]);
+const LinearGradient silverGradient = LinearGradient(colors: [Color(0xFFE0E0E0), Color(0xFFBDBDBD), Color(0xFF9E9E9E)]);
+const LinearGradient bronzeGradient = LinearGradient(colors: [Color(0xFFFAD6A5), Color(0xFFCD7F32), Color(0xFF8D5524)]);
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
-  const ProductDetailScreen({
-    super.key,
-    required this.productId,
-    this.highlightedCommentId,
-    this.highlightedPriceId,
-  });
-
+  const ProductDetailScreen({super.key, required this.productId, this.highlightedCommentId, this.highlightedPriceId});
   final String productId;
   final String? highlightedCommentId;
   final String? highlightedPriceId;
@@ -50,30 +46,21 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
-    with TickerProviderStateMixin {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with TickerProviderStateMixin {
   late final AnimationController _heroFloatController;
-  late final AnimationController _chartPulseController;
   late final Animation<double> _heroFloat;
-  late final Animation<double> _chartPulse;
   final _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Havada süzülme animasyonu
     _heroFloatController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _heroFloat = Tween<double>(begin: 0, end: -10).animate(CurvedAnimation(parent: _heroFloatController, curve: Curves.easeInOut));
-    
-    // Grafikteki yeşil nokta nabız animasyonu
-    _chartPulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
-    _chartPulse = Tween<double>(begin: 1, end: 2.5).animate(CurvedAnimation(parent: _chartPulseController, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
     _heroFloatController.dispose();
-    _chartPulseController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -90,233 +77,324 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
     await ref.read(firestoreServiceProvider).toggleFavorite(uid: user.uid, productId: data.id, payload: {'productName': data.title, 'imageUrl': data.imageUrl});
   }
 
-  Future<void> _shareProduct(ProductDetailResponse data) async {
-    final user = ref.read(authStateProvider).valueOrNull;
-    await ref.read(firestoreServiceProvider).registerProductShare(
-      productId: data.id,
-      uid: user?.uid,
-      payload: {'title': data.title},
-    );
-    await Share.share("${data.title} ürününü FiyatRadar'da incele: ürün #${data.id}");
-  }
-
-
   Future<void> _toggleWatchlist(ProductDetailResponse data) async {
     final user = ref.read(authStateProvider).valueOrNull;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Takip listesi için giriş yapmalısın.')),
-      );
-      return;
-    }
-
+    if (user == null) return;
     final service = WatchlistService();
     final isWatchlisted = await service.isWatchlisted(user.uid, data.id).first;
-
     if (isWatchlisted) {
       await service.removeFromWatchlist(user.uid, data.id);
     } else {
-      await service.addToWatchlist(
-        user.uid,
-        data.id,
-        data.title,
-        data.bestPrice.price,
-      );
+      await service.addToWatchlist(user.uid, data.id, data.title, data.bestPrice.price);
     }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isWatchlisted
-              ? 'Ürün takip listesinden kaldırıldı.'
-              : 'Ürün takip listene eklendi.',
-        ),
-      ),
-    );
   }
-
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
     final notifier = ref.read(productDetailProvider(widget.productId).notifier);
     final currentUser = ref.watch(authStateProvider).valueOrNull;
-    final favoriteStream = currentUser == null
-        ? const Stream<bool>.empty()
-        : ref.watch(firestoreServiceProvider).isFavoriteStream(
-              uid: currentUser.uid,
-              productId: widget.productId,
-            );
-    final watchlistedStream = currentUser == null
-        ? const Stream<bool>.empty()
-        : WatchlistService().isWatchlisted(
-              currentUser.uid,
-              widget.productId,
-            );
+    
+    final favoriteStream = currentUser == null ? const Stream<bool>.empty() : ref.watch(firestoreServiceProvider).isFavoriteStream(uid: currentUser.uid, productId: widget.productId);
+    final watchlistedStream = currentUser == null ? const Stream<bool>.empty() : WatchlistService().isWatchlisted(currentUser.uid, widget.productId);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFD1D5DB), // CSS body bg
-      floatingActionButton: PressableFab(onPressed: _openAddPrice),
-      body: SafeArea(
-        bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 414), // .mobile-app max-width
-            child: Container(
-              height: double.infinity,
-              decoration: BoxDecoration(
-                color: _cream100,
-                borderRadius: BorderRadius.circular(40),
-                border: Border.all(color: Colors.white, width: 8),
-                boxShadow: [BoxShadow(color: _brown900.withOpacity(0.3), blurRadius: 50, offset: const Offset(0, 25), spreadRadius: -12)],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: state.isLoading
-                  ? const Center(child: CircularProgressIndicator(color: _amber600))
-                  : state.error != null
-                      ? Center(child: Text(state.error!))
-                      : SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: Column(
+      backgroundColor: pxDark,
+      body: state.isLoading
+          ? const Center(child: CircularProgressIndicator(color: pxGold))
+          : state.error != null
+              ? Center(child: Text(state.error!, style: const TextStyle(color: pxWhite)))
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // 💥 1. KARANLIK SHOWROOM 💥
+                      _PxShowroom(
+                        data: state.data!, floatAnimation: _heroFloat, favoriteStream: favoriteStream,
+                        onBack: () => Navigator.pop(context), onToggleFavorite: () => _toggleFavorite(state.data!),
+                        onShare: () => Share.share("${state.data!.title} ürününü FiyatRadar'da incele!"),
+                      ),
+
+                      // 💥 Yüzen Kart ve Konsol Geçişi 💥
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Alt Katman: Krem Konsol + Karanlık Konsol
+                          Column(
                             children: [
-                              HeroSection(
-                                data: state.data!,
-                                floatAnimation: _heroFloat,
-                                favoriteStream: favoriteStream,
-                                watchlistedStream: watchlistedStream,
-                                onBack: () => Navigator.of(context).pop(),
-                                onToggleFavorite: () => _toggleFavorite(state.data!),
-                                onShare: () => _shareProduct(state.data!),
-                                onNotificationTap: () => _toggleWatchlist(state.data!),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 24, 20, 100), // .content-body padding
-                                child: Column(
-                                  children: [
-                                    HeaderBlock(data: state.data!),
-                                    const SizedBox(height: 24),
-                                    BestPriceCard(data: state.data!, isVoting: state.isSubmittingVote),
-                                    const SizedBox(height: 24),
-                                    QuickStatsRow(stats: state.data!.stats),
-                                    const SizedBox(height: 24),
-                                    PriceHistoryPanel(history: state.history, pulseAnimation: _chartPulse),
-                                    const SizedBox(height: 24),
-                                    CommunityPanel(data: state.data!, notifier: notifier, isVoting: state.isSubmittingVote),
-                                    const SizedBox(height: 24),
-                                    CommentsPanel(state: state, notifier: notifier, controller: _commentController, productId: widget.productId),
-                                  ],
-                                ),
-                              ),
+                              _PxCreamBoard(data: state.data!, onAddPrice: _openAddPrice),
+                              _PxDarkBoard(state: state, notifier: notifier, controller: _commentController, productId: widget.productId),
                             ],
                           ),
-                        ),
-            ),
-          ),
-        ),
-      ),
+                          // Üst Katman: Yüzen Gösterge Paneli
+                          Positioned(
+                            top: -30, left: 20, right: 20,
+                            child: _PxDashboardCluster(bestPrice: state.data!.bestPrice),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// 1. HERO SECTION (Zıplayan Ürün ve Aktif Butonlar)
-// ═══════════════════════════════════════════════════════════════════
-class HeroSection extends StatelessWidget {
-  const HeroSection({super.key, required this.data, required this.floatAnimation, required this.favoriteStream, required this.watchlistedStream, required this.onBack, required this.onToggleFavorite, required this.onShare, required this.onNotificationTap});
-  final ProductDetailResponse data;
-  final Animation<double> floatAnimation;
-  final Stream<bool> favoriteStream;
-  final Stream<bool> watchlistedStream;
-  final VoidCallback onBack, onToggleFavorite, onShare;
-  final VoidCallback onNotificationTap;
+// ---------------------------------------------------------------------------
+// 1. KARANLIK SHOWROOM (ÜST PODYUM)
+// ---------------------------------------------------------------------------
+class _PxShowroom extends StatelessWidget {
+  final ProductDetailResponse data; final Animation<double> floatAnimation;
+  final Stream<bool> favoriteStream; final VoidCallback onBack, onToggleFavorite, onShare;
+
+  const _PxShowroom({required this.data, required this.floatAnimation, required this.favoriteStream, required this.onBack, required this.onToggleFavorite, required this.onShare});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 300, // KANKA BOYUTU KÜÇÜLTTÜK, EKRANI BOŞ YERE KAPLAMASIN
+      width: double.infinity,
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 60),
       decoration: const BoxDecoration(
-        gradient: RadialGradient(colors: [Colors.white, Color(0xFFF5EDE4)], center: Alignment(0, 0), radius: 1.2),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-        boxShadow: [BoxShadow(color: Color(0x1A5D4037), blurRadius: 20, offset: Offset(0, 10))],
+        color: pxDark,
+        // Arkadaki zayıf spot ışığı
+        gradient: RadialGradient(colors: [Color(0x1AD4AF37), pxDark], center: Alignment(0, -0.3), radius: 0.8),
       ),
-      child: Stack(
+      child: Column(
         children: [
-          // Aktif ve Cam Efektli Butonlar
-          Positioned(
-            top: 16, left: 16, right: 16,
+          // Navigasyon
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GlassIconButton(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
+                _PxIconBtn(icon: Icons.arrow_back_ios_new, onTap: onBack),
                 Row(
                   children: [
                     StreamBuilder<bool>(
                       stream: favoriteStream,
                       builder: (context, snapshot) {
-                        final isFavorite = snapshot.data ?? false;
-                        return GlassIconButton(
-                          icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          iconColor: isFavorite ? const Color(0xFFE53935) : _brown900,
+                        final isFav = snapshot.data ?? false;
+                        return _PxIconBtn(
+                          icon: isFav ? Icons.favorite : Icons.favorite_border,
+                          color: isFav ? pxAlert : pxWhite,
+                          bgColor: isFav ? pxAlert.withOpacity(0.1) : pxSurface,
+                          borderColor: isFav ? pxAlert.withOpacity(0.3) : pxWhite.withOpacity(0.05),
                           onTap: onToggleFavorite,
                         );
-                      },
+                      }
                     ),
                     const SizedBox(width: 12),
-                    StreamBuilder<bool>(
-                      stream: watchlistedStream,
-                      builder: (context, snapshot) {
-                        final isWatchlisted = snapshot.data ?? false;
-                        return GlassIconButton(
-                          icon: isWatchlisted ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
-                          iconColor: isWatchlisted ? _amber600 : _brown900,
-                          onTap: onNotificationTap,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    GlassIconButton(icon: Icons.share_rounded, onTap: onShare),
+                    _PxIconBtn(icon: Icons.share, onTap: onShare),
                   ],
                 ),
               ],
             ),
           ),
           
-          // Zıplayarak Gelen ve Havada Süzülen Ürün
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 40),
-              child: TweenAnimationBuilder(
-                tween: Tween<double>(begin: 0.5, end: 1.0),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.elasticOut, // Zıplama Efekti
-                builder: (context, scale, child) {
-                  return Transform.scale(
-                    scale: scale,
-                    child: AnimatedBuilder(
-                      animation: floatAnimation,
-                      builder: (_, child) => Transform.translate(offset: Offset(0, floatAnimation.value), child: child),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFFFFFFFF), Color(0xFFF4E6D8)],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 20))]
-                        ),
-                        // Ürün fotoğrafı
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.network(data.imageUrl, height: 180, fit: BoxFit.contain),
-                        ),
-                      ),
+          // Süzülen Ürün
+          AnimatedBuilder(
+            animation: floatAnimation,
+            builder: (_, child) => Transform.translate(
+              offset: Offset(0, floatAnimation.value),
+              child: child,
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 10),
+              height: 180,
+              decoration: const BoxDecoration(boxShadow: [BoxShadow(color: Color(0xCC000000), blurRadius: 30, offset: Offset(0, 20))]),
+              child: Image.network(data.imageUrl, fit: BoxFit.contain),
+            ),
+          ),
+
+          // Başlık Alanı
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(data.brand.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: pxGold, letterSpacing: 2)),
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('•', style: TextStyle(color: pxCaramel))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(6)),
+                      child: Text(data.category.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white54)),
                     ),
-                  );
-                },
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(data.title, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.w900, color: pxWhite, height: 1.1)),
+                const SizedBox(height: 8),
+                Text('${data.viewCount} Görüntüleme • ${data.priceEntryCount} Fiyat Girişi', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white54)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2. YÜZEN GÖSTERGE PANELİ (Fiyat Kadranı)
+// ---------------------------------------------------------------------------
+class _PxDashboardCluster extends StatefulWidget {
+  final ProductPrice bestPrice;
+  const _PxDashboardCluster({required this.bestPrice});
+
+  @override
+  State<_PxDashboardCluster> createState() => _PxDashboardClusterState();
+}
+
+class _PxDashboardClusterState extends State<_PxDashboardCluster> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
+    _pulseAnim = Tween<double>(begin: 1.0, end: 2.5).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() { _pulseCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: pxSurface, borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: pxGold.withOpacity(0.3)),
+        boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 20))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              AnimatedBuilder(
+                animation: _pulseAnim,
+                builder: (_,__) => Container(
+                  width: 12, height: 12,
+                  decoration: BoxDecoration(
+                    color: pxSuccess, shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: pxSuccess.withOpacity(1 - (_pulseCtrl.value)), blurRadius: 15 * _pulseAnim.value)],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.bestPrice.store, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: pxSuccess)),
+                  const SizedBox(height: 2),
+                  Text('${widget.bestPrice.createdAtLabel} eklendi', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: pxGold)),
+                ],
+              ),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(widget.bestPrice.price.toInt().toString(), style: GoogleFonts.dmSans(fontSize: 36, fontWeight: FontWeight.w700, color: pxWhite, height: 1, letterSpacing: -1)),
+              Text(',${((widget.bestPrice.price % 1) * 100).toInt().toString().padLeft(2, '0')}₺', style: const TextStyle(fontSize: 18, color: Colors.white60)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. KREM RENGİ ORTA KONSOL (İstatistikler ve Ekleme Butonu)
+// ---------------------------------------------------------------------------
+class _PxCreamBoard extends StatelessWidget {
+  final ProductDetailResponse data; final VoidCallback onAddPrice;
+  const _PxCreamBoard({required this.data, required this.onAddPrice});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 32), // Top padding yüzen kartı kurtarır
+      decoration: const BoxDecoration(
+        color: pxCream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 40, offset: Offset(0, -10))],
+      ),
+      child: Column(
+        children: [
+          // Ekleyen Metadatası
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44, height: 44, borderRadius: BorderRadius.circular(14),
+                    decoration: BoxDecoration(gradient: goldGradient, boxShadow: [BoxShadow(color: pxGold.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]),
+                    child: const Icon(Icons.workspace_premium, color: pxWhite, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('FİYATI EKLEYEN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black38, letterSpacing: 1)),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          _GradientText(data.bestPrice.userName, gradient: goldGradient, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified, color: Color(0xFF007AFF), size: 16),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  _PxActionBtn(icon: Icons.navigation, onTap: (){}),
+                  const SizedBox(width: 8),
+                  _PxActionBtn(icon: Icons.outlined_flag, color: pxAlert, onTap: (){}),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Hızlı İstatistikler
+          Row(
+            children: [
+              Expanded(child: _StatBox(icon: Icons.south_east, label: 'En Düşük', value: '${data.stats.lowest.toStringAsFixed(2)}₺', isDark: true)),
+              const SizedBox(width: 10),
+              Expanded(child: _StatBox(icon: Icons.drag_handle, label: 'Ortalama', value: '${data.stats.average.toStringAsFixed(2)}₺', isDark: false)),
+              const SizedBox(width: 10),
+              Expanded(child: _StatBox(icon: Icons.north_east, label: 'En Yüksek', value: '${data.stats.highest.toStringAsFixed(2)}₺', isDark: false)),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // Fiyat Ekle Butonu (Konsola Gömülü)
+          GestureDetector(
+            onTap: onAddPrice,
+            child: Container(
+              width: double.infinity, height: 60,
+              decoration: BoxDecoration(color: pxDark, borderRadius: BorderRadius.circular(20), border: Border.all(color: pxGold.withOpacity(0.4)), boxShadow: const [BoxShadow(color: Color(0x4D1A110D), blurRadius: 20, offset: Offset(0, 10))]),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add, color: pxGold, size: 24),
+                  SizedBox(width: 8),
+                  Text('YENİ FİYAT EKLE', style: TextStyle(fontFamily: 'Outfit', fontSize: 15, fontWeight: FontWeight.w900, color: pxWhite, letterSpacing: 0.5)),
+                ],
               ),
             ),
           ),
@@ -326,1234 +404,258 @@ class HeroSection extends StatelessWidget {
   }
 }
 
-
-// ═══════════════════════════════════════════════════════════════════
-// HEADER BLOCK (CSS Birebir)
-// ═══════════════════════════════════════════════════════════════════
-class HeaderBlock extends StatelessWidget {
-  const HeaderBlock({super.key, required this.data});
-  final ProductDetailResponse data;
-  bool get _isTrending => data.priceEntryCount >= 10 || data.viewCount >= 100;
-
+// ---------------------------------------------------------------------------
+// 4. KARANLIK ALT KONSOL (Telemetri & Timeline)
+// ---------------------------------------------------------------------------
+class _PxDarkBoard extends ConsumerStatefulWidget {
+  final ProductDetailState state; final ProductDetailNotifier notifier;
+  final TextEditingController controller; final String productId;
+  const _PxDarkBoard({required this.state, required this.notifier, required this.controller, required this.productId});
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8, runSpacing: 8,
-          children: [
-            ...data.categories.map((cat) => _Badge(label: cat, bg: _cream300, fg: _brown700)),
-            if (_isTrending) const _Badge(label: 'Trend', bg: Color(0xFFFFF3E0), fg: Color(0xFFEF6C00), icon: Icons.local_fire_department_rounded),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(data.title, style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w700, color: _brown900, height: 1.3)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Icon(Icons.remove_red_eye_outlined, size: 16, color: _brown500),
-            const SizedBox(width: 4),
-            Text('${data.viewCount} Görüntüleme', style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('•', style: GoogleFonts.inter(fontSize: 18, color: _brown500, height: 1))),
-            const Icon(Icons.sell_outlined, size: 16, color: _brown500),
-            const SizedBox(width: 4),
-            Text('${data.priceEntryCount} Fiyat Girişi', style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
-          ],
-        ),
-      ],
-    );
-  }
+  ConsumerState<_PxDarkBoard> createState() => _PxDarkBoardState();
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.bg, required this.fg, this.icon});
-  final String label; final Color bg; final Color fg; final IconData? icon;
+class _PxDarkBoardState extends ConsumerState<_PxDarkBoard> {
+  bool _sendingVote = false;
+  bool _justSentComment = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
-          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// 1. ANA FİYAT KARTI (Minimalist: Buton Yok, Navigasyon Ok Var)
-// ═══════════════════════════════════════════════════════════════════
-class BestPriceCard extends ConsumerStatefulWidget {
-  const BestPriceCard({super.key, required this.data, required this.isVoting});
-  final ProductDetailResponse data;
-  final bool isVoting;
-  @override
-  ConsumerState<BestPriceCard> createState() => _BestPriceCardState();
-}
-
-class _BestPriceCardState extends ConsumerState<BestPriceCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _timePulseController;
-  late final Animation<double> _timePulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _timePulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
-    _timePulse = CurvedAnimation(parent: _timePulseController, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _timePulseController.dispose();
-    super.dispose();
-  }
-
-  // Fiyatı Raporlama Dialogu
-  void _reportPrice() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Fiyatı Raporla'),
-        content: const Text('Bu fiyatın hatalı veya sahte olduğunu mu düşünüyorsunuz?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiyat raporlandı.')));
-            },
-            child: const Text('Raporla', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deletePriceByAdmin() async {
-    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
-    if (currentUser?.isAdmin != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Fiyatı sil'),
-        content: const Text('Bu fiyat girdisini silmek istediğinize emin misiniz?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    await ref.read(firestoreServiceProvider).softDeletePrice(
-      priceId: widget.data.bestPrice.id,
-      deletedByUid: currentUser!.uid,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fiyat girdisi silindi.')),
-    );
+  Future<void> _submitVote(bool isApproved) async {
+    setState(() => _sendingVote = true);
+    await widget.notifier.votePrice(priceId: widget.state.data!.bestPrice.id, isApproved: isApproved);
+    if(mounted) setState(() => _sendingVote = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = widget.data.bestPrice;
-    final priceText = p.price.toStringAsFixed(0);
+    final data = widget.state.data!;
+    final appC = data.trust.approveCount;
+    final rejC = data.trust.rejectCount;
+    final total = appC + rejC;
+    final score = total == 0 ? 0 : ((appC / total) * 100).round();
+
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final voteStream = user == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(data.bestPrice.id, user.uid);
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: const Color(0xFF5D4037),
-        boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.22), blurRadius: 14, offset: const Offset(0, 8))],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Üst Satır: Son Fiyat Etiketi ve Süre ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  border: Border.all(color: Colors.white24),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.flash_on_rounded, color: Color(0xFFFFD54F), size: 14),
-                    const SizedBox(width: 4),
-                    Text('Son Fiyat', style: GoogleFonts.inter(color: const Color(0xFFFFD54F), fontWeight: FontWeight.w600, fontSize: 12)),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  AnimatedBuilder(
-                    animation: _timePulse,
-                    builder: (context, _) {
-                      final glow = 0.10 + (_timePulse.value * 0.12);
-                      return Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF35D04F),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF35D04F).withOpacity(glow),
-                              blurRadius: 2 + (_timePulse.value * 2),
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  Text(p.createdAtLabel, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-            const SizedBox(height: 20),
-
-            // ── Orta Satır: Market Bilgisi (Tıklanabilir) ve Dev Fiyat ──
-            Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Mağaza ismine tıklayınca navigasyon açılsın
-              GestureDetector(
-                onTap: () async {
-                  final service = ref.read(productDetailApiServiceProvider);
-                  final coords = await service.resolveStoreCoordinates(p);
-                  if (coords == null) return;
-                  final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}');
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                      alignment: Alignment.center,
-                      child: Text(p.store.isNotEmpty ? p.store[0].toUpperCase() : 'M', style: GoogleFonts.poppins(color: const Color(0xFF00B1E7), fontWeight: FontWeight.bold, fontSize: 18)),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(p.store, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(Icons.navigation_rounded, color: Color(0xFFFFD54F), size: 12),
-                            const SizedBox(width: 4),
-                            Text('Yol Tarifi Al', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Dev Fiyat
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(priceText, style: GoogleFonts.dmSans(fontSize: 44, color: Colors.white, fontWeight: FontWeight.bold, height: 1)),
-                  Text('₺', style: GoogleFonts.dmSans(fontSize: 22, color: Colors.white54, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ],
-            ),
-
-            const SizedBox(height: 20),
-            const Divider(color: Colors.white10, height: 1),
-            const SizedBox(height: 20),
-
-            // ── Alt Satır: Adem Bayram ve En Köşede Raporlama ──
-            Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('EKLEYEN:', style: GoogleFonts.inter(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    const SizedBox(height: 6),
-                    // Veritabanından canlı veri çeken VIP Çipi
-                    _DynamicVipChip(userId: p.userId, fallbackName: p.userName),
-                  ],
-                ),
-              ),
-              // En sağ köşeye zarifçe itilmiş raporlama ikonu
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
-                      if (!isAdmin) return const SizedBox.shrink();
-                      return IconButton(
-                        onPressed: _deletePriceByAdmin,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    onPressed: _reportPrice,
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.outlined_flag_rounded, color: Colors.white, size: 20),
-                  ),
-                ],
-              ),
-            ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// 2. VIP ÇİPİ (İsmi Veritabanından Canlı Çeker, Taşmayı Engeller)
-// ═══════════════════════════════════════════════════════════════════
-class _DynamicVipChip extends ConsumerWidget {
-  const _DynamicVipChip({required this.userId, required this.fallbackName});
-  final String userId;
-  final String fallbackName;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authUser = ref.watch(authStateProvider).valueOrNull;
-    final currentUserModel = ref.watch(userModelStreamProvider).valueOrNull;
-
-    if (authUser != null && currentUserModel != null && authUser.uid == userId) {
-      final finalLevel = EliteLevelEngine.getFinalLevel(
-        currentUserModel.points,
-        currentUserModel.trustScorePercent,
-        currentUserModel.trustTotalVotes,
-      );
-      final style = EliteLevelEngine.getLevelStyle(finalLevel);
-      final levelName = style.label;
-
-      return InkWell(
-        onTap: () => _showUserModal(
-          context,
-          currentUserModel.name,
-          levelName,
-          currentUserModel.trustScorePercent,
-          style.icon,
-          style.badgeForeground,
-        ),
-        child: PremiumLevelBadge(
-          levelName: levelName,
-          displayText: currentUserModel.name,
-          showVerifiedIcon: true,
-        ),
-      );
-    }
-
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, snapshot) {
-        String realName = fallbackName;
-        int totalPoints = 0;
-        int trustPercent = 0;
-        bool isVerified = false;
-        int trustTotalVotes = 0;
-
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          realName = (data['name'] ?? data['displayName'] ?? fallbackName).toString();
-          totalPoints = (data['points'] as num?)?.toInt() ?? (data['totalPoints'] as num?)?.toInt() ?? 0;
-          trustPercent = (data['trustScorePercent'] as num?)?.toInt() ?? (data['reliabilityScore'] as num?)?.toInt() ?? 0;
-          isVerified = data['verified'] == true;
-          trustTotalVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
-        }
-
-        final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
-        final style = EliteLevelEngine.getLevelStyle(finalLevel);
-        final levelName = style.label;
-
-        return InkWell(
-          onTap: () => _showUserModal(
-            context,
-            realName,
-            levelName,
-            trustPercent,
-            style.icon,
-            style.badgeForeground,
-          ),
-          child: PremiumLevelBadge(
-            levelName: levelName,
-            displayText: realName,
-            showVerifiedIcon: isVerified,
-          ),
-        );
-      },
-    );
-  }
-
-  void _showUserModal(
-    BuildContext context,
-    String name,
-    String levelName,
-    int trust,
-    IconData levelIcon,
-    Color iconColor,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(32),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(levelIcon, size: 48, color: iconColor),
-            const SizedBox(height: 16),
-            Text(name, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold)),
-            Text('Seviye: $levelName', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 20),
-            Text('Güven Puanı: %$trust', style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// HIZLI İSTATİSTİKLER (CSS Birebir)
-// ═══════════════════════════════════════════════════════════════════
-class QuickStatsRow extends StatelessWidget {
-  const QuickStatsRow({super.key, required this.stats});
-  final PriceStats stats;
-
-  String _format(double price) {
-    if (price % 1 == 0) return '${price.toInt()}₺';
-    return '${price.toStringAsFixed(2).replaceAll('.', ',')}₺';
-  }
-
-  Widget statCard(String title, String value, {bool isHighlight = false}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isHighlight ? const Color(0xFFFFF8E1) : _cream200,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isHighlight ? const Color(0xFFFFC107) : Colors.transparent),
-        ),
-        child: Column(
-          children: [
-            Text(title, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, color: _brown500, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            Text(value, style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: isHighlight ? _success : _brown900)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        statCard('En Düşük\nFiyat', _format(stats.lowest), isHighlight: true),
-        const SizedBox(width: 12),
-        statCard('Ortalama\n', _format(stats.average)),
-        const SizedBox(width: 12),
-        statCard('En Yüksek\n', _format(stats.highest)),
-      ],
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// TAM FONKSİYONLU FİYAT GEÇMİŞİ GRAFİĞİ (fl_chart Dokunmatik Açık)
-// ═══════════════════════════════════════════════════════════════════
-class PriceHistoryPanel extends StatelessWidget {
-  const PriceHistoryPanel({super.key, required this.history, required this.pulseAnimation});
-  final List<PriceHistoryPoint> history;
-  final Animation<double> pulseAnimation;
-
-  @override
-  Widget build(BuildContext context) {
-    if (history.isEmpty) return const SizedBox.shrink();
-
-    final minPrice = history.map((e) => e.price).reduce(math.min);
-    final maxPrice = history.map((e) => e.price).reduce(math.max);
-    final chartMinY = (minPrice * 0.8).floorToDouble();
-    final chartMaxY = (maxPrice * 1.2).ceilToDouble();
-    final spots = history.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.price)).toList();
-
-    return _PremiumSection(
-      title: 'Fiyat Geçmişi', subtitle: 'Son 30 gün',
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 180, // Parmağınla dokunabilmen için alanı biraz büyüttüm
-            child: LineChart(
-              LineChartData(
-                minX: 0, maxX: (history.length <= 1) ? 1.0 : (history.length - 1).toDouble(),
-                minY: chartMinY, maxY: chartMaxY,
-                
-                // İŞTE BURASI! Dokunmatik özellikleri açtığımız yer
-                lineTouchData: LineTouchData(
-                  enabled: true, // Artık tam fonksiyonlu!
-                  touchSpotThreshold: 20, // Parmağı daha rahat algılasın
-                  getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
-                    return spotIndexes.map((index) {
-                      return TouchedSpotIndicatorData(
-                        const FlLine(color: Color(0xFFC8956C), strokeWidth: 2, dashArray: [4, 4]),
-                        FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) => 
-                            FlDotCirclePainter(radius: 6, color: Colors.white, strokeWidth: 3, strokeColor: const Color(0xFFC8956C)),
-                        ),
-                      );
-                    }).toList();
-                  },
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => const Color(0xFF5D4037), // Koyu kahverengi tooltip
-                    tooltipRoundedRadius: 12,
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        final dateStr = history[spot.spotIndex].dateLabel;
-                        return LineTooltipItem(
-                          '${spot.y.toStringAsFixed(2).replaceAll('.', ',')}₺\n',
-                          GoogleFonts.dmSans(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text: dateStr, 
-                              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)
-                            ),
-                          ],
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true, drawVerticalLine: false,
-                  horizontalInterval: ((chartMaxY - chartMinY) / 3).clamp(1, double.infinity),
-                  getDrawingHorizontalLine: (_) => const FlLine(color: Color(0xFFF5EDE4), strokeWidth: 1, dashArray: [5, 5]),
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 36,
-                      getTitlesWidget: (value, meta) {
-                        if (value == chartMaxY || value == chartMinY || value == (chartMaxY + chartMinY)/2) {
-                          return Text('${value.toInt()}₺', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF8D6E63)));
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    )
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 22,
-                      interval: 1,
-                      getTitlesWidget: (value, meta) {
-                        if (value % 1 != 0) return const SizedBox.shrink();
-                        final index = value.toInt();
-                        if (index < 0 || index >= history.length) return const SizedBox.shrink();
-                        // Karmaşıklığı önlemek için sadece baş, orta ve son tarihi göster
-                        if (index != 0 && index != history.length - 1 && index != (history.length / 2).floor()) return const SizedBox.shrink();
-                        final label = index == history.length - 1 ? 'Bugün' : history[index].dateLabel;
-                        return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))));
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true, curveSmoothness: 0.35,
-                    color: const Color(0xFFC8956C), barWidth: 4,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [const Color(0xFFC8956C).withOpacity(0.4), const Color(0xFFC8956C).withOpacity(0.0)]),
-                    ),
-                    dotData: FlDotData(
-                      show: true,
-                      checkToShowDot: (spot, barData) => spot.x == barData.spots.last.x,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(radius: 6, color: const Color(0xFFC8956C), strokeWidth: 2, strokeColor: Colors.white);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// TOPLULUK MERKEZİ (Oy Verdikten Sonra Kilitlenen Versiyon)
-// ═══════════════════════════════════════════════════════════════════
-class CommunityPanel extends ConsumerStatefulWidget {
-  const CommunityPanel({super.key, required this.data, required this.notifier, required this.isVoting});
-  final ProductDetailResponse data; 
-  final ProductDetailNotifier notifier; 
-  final bool isVoting;
-  @override
-  ConsumerState<CommunityPanel> createState() => _CommunityPanelState();
-}
-
-class _CommunityPanelState extends ConsumerState<CommunityPanel> {
-  bool _sending = false;
-
-  Future<void> _submitVote(bool isApproved) async {
-    final user = ref.read(authStateProvider).valueOrNull;
-    
-    // KONTROL 1: Kendi fiyatına oy veremez
-    if (user != null && widget.data.bestPrice.userId == user.uid) {
-      _showSnack('Kendi girdiğiniz fiyata oy veremezsiniz!', isError: true);
-      return;
-    }
-
-    setState(() { _sending = true; });
-    await widget.notifier.votePrice(priceId: widget.data.bestPrice.id, isApproved: isApproved);
-    
-    if (!mounted) return;
-    setState(() { _sending = false; });
-    _showSnack('Oyunuz başarıyla kaydedildi ve kilitlendi.');
-  }
-
-  void _showSnack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final user = ref.watch(authStateProvider).valueOrNull;
-    final voteStream = user == null ? const Stream<String?>.empty() : ref.read(firestoreServiceProvider).streamUserVoteValue(widget.data.bestPrice.id, user.uid);
-
-    return StreamBuilder<String?>(
-      stream: voteStream,
-      builder: (context, snapshot) {
-        // snapshot.data: 'yes', 'no' veya null gelir.
-        final String? voteValue = snapshot.data;
-        final bool hasVoted = voteValue != null; // Kullanıcı oy vermiş mi?
-
-        final appC = widget.data.trust.approveCount;
-        final rejC = widget.data.trust.rejectCount;
-        final total = appC + rejC;
-        final score = total == 0 ? 0 : ((appC / total) * 100).round();
-
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white, 
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFEDE0D4)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Topluluk Merkezi', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-                  _TrustBadge(score: score),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Güven Barı
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: score / 100, minHeight: 8, backgroundColor: const Color(0xFFF5EDE4), color: const Color(0xFF2E7D32)),
-              ),
-              const SizedBox(height: 20),
-              
-              // Butonlar
-              Row(
-                children: [
-                  Expanded(
-                    child: _TrustBtn(
-                      label: 'Doğrula ($appC)', 
-                      icon: Icons.thumb_up_rounded, 
-                      color: const Color(0xFF2E7D32),
-                      isActive: voteValue == 'yes',
-                      // EĞER OY VERDİYSE VEYA YÜKLENİYORSA ONPRESSED NULL OLUR (KİLİTLENİR)
-                      onPressed: (hasVoted || _sending || widget.isVoting) ? null : () => _submitVote(true),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _TrustBtn(
-                      label: 'Yanlış ($rejC)', 
-                      icon: Icons.thumb_down_rounded, 
-                      color: const Color(0xFFC62828),
-                      isActive: voteValue == 'no',
-                      // EĞER OY VERDİYSE VEYA YÜKLENİYORSA ONPRESSED NULL OLUR (KİLİTLENİR)
-                      onPressed: (hasVoted || _sending || widget.isVoting) ? null : () => _submitVote(false),
-                    ),
-                  ),
-                ],
-              ),
-              if (hasVoted)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Center(
-                    child: Text(
-                      '🔒 Oyunuz kilitlendi, değiştirilemez.',
-                      style: GoogleFonts.inter(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _TrustBtn extends StatelessWidget {
-  const _TrustBtn({required this.label, required this.icon, required this.color, required this.isActive, required this.onPressed});
-  final String label; final IconData icon; final Color color; final bool isActive; final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    // Kullanıcı oy verdiyse butonlar daha soluk veya seçili görünür
-    final bool isLocked = onPressed == null && !isActive;
-
-    return Opacity(
-      opacity: isLocked ? 0.4 : 1.0,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? color : color.withOpacity(0.05), 
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isActive ? color : color.withOpacity(0.2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: isActive ? Colors.white : color),
-              const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: isActive ? Colors.white : color)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TrustBadge extends StatelessWidget {
-  const _TrustBadge({required this.score});
-  final int score;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        children: [
-          const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF2E7D32)),
-          const SizedBox(width: 4),
-          Text('%$score Güvenilir', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32))),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// 3. YORUMLAR PANELİ (Raporlama İkonları ve Tüm Yorumlara Yönlendirme)
-// ═══════════════════════════════════════════════════════════════════
-class CommentsPanel extends ConsumerStatefulWidget {
-  const CommentsPanel({super.key, required this.state, required this.notifier, required this.controller, required this.productId});
-  final ProductDetailState state; 
-  final ProductDetailNotifier notifier; 
-  final TextEditingController controller; 
-  final String productId;
-
-  @override
-  ConsumerState<CommentsPanel> createState() => _CommentsPanelState();
-}
-
-class _CommentsPanelState extends ConsumerState<CommentsPanel> {
-  bool _justSent = false;
-
-  Future<void> _deleteCommentByAdmin(ProductComment comment) async {
-    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
-    if (currentUser?.isAdmin != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yorumu sil'),
-        content: const Text('Bu yorumu silmek istediğinize emin misiniz?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(firestoreServiceProvider).deleteComment(comment.id);
-      await widget.notifier.load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yorum silindi.')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yorum silinemedi.')),
-      );
-    }
-  }
-
-  void _reportComment(ProductComment comment) {
-    final authorName = comment.author;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yorumu Raporla'),
-        content: Text('$authorName adlı kullanıcının yorumunu şikayet etmek istiyor musunuz?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
-            onPressed: () async {
-              final userId = FirebaseAuth.instance.currentUser?.uid;
-
-              if (userId == null) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Yorum raporlamak için giriş yapmalısınız.')),
-                );
-                return;
-              }
-
-              try {
-                await ref.read(firestoreServiceProvider).reportComment(
-                  commentId: comment.id,
-                  userId: userId,
-                  reason: 'Uygunsuz yorum',
-                );
-
-                if (!mounted) return;
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Yorum raporlandı.')),
-                );
-              } catch (_) {
-                if (!mounted) return;
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Yorum raporlanamadı. Lütfen tekrar deneyin.'),
-                  ),
-                );
-              }
-            },
-            child: const Text('Raporla', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final allComments = widget.state.data!.comments;
-    final comments = allComments.take(2).toList(); // Ekranda sadece 2 tane göster
-    final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
-
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFF5D4037).withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))]),
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 60),
+      decoration: const BoxDecoration(color: pxDark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Son Yorumlar', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-              Text('${allComments.length} Yorum', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF8D6E63))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          ...comments.map((c) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // --- A. FERAH TELEMETRİ KADRANI ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
               children: [
-                CircleAvatar(radius: 18, backgroundColor: const Color(0xFFC8956C), child: Text(c.author.isNotEmpty ? c.author[0].toUpperCase() : '?', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600))),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF5EDE4),
-                      borderRadius: BorderRadius.only(topRight: Radius.circular(16), bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
-                    ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(children: [Icon(Icons.speed, color: pxGold, size: 18), SizedBox(width: 6), Text('GÜVENİLİRLİK', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: pxWhite, letterSpacing: 1))]),
+                    Text('%$score', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: pxSuccess)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 4, width: double.infinity,
+                  decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft, widthFactor: score / 100,
+                    child: Container(decoration: BoxDecoration(color: pxSuccess, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: pxSuccess.withOpacity(0.6), blurRadius: 15)])),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+
+          // Doğrulama Butonları
+          StreamBuilder<String?>(
+            stream: voteStream,
+            builder: (context, snapshot) {
+              final voteVal = snapshot.data;
+              final hasVoted = voteVal != null;
+
+              return Row(
+                children: [
+                  Expanded(child: _TelemetryBtn(label: 'FİYAT DOĞRU', count: '$appC ONAY', icon: Icons.thumb_up, type: 'approve', isActive: voteVal == 'yes', isLocked: hasVoted && voteVal != 'yes', onTap: (_sendingVote || hasVoted) ? null : () => _submitVote(true))),
+                  const SizedBox(width: 16),
+                  Expanded(child: _TelemetryBtn(label: 'HATALI / ESKİ', count: '$rejC İTİRAZ', icon: Icons.warning, type: 'reject', isActive: voteVal == 'no', isLocked: hasVoted && voteVal != 'no', onTap: (_sendingVote || hasVoted) ? null : () => _submitVote(false))),
+                ],
+              );
+            }
+          ),
+
+          // --- MEKANİK AYIRICI ---
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Row(
+              children: [
+                Expanded(child: Container(height: 1, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Colors.transparent, Color(0x80D4AF37)])))),
+                Container(width: 8, height: 8, margin: const EdgeInsets.symmetric(horizontal: 16), decoration: BoxDecoration(color: pxGold, shape: BoxShape.circle, boxShadow: [BoxShadow(color: pxGold.withOpacity(0.5), blurRadius: 15)])),
+                Expanded(child: Container(height: 1, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0x80D4AF37), Colors.transparent])))),
+              ],
+            ),
+          ),
+
+          // --- B. YORUMLAR (SÜRÜCÜ NOTLARI) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text('SÜRÜCÜ NOTLARI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: pxWhite, letterSpacing: 1)),
+                Text('${data.comments.length} Yorum', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: pxCaramel)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 16),
+
+          // Lüks Input
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
+            decoration: BoxDecoration(color: pxSurface, border: Border.all(color: pxCaramel.withOpacity(0.5)), borderRadius: BorderRadius.circular(100), boxShadow: const [BoxShadow(color: Color(0x4D000000), blurRadius: 20)]),
+            child: Row(
+              children: [
+                Expanded(child: TextField(controller: widget.controller, style: const TextStyle(color: pxWhite, fontSize: 13, fontWeight: FontWeight.w500), decoration: const InputDecoration(hintText: 'Bu fiyat hakkında bir not bırak...', hintStyle: TextStyle(color: Colors.white30), border: InputBorder.none, isDense: true))),
+                GestureDetector(
+                  onTap: (widget.state.isSubmittingComment || _justSentComment) ? null : () async {
+                    if (widget.controller.text.trim().isEmpty) return;
+                    final ok = await widget.notifier.postComment(widget.controller.text.trim());
+                    if (ok) { widget.controller.clear(); setState(() => _justSentComment = true); Future.delayed(const Duration(seconds: 1), () { if(mounted) setState(() => _justSentComment = false); }); }
+                  },
+                  child: Container(width: 44, height: 44, decoration: const BoxDecoration(color: pxCaramel, shape: BoxShape.circle), child: widget.state.isSubmittingComment ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: pxWhite, strokeWidth: 2)) : const Icon(Icons.send, color: pxWhite, size: 18)),
+                )
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Yorum Listesi (Timeline Değil, Geniş Balonlar)
+          ...data.comments.take(3).map((c) {
+            // Seviyeye Göre Stil Seçimi (Örnek Mantık)
+            LinearGradient bgGrad = silverGradient; LinearGradient txtGrad = silverGradient;
+            if (c.author == 'Adem Bayram') { bgGrad = goldGradient; txtGrad = goldGradient; } // Demo amaçlı
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(width: 48, height: 48, decoration: BoxDecoration(gradient: bgGrad, shape: BoxShape.circle, border: Border.all(color: pxDark, width: 2), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 16)]), alignment: Alignment.center, child: Text(c.author[0].toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: pxWhite))),
+                  const SizedBox(height: 16, width: 16),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(c.author, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-                            Row(
-                              children: [
-                                Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8D6E63))),
-                                const SizedBox(width: 8),
-                                if (isAdmin) ...[
-                                  GestureDetector(
-                                    onTap: () => _deleteCommentByAdmin(c),
-                                    child: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFF8D6E63)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                // Yorum Raporlama Butonu
-                                GestureDetector(
-                                  onTap: () => _reportComment(c),
-                                  child: const Icon(Icons.outlined_flag_rounded, size: 16, color: Color(0xFF8D6E63)),
-                                ),
-                              ],
-                            ),
-                          ],
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _GradientText(c.author, gradient: txtGrad, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                              Text(c.timeAgo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white38)),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(c.text, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF795548), height: 1.4)),
+                        Container(
+                          width: double.infinity, padding: const EdgeInsets.all(20),
+                          decoration: const BoxDecoration(color: pxWhite, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24), topRight: Radius.circular(24)), boxShadow: [BoxShadow(color: Color(0x4D000000), blurRadius: 20)]),
+                          child: Text(c.text, style: const TextStyle(color: pxDark, fontSize: 14, fontWeight: FontWeight.w600, height: 1.6)),
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          )),
-          
-          // Yorum Input Alanı
-          Row(
-            children: [
-              const CircleAvatar(radius: 18, backgroundColor: Color(0xFFF5EDE4), child: Icon(Icons.person, color: Color(0xFF8D6E63), size: 20)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFFEDE0D4)), borderRadius: BorderRadius.circular(22)),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextField(
-                          controller: widget.controller,
-                          decoration: InputDecoration(isCollapsed: true, hintText: 'Bir yorum yaz...', hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF8D6E63)), border: InputBorder.none),
-                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF5D4037)),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: InkWell(
-                          onTap: (widget.state.isSubmittingComment || _justSent) ? null : () async {
-                            if (widget.controller.text.trim().isEmpty) return;
-                            final ok = await widget.notifier.postComment(widget.controller.text.trim());
-                            if (ok) {
-                              widget.controller.clear();
-                              setState(() { _justSent = true; });
-                              Future.delayed(const Duration(milliseconds: 1500), () {
-                                if(mounted) setState(() { _justSent = false; });
-                              });
-                            }
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: _justSent ? const Color(0xFF4CAF50) : const Color(0xFFC8956C)),
-                            alignment: Alignment.center,
-                            child: widget.state.isSubmittingComment
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : Icon(_justSent ? Icons.check_rounded : Icons.send_rounded, color: Colors.white, size: 16),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
-          
-          // Tüm Yorumları Gör Butonu (Aktif)
-          if (allComments.length > 2)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => AllCommentsScreen(productId: widget.productId, comments: allComments),
-                    ));
-                  },
-                  child: Text('Tüm Yorumları Gör', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF8D6E63))),
-                ),
-              ),
-            ),
+            );
+          }),
         ],
       ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// TÜM YORUMLAR SAYFASI (Eksiksiz Liste)
-// ═══════════════════════════════════════════════════════════════════
-class AllCommentsScreen extends ConsumerStatefulWidget {
-  const AllCommentsScreen({super.key, required this.productId, required this.comments});
-  final String productId;
-  final List<ProductComment> comments;
-
+// ---------------------------------------------------------------------------
+// YARDIMCI BİLEŞENLER (Gradient Yazı, Butonlar)
+// ---------------------------------------------------------------------------
+class _GradientText extends StatelessWidget {
+  final String text; final LinearGradient gradient; final TextStyle style;
+  const _GradientText(this.text, {required this.gradient, required this.style});
   @override
-  ConsumerState<AllCommentsScreen> createState() => _AllCommentsScreenState();
+  Widget build(BuildContext context) => ShaderMask(shaderCallback: (bounds) => gradient.createShader(Offset.zero & bounds.size), child: Text(text, style: style.copyWith(color: Colors.white)));
 }
 
-class _AllCommentsScreenState extends ConsumerState<AllCommentsScreen> {
-  late List<ProductComment> _comments;
-
+class _PxIconBtn extends StatelessWidget {
+  final IconData icon; final VoidCallback onTap; final Color color; final Color bgColor; final Color borderColor;
+  const _PxIconBtn({required this.icon, required this.onTap, this.color = pxGold, this.bgColor = pxSurface, this.borderColor = Colors.white10});
   @override
-  void initState() {
-    super.initState();
-    _comments = List<ProductComment>.from(widget.comments);
-  }
-
-  Future<void> _deleteCommentByAdmin(ProductComment comment) async {
-    final currentUser = ref.read(userModelStreamProvider).valueOrNull;
-    if (currentUser?.isAdmin != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için admin yetkisi gerekli.')),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yorumu sil'),
-        content: const Text('Bu yorumu silmek istediğinize emin misiniz?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(firestoreServiceProvider).deleteComment(comment.id);
-      if (!mounted) return;
-      setState(() {
-        _comments.removeWhere((item) => item.id == comment.id);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yorum silindi.')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yorum silinemedi.')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isAdmin = ref.watch(userModelStreamProvider).valueOrNull?.isAdmin == true;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
-      appBar: AppBar(
-        title: Text('Tüm Yorumlar', style: GoogleFonts.poppins(color: const Color(0xFF5D4037), fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Color(0xFF5D4037)),
-        elevation: 0,
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: _comments.length,
-        itemBuilder: (context, index) {
-          final c = _comments[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEDE0D4))),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(radius: 20, backgroundColor: const Color(0xFFC8956C), child: Text(c.author.isNotEmpty ? c.author[0].toUpperCase() : '?', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600))),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(c.author, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF5D4037))),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(c.timeAgo, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8D6E63))),
-                              if (isAdmin) ...[
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () => _deleteCommentByAdmin(c),
-                                  child: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF8D6E63)),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(c.text, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF795548), height: 1.4)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => GestureDetector(onTap: onTap, child: Container(width: 40, height: 40, decoration: BoxDecoration(color: bgColor, border: Border.all(color: borderColor), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 20)));
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// ORTAK BİLEŞENLER
-// ═══════════════════════════════════════════════════════════════════
-class _PremiumSection extends StatelessWidget {
-  const _PremiumSection({required this.title, this.subtitle, required this.child});
-  final String title; final String? subtitle; final Widget child;
+class _PxActionBtn extends StatelessWidget {
+  final IconData icon; final VoidCallback onTap; final Color color;
+  const _PxActionBtn({required this.icon, required this.onTap, this.color = pxDark});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: _brown900.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: _brown900)),
-              if (subtitle != null) Text(subtitle!, style: GoogleFonts.inter(fontSize: 13, color: _brown500)),
-            ],
-          ),
-          child,
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => GestureDetector(onTap: onTap, child: Container(width: 40, height: 40, decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 10)]), child: Icon(icon, color: color, size: 20)));
 }
 
-class GlassIconButton extends StatelessWidget {
-  const GlassIconButton({super.key, required this.icon, required this.onTap, this.iconColor});
-  final IconData icon; final VoidCallback onTap; final Color? iconColor;
+class _StatBox extends StatelessWidget {
+  final IconData icon; final String label; final String value; final bool isDark;
+  const _StatBox({required this.icon, required this.label, required this.value, required this.isDark});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: isDark ? pxDark : pxWhite, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? pxGold : Colors.black12), boxShadow: isDark ? [] : const [BoxShadow(color: Color(0x08000000), blurRadius: 15)]),
+    child: Column(
+      children: [
+        Icon(icon, size: 20, color: isDark ? pxSuccess : (label.contains('Yüksek') ? pxGold : pxMuted)),
+        const SizedBox(height: 12),
+        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isDark ? pxGold : pxMuted)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDark ? pxWhite : pxDark)),
+      ],
+    ),
+  );
+}
+
+class _TelemetryBtn extends StatelessWidget {
+  final String label, count, type; final IconData icon; final bool isActive, isLocked; final VoidCallback? onTap;
+  const _TelemetryBtn({required this.label, required this.count, required this.icon, required this.type, required this.isActive, required this.isLocked, required this.onTap});
+  
   @override
   Widget build(BuildContext context) {
+    final isApprove = type == 'approve';
+    final accentColor = isApprove ? pxSuccess : pxAlert;
+
     return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            height: 44, width: 44,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.6), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.5))),
-            child: Icon(icon, color: iconColor ?? _brown900),
+      onTap: isLocked ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isActive ? accentColor.withOpacity(0.1) : pxSurface,
+          border: Border.all(color: isActive ? accentColor.withOpacity(0.3) : Colors.white10),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isActive ? [BoxShadow(color: accentColor.withOpacity(0.1), blurRadius: 30)] : const [BoxShadow(color: Colors.black54, blurRadius: 30)],
+        ),
+        child: Opacity(
+          opacity: isLocked ? 0.3 : 1.0,
+          child: Column(
+            children: [
+              Container(width: 48, height: 48, decoration: BoxDecoration(color: isActive ? accentColor.withOpacity(0.2) : Colors.white10, borderRadius: BorderRadius.circular(16)), child: Icon(icon, color: isActive ? accentColor : Colors.white30, size: 24)),
+              const SizedBox(height: 16),
+              Text(label, style: TextStyle(fontFamily: 'Outfit', fontSize: 13, fontWeight: FontWeight.w900, color: isActive ? accentColor : Colors.white, letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: isActive ? accentColor.withOpacity(0.2) : Colors.white10, borderRadius: BorderRadius.circular(100)), child: Text(count, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: isActive ? accentColor : Colors.white60, letterSpacing: 1))),
+            ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class PressableFab extends StatelessWidget {
-  const PressableFab({super.key, required this.onPressed});
-  final VoidCallback onPressed;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        height: 60, width: 60,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: _amber600, boxShadow: [BoxShadow(color: _amber600.withOpacity(0.5), blurRadius: 24, offset: const Offset(0, 12))]),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }
