@@ -146,35 +146,39 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
 
   Widget _buildBrandList(WidgetRef ref) {
     final brandsAsync = ref.watch(allBrandsProvider);
-    return brandsAsync.when(
+    return KeyedSubtree(
       key: const ValueKey('brands_list'),
-      loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
-      error: (_, __) => const Center(child: Text('Hata oluştu')),
-      data: (brands) => ListView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-        itemCount: brands.length,
-        itemBuilder: (context, index) => _PremiumBrandCard(brand: brands[index]),
+      child: brandsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
+        error: (_, __) => const Center(child: Text('Hata oluştu')),
+        data: (brands) => ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+          itemCount: brands.length,
+          itemBuilder: (context, index) => _PremiumBrandCard(brand: brands[index]),
+        ),
       ),
     );
   }
 
   Widget _buildStoreList(WidgetRef ref) {
     final storesAsync = ref.watch(allStoresStreamProvider);
-    return storesAsync.when(
+    return KeyedSubtree(
       key: const ValueKey('stores_list'),
-      loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
-      error: (_, __) => const Center(child: Text('Hata oluştu')),
-      data: (stores) {
-        final filtered = _storeStatusFilter == 'all' ? stores : stores.where((s) => s.status.name == _storeStatusFilter).toList();
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-          itemCount: filtered.length,
-          itemBuilder: (context, index) {
-            final store = filtered[index];
-            return _PremiumStoreCard(store: store, allStores: stores);
-          },
-        );
-      },
+      child: storesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
+        error: (_, __) => const Center(child: Text('Hata oluştu')),
+        data: (stores) {
+          final filtered = _storeStatusFilter == 'all' ? stores : stores.where((s) => s.status.name == _storeStatusFilter).toList();
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final store = filtered[index];
+              return _PremiumStoreCard(store: store, allStores: stores);
+            },
+          );
+        },
+      ),
     );
   }
 
