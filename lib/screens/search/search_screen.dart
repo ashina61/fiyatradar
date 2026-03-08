@@ -805,9 +805,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               ),
               const SizedBox(height: 10),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 10,
+                runSpacing: 10,
                 children: unique.map((term) {
+                  final isHot = term == unique.first;
                   return PremiumPressable(
                     borderRadius: BorderRadius.circular(100),
                     onTap: () {
@@ -817,27 +818,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       ref.read(exploreControllerProvider.notifier).updateSearchQuery(term);
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      constraints: const BoxConstraints(minHeight: 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isHot ? const Color(0xFFFFF4E8) : Colors.white,
                         borderRadius: BorderRadius.circular(100),
-                        border: Border.all(color: const Color(0xFF211510).withOpacity(0.08)),
+                        border: Border.all(
+                          color: isHot
+                              ? const Color(0xFFC29B78).withOpacity(0.4)
+                              : const Color(0xFF211510).withOpacity(0.08),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.search_rounded, size: 16, color: Color(0xFF948A82)),
-                          const SizedBox(width: 6),
+                          Icon(
+                            isHot ? Icons.local_fire_department_rounded : Icons.search_rounded,
+                            size: isHot ? 18 : 17,
+                            color:
+                                isHot ? const Color(0xFFEF6C00) : const Color(0xFF948A82),
+                          ),
+                          const SizedBox(width: 8),
                           ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 180),
+                            constraints: const BoxConstraints(maxWidth: 210, minWidth: 44),
                             child: Text(
                               term,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF211510),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isHot ? FontWeight.w800 : FontWeight.w700,
+                                color: const Color(0xFF211510),
                               ),
                             ),
                           ),
@@ -1180,44 +1191,68 @@ class _DiscoverProductCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 9),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEBE5DF),
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            child: Text(
-                              item.storeName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2D1E17),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEBE5DF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                item.storeName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF2D1E17),
+                                  height: 1.1,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            mode == ExploreMode.online
-                                ? 'Online'
-                                : (item.distanceLabel?.trim().isNotEmpty ?? false)
-                                    ? item.distanceLabel!.trim()
-                                    : item.neighborhoodLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF948A82),
+                        if (_resolveMetaLabel(item, mode) case final metaLabel?) ...[
+                          const SizedBox(width: 10),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 72, maxWidth: 116),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _resolveMetaIcon(mode),
+                                    size: 13,
+                                    color: const Color(0xFF948A82),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      metaLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.end,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF948A82),
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],
@@ -1236,6 +1271,33 @@ class _DiscoverProductCard extends ConsumerWidget {
     final ratio = 1 + (change / 100);
     if (ratio <= 0) return null;
     return item.displayPrice / ratio;
+  }
+
+  String? _resolveMetaLabel(ExploreFeedItem item, ExploreMode mode) {
+    if (mode == ExploreMode.online) return 'Online';
+
+    final distance = item.distanceLabel?.trim();
+    if (distance != null && distance.isNotEmpty && distance != '—') {
+      return distance;
+    }
+
+    final neighborhood = item.neighborhoodLabel.trim();
+    if (neighborhood.isNotEmpty && neighborhood != '—') {
+      return neighborhood;
+    }
+
+    return null;
+  }
+
+  IconData _resolveMetaIcon(ExploreMode mode) {
+    switch (mode) {
+      case ExploreMode.online:
+        return Icons.language_rounded;
+      case ExploreMode.drops:
+        return Icons.local_shipping_rounded;
+      case ExploreMode.nearby:
+        return Icons.location_on_rounded;
+    }
   }
 
   String _formatTry(double value) {
