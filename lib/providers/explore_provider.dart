@@ -175,7 +175,7 @@ class ExploreState {
         userLocation = null,
         selectedCategory = _allCategoriesLabel,
         searchQuery = '',
-        categories = const [_allCategoriesLabel, 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida'],
+        categories = const [_allCategoriesLabel],
         selectedMode = ExploreMode.nearby,
         cheapestCache = const {};
 
@@ -272,7 +272,7 @@ class ExploreController extends StateNotifier<ExploreState> {
               .map((category) => category.name.trim())
               .where((name) => name.isNotEmpty)
               .toList();
-          final merged = <String>[_allCategoriesLabel, 'Temizlik', 'Kisisel Bakim', 'Kitap', 'Gida', ...dynamicCategories]
+          final merged = <String>[_allCategoriesLabel, ...dynamicCategories]
               .toSet()
               .toList();
           state = state.copyWith(categories: merged);
