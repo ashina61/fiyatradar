@@ -179,7 +179,6 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return productsAsync.when(
-      key: const ValueKey('products'),
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Ürünler yüklenemedi', style: TextStyle(color: pAlert))),
       data: (products) {
@@ -276,7 +275,6 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
     final productsAsync = ref.watch(allProductsProvider);
 
     return categoriesAsync.when(
-      key: const ValueKey('categories'),
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Kategoriler yüklenemedi', style: TextStyle(color: pAlert))),
       data: (categories) {

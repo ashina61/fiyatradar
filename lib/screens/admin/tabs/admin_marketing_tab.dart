@@ -124,7 +124,6 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
     final bannersAsync = ref.watch(allBannersProvider);
 
     return bannersAsync.when(
-      key: const ValueKey('banners'),
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Bannerlar yüklenemedi', style: TextStyle(color: pAlert))),
       data: (banners) {
@@ -245,7 +244,6 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
     final productsAsync = ref.watch(allProductsProvider);
 
     return campaignsAsync.when(
-      key: const ValueKey('campaigns'),
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Kampanyalar yüklenemedi', style: TextStyle(color: pAlert))),
       data: (campaigns) {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // --- PROVIDERS ---
-import '../../providers/user_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/notification_provider.dart';
 
@@ -11,7 +11,7 @@ import '../../pages/notification_center_page.dart';
 import 'admin_statistics_tab.dart';
 import 'admin_catalog_tab.dart'; // İçinde Ürünler ve Kategoriler var
 import 'admin_brand_management_tab.dart'; // İçinde Markalar/Şubeler var
-import 'admin_marketing_tab.dart'; // İçinde Banner ve Kampanyalar var
+import 'tabs/admin_marketing_tab.dart'; // İçinde Banner ve Kampanyalar var
 import 'actual_management_tab.dart';
 import 'admin_user_management_tab.dart';
 import 'admin_product_suggestions_tab.dart';
