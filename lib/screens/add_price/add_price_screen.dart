@@ -26,6 +26,11 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     with TickerProviderStateMixin {
+  static const _headerBg = Color(0xFF1A110D);
+  static const _brandBrown = Color(0xFF6A442A);
+  static const _bgApp = Color(0xFFEFE9E4);
+  static const _surfaceIvory = Color(0xFFFCFAF8);
+  static const _gold = Color(0xFFC29B78);
   final _priceController = TextEditingController();
   final _productController = TextEditingController();
   final _searchController = TextEditingController();
@@ -98,6 +103,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     return raw.replaceAll(' ', '').replaceAll(',', '.');
   }
 
+  double? _parsePrice(String value) {
+    final normalized = value.replaceAll(',', '.').trim();
+    return double.tryParse(normalized);
+  }
+
+  bool _isSubmitReady(AddPriceState state) {
+    final parsedPrice = _parsePrice(state.price);
+    return (parsedPrice ?? 0) > 0 &&
+        state.productName.trim().isNotEmpty &&
+        state.selectedCategoryId != null &&
+        state.selectedStoreId != null;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<String?>(
@@ -154,35 +172,25 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         notifier.clearProductSuggestions();
       },
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: _bgApp,
         body: Stack(
           children: [
-            // Ambient gradient orbs
             Positioned(
-              top: -80,
-              right: -60,
+              top: 120,
+              left: 40,
               child: _AmbientOrb(
-                size: 240,
-                color: AppColors.primary,
+                size: 280,
+                color: _brandBrown,
                 opacity: 0.08,
               ),
             ),
             Positioned(
-              top: 300,
-              left: -80,
+              top: 260,
+              right: -90,
               child: _AmbientOrb(
                 size: 200,
-                color: AppColors.accent,
+                color: _gold,
                 opacity: 0.06,
-              ),
-            ),
-            Positioned(
-              bottom: 120,
-              right: -40,
-              child: _AmbientOrb(
-                size: 160,
-                color: AppColors.secondary,
-                opacity: 0.05,
               ),
             ),
 
@@ -198,33 +206,39 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                       physics: const BouncingScrollPhysics(
                         parent: AlwaysScrollableScrollPhysics(),
                       ),
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        8,
-                        20,
-                        100 + bottomSafe,
-                      ),
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 100 + bottomSafe),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           StaggeredFadeSlide(
                             index: 0,
-                            child: _buildPriceCard(state, theme, notifier),
-                          ),
-                          const SizedBox(height: 20),
-                          StaggeredFadeSlide(
-                            index: 1,
-                            child: _buildProductSection(state, notifier, theme),
-                          ),
-                          const SizedBox(height: 20),
-                          StaggeredFadeSlide(
-                            index: 2,
-                            child: _buildCategorySection(state, notifier, theme),
-                          ),
-                          const SizedBox(height: 24),
-                          StaggeredFadeSlide(
-                            index: 3,
-                            child: _buildStoreSection(state, notifier, theme),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _surfaceIvory,
+                                borderRadius: BorderRadius.circular(28),
+                                border: Border.all(
+                                  color: _brandBrown.withOpacity(0.16),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _brandBrown.withOpacity(0.08),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 14),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  _buildPriceCard(state, theme, notifier),
+                                  _buildDivider(),
+                                  _buildProductSection(state, notifier, theme),
+                                  _buildDivider(),
+                                  _buildCategorySection(state, notifier, theme),
+                                  _buildDivider(),
+                                  _buildStoreSection(state, notifier, theme),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -241,10 +255,35 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Divider(
+        height: 1,
+        color: _brandBrown.withOpacity(0.12),
+      ),
+    );
+  }
+
   // ─── Header ──────────────────────────────────────────────────
   Widget _buildHeader(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 20),
+      decoration: BoxDecoration(
+        color: _headerBg,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.24),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           PremiumPressable(
@@ -254,62 +293,55 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withOpacity(0.7),
+                color: _gold.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.outline.withOpacity(0.5)),
               ),
               child: const Icon(
-                Icons.arrow_back_rounded,
-                color: AppColors.textSecondary,
-                size: 22,
+                Icons.arrow_back_ios_new_rounded,
+                color: _gold,
+                size: 18,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Fiyat Ekle',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 20,
-                    letterSpacing: -0.3,
+                    color: _surfaceIvory,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 19,
+                    letterSpacing: 0.2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Topluluga katkida bulun',
+                  'Topluluğa katkıda bulunun',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                    fontSize: 12,
+                    color: _gold.withOpacity(0.9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
           PremiumPressable(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             onTap: _showInfoModal,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.accent.withOpacity(0.12),
-                    AppColors.secondary.withOpacity(0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.accent.withOpacity(0.15)),
+                color: _gold.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: AppColors.accent, size: 17),
-                ],
+              child: const Icon(
+                Icons.info_outline_rounded,
+                color: _gold,
+                size: 21,
               ),
             ),
           ),
@@ -327,22 +359,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     return AnimatedBuilder(
       animation: _priceGlowController,
       builder: (context, child) {
-        final glowOpacity = 0.06 + (_priceGlowController.value * 0.06);
+        final glowOpacity = 0.05 + (_priceGlowController.value * 0.05);
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadius.xxl),
-            border: Border.all(
-              color: state.price.isNotEmpty
-                  ? AppColors.primary.withOpacity(0.3)
-                  : AppColors.outline.withOpacity(0.4),
-              width: state.price.isNotEmpty ? 1.5 : 1,
-            ),
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(
-                  state.price.isNotEmpty ? glowOpacity : 0.03,
+                color: _brandBrown.withOpacity(
+                  state.price.isNotEmpty ? glowOpacity : 0.02,
                 ),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
@@ -355,46 +381,36 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
+              color: _brandBrown.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(100),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.price_change_outlined,
-                    size: 14, color: AppColors.primary),
+                Icon(Icons.sell_rounded, size: 14, color: _brandBrown),
                 const SizedBox(width: 6),
                 const Text(
                   'ÜRÜN FİYATI',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w800,
+                    color: _brandBrown,
+                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                '\u20BA',
-                style: TextStyle(
-                  fontFamily: 'DM Sans',
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textTertiary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
                 child: TextField(
                   controller: _priceController,
                   focusNode: _priceFocus,
@@ -406,13 +422,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   ],
                   style: const TextStyle(
                     fontFamily: 'DM Sans',
-                    fontSize: 56,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 60,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
-                    letterSpacing: -2,
+                    letterSpacing: -3,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.right,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -422,13 +438,26 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     hintText: '0,00',
                     hintStyle: TextStyle(
                       fontFamily: 'DM Sans',
-                      fontSize: 56,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 60,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.outline,
-                      letterSpacing: -2,
+                      letterSpacing: -3,
                     ),
                     contentPadding: EdgeInsets.zero,
                     isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Text(
+                  '₺',
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                    color: _brandBrown,
                   ),
                 ),
               ),
@@ -445,7 +474,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     AddPriceNotifier notifier,
     ThemeData theme,
   ) {
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionLabel(
@@ -494,7 +525,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent,
                     filled: false,
-                    hintText: 'Ürün adını yazın',
+                    hintText: 'Ürün adını yazın veya okutun...',
                     hintStyle: const TextStyle(color: AppColors.textHint),
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     suffixIcon: state.productName.trim().isEmpty
@@ -646,6 +677,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
         ],
       ],
+    ),
     );
   }
 
@@ -655,7 +687,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     AddPriceNotifier notifier,
     ThemeData theme,
   ) {
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionLabel(
@@ -664,7 +698,22 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           theme: theme,
         ),
         const SizedBox(height: 10),
-        Wrap(
+        if (state.categories.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withOpacity(0.45),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline.withOpacity(0.25)),
+            ),
+            child: const Text(
+              'Kategori verisi şu anda yüklenemedi.',
+              style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+            ),
+          )
+        else
+          Wrap(
           spacing: 10,
           runSpacing: 10,
           children: state.categories.map((category) {
@@ -755,6 +804,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
         ],
       ],
+    ),
     );
   }
 
@@ -764,12 +814,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     AddPriceNotifier notifier,
     ThemeData theme,
   ) {
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionLabel(
           icon: Icons.storefront_rounded,
-          label: 'Nerede Gordun?',
+          label: 'Nerede Gördün?',
           theme: theme,
         ),
         const SizedBox(height: 10),
@@ -817,7 +869,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   children: [
                     Icon(Icons.location_on_rounded, size: 16),
                     SizedBox(width: 6),
-                    Text('Yakinimda'),
+                    Text('Yakınımda'),
                   ],
                 ),
               ),
@@ -941,6 +993,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
             },
           ),
       ],
+    ),
     );
   }
 
@@ -1063,10 +1116,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
 
   // ─── Bottom Action ───────────────────────────────────────────
   Widget _buildBottomAction(AddPriceState state, ThemeData theme, double bottomSafe) {
-    final isReady = state.price.trim().isNotEmpty &&
-        state.productName.trim().isNotEmpty &&
-        state.selectedCategoryId != null &&
-        state.selectedStoreId != null;
+    final isReady = _isSubmitReady(state);
 
     return Positioned(
       left: 0,
@@ -1078,14 +1128,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           child: Container(
             padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomSafe),
             decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor.withOpacity(0.85),
+              color: _bgApp.withOpacity(0.9),
               border: Border(
                 top: BorderSide(color: AppColors.outline.withOpacity(0.3)),
               ),
             ),
             child: PremiumPressable(
               borderRadius: BorderRadius.circular(16),
-              onTap: state.isLoading || state.isStoresLoading ? null : _submit,
+              onTap: (!isReady || state.isLoading || state.isStoresLoading) ? null : _submit,
               pressedScale: 0.98,
               child: AnimatedContainer(
                 duration: MotionTokens.fast,
@@ -1095,7 +1145,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                 decoration: BoxDecoration(
                   gradient: isReady
                       ? const LinearGradient(
-                          colors: [AppColors.primary, AppColors.accent],
+                          colors: [_brandBrown, AppColors.accent],
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         )
@@ -1133,7 +1183,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Fiyati Kaydet',
+                            'Fiyatı Kaydet',
                             style: TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 16,
