@@ -7,21 +7,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../providers/theme_provider.dart';
 import '../../models/product_model.dart';
+import '../../models/user_model.dart';
 import '../../utils/formatters.dart';
 import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
-import '../../utils/level_system.dart';
+import '../../utils/level_config.dart';
 import '../../utils/theme.dart';
-import '../../widgets/premium_level_badge.dart';
 import '../../services/firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
-import '../notifications/notifications_screen.dart';
+import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-import 'fiyatradar_settings.dart'; 
+import 'fiyatradar_settings.dart';
 import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -50,43 +48,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userAsync = ref.watch(userModelStreamProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFDFBF9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFDFBF9),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        titleSpacing: 20,
-        title: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFFAF6B3E),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Profil',
-              style: TextStyle(
-                color: Color(0xFF3A2B24),
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
+      backgroundColor: const Color(0xFFF5F3F0),
       body: userAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
         data: (userModel) {
           return FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
-            future: _loadProfile(uid),
+            future: _loadProfile(uid, userModel),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -101,45 +70,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onRefresh: () async => setState(() => _reloadKey++),
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        _BossHeroCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ProfilePremiumHeader(
+                        data: data,
+                        onEdit: () async {
+                          await Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
+                          );
+                          if (mounted) setState(() => _reloadKey++);
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
+                        child: _ProfileSections(
                           data: data,
-                          onEdit: () async {
-                            await Navigator.of(context).push(
-                              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
-                            );
-                            if (mounted) setState(() => _reloadKey++);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _StatsRow(totalPoints: data.totalPoints, cityRank: data.cityRank),
-                        const SizedBox(height: 12),
-                        _QuickActionsGrid(uid: uid),
-                        const SizedBox(height: 16),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'Hesap Yönetimi',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                              color: Color(0xFF8C7A6B),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _MenuSection(
-                          isAdmin: userModel?.isAdmin == true,
+                          uid: uid,
                           onReload: () => setState(() => _reloadKey++),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -150,26 +101,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<_ProfileData> _loadProfile(String uid) async {
+  Future<_ProfileData> _loadProfile(String uid, UserModel? userModel) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    final userDoc = await userRef.get();
-    if (!userDoc.exists) {
-      await userRef.set({
-        'displayName': 'Kullanıcı',
-        'photoUrl': '',
-        'photoURL': '',
-        'verified': false,
-        'trustScore': 0,
-        'levelName': 'Gözlemci',
-        'monthlySavings': '₺0',
-        'topMarket': 'Henüz yok',
-        'totalPoints': 0,
-        'weeklyPoints': 0,
-        'streakDays': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-
     final data = (await userRef.get()).data() ?? <String, dynamic>{};
     Map<String, dynamic> trustProfile = const <String, dynamic>{};
     try {
@@ -178,9 +111,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       trustProfile = const <String, dynamic>{};
     }
     final totalPoints =
-        (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0;
-    final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? 0;
-    final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? 0;
+        (data['totalPoints'] as num?)?.toInt() ??
+        (data['pointsTotal'] as num?)?.toInt() ??
+        (data['points'] as num?)?.toInt() ??
+        userModel?.points ??
+        0;
+    final trustTotalVotes =
+        (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? userModel?.trustTotalVotes ?? 0;
+    final trustPercent =
+        (trustProfile['trustScorePercent'] as num?)?.toInt() ?? userModel?.trustScorePercent ?? 0;
     // Profildeki seviye etiketi puan ekranı ve ürün detayındakiyle birebir aynı
     // hesaplamayı kullanır: puan + güven bazlı final seviye.
     final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
@@ -188,17 +127,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
     final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
+    final addedPricesCount =
+        (data['priceEntries'] as num?)?.toInt() ?? userModel?.priceEntries;
+    final pendingPricesCount = await _resolvePendingPrices(uid);
+    final alertsCount = await _countCollection(userRef.collection('watchlist'));
+    final favoritesCount = await _countCollection(userRef.collection('favorites'));
+    final historyCount = await _countCollection(userRef.collection('searchHistory'));
+
     return _ProfileData(
-      displayName: (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
-      username: (data['username'] ?? data['userName'] ?? '').toString(),
-      photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
+      displayName: (data['name'] ?? data['displayName'] ?? userModel?.name ?? 'Kullanıcı').toString(),
+      username: (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString(),
+      photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? userModel?.photoUrl ?? '').toString(),
+      roleTitle: (data['role'] ?? userModel?.role ?? '').toString().trim(),
       isVerified: (data['verifiedBadge'] as bool?) ?? (data['verified'] as bool?) ?? false,
+      isAdmin: (data['isAdmin'] as bool?) ?? userModel?.isAdmin == true,
       totalPoints: totalPoints,
       cityRank: cityRank,
       pointsLevelName: finalLevelName,
       trustScore: trustPercent.toDouble(),
       trustTotalVotes: trustTotalVotes,
+      addedPricesCount: addedPricesCount,
+      pendingPricesCount: pendingPricesCount,
+      alertsCount: alertsCount,
+      favoritesCount: favoritesCount,
+      historyCount: historyCount,
+      nextLeagueRemaining: _nextLeagueRemaining(totalPoints),
     );
+  }
+
+  Future<int?> _countCollection(CollectionReference<Map<String, dynamic>> ref) async {
+    try {
+      final snap = await ref.count().get();
+      return snap.count;
+    } catch (_) {
+      try {
+        final snap = await ref.get();
+        return snap.docs.length;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<int?> _resolvePendingPrices(String uid) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('priceReports')
+          .where('createdByUid', isEqualTo: uid)
+          .where('status', isEqualTo: 'pending')
+          .count()
+          .get();
+      return snap.count;
+    } catch (_) {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('priceReports')
+            .where('createdByUid', isEqualTo: uid)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        return snap.docs.length;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  int? _nextLeagueRemaining(int totalPoints) {
+    final levels = LevelConfig.levels;
+    for (final level in levels) {
+      if (level.minPoints > totalPoints) {
+        return level.minPoints - totalPoints;
+      }
+    }
+    return null;
   }
 
   Future<int?> _resolveCityRank({required String uid, required String cityName}) async {
@@ -240,397 +241,231 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _BossHeroCard extends StatelessWidget {
-  const _BossHeroCard({required this.data, required this.onEdit});
+
+class _ProfilePremiumHeader extends StatelessWidget {
+  const _ProfilePremiumHeader({required this.data, required this.onEdit});
 
   final _ProfileData data;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    final levelStyle = EliteLevelEngine.getLevelStyle(
-      EliteLevelEngine.parseLevelLabel(data.pointsLevelName),
-    );
-    final currentLevelColor = levelStyle.borderColor;
-    final nameTextColor = currentLevelColor.computeLuminance() > 0.55 ? const Color(0xFF3E2723) : Colors.white;
-    final trustRatio = (data.trustScore / 100).clamp(0.0, 1.0);
+    final role = data.roleTitle.trim();
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFAF6B3E), Color(0xFF955427)],
+      decoration: const BoxDecoration(
+        color: Color(0xFF211510),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
-        borderRadius: BorderRadius.circular(34),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color.fromRGBO(149, 84, 39, 0.30),
-            blurRadius: 28,
-            offset: Offset(0, 14),
+            color: Color.fromRGBO(33, 21, 16, 0.35),
+            blurRadius: 30,
+            offset: Offset(0, 16),
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
       child: Column(
         children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: IconButton(
-              onPressed: onEdit,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.18),
-              ),
-              icon: const Icon(Icons.edit_rounded, color: Colors.white),
-            ),
-          ),
-          Center(
-            child: Container(
-              width: 140,
-              height: 140,
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: currentLevelColor.withOpacity(0.5),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: _Avatar(avatarUrl: data.photoUrl, displayName: data.displayName, size: 128),
-            ),
-          ),
-          const SizedBox(height: 18),
-          PremiumLevelBadge(
-            levelName: data.pointsLevelName,
-            displayText: data.displayName,
-            showVerifiedIcon: data.isVerified,
-          ),
-          if (data.username.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: currentLevelColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: currentLevelColor.withOpacity(0.9), width: 1.5),
-              ),
-              child: Text(
-                '@${data.username.trim()}',
-                style: TextStyle(
-                  color: nameTextColor.withOpacity(0.92),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Sistem Güven Endeksi',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '%${data.trustScore.round()} (Elit)',
-                      style: const TextStyle(
-                        color: Color(0xFF00E676),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  height: 10,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: trustRatio,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF00BFA5), Color(0xFF00E676)],
-                        ),
-                        boxShadow: const [BoxShadow(color: Color.fromRGBO(0, 230, 118, 0.6), blurRadius: 10)],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.avatarUrl, required this.displayName, this.size = 52});
-
-  final String avatarUrl;
-  final String displayName;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: avatarUrl.isEmpty
-            ? Container(
-                color: const Color(0xFFFFE8B7),
-                alignment: Alignment.center,
-                child: Text(
-                  displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
-                  style: TextStyle(
-                    fontSize: size * 0.35,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF3D2A00),
-                  ),
-                ),
-              )
-            : CachedNetworkImage(
-                imageUrl: avatarUrl,
-                fit: BoxFit.cover,
-                memCacheWidth: 220,
-                memCacheHeight: 220,
-                errorWidget: (_, __, ___) => Container(
-                  color: const Color(0xFFFFE8B7),
-                  alignment: Alignment.center,
-                  child: Text(
-                    displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: size * 0.35,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF3D2A00),
-                    ),
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.totalPoints, required this.cityRank});
-
-  final int totalPoints;
-  final int? cityRank;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(value: '${(totalPoints / 1000).toStringAsFixed(1)}K', label: 'Radar Puanı'),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(value: cityRank == null ? '-' : '#$cityRank', label: 'Şehir Sırası'),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFF5EFEB)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF3A2B24)),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF8C7A6B),
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionsGrid extends StatelessWidget {
-  const _QuickActionsGrid({required this.uid});
-  final String uid;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _QuickActionCard(
-          icon: Icons.sell,
-          label: 'Fiyatlarım',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => MyPricesScreen(userId: uid)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _QuickActionCard(
-          icon: Icons.favorite_border,
-          label: 'Favoriler',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => FavoritesScreen(userId: uid)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _QuickActionCard(
-          icon: Icons.notifications_none,
-          label: 'Bildirimler',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  const _QuickActionCard({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFF5EFEB)),
-          ),
-          child: Column(
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F4F0),
-                  borderRadius: BorderRadius.circular(14),
+              const Text(
+                'Profil',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.4,
                 ),
-                child: Icon(icon, size: 23, color: const Color(0xFF8C7A6B)),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3A2B24)),
+              const Spacer(),
+              Material(
+                color: const Color.fromRGBO(255, 255, 255, 0.08),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onEdit,
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(Icons.edit_rounded, color: Color(0xFFC29B78), size: 20),
+                  ),
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 20),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              Container(
+                width: 118,
+                height: 118,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D1E17),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: const Color(0xFFC29B78), width: 2.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: _Avatar(
+                    avatarUrl: data.photoUrl,
+                    displayName: data.displayName,
+                    size: 110,
+                  ),
+                ),
+              ),
+              if (data.isAdmin)
+                Positioned(
+                  bottom: -10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC29B78),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFF211510), width: 2),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.local_police_rounded, size: 12, color: Color(0xFF211510)),
+                        SizedBox(width: 4),
+                        Text(
+                          'ADMIN',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF211510),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            data.displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.4,
+            ),
+          ),
+          if (role.isNotEmpty)
+            Text(
+              role,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color.fromRGBO(255, 255, 255, 0.62),
+                letterSpacing: 0.5,
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _MenuSection extends ConsumerWidget {
-  const _MenuSection({required this.isAdmin, required this.onReload});
+class _ProfileSections extends ConsumerWidget {
+  const _ProfileSections({
+    required this.data,
+    required this.uid,
+    required this.onReload,
+  });
 
-  final bool isAdmin;
+  final _ProfileData data;
+  final String uid;
   final VoidCallback onReload;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MenuTile(
-          icon: Icons.edit_rounded,
-          title: 'Hesap & Ayarlar',
-          onTap: () async {
-            await Navigator.push(
-              context,
-              CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
-            );
-            onReload();
-          },
-        ),
-        const SizedBox(height: 10),
-        _MenuTile(
-          icon: Icons.dark_mode_rounded,
-          title: 'Karanlık Mod',
-          trailing: Switch(
-            value: themeMode == ThemeMode.dark,
-            onChanged: (_) => ref.read(themeModeProvider.notifier).toggleDarkMode(),
-          ),
-          onTap: () => ref.read(themeModeProvider.notifier).toggleDarkMode(),
-        ),
-        if (isAdmin) ...[
-          const SizedBox(height: 10),
-          _MenuTile(
-            icon: Icons.admin_panel_settings_rounded,
-            iconBackground: const Color(0xFFFFB300),
-            title: 'Admin Paneli',
-            badge: const _AdminBadge(),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+        _ImpactCard(data: data),
+        const SizedBox(height: 24),
+        _MenuGroup(
+          title: 'RADAR YÖNETİMİ',
+          items: [
+            _MenuGroupItem(
+              icon: Icons.notifications_active_rounded,
+              title: 'Fiyat Alarmlarım',
+              badge: data.alertsCount == null ? null : '${data.alertsCount} Aktif',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => WatchlistScreen(userId: uid)),
+              ),
             ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        _MenuTile(
-          icon: Icons.logout_rounded,
-          title: 'Çıkış Yap',
-          textColor: Colors.red.shade400,
-          iconColor: Colors.red.shade400,
-          iconBackground: Colors.red.shade50,
-          background: const Color(0xFFFFF7F7),
-          showChevron: false,
+            _MenuGroupItem(
+              icon: Icons.bookmark_rounded,
+              title: 'Koleksiyonlarım (Favoriler)',
+              badge: data.favoritesCount == null ? null : '${data.favoritesCount}',
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen(userId: uid))),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _MenuGroup(
+          title: 'AVCI KARİYERİ',
+          items: [
+            _MenuGroupItem(
+              icon: Icons.fact_check_rounded,
+              title: 'Eklenen Fiyatlar',
+              subtitle: data.pendingPricesCount == null
+                  ? null
+                  : (data.pendingPricesCount! > 0 ? 'Son eklenen ${data.pendingPricesCount} fiyat bekliyor' : 'Bekleyen fiyatın bulunmuyor'),
+              trailingLabel: data.addedPricesCount == null ? null : '${data.addedPricesCount}',
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MyPricesScreen(userId: uid))),
+            ),
+            _MenuGroupItem(
+              icon: Icons.emoji_events_rounded,
+              title: 'Liderlik Tablosu & Ligler',
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _MenuGroup(
+          title: 'SİSTEM',
+          items: [
+            _MenuGroupItem(
+              icon: Icons.tune_rounded,
+              title: 'Uygulama Tercihleri',
+              onTap: () async {
+                await Navigator.of(context).push(
+                  CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
+                );
+                onReload();
+              },
+            ),
+            if (data.isAdmin)
+              _MenuGroupItem(
+                icon: Icons.admin_panel_settings_rounded,
+                title: 'Admin Konsolu',
+                trailingLabel: 'YETKİLİ',
+                emphasize: true,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _LogoutButton(
           onTap: () async {
             await ref.read(authServiceProvider).signOut();
             if (!context.mounted) return;
@@ -645,69 +480,340 @@ class _MenuSection extends ConsumerWidget {
   }
 }
 
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
+class _ImpactCard extends StatelessWidget {
+  const _ImpactCard({required this.data});
+
+  final _ProfileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF211510),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color.fromRGBO(194, 155, 120, 0.24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(33, 21, 16, 0.22),
+            blurRadius: 28,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'TOPLAM RADAR PUANI',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                    color: Color.fromRGBO(255, 255, 255, 0.55),
+                  ),
+                ),
+              ),
+              Icon(Icons.stars_rounded, color: Color(0xFFC29B78)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatCompactCount(data.totalPoints),
+                style: const TextStyle(
+                  fontSize: 36,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'PT',
+                  style: TextStyle(
+                    color: Color(0xFFC29B78),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (data.nextLeagueRemaining != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Bir sonraki lig için ${formatCompactCount(data.nextLeagueRemaining!)} PT kaldı',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color.fromRGBO(255, 255, 255, 0.6),
+              ),
+            ),
+          ],
+          if (data.addedPricesCount != null || data.trustTotalVotes > 0) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(255, 255, 255, 0.06),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  if (data.addedPricesCount != null)
+                    _ImpactStat(value: '${data.addedPricesCount}', label: 'Onaylı Fiyat'),
+                  if (data.addedPricesCount != null && data.trustTotalVotes > 0)
+                    const SizedBox(
+                      height: 24,
+                      child: VerticalDivider(color: Color.fromRGBO(255, 255, 255, 0.14), width: 22),
+                    ),
+                  if (data.trustTotalVotes > 0)
+                    _ImpactStat(
+                      value: '%${data.trustScore.round()}',
+                      label: 'Doğruluk Skoru',
+                      success: true,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImpactStat extends StatelessWidget {
+  const _ImpactStat({required this.value, required this.label, this.success = false});
+
+  final String value;
+  final String label;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: success ? const Color(0xFF4CAF50) : Colors.white,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color.fromRGBO(255, 255, 255, 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuGroup extends StatelessWidget {
+  const _MenuGroup({required this.title, required this.items});
+
+  final String title;
+  final List<_MenuGroupItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 10),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF948A82),
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color.fromRGBO(33, 21, 16, 0.05)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                items[i],
+                if (i != items.length - 1)
+                  const Divider(height: 1, color: Color.fromRGBO(33, 21, 16, 0.05)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MenuGroupItem extends StatelessWidget {
+  const _MenuGroupItem({
     required this.icon,
     required this.title,
     required this.onTap,
-    this.trailing,
-    this.showChevron = true,
     this.badge,
-    this.background = Colors.white,
-    this.iconBackground,
-    this.iconColor = const Color(0xFF8C7A6B),
-    this.textColor = const Color(0xFF3A2B24),
+    this.subtitle,
+    this.trailingLabel,
+    this.emphasize = false,
   });
 
   final IconData icon;
   final String title;
+  final String? badge;
+  final String? subtitle;
+  final String? trailingLabel;
+  final bool emphasize;
   final VoidCallback onTap;
-  final Widget? trailing;
-  final bool showChevron;
-  final Widget? badge;
-  final Color background;
-  final Color? iconBackground;
-  final Color iconColor;
-  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: emphasize ? const Color(0xFF211510) : const Color(0xFFEBE5DF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: emphasize ? const Color(0xFFC29B78) : const Color(0xFF948A82)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+                      color: const Color(0xFF211510),
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF948A82),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  if (badge != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFE65100),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (trailingLabel != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: emphasize ? const Color(0xFF211510) : const Color(0xFFF3EEEA),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  trailingLabel!,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: emphasize ? const Color(0xFFC29B78) : const Color(0xFF6E6158),
+                  ),
+                ),
+              )
+            else
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFC2BBB5)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutButton extends StatelessWidget {
+  const _LogoutButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(20),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFF5EFEB)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFFFEBEE)),
           ),
-          child: Row(
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: iconBackground ?? const Color(0xFFF8F4F0),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconColor),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: textColor,
-                  ),
+              Icon(Icons.logout_rounded, color: Color(0xFFF44336)),
+              SizedBox(width: 8),
+              Text(
+                'Güvenli Çıkış Yap',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFF44336),
                 ),
               ),
-              if (badge != null) ...[badge!, const SizedBox(width: 10)],
-              if (trailing != null) trailing! else if (showChevron) const Icon(Icons.chevron_right_rounded, color: Color(0xFFD1C4B9)),
             ],
           ),
         ),
@@ -716,30 +822,112 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
-class _AdminBadge extends StatelessWidget {
-  const _AdminBadge();
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.avatarUrl, required this.displayName, this.size = 52});
+
+  final String avatarUrl;
+  final String displayName;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color.fromRGBO(255, 179, 0, 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Text(
-        'YETKİLİ',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFFF57F17),
-        ),
-      ),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: avatarUrl.isEmpty
+          ? Container(
+              color: const Color(0xFFFFE8B7),
+              alignment: Alignment.center,
+              child: Text(
+                displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
+                style: TextStyle(
+                  fontSize: size * 0.35,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF3D2A00),
+                ),
+              ),
+            )
+          : CachedNetworkImage(
+              imageUrl: avatarUrl,
+              fit: BoxFit.cover,
+              memCacheWidth: 220,
+              memCacheHeight: 220,
+              errorWidget: (_, __, ___) => Container(
+                color: const Color(0xFFFFE8B7),
+                alignment: Alignment.center,
+                child: Text(
+                  displayName.isEmpty ? 'K' : displayName[0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: size * 0.35,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF3D2A00),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }
 
 // ---------- Sub-Screens (unchanged logic, refreshed styling) ----------
+
+class WatchlistScreen extends StatelessWidget {
+  const WatchlistScreen({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Fiyat Alarmlarım')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('watchlist')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _ListError(onRetry: () => (context as Element).markNeedsBuild());
+          }
+
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Aktif fiyat alarmın bulunmuyor.'));
+          }
+
+          return ListView.separated(
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              final productName = (data['productName'] ?? '').toString().trim();
+              final title = productName.isEmpty ? 'Ürün' : productName;
+              final targetPrice = (data['targetPrice'] as num?)?.toDouble();
+
+              return ListTile(
+                leading: const Icon(Icons.notifications_active_rounded),
+                title: Text(title),
+                subtitle: targetPrice == null ? null : Text('Hedef fiyat: ${formatTRY(targetPrice)}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: () async {
+                    await docs[index].reference.delete();
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 
 class MyPricesScreen extends StatelessWidget {
   const MyPricesScreen({super.key, required this.userId});
@@ -1389,21 +1577,37 @@ class _ProfileData {
     required this.displayName,
     required this.photoUrl,
     required this.username,
+    required this.roleTitle,
     required this.pointsLevelName,
     required this.isVerified,
+    required this.isAdmin,
     required this.trustScore,
     required this.trustTotalVotes,
     required this.totalPoints,
     required this.cityRank,
+    required this.addedPricesCount,
+    required this.pendingPricesCount,
+    required this.alertsCount,
+    required this.favoritesCount,
+    required this.historyCount,
+    required this.nextLeagueRemaining,
   });
 
   final String displayName;
   final String photoUrl;
   final String username;
+  final String roleTitle;
   final String pointsLevelName;
   final bool isVerified;
+  final bool isAdmin;
   final double trustScore;
   final int trustTotalVotes;
   final int totalPoints;
   final int? cityRank;
+  final int? addedPricesCount;
+  final int? pendingPricesCount;
+  final int? alertsCount;
+  final int? favoritesCount;
+  final int? historyCount;
+  final int? nextLeagueRemaining;
 }
