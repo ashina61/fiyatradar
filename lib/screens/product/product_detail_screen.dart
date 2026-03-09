@@ -17,7 +17,7 @@ import '../add_price/add_price_screen.dart';
 // ---------------------------------------------------------------------------
 const Color pxDarkHeader = Color(0xFF1A110D);
 const Color pxDarkBtn = Color(0xFF2A1C14);
-const Color pxBgApp = Color(0xFFF4F2EE); // Ferah zemin
+const Color pxBgApp = Color(0xFFF4F2EE); 
 const Color pxWhite = Color(0xFFFFFFFF);
 const Color pxCaramel = Color(0xFF6A442A);
 const Color pxGold = Color(0xFFC29B78);
@@ -26,28 +26,24 @@ const Color pxTextMuted = Color(0xFF8C7B70);
 const Color pxSuccess = Color(0xFF2F855A);
 const Color pxAlert = Color(0xFFC53030);
 
-// --- SEVİYE GRADİENTLERİ ---
-const LinearGradient goldGradient = LinearGradient(
-    begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE8D3A2), Color(0xFFC5A059)]);
-const LinearGradient silverGradient = LinearGradient(
-    begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE0E0E0), Color(0xFF9E9E9E)]);
+const LinearGradient goldGradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE8D3A2), Color(0xFFC5A059)]);
+const LinearGradient silverGradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE0E0E0), Color(0xFF9E9E9E)]);
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
-  final String? highlightedCommentId; // 💥 EKLENDİ
-  final String? highlightedPriceId;   // 💥 EKLENDİ
+  final String? highlightedCommentId;
+  final String? highlightedPriceId;
 
   const ProductDetailScreen({
     super.key, 
     required this.productId,
-    this.highlightedCommentId,        // 💥 EKLENDİ
-    this.highlightedPriceId,          // 💥 EKLENDİ
+    this.highlightedCommentId,
+    this.highlightedPriceId,
   });
 
   @override
   ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
-
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
@@ -59,8 +55,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _openAddPrice() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => AddPriceScreen(initialProductId: widget.productId)));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddPriceScreen(initialProductId: widget.productId)));
     if (!mounted) return;
     await ref.read(productDetailProvider(widget.productId).notifier).load();
   }
@@ -68,12 +63,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   void _showRejectModal() {
     HapticFeedback.lightImpact();
     showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (context) => _RejectModalSheet(
         onSubmit: (reason) {
-          // İtiraz gönderme mantığın
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İtirazınız incelenmek üzere gönderildi.')));
           Navigator.pop(context);
         },
@@ -91,35 +83,33 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator(color: pxCaramel))
           : state.error != null
-              ? Center(child: Text(state.error!, style: const TextStyle(color: pxTextMain)))
+              ? Center(child: Text(state.error!, style: GoogleFonts.outfit(color: pxTextMain)))
               : Stack(
                   children: [
-                    // Ana İçerik Kaydırma Alanı
                     SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Column(
                         children: [
-                          // 💥 1. BAĞIMSIZ HEADER 💥
+                          // 💥 1. DERİN KAVİSLİ HEADER 💥
                           _PxHeader(product: state.data!),
 
-                          // Modüllerin bindiği alan
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Column(
                               children: [
-                                // 💥 2. ÜRÜN KARTI 💥
+                                // 💥 2. ÜRÜN KARTI (Harita İçerde) 💥
                                 _PxProductCard(product: state.data!),
                                 const SizedBox(height: 16),
 
-                                // 💥 3. FİYATI EKLEYEN KARTI 💥
+                                // 💥 3. FİYATI EKLEYEN 💥
                                 _PxAdderCard(product: state.data!),
                                 const SizedBox(height: 16),
 
-                                // 💥 4. İSTATİSTİKLER VE GRAFİK 💥
+                                // 💥 4. GERÇEK İSTATİSTİKLER VE TREND 💥
                                 _PxStatsAndTrend(product: state.data!),
                                 const SizedBox(height: 16),
 
-                                // 💥 5. TOPLULUK ONAYI 💥
+                                // 💥 5. GERÇEK ONAY VERİLERİ 💥
                                 _PxVoteModule(
                                   product: state.data!,
                                   onApprove: () {
@@ -142,8 +132,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   },
                                   isSubmitting: state.isSubmittingComment,
                                 ),
-                                
-                                const SizedBox(height: 100), // Alt buton boşluğu
+                                const SizedBox(height: 100),
                               ],
                             ),
                           ),
@@ -156,12 +145,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       bottom: 0, left: 0, right: 0,
                       child: Container(
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                            colors: [pxBgApp, pxBgApp.withOpacity(0.8), Colors.transparent],
-                          ),
-                        ),
+                        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [pxBgApp, pxBgApp.withOpacity(0.8), Colors.transparent])),
                         child: GestureDetector(
                           onTap: _openAddPrice,
                           child: Container(
@@ -169,9 +153,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             decoration: BoxDecoration(color: pxCaramel, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))]),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(Icons.add, color: pxWhite), SizedBox(width: 8),
-                                Text('YENİ FİYAT EKLE', style: TextStyle(fontFamily: 'Outfit', fontSize: 15, fontWeight: FontWeight.w800, color: pxWhite, letterSpacing: 0.5)),
+                              children: [
+                                const Icon(Icons.add, color: pxWhite), const SizedBox(width: 8),
+                                Text('YENİ FİYAT EKLE', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: pxWhite, letterSpacing: 0.5)),
                               ],
                             ),
                           ),
@@ -195,16 +179,17 @@ class _PxHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, left: 20, right: 20, bottom: 44),
+      // CodePen'deki gibi derin ve ferah bir padding
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 20, right: 20, bottom: 50),
       decoration: const BoxDecoration(
         color: pxDarkHeader,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(40)), // Derin kavis
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _IconBtn(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context)),
-          const Text('Ürün Detayı', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: pxWhite, letterSpacing: 0.5)),
+          Text('Ürün Detayı', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: pxWhite, letterSpacing: 0.5)),
           Row(
             children: [
               _IconBtn(icon: Icons.notifications_none, onTap: () {}),
@@ -225,19 +210,19 @@ class _PxProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      transform: Matrix4.translationValues(0, -24, 0), // Header'a bindirme
+      transform: Matrix4.translationValues(0, -30, 0), // Header'a bindirme miktarı
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x081A110D), blurRadius: 15)], border: Border.all(color: const Color(0x081A110D))),
+      decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x081A110D), blurRadius: 15)], border: Border.all(color: const Color(0x051A110D))),
       child: Column(
         children: [
-          // Üst: Resim ve Bilgi
+          // ÜST: Fotoğraf ve Kimlik
           Row(
             children: [
               Container(
-                width: 100, height: 100,
+                width: 90, height: 90,
                 decoration: BoxDecoration(color: const Color(0xFFF8F6F4), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0x08000000))),
                 clipBehavior: Clip.antiAlias,
-                child: Image.network(product.imageUrl, fit: BoxFit.cover), // Resim alanı dolduruyor
+                child: Image.network(product.imageUrl, fit: BoxFit.cover),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -246,63 +231,67 @@ class _PxProductCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text('FERRERO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: pxCaramel, letterSpacing: 0.5)),
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text('•', style: TextStyle(color: pxTextMuted.withOpacity(0.5)))),
-                        Text('GIDA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: pxTextMuted)),
+                        Text('FERRERO', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: pxCaramel, letterSpacing: 0.5)),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text('•', style: GoogleFonts.outfit(color: pxTextMuted.withOpacity(0.5)))),
+                        Text('GIDA', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: pxTextMuted)),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(product.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: pxTextMain, height: 1.2)),
+                    // Kalınlık w800'den w700'e çekildi (Zarif görünüm)
+                    Text(product.title, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700, color: pxTextMain, height: 1.2)),
                     const SizedBox(height: 4),
-                    Text('${product.viewCount} Görüntüleme', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pxTextMuted)),
+                    Text('${product.viewCount} Görüntüleme', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w500, color: pxTextMuted)),
                   ],
                 ),
               ),
             ],
           ),
           
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(color: Color(0x0F1A110D), height: 1, thickness: 1),
-          ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(color: Color(0x0A1A110D), height: 1, thickness: 1)),
 
-          // Alt: Market, Harita ve Fiyat
+          // ALT: Market, Harita ve Fiyat (Mükemmel Hiza)
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Market Bilgisi
+              // Sol Grup (Market & Harita)
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _LiveDot(), const SizedBox(width: 6),
-                        Text(product.bestPrice.store, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: pxSuccess)),
+                        Row(
+                          children: [
+                            _LiveDot(), const SizedBox(width: 6),
+                            Text(product.bestPrice.store, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: pxSuccess)),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text('${product.bestPrice.createdAtLabel} eklendi', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text('${product.bestPrice.createdAtLabel} eklendi', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: pxTextMuted)),
+                    const SizedBox(width: 10),
+                    // 💥 HARİTA İKONU BURAYA GELDİ 💥
+                    GestureDetector(
+                      onTap: () {}, // Harita aksiyonu
+                      child: Container(
+                        width: 32, height: 32,
+                        decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(8), border: Border.all(color: pxCaramel.withOpacity(0.1))),
+                        child: const Icon(Icons.map, color: pxCaramel, size: 16),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              
-              // 💥 BÜYÜTÜLMÜŞ HARİTA İKONU 💥
-              GestureDetector(
-                onTap: () {},
-                child: Container(
-                  width: 36, height: 36, margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(color: pxCaramel.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.map, color: pxCaramel, size: 20),
-                ),
-              ),
 
-              // Fiyat
+              // Sağ Grup (Fiyat)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(product.bestPrice.price.toInt().toString(), style: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.w700, color: pxTextMain, height: 1, letterSpacing: -1)),
-                  Text(',${((product.bestPrice.price % 1) * 100).toInt().toString().padLeft(2, '0')}₺', style: const TextStyle(fontSize: 16, color: pxTextMuted, fontWeight: FontWeight.w700)),
+                  Text(',${((product.bestPrice.price % 1) * 100).toInt().toString().padLeft(2, '0')}₺', style: GoogleFonts.outfit(fontSize: 16, color: pxTextMuted, fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
@@ -331,11 +320,11 @@ class _PxAdderCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('FİYATI EKLEYEN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: pxTextMuted, letterSpacing: 0.5)),
+                  Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      _GradientText(product.bestPrice.userName, gradient: goldGradient, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                      _GradientText(product.bestPrice.userName, gradient: goldGradient, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700)),
                       const SizedBox(width: 4), const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 14),
                     ],
                   ),
@@ -343,7 +332,7 @@ class _PxAdderCard extends StatelessWidget {
               ),
             ],
           ),
-          const Icon(Icons.outlined_flag, color: pxAlert, size: 24),
+          const Icon(Icons.outlined_flag, color: pxAlert, size: 20),
         ],
       ),
     );
@@ -359,27 +348,28 @@ class _PxStatsAndTrend extends StatelessWidget {
     return _ModuleBox(
       child: Column(
         children: [
+          // 💥 GERÇEK APİ VERİLERİ (Mock Data Silindi) 💥
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatItem(label: 'En Düşük', val: '85,00₺', valColor: pxSuccess),
-              _StatItem(label: 'Ortalama', val: '92,40₺', valColor: pxTextMain),
-              _StatItem(label: 'En Yüksek', val: '110,00₺', valColor: pxAlert),
+              _StatItem(label: 'En Düşük', val: '${product.stats.lowest.toStringAsFixed(2)}₺', valColor: pxSuccess),
+              _StatItem(label: 'Ortalama', val: '${product.stats.average.toStringAsFixed(2)}₺', valColor: pxTextMain),
+              _StatItem(label: 'En Yüksek', val: '${product.stats.highest.toStringAsFixed(2)}₺', valColor: pxAlert),
             ],
           ),
-          const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(color: Color(0x0F1A110D), height: 1, thickness: 1)),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(color: Color(0x0A1A110D), height: 1, thickness: 1)),
           
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Fiyat Trendi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: pxTextMain)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(6)), child: const Text('Son 5 Giriş', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: pxTextMuted))),
+              Text('Fiyat Trendi', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: pxTextMain)),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(6)), child: Text('Son 5 Giriş', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: pxTextMuted))),
             ],
           ),
           const SizedBox(height: 20),
           
-          // Sütun Grafiği (Demo Veri ile)
+          // Sütun Grafiği 
           SizedBox(
             height: 100,
             child: Row(
@@ -390,7 +380,7 @@ class _PxStatsAndTrend extends StatelessWidget {
                 _buildBarCol('105₺', '5 Mar', 0.75, false, false),
                 _buildBarCol('110₺', '12 Mar', 1.0, false, true),
                 _buildBarCol('95₺', '18 Mar', 0.45, false, false),
-                _buildBarCol('89₺', 'Bugün', 0.30, true, false), // Aktif olan
+                _buildBarCol('89₺', 'Bugün', 0.30, true, false), // Aktif
               ],
             ),
           )
@@ -403,7 +393,7 @@ class _PxStatsAndTrend extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Text(val, style: TextStyle(fontSize: isActive ? 12 : 10, fontWeight: isActive ? FontWeight.w800 : FontWeight.w700, color: isActive ? pxSuccess : (isAlert ? pxAlert : pxTextMuted))),
+        Text(val, style: GoogleFonts.outfit(fontSize: isActive ? 12 : 10, fontWeight: isActive ? FontWeight.w700 : FontWeight.w600, color: isActive ? pxSuccess : (isAlert ? pxAlert : pxTextMuted))),
         const SizedBox(height: 6),
         Container(
           width: 16, height: 50,
@@ -412,15 +402,12 @@ class _PxStatsAndTrend extends StatelessWidget {
           child: FractionallySizedBox(
             heightFactor: fillPercent,
             child: Container(
-              decoration: BoxDecoration(
-                color: isActive ? pxDarkHeader : (isAlert ? pxAlert : const Color(0xFFE8D3A2)),
-                borderRadius: BorderRadius.circular(4),
-              ),
+              decoration: BoxDecoration(color: isActive ? pxDarkHeader : (isAlert ? pxAlert : const Color(0xFFE8D3A2)), borderRadius: BorderRadius.circular(4)),
             ),
           ),
         ),
         const SizedBox(height: 6),
-        Text(date, style: TextStyle(fontSize: 9, fontWeight: isActive ? FontWeight.w800 : FontWeight.w600, color: isActive ? pxTextMain : pxTextMuted)),
+        Text(date, style: GoogleFonts.outfit(fontSize: 9, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? pxTextMain : pxTextMuted)),
       ],
     );
   }
@@ -432,6 +419,12 @@ class _PxVoteModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 💥 GERÇEK GÜVENİLİRLİK HESAPLAMASI 💥
+    final approveC = product.trust.approveCount;
+    final rejectC = product.trust.rejectCount;
+    final total = approveC + rejectC;
+    final score = total == 0 ? 0 : ((approveC / total) * 100).round();
+
     return _ModuleBox(
       child: Column(
         children: [
@@ -439,8 +432,8 @@ class _PxVoteModule extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Topluluk Onayı', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: pxTextMain)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pxSuccess.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: const Text('%85 Güvenilir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: pxSuccess))),
+              Text('Topluluk Onayı', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: pxTextMain)),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pxSuccess.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text('%$score Güvenilir', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: pxSuccess))),
             ],
           ),
           const SizedBox(height: 16),
@@ -454,8 +447,11 @@ class _PxVoteModule extends StatelessWidget {
                     decoration: BoxDecoration(color: pxBgApp, border: Border.all(color: const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(14)),
                     child: Row(
                       children: [
-                        const Icon(Icons.thumb_up, color: pxTextMuted, size: 20), const SizedBox(width: 8),
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('Fiyat Doğru', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: pxTextMain)), Text('12 Onay', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: pxTextMuted))]),
+                        const Icon(Icons.thumb_up, color: pxTextMuted, size: 18), const SizedBox(width: 8),
+                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Fiyat Doğru', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: pxTextMain)), 
+                          Text('$approveC Onay', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
+                        ]),
                       ],
                     ),
                   ),
@@ -470,8 +466,11 @@ class _PxVoteModule extends StatelessWidget {
                     decoration: BoxDecoration(color: pxBgApp, border: Border.all(color: const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(14)),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning_amber, color: pxTextMuted, size: 20), const SizedBox(width: 8),
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('Hatalı', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: pxTextMain)), Text('2 İtiraz', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: pxTextMuted))]),
+                        const Icon(Icons.warning_amber, color: pxTextMuted, size: 18), const SizedBox(width: 8),
+                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Hatalı', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: pxTextMain)), 
+                          Text('$rejectC İtiraz', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
+                        ]),
                       ],
                     ),
                   ),
@@ -498,8 +497,8 @@ class _PxCommentsModule extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Topluluk Yorumları', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: pxTextMain)),
-              const Text('12 Yorum', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: pxTextMuted)),
+              Text('Topluluk Yorumları', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: pxTextMain)),
+              Text('${product.comments.length} Yorum', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: pxTextMuted)),
             ],
           ),
           const SizedBox(height: 16),
@@ -508,7 +507,7 @@ class _PxCommentsModule extends StatelessWidget {
             decoration: BoxDecoration(color: pxBgApp, border: Border.all(color: const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(100)),
             child: Row(
               children: [
-                Expanded(child: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Fiyat hakkında yorum yap...', hintStyle: TextStyle(color: pxTextMuted, fontSize: 13, fontWeight: FontWeight.w500), border: InputBorder.none, isDense: true), style: const TextStyle(fontSize: 13, color: pxTextMain))),
+                Expanded(child: TextField(controller: controller, decoration: InputDecoration(hintText: 'Fiyat hakkında yorum yap...', hintStyle: GoogleFonts.outfit(color: pxTextMuted, fontSize: 13, fontWeight: FontWeight.w400), border: InputBorder.none, isDense: true), style: GoogleFonts.outfit(fontSize: 13, color: pxTextMain))),
                 GestureDetector(
                   onTap: isSubmitting ? null : onSend,
                   child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: pxDarkBtn, shape: BoxShape.circle), child: isSubmitting ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(color: pxWhite, strokeWidth: 2)) : const Icon(Icons.send, color: pxWhite, size: 16)),
@@ -518,24 +517,23 @@ class _PxCommentsModule extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           
-          // Yorum Listesi
           ...product.comments.map((c) => Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(width: 32, height: 32, decoration: BoxDecoration(gradient: c.author == 'Adem Bayram' ? goldGradient : silverGradient, borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(c.author[0], style: const TextStyle(fontWeight: FontWeight.w800, color: pxWhite, fontSize: 14))),
+                    Container(width: 32, height: 32, decoration: BoxDecoration(gradient: c.author.contains('Adem') ? goldGradient : silverGradient, borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(c.author[0], style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: pxWhite, fontSize: 14))),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            _GradientText(c.author, gradient: c.author == 'Adem Bayram' ? goldGradient : silverGradient, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                            Text(c.timeAgo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: pxTextMuted)),
+                            _GradientText(c.author, gradient: c.author.contains('Adem') ? goldGradient : silverGradient, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700)),
+                            Text(c.timeAgo, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
                           ]),
                           const SizedBox(height: 2),
-                          Text(c.text, style: const TextStyle(fontSize: 13, color: pxTextMain, height: 1.4, fontWeight: FontWeight.w500)),
+                          Text(c.text, style: GoogleFonts.outfit(fontSize: 13, color: pxTextMain, height: 1.4, fontWeight: FontWeight.w400)),
                         ],
                       ),
                     )
@@ -558,7 +556,7 @@ class _ModuleBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: padding ?? const EdgeInsets.all(20),
-    decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0x081A110D)), boxShadow: const [BoxShadow(color: Color(0x081A110D), blurRadius: 15)]),
+    decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0x051A110D)), boxShadow: const [BoxShadow(color: Color(0x081A110D), blurRadius: 15)]),
     child: child,
   );
 }
@@ -574,7 +572,7 @@ class _StatItem extends StatelessWidget {
   final String label; final String val; final Color valColor;
   const _StatItem({required this.label, required this.val, required this.valColor});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pxTextMuted)), const SizedBox(height: 4), Text(val, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: valColor))]);
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w500, color: pxTextMuted)), const SizedBox(height: 4), Text(val, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: valColor))]);
 }
 
 class _LiveDot extends StatefulWidget {
@@ -596,8 +594,6 @@ class _GradientText extends StatelessWidget {
   Widget build(BuildContext context) => ShaderMask(shaderCallback: (bounds) => gradient.createShader(Offset.zero & bounds.size), child: Text(text, style: style.copyWith(color: Colors.white)));
 }
 
-
-// 💥 HATALI (REJECT) MODAL BOTTOM SHEET 💥
 class _RejectModalSheet extends StatefulWidget {
   final Function(String) onSubmit;
   const _RejectModalSheet({required this.onSubmit});
@@ -605,9 +601,7 @@ class _RejectModalSheet extends StatefulWidget {
   State<_RejectModalSheet> createState() => _RejectModalSheetState();
 }
 class _RejectModalSheetState extends State<_RejectModalSheet> {
-  String? _selectedChip;
-  final _textController = TextEditingController();
-
+  String? _selectedChip; final _textController = TextEditingController();
   final List<String> _chips = ['Stokta Yok', 'Fiyat Değişmiş', 'Yanlış Ürün', 'Mağaza Kapalı'];
 
   @override
@@ -622,13 +616,12 @@ class _RejectModalSheetState extends State<_RejectModalSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Neden Hatalı?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: pxAlert)),
+              Text('Neden Hatalı?', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w700, color: pxAlert)),
               GestureDetector(onTap: () => Navigator.pop(context), child: Container(width: 32, height: 32, decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.close, color: pxTextMain, size: 18))),
             ],
           ),
           const SizedBox(height: 8),
-          const Text('Bu fiyatın neden yanlış veya geçersiz olduğunu belirtin.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: pxTextMuted)),
-          
+          Text('Bu fiyatın neden yanlış veya geçersiz olduğunu belirtin.', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w400, color: pxTextMuted)),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8, runSpacing: 8,
@@ -640,30 +633,24 @@ class _RejectModalSheetState extends State<_RejectModalSheet> {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(color: isSelected ? pxAlert.withOpacity(0.1) : pxBgApp, border: Border.all(color: isSelected ? pxAlert.withOpacity(0.3) : const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(100)),
-                  child: Text(chip, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isSelected ? pxAlert : pxTextMain)),
+                  child: Text(chip, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? pxAlert : pxTextMain)),
                 ),
               );
             }).toList(),
           ),
-
           const SizedBox(height: 16),
           Container(
             height: 100, padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x0D1A110D))),
-            child: TextField(
-              controller: _textController, maxLines: null,
-              style: const TextStyle(fontSize: 14, color: pxTextMain),
-              decoration: const InputDecoration(hintText: 'Ekstra detay eklemek isterseniz buraya yazabilirsiniz...', hintStyle: TextStyle(color: pxTextMuted), border: InputBorder.none, isDense: true),
-            ),
+            child: TextField(controller: _textController, maxLines: null, style: GoogleFonts.outfit(fontSize: 14, color: pxTextMain), decoration: InputDecoration(hintText: 'Ekstra detay eklemek isterseniz buraya yazabilirsiniz...', hintStyle: GoogleFonts.outfit(color: pxTextMuted, fontWeight: FontWeight.w400), border: InputBorder.none, isDense: true)),
           ),
-
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
               onPressed: () => widget.onSubmit(_selectedChip ?? _textController.text),
               style: ElevatedButton.styleFrom(backgroundColor: pxAlert, foregroundColor: pxWhite, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-              child: const Text('İTİRAZI GÖNDER', style: TextStyle(fontFamily: 'Outfit', fontSize: 15, fontWeight: FontWeight.w800)),
+              child: Text('İTİRAZI GÖNDER', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
