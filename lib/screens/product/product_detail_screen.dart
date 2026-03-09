@@ -34,11 +34,20 @@ const LinearGradient silverGradient = LinearGradient(
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
-  const ProductDetailScreen({super.key, required this.productId});
+  final String? highlightedCommentId; // 💥 EKLENDİ
+  final String? highlightedPriceId;   // 💥 EKLENDİ
+
+  const ProductDetailScreen({
+    super.key, 
+    required this.productId,
+    this.highlightedCommentId,        // 💥 EKLENDİ
+    this.highlightedPriceId,          // 💥 EKLENDİ
+  });
 
   @override
   ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
+
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
