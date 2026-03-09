@@ -82,7 +82,7 @@ class BestPrice {
       price: (json['price'] as num?)?.toDouble() ?? 0,
       store: (json['store'] ?? '').toString(),
       userName: (json['userName'] ?? '').toString(),
-      userTier: (json['userTier'] ?? 'Elmas VIP').toString(),
+      userTier: (json['userTier'] ?? '').toString(),
       createdAtLabel: (json['createdAtLabel'] ?? '').toString(),
       storeUrl: (json['storeUrl'] ?? '').toString(),
       storeId: (json['storeId'] ?? '').toString(),
@@ -145,7 +145,7 @@ class ProductComment {
     return ProductComment(
       id: (json['id'] ?? '').toString(),
       author: (json['author'] ?? '').toString(),
-      avatarBgHex: (json['avatarBgHex'] ?? '#C8956C').toString(),
+      avatarBgHex: (json['avatarBgHex'] ?? '').toString(),
       text: (json['text'] ?? '').toString(),
       timeAgo: (json['timeAgo'] ?? '').toString(),
     );
