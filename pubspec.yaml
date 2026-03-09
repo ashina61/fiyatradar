@@ -71,5 +71,5 @@ flutter:
     - assets/fiyatradar_urunler.json
 flutter_launcher_icons:
   android: "ic_launcher"
-  ios: true
+  ios: false
   image_path: "assets/images/app_logo.png"
