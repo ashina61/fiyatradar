@@ -162,11 +162,52 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 _PxVoteModule(
                                   product: state.data!,
                                   productId: widget.productId,
-                                  onApprove: () async {
+                                  isSubmittingVote: state.isSubmittingVote,
+                                  onVote: (isApproved) async {
+                                    final currentUser = ref.read(authStateProvider).valueOrNull;
+                                    if (currentUser == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Oy vermek için giriş yapmalısın.')),
+                                      );
+                                      return;
+                                    }
+
+                                    final ownerUid = state.data!.bestPrice.userId.trim();
+                                    if (ownerUid.isNotEmpty && currentUser.uid == ownerUid) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Kendi eklediğin fiyatı doğrulayamazsın')),
+                                      );
+                                      return;
+                                    }
+
                                     HapticFeedback.lightImpact();
-                                    await notifier.votePrice(priceId: state.data!.bestPrice.id, isApproved: true);
+                                    final result = await notifier.votePrice(
+                                      priceId: state.data!.bestPrice.id,
+                                      isApproved: isApproved,
+                                    );
+                                    if (!mounted || result == null) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Doğrulama sırasında bir sorun oluştu')),
+                                        );
+                                      }
+                                      return;
+                                    }
+
+                                    if (result.status == PriceVoteStatus.alreadyVoted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Bu fiyatı zaten doğruladın')),
+                                      );
+                                    } else if (result.status == PriceVoteStatus.selfVoteBlocked) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Kendi eklediğin fiyatı doğrulayamazsın')),
+                                      );
+                                    } else if (result.status == PriceVoteStatus.ignored) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Doğrulama sırasında bir sorun oluştu')),
+                                      );
+                                    }
                                   },
-                                  onReject: _showRejectModal,
                                 ),
                                 const SizedBox(height: 16),
 
@@ -564,23 +605,28 @@ class _PxStatsAndTrend extends StatelessWidget {
 }
 
 class _PxVoteModule extends ConsumerWidget {
-  final ProductDetailResponse product; 
+  final ProductDetailResponse product;
   final String productId;
-  final VoidCallback onApprove; 
-  final VoidCallback onReject;
-  
-  const _PxVoteModule({required this.product, required this.productId, required this.onApprove, required this.onReject});
+  final bool isSubmittingVote;
+  final Future<void> Function(bool isApproved) onVote;
+
+  const _PxVoteModule({
+    required this.product,
+    required this.productId,
+    required this.isSubmittingVote,
+    required this.onVote,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 💥 GERÇEK VERİLER (API'DEN GELEN) 💥
     final approveC = product.trust.approveCount;
     final rejectC = product.trust.rejectCount;
     final score = product.trust.scorePercent;
 
-    // Firebase Canlı Kullanıcı Oyu
     final currentUser = ref.watch(authStateProvider).valueOrNull;
-    final voteStream = currentUser == null ? const Stream<String?>.empty() : ref.watch(firestoreServiceProvider).streamUserVoteValue(product.bestPrice.id, currentUser.uid);
+    final voteStream = currentUser == null
+        ? const Stream<String?>.empty()
+        : ref.watch(firestoreServiceProvider).streamUserVoteValue(product.bestPrice.id, currentUser.uid);
 
     return StreamBuilder<String?>(
       stream: voteStream,
@@ -589,6 +635,9 @@ class _PxVoteModule extends ConsumerWidget {
         final hasVoted = voteVal != null;
         final isApprovedState = voteVal == 'yes';
         final isRejectedState = voteVal == 'no';
+        final ownerUid = product.bestPrice.userId.trim();
+        final isOwner = currentUser != null && ownerUid.isNotEmpty && currentUser.uid == ownerUid;
+        final canVote = currentUser != null && !hasVoted && !isOwner && !isSubmittingVote;
 
         return _ModuleBox(
           child: Column(
@@ -598,25 +647,60 @@ class _PxVoteModule extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text('Topluluk Onayı', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: pxTextMain)),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pxSuccess.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text('%$score Güvenilir', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: pxSuccess))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: pxSuccess.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text('%$score Güvenilir', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: pxSuccess)),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
+              if (isOwner)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Kendi eklediğin fiyatı doğrulayamazsın',
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: pxAlert),
+                  ),
+                )
+              else if (currentUser == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Doğrulama için giriş yapmalısın',
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: pxTextMuted),
+                  ),
+                )
+              else if (hasVoted)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Bu fiyat için oyun kaydedildi',
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: pxTextMuted),
+                  ),
+                ),
               Row(
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: hasVoted ? null : onApprove,
+                      onTap: canVote ? () => onVote(true) : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                        decoration: BoxDecoration(color: isApprovedState ? pxSuccess.withOpacity(0.05) : pxBgApp, border: Border.all(color: isApprovedState ? pxSuccess.withOpacity(0.5) : const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(14)),
+                        decoration: BoxDecoration(
+                          color: isApprovedState ? pxSuccess.withOpacity(0.05) : pxBgApp,
+                          border: Border.all(color: isApprovedState ? pxSuccess.withOpacity(0.5) : const Color(0x0D1A110D)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
                           children: [
-                            Icon(Icons.thumb_up, color: isApprovedState ? pxSuccess : pxTextMuted, size: 18), const SizedBox(width: 8),
+                            if (isSubmittingVote)
+                              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: pxSuccess))
+                            else
+                              Icon(Icons.thumb_up, color: isApprovedState ? pxSuccess : (canVote ? pxTextMuted : pxTextMuted.withOpacity(0.55)), size: 18),
+                            const SizedBox(width: 8),
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('Fiyat Doğru', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isApprovedState ? pxSuccess : pxTextMain)), 
-                              // Gerçek onay sayısı
-                              Text('$approveC Onay', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
+                              Text('Fiyat Doğru', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isApprovedState ? pxSuccess : (canVote ? pxTextMain : pxTextMain.withOpacity(0.7)))),
+                              Text('$approveC Onay', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
                             ]),
                           ],
                         ),
@@ -626,17 +710,24 @@ class _PxVoteModule extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: GestureDetector(
-                      onTap: hasVoted ? null : onReject,
+                      onTap: canVote ? () => onVote(false) : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                        decoration: BoxDecoration(color: isRejectedState ? pxAlert.withOpacity(0.05) : pxBgApp, border: Border.all(color: isRejectedState ? pxAlert.withOpacity(0.5) : const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(14)),
+                        decoration: BoxDecoration(
+                          color: isRejectedState ? pxAlert.withOpacity(0.05) : pxBgApp,
+                          border: Border.all(color: isRejectedState ? pxAlert.withOpacity(0.5) : const Color(0x0D1A110D)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber, color: isRejectedState ? pxAlert : pxTextMuted, size: 18), const SizedBox(width: 8),
+                            if (isSubmittingVote)
+                              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: pxAlert))
+                            else
+                              Icon(Icons.warning_amber, color: isRejectedState ? pxAlert : (canVote ? pxTextMuted : pxTextMuted.withOpacity(0.55)), size: 18),
+                            const SizedBox(width: 8),
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('Hatalı', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isRejectedState ? pxAlert : pxTextMain)), 
-                              // Gerçek itiraz sayısı
-                              Text('$rejectC İtiraz', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
+                              Text('Hatalı', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isRejectedState ? pxAlert : (canVote ? pxTextMain : pxTextMain.withOpacity(0.7)))),
+                              Text('$rejectC İtiraz', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
                             ]),
                           ],
                         ),
@@ -648,7 +739,7 @@ class _PxVoteModule extends ConsumerWidget {
             ],
           ),
         );
-      }
+      },
     );
   }
 }

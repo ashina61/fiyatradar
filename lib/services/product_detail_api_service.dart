@@ -209,13 +209,13 @@ class ProductDetailApiService {
     await _firestoreService.addComment(comment);
   }
 
-  Future<void> votePrice(String priceId, bool isApproved) async {
+  Future<PriceVoteResult> votePrice(String priceId, bool isApproved) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw Exception('Oy vermek için giriş yapmalısın.');
     }
 
-    await _firestoreService.verifyPrice(priceId, user.uid, isApproved);
+    return _firestoreService.verifyPrice(priceId, user.uid, isApproved);
   }
 
   BestPrice _toBestPrice(PriceModel? price) {
