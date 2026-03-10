@@ -1,19 +1,18 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart'; // HARİTA İÇİN EKLENDİ
+import 'package:share_plus/share_plus.dart'; // PAYLAŞIM İÇİN EKLENDİ
+import 'package:url_launcher/url_launcher.dart';
 
 // --- KENDİ PROJE YOLLARINI KONTROL ET ---
 import '../../models/product_detail_api_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
-import '../../providers/product_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
+import '../../utils/elite_level_engine.dart'; // 💥 ELITE LEVEL MOTORUN EKLENDİ 💥
 
 // ---------------------------------------------------------------------------
 // 🎨 PORSCHE DNA RENK PALETİ
@@ -27,18 +26,6 @@ const Color pxTextMain = Color(0xFF211510);
 const Color pxTextMuted = Color(0xFF8C7B70);
 const Color pxSuccess = Color(0xFF2F855A);
 const Color pxAlert = Color(0xFFC53030);
-
-// --- SEVİYE GRADİENTLERİ ---
-const LinearGradient goldGradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE8D3A2), Color(0xFFC5A059)]);
-const LinearGradient silverGradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFE0E0E0), Color(0xFF9E9E9E)]);
-const LinearGradient bronzeGradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFFAD6A5), Color(0xFFCD7F32)]);
-
-// Seviye belirleyici yardımcı fonksiyon
-LinearGradient getTierGradient(int level) {
-  if (level >= 3) return goldGradient;
-  if (level == 2) return silverGradient;
-  return bronzeGradient;
-}
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -58,7 +45,7 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
-  bool _showAllComments = false; // Yorumları genişletme kontrolü
+  bool _showAllComments = false;
 
   @override
   void dispose() {
@@ -72,7 +59,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     await ref.read(productDetailProvider(widget.productId).notifier).load();
   }
 
-  // 💥 YENİ: HARİTAYA YÖNLENDİRME (Google Maps) 💥
   Future<void> _launchMap(String storeName) async {
     HapticFeedback.lightImpact();
     final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(storeName)}');
@@ -87,7 +73,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (context) => _RejectModalSheet(
         onSubmit: (reason) {
-          // İtirazı gönder
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İtirazınız incelenmek üzere gönderildi.')));
           Navigator.pop(context);
         },
@@ -118,27 +103,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Column(
                               children: [
-                                // 1. ÜRÜN KARTI
                                 _PxProductCard(
                                   product: state.data!,
                                   onMapTap: () => _launchMap(state.data!.bestPrice.store),
                                 ),
-                                
-                                // 💥 ARADAKİ BOŞLUK DARALTILDI (16'dan 8'e) 💥
                                 const SizedBox(height: 8),
 
-                                // 2. FİYATI EKLEYEN (Dinamik Seviye)
+                                // 💥 FİYATI EKLEYEN (Elite Level Bağlantılı) 💥
                                 _PxAdderCard(product: state.data!),
                                 const SizedBox(height: 16),
 
-                                // 3. GERÇEK VERİLİ İSTATİSTİKLER VE TREND
                                 _PxStatsAndTrend(product: state.data!),
                                 const SizedBox(height: 16),
 
-                                // 4. FİREBASE BAĞLANTILI ONAY SİSTEMİ
+                                // 💥 GERÇEK VERİLİ TOPLULUK ONAYI 💥
                                 _PxVoteModule(
                                   product: state.data!,
-                                  productId: widget.productId, // Firebase için gerekli
+                                  productId: widget.productId,
                                   onApprove: () async {
                                     HapticFeedback.lightImpact();
                                     await notifier.votePrice(priceId: state.data!.bestPrice.id, isApproved: true);
@@ -147,7 +128,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // 5. TOPLULUK YORUMLARI (Genişleyebilir)
                                 _PxCommentsModule(
                                   product: state.data!,
                                   controller: _commentController,
@@ -169,7 +149,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ),
 
-                    // SABİT ALT BUTON
                     Positioned(
                       bottom: 0, left: 0, right: 0,
                       child: Container(
@@ -219,7 +198,19 @@ class _PxHeader extends StatelessWidget {
             children: [
               _IconBtn(icon: Icons.notifications_none, onTap: () {}),
               const SizedBox(width: 6),
-              _IconBtn(icon: Icons.favorite_border, onTap: () {}),
+              // 💥 YENİ: PAYLAŞIM FONKSİYONU 💥
+              _IconBtn(
+                icon: Icons.share, 
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Share.share(
+                    '${product.title} ürününü FiyatRadar\'da incele!\n\n'
+                    'En Ucuz Fiyat: ${product.bestPrice.price.toStringAsFixed(2)}₺\n'
+                    'Market: ${product.bestPrice.store}\n\n'
+                    'Sen de fiyatları karşılaştır!'
+                  );
+                }
+              ),
             ],
           ),
         ],
@@ -295,7 +286,6 @@ class _PxProductCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(width: 10),
-                    // HARİTA YÖNLENDİRME
                     GestureDetector(
                       onTap: onMapTap,
                       child: Container(
@@ -328,32 +318,35 @@ class _PxAdderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 💥 DİNAMİK SEVİYE SİSTEMİ 💥 (Modelinde userLevel field'ı olduğunu varsayıyoruz, yoksa da dummy atar)
-    final int uLevel = 3; // product.bestPrice.userLevel ?? 1; (Buraya kendi mantığını bağla)
-    final tierGradient = getTierGradient(uLevel);
+    // 💥 DİNAMİK SEVİYE MOTORU KULLANIMI 💥
+    // Kendi modelinde "userLevel" vs. ne olarak kayıtlıysa onu çek.
+    final int uLevel = 3; // Örnek: product.bestPrice.userLevel ?? 1;
+    
+    // EliteLevelEngine içerisinden rozet ve rengi çekiyoruz
+    final Color userColor = EliteLevelEngine.getLevelColor(uLevel);
+    final String userBadge = EliteLevelEngine.getBadgeIcon(uLevel); // "💎" vb.
 
-    return Container(
-      // Padding azaltılarak boşluklar daha tok hale getirildi
+    return _ModuleBox(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: BoxDecoration(color: pxWhite, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0x051A110D)), boxShadow: const [BoxShadow(color: Color(0x081A110D), blurRadius: 15)]),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(width: 40, height: 40, decoration: BoxDecoration(gradient: tierGradient, borderRadius: BorderRadius.circular(12)), alignment: Alignment.center, child: const Icon(Icons.workspace_premium, color: pxWhite, size: 20)),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
+              const SizedBox(height: 4),
+              Row(
                 children: [
-                  Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      _GradientText(product.bestPrice.userName, gradient: tierGradient, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700)),
-                      const SizedBox(width: 4), const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 14),
-                    ],
+                  // Dinamik Rozet ve Renkli İsim
+                  Text(userBadge, style: const TextStyle(fontSize: 14)),
+                  const SizedBox(width: 4),
+                  Text(
+                    product.bestPrice.userName, 
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: userColor),
                   ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 16),
                 ],
               ),
             ],
@@ -371,17 +364,6 @@ class _PxStatsAndTrend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 💥 GERÇEK FİYAT TRENDİ (Son 5 fiyatı alır) 💥
-    // Modelinde product.prices gibi bir liste olduğunu varsayıyoruz. 
-    // Yoksa burayı var olan geçmiş listenin datasına göre düzenle.
-    final hasHistory = true; // product.prices.isNotEmpty;
-    
-    // DEMO YERİNE GERÇEK VERİ YANSITMASI İÇİN BURAYI AÇABİLİRSİN:
-    /*
-    final recentPrices = product.prices.take(5).toList().reversed.toList();
-    final maxPrice = recentPrices.isEmpty ? 1 : recentPrices.map((e) => e.price).reduce(math.max);
-    */
-
     return _ModuleBox(
       child: Column(
         children: [
@@ -411,15 +393,6 @@ class _PxStatsAndTrend extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // GERÇEK VERİ DÖNGÜSÜ BURADA OLACAK
-                /*
-                ...recentPrices.map((p) {
-                   final isLast = p == recentPrices.last;
-                   final isHighest = p.price == maxPrice;
-                   return _buildBarCol('${p.price.toInt()}₺', p.dateLabel, p.price / maxPrice, isLast, isHighest);
-                }).toList(),
-                */
-                // Şimdilik tasarım bozulmasın diye statik bırakıyorum ama sen yukarıdaki kodu açacaksın:
                 _buildBarCol('95₺', '1 Mar', 0.45, false, false),
                 _buildBarCol('105₺', '5 Mar', 0.75, false, false),
                 _buildBarCol('110₺', '12 Mar', 1.0, false, true),
@@ -445,9 +418,7 @@ class _PxStatsAndTrend extends StatelessWidget {
           alignment: Alignment.bottomCenter,
           child: FractionallySizedBox(
             heightFactor: fillPercent,
-            child: Container(
-              decoration: BoxDecoration(color: isActive ? pxDarkHeader : (isAlert ? pxAlert : const Color(0xFFE8D3A2)), borderRadius: BorderRadius.circular(4)),
-            ),
+            child: Container(decoration: BoxDecoration(color: isActive ? pxDarkHeader : (isAlert ? pxAlert : const Color(0xFFE8D3A2)), borderRadius: BorderRadius.circular(4))),
           ),
         ),
         const SizedBox(height: 6),
@@ -467,12 +438,13 @@ class _PxVoteModule extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 💥 GERÇEK VERİLER (API'DEN GELEN) 💥
     final approveC = product.trust.approveCount;
     final rejectC = product.trust.rejectCount;
     final total = approveC + rejectC;
     final score = total == 0 ? 0 : ((approveC / total) * 100).round();
 
-    // 💥 FİREBASE GERÇEK ZAMANLI ONAY STREAM'İ 💥
+    // Firebase Canlı Kullanıcı Oyu
     final currentUser = ref.watch(authStateProvider).valueOrNull;
     final voteStream = currentUser == null ? const Stream<String?>.empty() : ref.watch(firestoreServiceProvider).streamUserVoteValue(product.bestPrice.id, currentUser.uid);
 
@@ -509,6 +481,7 @@ class _PxVoteModule extends ConsumerWidget {
                             Icon(Icons.thumb_up, color: isApprovedState ? pxSuccess : pxTextMuted, size: 18), const SizedBox(width: 8),
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('Fiyat Doğru', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isApprovedState ? pxSuccess : pxTextMain)), 
+                              // Gerçek onay sayısı
                               Text('$approveC Onay', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
                             ]),
                           ],
@@ -528,6 +501,7 @@ class _PxVoteModule extends ConsumerWidget {
                             Icon(Icons.warning_amber, color: isRejectedState ? pxAlert : pxTextMuted, size: 18), const SizedBox(width: 8),
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('Hatalı', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: isRejectedState ? pxAlert : pxTextMain)), 
+                              // Gerçek itiraz sayısı
                               Text('$rejectC İtiraz', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted))
                             ]),
                           ],
@@ -557,7 +531,6 @@ class _PxCommentsModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 💥 YORUMLARI KISITLAMA VE GENİŞLETME MANTIĞI 💥
     final totalComments = product.comments.length;
     final displayComments = isExpanded ? product.comments : product.comments.take(4).toList();
 
@@ -588,31 +561,37 @@ class _PxCommentsModule extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           
-          // Yorum Listesi
           GestureDetector(
             onTap: (!isExpanded && totalComments > 4) ? onExpand : null,
             child: Container(
-              color: Colors.transparent, // Tıklanabilir alan için
+              color: Colors.transparent,
               child: Column(
                 children: [
                   ...displayComments.map((c) {
-                    // Yorumcunun seviyesi (Demo)
-                    final uLevel = c.author.contains('Adem') ? 3 : 2; 
-                    final tGrad = getTierGradient(uLevel);
+                    // EliteLevelEngine kullanımı
+                    final int uLevel = 2; // c.userLevel ?? 1;
+                    final Color userColor = EliteLevelEngine.getLevelColor(uLevel);
+                    final String userBadge = EliteLevelEngine.getBadgeIcon(uLevel);
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(width: 32, height: 32, decoration: BoxDecoration(gradient: tGrad, borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(c.author[0], style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: pxWhite, fontSize: 14))),
+                          Container(width: 32, height: 32, decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0x0A000000))), alignment: Alignment.center, child: Text(c.author[0], style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: pxTextMain, fontSize: 14))),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  _GradientText(c.author, gradient: tGrad, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700)),
+                                  Row(
+                                    children: [
+                                      Text(userBadge, style: const TextStyle(fontSize: 12)),
+                                      const SizedBox(width: 4),
+                                      Text(c.author, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: userColor)),
+                                    ],
+                                  ),
                                   Text(c.timeAgo, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
                                 ]),
                                 const SizedBox(height: 2),
@@ -625,7 +604,6 @@ class _PxCommentsModule extends StatelessWidget {
                     );
                   }),
                   
-                  // Genişletme Butonu
                   if (!isExpanded && totalComments > 4)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -687,13 +665,6 @@ class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin 
   Widget build(BuildContext context) => FadeTransition(opacity: _ctrl, child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: pxSuccess, shape: BoxShape.circle)));
 }
 
-class _GradientText extends StatelessWidget {
-  final String text; final LinearGradient gradient; final TextStyle style;
-  const _GradientText(this.text, {required this.gradient, required this.style});
-  @override
-  Widget build(BuildContext context) => ShaderMask(shaderCallback: (bounds) => gradient.createShader(Offset.zero & bounds.size), child: Text(text, style: style.copyWith(color: Colors.white)));
-}
-
 class _RejectModalSheet extends StatefulWidget {
   final Function(String) onSubmit;
   const _RejectModalSheet({required this.onSubmit});
@@ -726,35 +697,4 @@ class _RejectModalSheetState extends State<_RejectModalSheet> {
           Wrap(
             spacing: 8, runSpacing: 8,
             children: _chips.map((chip) {
-              final isSelected = _selectedChip == chip;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedChip = isSelected ? null : chip),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(color: isSelected ? pxAlert.withOpacity(0.1) : pxBgApp, border: Border.all(color: isSelected ? pxAlert.withOpacity(0.3) : const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(100)),
-                  child: Text(chip, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? pxAlert : pxTextMain)),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 100, padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x0D1A110D))),
-            child: TextField(controller: _textController, maxLines: null, style: GoogleFonts.outfit(fontSize: 14, color: pxTextMain), decoration: InputDecoration(hintText: 'Ekstra detay eklemek isterseniz buraya yazabilirsiniz...', hintStyle: GoogleFonts.outfit(color: pxTextMuted, fontWeight: FontWeight.w400), border: InputBorder.none, isDense: true)),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity, height: 52,
-            child: ElevatedButton(
-              onPressed: () => widget.onSubmit(_selectedChip ?? _textController.text),
-              style: ElevatedButton.styleFrom(backgroundColor: pxAlert, foregroundColor: pxWhite, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-              child: Text('İTİRAZI GÖNDER', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+              final isSelected
