@@ -8,6 +8,7 @@ import '../models/comment_model.dart';
 import '../models/price_model.dart';
 import '../models/product_detail_api_model.dart';
 import '../models/product_model.dart';
+import '../utils/elite_level_engine.dart';
 import 'firestore_service.dart';
 
 class ProductDetailApiService {
@@ -68,6 +69,9 @@ class ProductDetailApiService {
           .map(CommentModel.fromFirestore)
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final commentAuthorLevels = await _resolveUserLevels(
+        comments.map((c) => c.userId),
+      );
 
       final latestPriceModel = prices.isNotEmpty
           ? prices.reduce(
@@ -88,7 +92,12 @@ class ProductDetailApiService {
         bestPrice: _toBestPrice(latestPriceModel),
         stats: stats,
         trust: trust,
-        comments: comments.map(_toProductComment).toList(growable: false),
+        comments: comments
+            .map((comment) => _toProductComment(
+                  comment,
+                  authorLevel: commentAuthorLevels[comment.userId] ?? '',
+                ))
+            .toList(growable: false),
       );
     } catch (e, st) {
       _log('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
@@ -225,7 +234,10 @@ class ProductDetailApiService {
       price: price.price,
       store: (price.storeName ?? '').trim(),
       userName: (price.userName ?? '').trim(),
-      userTier: (price.addedByLevelSnapshot ?? price.createdByBadgeSnapshot ?? '').toString(),
+      userTier: (price.addedByLevelSnapshot ??
+              price.createdByBadgeSnapshot ??
+              _normalizeLevelLabel(price.trustLabel))
+          .toString(),
       createdAtLabel: _formatTimeAgo(price.reportedAt),
       storeUrl: storeLocation,
       storeId: storeId,
@@ -310,10 +322,64 @@ class ProductDetailApiService {
     return null;
   }
 
-  ProductComment _toProductComment(CommentModel comment) {
+
+  Future<Map<String, String>> _resolveUserLevels(Iterable<String> userIds) async {
+    final ids = userIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet().toList(growable: false);
+    if (ids.isEmpty) return const <String, String>{};
+
+    final result = <String, String>{};
+    final chunks = <List<String>>[];
+    for (var i = 0; i < ids.length; i += 10) {
+      final end = (i + 10 < ids.length) ? (i + 10) : ids.length;
+      chunks.add(ids.sublist(i, end));
+    }
+
+    for (final chunk in chunks) {
+      final snapshot = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final level = _extractLevelLabel(data);
+        if (level.isNotEmpty) {
+          result[doc.id] = level;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  String _extractLevelLabel(Map<String, dynamic> data) {
+    final direct = _normalizeLevelLabel(data['level'] ?? data['levelName'] ?? data['tierName']);
+    if (direct.isNotEmpty) return direct;
+
+    final totalPoints = (data['totalPoints'] as num?)?.toInt() ??
+        (data['pointsTotal'] as num?)?.toInt() ??
+        (data['points'] as num?)?.toInt() ??
+        0;
+    final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ??
+            (data['reliabilityScore'] as num?)?.toInt() ??
+            0)
+        .clamp(0, 100);
+    final trustVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
+    final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustVotes);
+    return EliteLevelEngine.getLevelStyle(finalLevel).label;
+  }
+
+  String _normalizeLevelLabel(dynamic value) {
+    final raw = (value ?? '').toString().trim();
+    if (raw.isEmpty) return '';
+    return EliteLevelEngine.getLevelStyle(EliteLevelEngine.parseLevelLabel(raw)).label;
+  }
+
+  ProductComment _toProductComment(CommentModel comment, {required String authorLevel}) {
     return ProductComment(
       id: comment.id,
+      authorId: comment.userId,
       author: comment.userName,
+      authorLevel: authorLevel,
       avatarBgHex: '',
       text: comment.text,
       timeAgo: _formatTimeAgo(comment.createdAt),
