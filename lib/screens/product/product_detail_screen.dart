@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/product_detail_api_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
+import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/elite_level_engine.dart'; // 💥 ELITE LEVEL MOTORUN EKLENDİ 💥
@@ -26,6 +27,11 @@ const Color pxTextMain = Color(0xFF211510);
 const Color pxTextMuted = Color(0xFF8C7B70);
 const Color pxSuccess = Color(0xFF2F855A);
 const Color pxAlert = Color(0xFFC53030);
+
+EliteLevel _eliteLevelFromLegacyInt(int level) {
+  final safeIndex = (level - 1).clamp(0, EliteLevel.values.length - 1);
+  return EliteLevel.values[safeIndex];
+}
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -323,8 +329,9 @@ class _PxAdderCard extends StatelessWidget {
     final int uLevel = 3; // Örnek: product.bestPrice.userLevel ?? 1;
     
     // EliteLevelEngine içerisinden rozet ve rengi çekiyoruz
-    final Color userColor = EliteLevelEngine.getLevelColor(uLevel);
-    final String userBadge = EliteLevelEngine.getBadgeIcon(uLevel); // "💎" vb.
+    final levelStyle = EliteLevelEngine.getLevelStyle(_eliteLevelFromLegacyInt(uLevel));
+    final Color userColor = levelStyle.textColor;
+    final String userBadge = levelStyle.emoji; // "💎" vb.
 
     return _ModuleBox(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -570,8 +577,9 @@ class _PxCommentsModule extends StatelessWidget {
                   ...displayComments.map((c) {
                     // EliteLevelEngine kullanımı
                     final int uLevel = 2; // c.userLevel ?? 1;
-                    final Color userColor = EliteLevelEngine.getLevelColor(uLevel);
-                    final String userBadge = EliteLevelEngine.getBadgeIcon(uLevel);
+                    final levelStyle = EliteLevelEngine.getLevelStyle(_eliteLevelFromLegacyInt(uLevel));
+                    final Color userColor = levelStyle.textColor;
+                    final String userBadge = levelStyle.emoji;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
