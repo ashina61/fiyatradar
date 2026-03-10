@@ -385,14 +385,14 @@ class _PxAdderCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                       decoration: BoxDecoration(
-                        color: resolvedLevel.badgeBackground.withOpacity(0.85),
+                        color: resolvedLevel.badgeBorder.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: resolvedLevel.badgeBorder.withOpacity(0.75)),
+                        border: Border.all(color: resolvedLevel.badgeBorder.withOpacity(0.45)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(resolvedLevel.icon, size: 15, color: resolvedLevel.badgeForeground),
+                          Icon(resolvedLevel.icon, size: 15, color: resolvedLevel.badgeBorder),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
@@ -402,7 +402,7 @@ class _PxAdderCard extends StatelessWidget {
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: resolvedLevel.badgeForeground,
+                                color: resolvedLevel.badgeBorder,
                               ),
                             ),
                           ),
@@ -410,17 +410,6 @@ class _PxAdderCard extends StatelessWidget {
                             const SizedBox(width: 6),
                             const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 15),
                           ],
-                          const SizedBox(width: 6),
-                          Text(
-                            '• ${resolvedLevel.label}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: resolvedLevel.badgeForeground.withOpacity(0.9),
-                            ),
-                          ),
                         ],
                       ),
                     ),
