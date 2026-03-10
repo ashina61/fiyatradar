@@ -13,7 +13,7 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
-import '../../utils/elite_level_engine.dart'; // 💥 ELITE LEVEL MOTORUN EKLENDİ 💥
+import '../../utils/level_style.dart';
 
 // ---------------------------------------------------------------------------
 // 🎨 PORSCHE DNA RENK PALETİ
@@ -27,11 +27,6 @@ const Color pxTextMain = Color(0xFF211510);
 const Color pxTextMuted = Color(0xFF8C7B70);
 const Color pxSuccess = Color(0xFF2F855A);
 const Color pxAlert = Color(0xFFC53030);
-
-EliteLevel _eliteLevelFromLegacyInt(int level) {
-  final safeIndex = (level - 1).clamp(0, EliteLevel.values.length - 1);
-  return EliteLevel.values[safeIndex];
-}
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -65,9 +60,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     await ref.read(productDetailProvider(widget.productId).notifier).load();
   }
 
-  Future<void> _launchMap(String storeName) async {
+  Future<void> _launchMap(BestPrice bestPrice) async {
     HapticFeedback.lightImpact();
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(storeName)}');
+
+    final api = ref.read(productDetailApiServiceProvider);
+    final coords = await api.resolveStoreCoordinates(bestPrice);
+
+    final Uri url;
+    if (coords != null) {
+      url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
+      );
+    } else {
+      final fallbackQuery = bestPrice.storeLocation.trim().isNotEmpty
+          ? bestPrice.storeLocation
+          : bestPrice.store;
+      url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fallbackQuery)}',
+      );
+    }
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -111,7 +123,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               children: [
                                 _PxProductCard(
                                   product: state.data!,
-                                  onMapTap: () => _launchMap(state.data!.bestPrice.store),
+                                  onMapTap: () => _launchMap(state.data!.bestPrice),
                                 ),
                                 const SizedBox(height: 8),
 
@@ -324,14 +336,7 @@ class _PxAdderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 💥 DİNAMİK SEVİYE MOTORU KULLANIMI 💥
-    // Kendi modelinde "userLevel" vs. ne olarak kayıtlıysa onu çek.
-    final int uLevel = 3; // Örnek: product.bestPrice.userLevel ?? 1;
-    
-    // EliteLevelEngine içerisinden rozet ve rengi çekiyoruz
-    final levelStyle = EliteLevelEngine.getLevelStyle(_eliteLevelFromLegacyInt(uLevel));
-    final Color userColor = levelStyle.textColor;
-    final String userBadge = levelStyle.emoji; // "💎" vb.
+    final userLevel = LevelStyle.fromLevelLabel(product.bestPrice.userTier);
 
     return _ModuleBox(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -345,12 +350,22 @@ class _PxAdderCard extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  // Dinamik Rozet ve Renkli İsim
-                  Text(userBadge, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 4),
                   Text(
-                    product.bestPrice.userName, 
-                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: userColor),
+                    '${userLevel.emoji} ${product.bestPrice.userName}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: userLevel.badgeForeground,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '(${userLevel.label})',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: userLevel.badgeForeground.withOpacity(0.9),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 16),
@@ -448,8 +463,7 @@ class _PxVoteModule extends ConsumerWidget {
     // 💥 GERÇEK VERİLER (API'DEN GELEN) 💥
     final approveC = product.trust.approveCount;
     final rejectC = product.trust.rejectCount;
-    final total = approveC + rejectC;
-    final score = total == 0 ? 0 : ((approveC / total) * 100).round();
+    final score = product.trust.scorePercent;
 
     // Firebase Canlı Kullanıcı Oyu
     final currentUser = ref.watch(authStateProvider).valueOrNull;
@@ -575,11 +589,7 @@ class _PxCommentsModule extends StatelessWidget {
               child: Column(
                 children: [
                   ...displayComments.map((c) {
-                    // EliteLevelEngine kullanımı
-                    final int uLevel = 2; // c.userLevel ?? 1;
-                    final levelStyle = EliteLevelEngine.getLevelStyle(_eliteLevelFromLegacyInt(uLevel));
-                    final Color userColor = levelStyle.textColor;
-                    final String userBadge = levelStyle.emoji;
+                    final commentLevel = LevelStyle.fromLevelLabel(c.authorLevel);
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -595,9 +605,16 @@ class _PxCommentsModule extends StatelessWidget {
                                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                   Row(
                                     children: [
-                                      Text(userBadge, style: const TextStyle(fontSize: 12)),
+                                      Text(commentLevel.emoji, style: const TextStyle(fontSize: 12)),
                                       const SizedBox(width: 4),
-                                      Text(c.author, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: userColor)),
+                                      Text(
+                                        '${c.author} (${commentLevel.label})',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: commentLevel.badgeForeground,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Text(c.timeAgo, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500, color: pxTextMuted)),
