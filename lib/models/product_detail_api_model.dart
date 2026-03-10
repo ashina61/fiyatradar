@@ -59,6 +59,8 @@ class BestPrice {
     required this.upVotes,
     required this.downVotes,
     required this.userTrustScore,
+    required this.addedByVerifiedBadge,
+    required this.createdByVerifiedSnapshot,
   });
 
   final String id;
@@ -74,6 +76,8 @@ class BestPrice {
   final int upVotes;
   final int downVotes;
   final int userTrustScore;
+  final bool addedByVerifiedBadge;
+  final bool createdByVerifiedSnapshot;
 
   factory BestPrice.fromJson(Map<String, dynamic> json) {
     return BestPrice(
@@ -90,6 +94,8 @@ class BestPrice {
       upVotes: (json['upVotes'] as num?)?.toInt() ?? 0,
       downVotes: (json['downVotes'] as num?)?.toInt() ?? 0,
       userTrustScore: (json['userTrustScore'] as num?)?.toInt() ?? 0,
+      addedByVerifiedBadge: json['addedByVerifiedBadge'] == true,
+      createdByVerifiedSnapshot: json['createdByVerifiedSnapshot'] == true,
     );
   }
 }

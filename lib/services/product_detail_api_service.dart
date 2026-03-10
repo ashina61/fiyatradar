@@ -11,6 +11,18 @@ import '../models/product_model.dart';
 import '../utils/elite_level_engine.dart';
 import 'firestore_service.dart';
 
+class StoreNavigationPayload {
+  const StoreNavigationPayload({
+    this.coordinates,
+    this.mapsUrl,
+    this.address,
+  });
+
+  final LatLng? coordinates;
+  final String? mapsUrl;
+  final String? address;
+}
+
 class ProductDetailApiService {
   void _log(String message) {
     if (!kDebugMode) return;
@@ -222,6 +234,8 @@ class ProductDetailApiService {
         upVotes: 0,
         downVotes: 0,
         userTrustScore: 0,
+        addedByVerifiedBadge: false,
+        createdByVerifiedSnapshot: false,
       );
     }
 
@@ -245,6 +259,8 @@ class ProductDetailApiService {
       upVotes: price.upVotes,
       downVotes: price.downVotes,
       userTrustScore: price.addedByTrustScoreSnapshot.round(),
+      addedByVerifiedBadge: price.addedByVerifiedBadge,
+      createdByVerifiedSnapshot: price.createdByVerifiedSnapshot,
     );
   }
 
@@ -273,18 +289,48 @@ class ProductDetailApiService {
 
 
   Future<LatLng?> resolveStoreCoordinates(BestPrice bestPrice) async {
+    final payload = await resolveStoreNavigation(bestPrice);
+    return payload?.coordinates;
+  }
+
+  Future<StoreNavigationPayload?> resolveStoreNavigation(BestPrice bestPrice) async {
     final direct = _parseCoordinatesFromText(bestPrice.storeLocation);
-    if (direct != null) return direct;
+    if (direct != null) {
+      return StoreNavigationPayload(
+        coordinates: direct,
+        mapsUrl: bestPrice.storeUrl,
+        address: bestPrice.storeLocation,
+      );
+    }
+
+    String? mapsUrl = bestPrice.storeUrl.trim().isEmpty ? null : bestPrice.storeUrl.trim();
+    String? address = bestPrice.storeLocation.trim().isEmpty ? null : bestPrice.storeLocation.trim();
+    LatLng? coordinates;
 
     if (bestPrice.storeId.isNotEmpty) {
       final storeDoc = await _storesRef.doc(bestPrice.storeId).get();
       if (storeDoc.exists) {
         final data = storeDoc.data() ?? const <String, dynamic>{};
-        final parsed = _parseCoordinatesFromDynamic(data);
-        if (parsed != null) return parsed;
+        coordinates = _parseCoordinatesFromDynamic(data);
+        mapsUrl ??= _readFirstNonEmptyString(data, const [
+          'mapsUrl',
+          'mapUrl',
+          'googleMapsUrl',
+          'locationUrl',
+        ]);
+        address ??= _readFirstNonEmptyString(data, const ['address', 'fullAddress']);
       }
     }
-    return null;
+
+    if (coordinates == null && mapsUrl == null && address == null) {
+      return null;
+    }
+
+    return StoreNavigationPayload(
+      coordinates: coordinates,
+      mapsUrl: mapsUrl,
+      address: address,
+    );
   }
 
   LatLng? _parseCoordinatesFromDynamic(Map<String, dynamic> data) {
@@ -319,6 +365,16 @@ class ProductDetailApiService {
     if (value == null) return null;
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value.replaceAll(',', '.').trim());
+    return null;
+  }
+
+  String? _readFirstNonEmptyString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
     return null;
   }
 
