@@ -697,4 +697,35 @@ class _RejectModalSheetState extends State<_RejectModalSheet> {
           Wrap(
             spacing: 8, runSpacing: 8,
             children: _chips.map((chip) {
-              final isSelected
+              final isSelected = _selectedChip == chip;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedChip = isSelected ? null : chip),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(color: isSelected ? pxAlert.withOpacity(0.1) : pxBgApp, border: Border.all(color: isSelected ? pxAlert.withOpacity(0.3) : const Color(0x0D1A110D)), borderRadius: BorderRadius.circular(100)),
+                  child: Text(chip, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? pxAlert : pxTextMain)),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 100, padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x0D1A110D))),
+            child: TextField(controller: _textController, maxLines: null, style: GoogleFonts.outfit(fontSize: 14, color: pxTextMain), decoration: InputDecoration(hintText: 'Ekstra detay eklemek isterseniz buraya yazabilirsiniz...', hintStyle: GoogleFonts.outfit(color: pxTextMuted, fontWeight: FontWeight.w400), border: InputBorder.none, isDense: true)),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity, height: 52,
+            child: ElevatedButton(
+              onPressed: () => widget.onSubmit(_selectedChip ?? _textController.text),
+              style: ElevatedButton.styleFrom(backgroundColor: pxAlert, foregroundColor: pxWhite, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              child: Text('İTİRAZI GÖNDER', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
