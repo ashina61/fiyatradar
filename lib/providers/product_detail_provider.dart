@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/product_detail_api_model.dart';
+import '../services/firestore_service.dart';
 import '../services/product_detail_api_service.dart';
 
 final productDetailApiServiceProvider = Provider<ProductDetailApiService>((ref) {
@@ -77,13 +78,15 @@ class ProductDetailNotifier extends StateNotifier<ProductDetailState> {
     }
   }
 
-  Future<void> votePrice({required String priceId, required bool isApproved}) async {
+  Future<PriceVoteResult?> votePrice({required String priceId, required bool isApproved}) async {
     state = state.copyWith(isSubmittingVote: true, error: null);
     try {
-      await _api.votePrice(priceId, isApproved);
+      final result = await _api.votePrice(priceId, isApproved);
       await load();
+      return result;
     } catch (e) {
       state = state.copyWith(isSubmittingVote: false, error: e.toString());
+      return null;
     } finally {
       state = state.copyWith(isSubmittingVote: false);
     }
