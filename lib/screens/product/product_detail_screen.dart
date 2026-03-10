@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
 import '../../utils/level_style.dart';
+import '../../utils/level_system.dart';
 
 // ---------------------------------------------------------------------------
 // 🎨 PORSCHE DNA RENK PALETİ
@@ -64,24 +66,46 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     HapticFeedback.lightImpact();
 
     final api = ref.read(productDetailApiServiceProvider);
-    final coords = await api.resolveStoreCoordinates(bestPrice);
+    final payload = await api.resolveStoreNavigation(bestPrice);
 
-    final Uri url;
-    if (coords != null) {
+    Uri? url;
+    if (payload?.coordinates case final coords?) {
       url = Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}',
       );
     } else {
-      final fallbackQuery = bestPrice.storeLocation.trim().isNotEmpty
-          ? bestPrice.storeLocation
-          : bestPrice.store;
-      url = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fallbackQuery)}',
-      );
+      final mapsUrl = payload?.mapsUrl?.trim() ?? '';
+      if (mapsUrl.isNotEmpty) {
+        url = Uri.tryParse(mapsUrl);
+      }
+
+      if (url == null) {
+        final fallbackAddress = (payload?.address?.trim().isNotEmpty ?? false)
+            ? payload!.address!.trim()
+            : (bestPrice.storeLocation.trim().isNotEmpty
+                ? bestPrice.storeLocation.trim()
+                : bestPrice.store.trim());
+        if (fallbackAddress.isNotEmpty) {
+          url = Uri.parse(
+            'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fallbackAddress)}',
+          );
+        }
+      }
     }
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (url == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu market için konum bilgisi bulunamadı')),
+      );
+      return;
+    }
+
+    final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harita açılırken bir sorun oluştu')),
+      );
     }
   }
 
@@ -336,47 +360,136 @@ class _PxAdderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userLevel = LevelStyle.fromLevelLabel(product.bestPrice.userTier);
+    final fallbackLevel = LevelStyle.fromLevelLabel(product.bestPrice.userTier);
 
-    return _ModuleBox(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: product.bestPrice.userId.trim().isEmpty
+          ? const Stream<DocumentSnapshot<Map<String, dynamic>>>.empty()
+          : FirebaseFirestore.instance.collection('users').doc(product.bestPrice.userId.trim()).snapshots(),
+      builder: (context, snapshot) {
+        final userData = snapshot.data?.data() ?? const <String, dynamic>{};
+        final resolvedName = _resolveContributorName(userData, product.bestPrice.userName);
+        final resolvedLevel = _resolveContributorLevel(userData, product.bestPrice.userTier, fallbackLevel);
+        final isVerified = _resolveVerified(userData, product: product);
+
+        return _ModuleBox(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
             children: [
-              Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    '${userLevel.emoji} ${product.bestPrice.userName}',
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: userLevel.badgeForeground,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: resolvedLevel.badgeBackground.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: resolvedLevel.badgeBorder.withOpacity(0.75)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(resolvedLevel.icon, size: 15, color: resolvedLevel.badgeForeground),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              resolvedName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: resolvedLevel.badgeForeground,
+                              ),
+                            ),
+                          ),
+                          if (isVerified) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 15),
+                          ],
+                          const SizedBox(width: 6),
+                          Text(
+                            '• ${resolvedLevel.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: resolvedLevel.badgeForeground.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '(${userLevel.label})',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: userLevel.badgeForeground.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 16),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
+              const Icon(Icons.outlined_flag, color: pxAlert, size: 20),
             ],
           ),
-          const Icon(Icons.outlined_flag, color: pxAlert, size: 20),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  static String _resolveContributorName(Map<String, dynamic> data, String fallbackName) {
+    final options = [
+      data['displayName'],
+      data['fullName'],
+      data['name'],
+      data['userName'],
+      data['username'],
+      fallbackName,
+    ];
+    for (final raw in options) {
+      final value = (raw ?? '').toString().trim();
+      if (value.isNotEmpty && value.toLowerCase() != 'anonim') return value;
+    }
+    return 'Kullanıcı';
+  }
+
+  static UserLevel _resolveContributorLevel(
+    Map<String, dynamic> data,
+    String fallbackLevelLabel,
+    UserLevel fallbackLevel,
+  ) {
+    final explicitLevel = (data['level'] ?? data['levelName'] ?? data['tierName'])?.toString().trim();
+    if (explicitLevel != null && explicitLevel.isNotEmpty) {
+      return LevelStyle.fromLevelLabel(explicitLevel);
+    }
+
+    final totalPoints = (data['totalPoints'] as num?)?.toInt() ??
+        (data['pointsTotal'] as num?)?.toInt() ??
+        (data['points'] as num?)?.toInt();
+    final trustPercent = ((data['trustScorePercent'] as num?)?.toInt() ??
+            (data['reliabilityScore'] as num?)?.round())
+        ?.clamp(0, 100);
+    final trustVotes = (data['trustTotalVotes'] as num?)?.toInt() ?? 0;
+
+    if (totalPoints != null && trustPercent != null) {
+      return LevelStyle.fromFinalLevel(
+        totalPoints: totalPoints,
+        trustPercent: trustPercent,
+        totalVotes: trustVotes,
+      );
+    }
+
+    if (fallbackLevelLabel.trim().isNotEmpty) {
+      return LevelStyle.fromLevelLabel(fallbackLevelLabel);
+    }
+
+    return fallbackLevel;
+  }
+
+  static bool _resolveVerified(Map<String, dynamic> data, {required ProductDetailResponse product}) {
+    return data['verifiedBadge'] == true ||
+        data['verified'] == true ||
+        product.bestPrice.addedByVerifiedBadge ||
+        product.bestPrice.createdByVerifiedSnapshot;
   }
 }
 
