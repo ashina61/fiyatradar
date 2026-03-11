@@ -423,35 +423,40 @@ class _PxAdderCard extends StatelessWidget {
                   children: [
                     Text('FİYATI EKLEYEN', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: pxTextMuted, letterSpacing: 0.5)),
                     const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: resolvedLevel.badgeBorder.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: resolvedLevel.badgeBorder.withOpacity(0.45)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(resolvedLevel.icon, size: 15, color: resolvedLevel.badgeBorder),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              resolvedName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: resolvedLevel.badgeBorder,
-                              ),
-                            ),
+                    LayoutBuilder(
+                      builder: (context, constraints) => ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: resolvedLevel.badgeBackground,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: resolvedLevel.badgeBorder.withOpacity(0.65)),
                           ),
-                          if (isVerified) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 15),
-                          ],
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(resolvedLevel.icon, size: 15, color: resolvedLevel.badgeBorder),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  resolvedName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: resolvedLevel.badgeForeground,
+                                  ),
+                                ),
+                              ),
+                              if (isVerified) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 15),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -487,11 +492,6 @@ class _PxAdderCard extends StatelessWidget {
     String fallbackLevelLabel,
     UserLevel fallbackLevel,
   ) {
-    final explicitLevel = (data['level'] ?? data['levelName'] ?? data['tierName'])?.toString().trim();
-    if (explicitLevel != null && explicitLevel.isNotEmpty) {
-      return LevelStyle.fromLevelLabel(explicitLevel);
-    }
-
     final totalPoints = (data['totalPoints'] as num?)?.toInt() ??
         (data['pointsTotal'] as num?)?.toInt() ??
         (data['points'] as num?)?.toInt();
@@ -506,6 +506,11 @@ class _PxAdderCard extends StatelessWidget {
         trustPercent: trustPercent,
         totalVotes: trustVotes,
       );
+    }
+
+    final explicitLevel = (data['level'] ?? data['levelName'] ?? data['tierName'])?.toString().trim();
+    if (explicitLevel != null && explicitLevel.isNotEmpty) {
+      return LevelStyle.fromLevelLabel(explicitLevel);
     }
 
     if (fallbackLevelLabel.trim().isNotEmpty) {
