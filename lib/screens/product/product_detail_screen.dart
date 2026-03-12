@@ -422,7 +422,7 @@ class _ProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
-                    product.category?.toUpperCase() ?? 'GIDA',
+                    'GIDA',
                     style: _pjs(size: 10, weight: FontWeight.w800, color: _tan, letterSpacing: 0.5),
                   ),
                 ),
@@ -433,7 +433,7 @@ class _ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  product.brand ?? '',
+                  product.bestPrice.store,
                   style: _pjs(size: 12, weight: FontWeight.w500, color: _t2),
                 ),
                 const SizedBox(height: 12),
@@ -605,13 +605,13 @@ class _BestPriceHero extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAĞAZA KARŞILAŞTIRMA GRID
+// MAĞAZA EN İYİ FİYAT KARTI (storePrices mevcut değil — bestPrice gösteriliyor)
 // ─────────────────────────────────────────────────────────────────────────────
 const _storeColors = <String, Color>{
-  'BİM':    Color(0xFFF5C518),
-  'A101':   Color(0xFFE8502A),
-  'ŞOK':    Color(0xFF8B5CF6),
-  'Migros': Color(0xFFF0A030),
+  'BİM':         Color(0xFFF5C518),
+  'A101':        Color(0xFFE8502A),
+  'ŞOK':         Color(0xFF8B5CF6),
+  'Migros':      Color(0xFFF0A030),
   'CarrefourSA': Color(0xFF2563EB),
 };
 
@@ -621,69 +621,36 @@ class _StoreGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prices = product.storePrices;  // Map<String, double> veya benzer yapı
-    if (prices == null || prices.isEmpty) return const SizedBox.shrink();
-
-    final sorted  = prices.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
-    final cheapest = sorted.first.key;
+    final p   = product.bestPrice;
+    final dot = _storeColors[p.store] ?? _t3;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text('Mağaza Fiyatları', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
+          child: Text('En İyi Fiyat', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
         ),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 7,
-          crossAxisSpacing: 7,
-          childAspectRatio: 2.2,
-          children: sorted.map((e) {
-            final isBest = e.key == cheapest;
-            final dot    = _storeColors[e.key] ?? _t3;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: _white,
-                borderRadius: BorderRadius.circular(16),
-                border: isBest ? Border.all(color: _dark, width: 2) : Border.all(color: _border),
-                boxShadow: [BoxShadow(color: _dark.withOpacity(0.05), blurRadius: 8)],
+        _Card(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Text(p.store, style: _pjs(size: 14, weight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
+                child: Text('EN UCUZ', style: _pjs(size: 9, weight: FontWeight.w800, color: _green, letterSpacing: 0.4)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-                      const SizedBox(width: 5),
-                      Text(e.key, style: _pjs(size: 12, weight: FontWeight.w700)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${e.value.toStringAsFixed(2)}₺',
-                        style: _pjs(size: 14, weight: FontWeight.w900, color: isBest ? _green : _t1, letterSpacing: -0.3),
-                      ),
-                      if (isBest) ...[
-                        const SizedBox(width: 5),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(4)),
-                          child: Text('EN UCUZ', style: _pjs(size: 8, weight: FontWeight.w800, color: _green, letterSpacing: 0.4)),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+              const Spacer(),
+              Text(
+                '${p.price.toStringAsFixed(2)}₺',
+                style: _pjs(size: 16, weight: FontWeight.w900, color: _green, letterSpacing: -0.4),
               ),
-            );
-          }).toList(),
+            ],
+          ),
         ),
       ],
     );
@@ -700,8 +667,6 @@ class _PriceHistorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stats = product.stats;
-    // priceHistory: List<PricePoint> varsa kullan, yoksa stats'tan oluştur
-    final history = product.priceHistory;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -723,7 +688,7 @@ class _PriceHistorySection extends StatelessWidget {
                         color: Colors.black.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text('📈  Son 30 Gün', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85), letterSpacing: 0.4)),
+                      child: Text('📈  Son Kayıtlar', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85), letterSpacing: 0.4)),
                     ),
                     const SizedBox(height: 10),
                     Text('Fiyat Geçmişi', style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
@@ -748,26 +713,16 @@ class _PriceHistorySection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        // Chart + stats card
+        // Stats card
         _Card(
           padding: const EdgeInsets.all(18),
-          child: Column(
+          child: Row(
             children: [
-              // Stats satırı
-              Row(
-                children: [
-                  Expanded(child: _StatBox(label: 'En Düşük', value: '${stats.lowest.toStringAsFixed(0)}₺', color: _green)),
-                  const SizedBox(width: 7),
-                  Expanded(child: _StatBox(label: 'En Yüksek', value: '${stats.highest.toStringAsFixed(0)}₺', color: _red)),
-                  const SizedBox(width: 7),
-                  Expanded(child: _StatBox(label: 'Ortalama', value: '${stats.average.toStringAsFixed(0)}₺', color: _t1)),
-                ],
-              ),
-
-              if (history != null && history.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _PriceBarChart(history: history, highest: stats.highest, lowest: stats.lowest),
-              ],
+              Expanded(child: _StatBox(label: 'En Düşük',  value: '${stats.lowest.toStringAsFixed(0)}₺',   color: _green)),
+              const SizedBox(width: 7),
+              Expanded(child: _StatBox(label: 'En Yüksek', value: '${stats.highest.toStringAsFixed(0)}₺',  color: _red)),
+              const SizedBox(width: 7),
+              Expanded(child: _StatBox(label: 'Ortalama',  value: '${stats.average.toStringAsFixed(0)}₺',  color: _t1)),
             ],
           ),
         ),
@@ -793,74 +748,6 @@ class _StatBox extends StatelessWidget {
           ],
         ),
       );
-}
-
-class _PriceBarChart extends StatelessWidget {
-  final List<PricePoint> history;
-  final double highest, lowest;
-  const _PriceBarChart({required this.history, required this.highest, required this.lowest});
-
-  @override
-  Widget build(BuildContext context) {
-    final range = (highest - lowest).clamp(1.0, double.infinity);
-    final last  = history.last;
-
-    return SizedBox(
-      height: 90,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: history.map((point) {
-          final isLast  = point == last;
-          final isHigh  = point.price == highest;
-          final fill    = ((point.price - lowest) / range).clamp(0.2, 1.0);
-
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    '${point.price.toStringAsFixed(0)}₺',
-                    style: _pjs(size: isLast ? 11 : 9, weight: isLast ? FontWeight.w800 : FontWeight.w600,
-                        color: isLast ? _green : (isHigh ? _red : _t3)),
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: FractionallySizedBox(
-                      heightFactor: 1,
-                      child: Container(
-                        height: 54,
-                        decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(5)),
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: fill,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isLast ? _dark : (isHigh ? _redBg.withOpacity(0.5) : const Color(0xFFE8D3A2)),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    point.dateLabel,
-                    style: _pjs(size: 8, weight: isLast ? FontWeight.w700 : FontWeight.w500,
-                        color: isLast ? _t1 : _t3),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
