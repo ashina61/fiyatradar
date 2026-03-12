@@ -8,8 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/product_detail_api_model.dart';
+import '../../models/price_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
@@ -182,7 +184,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               const SizedBox(height: 10),
 
                               // 4 — Fiyat geçmişi
-                              _PriceHistorySection(product: state.data!),
+                              _PriceHistorySection(product: state.data!, history: state.history),
                               const SizedBox(height: 10),
 
                               // 5 — Fiyatı ekleyen kişi
@@ -194,7 +196,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 product: state.data!,
                                 productId: widget.productId,
                                 isSubmitting: state.isSubmittingVote,
-                                onVote: (isApproved) async {
+                                onVote: (priceId, isApproved) async {
                                   final user = ref.read(authStateProvider).valueOrNull;
                                   if (user == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -211,7 +213,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   }
                                   HapticFeedback.lightImpact();
                                   final result = await notifier.votePrice(
-                                    priceId: state.data!.bestPrice.id,
+                                    priceId: priceId,
                                     isApproved: isApproved,
                                   );
                                   if (!mounted || result == null) return;
@@ -225,7 +227,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     );
                                   }
                                 },
-                                onWrongTap: () => _showRejectModal(state.data!.bestPrice.id),
+                                onWrongTap: (priceId) => _showRejectModal(priceId),
                               ),
                               const SizedBox(height: 10),
 
@@ -291,12 +293,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 // HEADER
 // ─────────────────────────────────────────────────────────────────────────────
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   final ProductDetailResponse product;
   const _Header({required this.product});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final override = ref.watch(favoriteOverrideProvider(product.id));
+    final favoriteAsync = ref.watch(isFavoriteProvider(product.id));
+    final isFavorite = override ?? favoriteAsync.valueOrNull ?? false;
+    final subtitle = [
+      if (product.bestPrice.store.trim().isNotEmpty) product.bestPrice.store.trim(),
+      if (product.categories.isNotEmpty) product.categories.first,
+    ].join(' · ');
+
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 14,
@@ -308,14 +319,8 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Geri butonu
-          _HdrBtn(
-            icon: Icons.arrow_back_ios_new_rounded,
-            onTap: () => Navigator.pop(context),
-          ),
+          _HdrBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: () => Navigator.pop(context)),
           const SizedBox(width: 12),
-
-          // Başlık
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,30 +333,46 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  product.bestPrice.store,
+                  subtitle.isEmpty ? 'Ürün detayı' : subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.42)),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-
-          // Paylaş
           _HdrBtn(
             icon: Icons.share_rounded,
             onTap: () {
               HapticFeedback.lightImpact();
               Share.share(
-                '${product.title} ürününü FiyatRadar\'da incele!\n\n'
-                'En Ucuz: ${product.bestPrice.price.toStringAsFixed(2)}₺\n'
-                'Market: ${product.bestPrice.store}',
+                "${product.title} ürününü FiyatRadar'da incele!\n\n"
+                "En Ucuz: ${product.bestPrice.price.toStringAsFixed(2)}₺\n"
+                "Market: ${product.bestPrice.store}",
               );
             },
           ),
           const SizedBox(width: 8),
-
-          // Bildirim
-          _HdrBtn(icon: Icons.notifications_none_rounded, onTap: () {}),
+          _HdrBtn(
+            icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            iconColor: isFavorite ? const Color(0xFFFF6B6B) : _white,
+            onTap: () async {
+              if (user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Favorilere eklemek için giriş yapmalısın.')),
+                );
+                return;
+              }
+              final next = !isFavorite;
+              ref.read(favoriteOverrideProvider(product.id).notifier).state = next;
+              await ref.read(firestoreServiceProvider).toggleFavorite(
+                uid: user.uid,
+                productId: product.id,
+                payload: {'productName': product.title, 'imageUrl': product.imageUrl},
+              );
+            },
+          ),
         ],
       ),
     );
@@ -361,7 +382,8 @@ class _Header extends StatelessWidget {
 class _HdrBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _HdrBtn({required this.icon, required this.onTap});
+  final Color iconColor;
+  const _HdrBtn({required this.icon, required this.onTap, this.iconColor = _white});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -372,7 +394,7 @@ class _HdrBtn extends StatelessWidget {
             color: Colors.white.withOpacity(0.09),
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(icon, color: _white, size: 18),
+          child: Icon(icon, color: iconColor, size: 18),
         ),
       );
 }
@@ -422,7 +444,7 @@ class _ProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
-                    'GIDA',
+                    '${product.categories.isNotEmpty ? product.categories.first.toUpperCase() : 'KATEGORİ'}',
                     style: _pjs(size: 10, weight: FontWeight.w800, color: _tan, letterSpacing: 0.5),
                   ),
                 ),
@@ -433,13 +455,15 @@ class _ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  product.bestPrice.store,
+                  '${product.bestPrice.store} · ${product.id}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: _pjs(size: 12, weight: FontWeight.w500, color: _t2),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _MetaChip(icon: Icons.people_outline_rounded, label: '${product.viewCount} kayıt'),
+                    _MetaChip(icon: Icons.people_outline_rounded, label: '${product.priceEntryCount} kayıt'),
                     const SizedBox(width: 6),
                     _MetaChip(icon: Icons.show_chart_rounded, label: 'Aktif'),
                     const SizedBox(width: 6),
@@ -615,44 +639,107 @@ const _storeColors = <String, Color>{
   'CarrefourSA': Color(0xFF2563EB),
 };
 
-class _StoreGrid extends StatelessWidget {
+class _StoreGrid extends ConsumerWidget {
   final ProductDetailResponse product;
   const _StoreGrid({required this.product});
 
   @override
-  Widget build(BuildContext context) {
-    final p   = product.bestPrice;
-    final dot = _storeColors[p.store] ?? _t3;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pricesAsync = ref.watch(pricesForProductProvider(product.id));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text('En İyi Fiyat', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-        ),
-        _Card(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-              Text(p.store, style: _pjs(size: 14, weight: FontWeight.w800)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
-                child: Text('EN UCUZ', style: _pjs(size: 9, weight: FontWeight.w800, color: _green, letterSpacing: 0.4)),
-              ),
-              const Spacer(),
-              Text(
-                '${p.price.toStringAsFixed(2)}₺',
-                style: _pjs(size: 16, weight: FontWeight.w900, color: _green, letterSpacing: -0.4),
-              ),
+              Text('Mağaza Fiyatları', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
+              Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
             ],
           ),
         ),
+        pricesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(child: CircularProgressIndicator(color: _tanCard)),
+          ),
+          error: (_, __) => _buildRows([product.bestPrice]),
+          data: (prices) {
+            final active = prices.where((e) => e.isActive).toList();
+            active.sort((a, b) => a.price.compareTo(b.price));
+            if (active.isEmpty) return _buildRows([product.bestPrice]);
+            return _buildRows(active.take(4).toList());
+          },
+        ),
       ],
+    );
+  }
+
+  Widget _buildRows(List<dynamic> entries) {
+    final bestPrice = entries.first is PriceModel ? (entries.first as PriceModel).price : (entries.first as BestPrice).price;
+    return Row(
+      children: [
+        for (var i = 0; i < entries.length; i++) ...[
+          if (i > 0) const SizedBox(width: 7),
+          Expanded(child: _StoreTile(entry: entries[i], bestPrice: bestPrice)),
+        ],
+      ],
+    );
+  }
+}
+
+class _StoreTile extends StatelessWidget {
+  final dynamic entry;
+  final double bestPrice;
+  const _StoreTile({required this.entry, required this.bestPrice});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPriceModel = entry is PriceModel;
+    final store = isPriceModel ? ((entry as PriceModel).storeName ?? 'Market') : (entry as BestPrice).store;
+    final price = isPriceModel ? (entry as PriceModel).price : (entry as BestPrice).price;
+    final isBest = (price - bestPrice).abs() < 0.001;
+    final dot = _storeColors[store] ?? _t3;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 13),
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isBest ? _dark : Colors.transparent, width: 2),
+        boxShadow: [BoxShadow(color: _dark.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(store, maxLines: 1, overflow: TextOverflow.ellipsis, style: _pjs(size: 12, weight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${price.toStringAsFixed(2)} ₺',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _pjs(size: 14, weight: FontWeight.w900, color: isBest ? _green : _t1, letterSpacing: -0.3),
+          ),
+          if (isBest) ...[
+            const SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
+              child: Text('EN UCUZ', style: _pjs(size: 8, weight: FontWeight.w800, color: _green, letterSpacing: 0.3)),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -660,69 +747,107 @@ class _StoreGrid extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // FİYAT GEÇMİŞİ
 // ─────────────────────────────────────────────────────────────────────────────
-class _PriceHistorySection extends StatelessWidget {
+class _PriceHistorySection extends StatefulWidget {
   final ProductDetailResponse product;
-  const _PriceHistorySection({required this.product});
+  final List<PriceHistoryPoint> history;
+  const _PriceHistorySection({required this.product, required this.history});
+
+  @override
+  State<_PriceHistorySection> createState() => _PriceHistorySectionState();
+}
+
+class _PriceHistorySectionState extends State<_PriceHistorySection> {
+  int _tab = 1;
 
   @override
   Widget build(BuildContext context) {
-    final stats = product.stats;
+    final windows = [7, 30, 90, 180];
+    final days = windows[_tab];
+    final all = widget.history.isNotEmpty
+        ? widget.history
+        : [
+            PriceHistoryPoint(dateLabel: 'Bugün', price: widget.product.bestPrice.price, reportedAt: DateTime.now()),
+            PriceHistoryPoint(dateLabel: 'Önce', price: widget.product.stats.average, reportedAt: DateTime.now().subtract(const Duration(days: 3))),
+          ];
+    final minDate = DateTime.now().subtract(Duration(days: days));
+    final points = all.where((e) => e.reportedAt.isAfter(minDate)).toList()..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
+    final statsSource = points.isEmpty ? all : points;
+    final values = statsSource.map((e) => e.price).toList();
+    final low = values.reduce((a, b) => a < b ? a : b);
+    final high = values.reduce((a, b) => a > b ? a : b);
+    final avg = values.reduce((a, b) => a + b) / values.length;
+    final drop = high > 0 ? ((high - low) / high) * 100 : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tan header card
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
+          child: Text('Fiyat Geçmişi', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
+        ),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(24)),
+          decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(28)),
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text('📈  Son Kayıtlar', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85), letterSpacing: 0.4)),
-                    ),
-                    const SizedBox(height: 10),
-                    Text('Fiyat Geçmişi', style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'En düşük: ${stats.lowest.toStringAsFixed(2)}₺',
-                      style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.65)),
-                    ),
-                  ],
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: _dark.withOpacity(0.2), borderRadius: BorderRadius.circular(999)),
+                    child: Text('📈 Son ${windows[_tab]} Gün', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85))),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('%${drop.toStringAsFixed(1)} ucuzladı', style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
+                  const SizedBox(height: 5),
+                  Text('En iyi alım zamanı bu hafta', style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.65))),
+                ]),
               ),
               Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.show_chart_rounded, color: _white, size: 22),
+                width: 46, height: 46,
+                decoration: BoxDecoration(color: _white.withOpacity(0.18), borderRadius: BorderRadius.circular(15)),
+                child: const Icon(Icons.show_chart_rounded, color: _white),
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-
-        // Stats card
         _Card(
-          padding: const EdgeInsets.all(18),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(child: _StatBox(label: 'En Düşük',  value: '${stats.lowest.toStringAsFixed(0)}₺',   color: _green)),
-              const SizedBox(width: 7),
-              Expanded(child: _StatBox(label: 'En Yüksek', value: '${stats.highest.toStringAsFixed(0)}₺',  color: _red)),
-              const SizedBox(width: 7),
-              Expanded(child: _StatBox(label: 'Ortalama',  value: '${stats.average.toStringAsFixed(0)}₺',  color: _t1)),
+              Row(
+                children: List.generate(4, (i) {
+                  final label = ['7G', '1A', '3A', '6A'][i];
+                  final active = i == _tab;
+                  return Padding(
+                    padding: EdgeInsets.only(right: i == 3 ? 0 : 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _tab = i),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: active ? _dark : Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(label, style: _pjs(size: 12, weight: FontWeight.w700, color: active ? _white : _t2)),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(height: 90, width: double.infinity, child: CustomPaint(painter: _HistoryChartPainter(points))),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _StatBox(label: 'En Düşük', value: '${low.toStringAsFixed(0)} ₺', color: _t1)),
+                  const SizedBox(width: 7),
+                  Expanded(child: _StatBox(label: 'En Yüksek', value: '${high.toStringAsFixed(0)} ₺', color: _t1)),
+                  const SizedBox(width: 7),
+                  Expanded(child: _StatBox(label: 'Ortalama', value: '${avg.toStringAsFixed(0)} ₺', color: _t1)),
+                ],
+              ),
             ],
           ),
         ),
@@ -731,23 +856,41 @@ class _PriceHistorySection extends StatelessWidget {
   }
 }
 
-class _StatBox extends StatelessWidget {
-  final String label, value;
-  final Color color;
-  const _StatBox({required this.label, required this.value, required this.color});
+class _HistoryChartPainter extends CustomPainter {
+  final List<PriceHistoryPoint> points;
+  _HistoryChartPainter(this.points);
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-        decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(14)),
-        child: Column(
-          children: [
-            Text(value, style: _pjs(size: 15, weight: FontWeight.w900, color: color, letterSpacing: -0.3)),
-            const SizedBox(height: 2),
-            Text(label, style: _pjs(size: 9, weight: FontWeight.w700, color: _t3, letterSpacing: 0.4)),
-          ],
-        ),
-      );
+  void paint(Canvas canvas, Size size) {
+    final paintGrid = Paint()..color = _border..strokeWidth = 1;
+    for (var i = 1; i <= 3; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paintGrid);
+    }
+    if (points.isEmpty) return;
+    final vals = points.map((e) => e.price).toList();
+    final min = vals.reduce((a, b) => a < b ? a : b);
+    final max = vals.reduce((a, b) => a > b ? a : b);
+    final range = (max - min).abs() < 0.001 ? 1.0 : (max - min);
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length == 1 ? size.width : (size.width * i / (points.length - 1));
+      final y = size.height - ((points[i].price - min) / range) * (size.height - 8) - 4;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final linePaint = Paint()
+      ..color = _dark
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(path, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HistoryChartPainter oldDelegate) => oldDelegate.points != points;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -840,8 +983,8 @@ class _VerificationSection extends ConsumerWidget {
   final ProductDetailResponse product;
   final String productId;
   final bool isSubmitting;
-  final Future<void> Function(bool) onVote;
-  final VoidCallback onWrongTap;
+  final Future<void> Function(String, bool) onVote;
+  final void Function(String) onWrongTap;
 
   const _VerificationSection({
     required this.product,
@@ -854,9 +997,7 @@ class _VerificationSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authStateProvider).valueOrNull;
-    final voteStream  = currentUser == null
-        ? const Stream<String?>.empty()
-        : ref.watch(firestoreServiceProvider).streamUserVoteValue(product.bestPrice.id, currentUser.uid);
+    final pricesAsync = ref.watch(pricesForProductProvider(product.id));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -867,115 +1008,26 @@ class _VerificationSection extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Fiyat Doğrulama', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              Text('${product.trust.approveCount + product.trust.rejectCount} oy', style: _pjs(size: 12, weight: FontWeight.w600, color: _tan)),
+              Text('${product.priceEntryCount} kayıt', style: _pjs(size: 12, weight: FontWeight.w600, color: _tan)),
             ],
           ),
         ),
-
         _Card(
           padding: const EdgeInsets.all(18),
-          child: StreamBuilder<String?>(
-            stream: voteStream,
-            builder: (_, snap) {
-              final voteVal        = snap.data;
-              final hasVoted       = voteVal != null;
-              final isApprovedSelf = voteVal == 'yes';
-              final isRejectedSelf = voteVal == 'no';
-              final ownerUid       = product.bestPrice.userId.trim();
-              final isOwner        = currentUser != null && ownerUid.isNotEmpty && currentUser.uid == ownerUid;
-              final canVote        = currentUser != null && !hasVoted && !isOwner && !isSubmitting;
-
+          child: pricesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator(color: _tanCard)),
+            error: (_, __) => const Text('Fiyat doğrulama verisi alınamadı'),
+            data: (list) {
+              final entries = list.where((e) => e.isActive).toList()
+                ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+              if (entries.isEmpty) {
+                return _buildPriceRow(context, ref, currentUser, _toPriceModel(product.bestPrice));
+              }
               return Column(
                 children: [
-                  // Fiyat satırı — kullanıcı bilgisi + fiyat
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Avatar
-                      Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(12)),
-                        child: Center(
-                          child: Text(
-                            product.bestPrice.userName.isNotEmpty ? product.bestPrice.userName[0].toUpperCase() : '?',
-                            style: _pjs(size: 13, weight: FontWeight.w800, color: _white),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.bestPrice.userName,
-                              style: _pjs(size: 13, weight: FontWeight.w800),
-                            ),
-                            Text(
-                              '${product.bestPrice.store} · ${product.bestPrice.createdAtLabel}',
-                              style: _pjs(size: 11, weight: FontWeight.w500, color: _t3),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '${product.bestPrice.price.toStringAsFixed(2)}₺',
-                        style: _pjs(size: 18, weight: FontWeight.w900, letterSpacing: -0.4),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Doğrulama sayacı — "X kişi doğruladı, Y kişi yanlış dedi"
-                  _VerifyCountRow(
-                    approveCount: product.trust.approveCount,
-                    rejectCount:  product.trust.rejectCount,
-                  ),
-                  const SizedBox(height: 12),
-
-                  const Divider(color: _border, height: 1),
-                  const SizedBox(height: 12),
-
-                  // State mesajı
-                  if (isOwner)
-                    _StateMsgRow(msg: 'Kendi eklediğin fiyatı doğrulayamazsın', icon: Icons.info_outline_rounded, color: _red)
-                  else if (currentUser == null)
-                    _StateMsgRow(msg: 'Doğrulama için giriş yapmalısın', icon: Icons.lock_outline_rounded, color: _t3)
-                  else if (hasVoted)
-                    _StateMsgRow(msg: 'Bu fiyat için oyun kaydedildi', icon: Icons.check_circle_outline_rounded, color: _green),
-
-                  // Oy butonları
-                  if (!isOwner) ...[
-                    if (hasVoted) const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _VoteBtn(
-                            label: 'Fiyat Doğru',
-                            sub: '${product.trust.approveCount} Onay',
-                            icon: Icons.thumb_up_outlined,
-                            activeColor: _green,
-                            isActive: isApprovedSelf,
-                            isLoading: isSubmitting && isApprovedSelf,
-                            enabled: canVote,
-                            onTap: canVote ? () => onVote(true) : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _VoteBtn(
-                            label: 'Hatalı',
-                            sub: '${product.trust.rejectCount} İtiraz',
-                            icon: Icons.warning_amber_rounded,
-                            activeColor: _red,
-                            isActive: isRejectedSelf,
-                            isLoading: isSubmitting && isRejectedSelf,
-                            enabled: canVote,
-                            onTap: canVote ? () { onVote(false); onWrongTap(); } : onWrongTap,
-                          ),
-                        ),
-                      ],
-                    ),
+                  for (var i = 0; i < entries.take(3).length; i++) ...[
+                    if (i > 0) const Divider(color: _border, height: 24),
+                    _buildPriceRow(context, ref, currentUser, entries[i]),
                   ],
                 ],
               );
@@ -985,6 +1037,108 @@ class _VerificationSection extends ConsumerWidget {
       ],
     );
   }
+
+  Widget _buildPriceRow(BuildContext context, WidgetRef ref, dynamic currentUser, PriceModel entry) {
+    final voteStream = currentUser == null
+        ? const Stream<String?>.empty()
+        : ref.watch(firestoreServiceProvider).streamUserVoteValue(entry.id, currentUser.uid);
+
+    return StreamBuilder<String?>(
+      stream: voteStream,
+      builder: (_, snap) {
+        final voteVal = snap.data;
+        final hasVoted = voteVal != null;
+        final isApprovedSelf = voteVal == 'yes';
+        final isRejectedSelf = voteVal == 'no';
+        final ownerUid = entry.userId.trim();
+        final isOwner = currentUser != null && ownerUid.isNotEmpty && currentUser.uid == ownerUid;
+        final canVote = currentUser != null && !hasVoted && !isOwner && !isSubmitting;
+
+        return Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(12)),
+                  child: Center(child: Text((entry.userName ?? '?').substring(0, 1).toUpperCase(), style: _pjs(size: 12, weight: FontWeight.w800, color: _white))),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.userName ?? 'Kullanıcı', style: _pjs(size: 13, weight: FontWeight.w800)),
+                      Text('${entry.storeName ?? 'Market'} · ${_timeAgo(entry.reportedAt)}', style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                    ],
+                  ),
+                ),
+                Text('${entry.price.toStringAsFixed(2)}₺', style: _pjs(size: 18, weight: FontWeight.w900, letterSpacing: -0.4)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _VerifyCountRow(approveCount: entry.upVotes, rejectCount: entry.downVotes),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _VoteBtn(
+                    label: 'Doğru',
+                    sub: '${entry.upVotes} onay',
+                    icon: Icons.check_rounded,
+                    activeColor: _green,
+                    isActive: isApprovedSelf,
+                    isLoading: isSubmitting && isApprovedSelf,
+                    enabled: canVote,
+                    onTap: canVote ? () => onVote(entry.id, true) : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _VoteBtn(
+                    label: 'Yanlış',
+                    sub: '${entry.downVotes} itiraz',
+                    icon: Icons.close_rounded,
+                    activeColor: _red,
+                    isActive: isRejectedSelf,
+                    isLoading: isSubmitting && isRejectedSelf,
+                    enabled: canVote,
+                    onTap: canVote ? () { onVote(entry.id, false); onWrongTap(entry.id); } : () => onWrongTap(entry.id),
+                  ),
+                ),
+              ],
+            ),
+            if (isOwner)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _StateMsgRow(msg: 'Kendi eklediğin fiyatı doğrulayamazsın', icon: Icons.info_outline_rounded, color: _red),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inHours < 1) return '${d.inMinutes} dk önce';
+    if (d.inDays < 1) return '${d.inHours} saat önce';
+    return '${d.inDays} gün önce';
+  }
+
+  static PriceModel _toPriceModel(BestPrice b) => PriceModel(
+        id: b.id,
+        productId: '',
+        userId: b.userId,
+        price: b.price,
+        branchStoreId: b.storeId,
+        reportedAt: DateTime.now(),
+        userName: b.userName,
+        storeName: b.store,
+        upVotes: b.upVotes,
+        downVotes: b.downVotes,
+      );
 }
 
 class _VerifyCountRow extends StatelessWidget {
