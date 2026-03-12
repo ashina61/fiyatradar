@@ -182,7 +182,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               const SizedBox(height: 10),
 
                               // 4 — Fiyat geçmişi
-                              _PriceHistorySection(product: state.data!, history: state.history),
+                              _PriceHistorySection(product: state.data!),
                               const SizedBox(height: 10),
 
                               // 5 — Fiyatı ekleyen kişi
@@ -422,7 +422,7 @@ class _ProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
-                    (product.categories.isNotEmpty ? product.categories.first : 'GIDA').toUpperCase(),
+                    product.category?.toUpperCase() ?? 'GIDA',
                     style: _pjs(size: 10, weight: FontWeight.w800, color: _tan, letterSpacing: 0.5),
                   ),
                 ),
@@ -433,7 +433,7 @@ class _ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  product.categories.join(' • '),
+                  product.brand ?? '',
                   style: _pjs(size: 12, weight: FontWeight.w500, color: _t2),
                 ),
                 const SizedBox(height: 12),
@@ -621,10 +621,8 @@ class _StoreGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prices = <String, double>{
-      if (product.bestPrice.store.trim().isNotEmpty) product.bestPrice.store.trim(): product.bestPrice.price,
-    };
-    if (prices.isEmpty) return const SizedBox.shrink();
+    final prices = product.storePrices;  // Map<String, double> veya benzer yapı
+    if (prices == null || prices.isEmpty) return const SizedBox.shrink();
 
     final sorted  = prices.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
     final cheapest = sorted.first.key;
@@ -697,12 +695,13 @@ class _StoreGrid extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _PriceHistorySection extends StatelessWidget {
   final ProductDetailResponse product;
-  final List<PriceHistoryPoint> history;
-  const _PriceHistorySection({required this.product, required this.history});
+  const _PriceHistorySection({required this.product});
 
   @override
   Widget build(BuildContext context) {
     final stats = product.stats;
+    // priceHistory: List<PricePoint> varsa kullan, yoksa stats'tan oluştur
+    final history = product.priceHistory;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -765,7 +764,7 @@ class _PriceHistorySection extends StatelessWidget {
                 ],
               ),
 
-              if (history.isNotEmpty) ...[
+              if (history != null && history.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _PriceBarChart(history: history, highest: stats.highest, lowest: stats.lowest),
               ],
@@ -797,7 +796,7 @@ class _StatBox extends StatelessWidget {
 }
 
 class _PriceBarChart extends StatelessWidget {
-  final List<PriceHistoryPoint> history;
+  final List<PricePoint> history;
   final double highest, lowest;
   const _PriceBarChart({required this.history, required this.highest, required this.lowest});
 
