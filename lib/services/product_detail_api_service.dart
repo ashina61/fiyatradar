@@ -23,6 +23,17 @@ class StoreNavigationPayload {
   final String? address;
 }
 
+
+class _UserProfileLite {
+  const _UserProfileLite({
+    required this.level,
+    required this.photoUrl,
+  });
+
+  final String level;
+  final String photoUrl;
+}
+
 class ProductDetailApiService {
   void _log(String message) {
     if (!kDebugMode) return;
@@ -81,7 +92,7 @@ class ProductDetailApiService {
           .map(CommentModel.fromFirestore)
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      final commentAuthorLevels = await _resolveUserLevels(
+      final commentAuthorProfiles = await _resolveUserProfiles(
         comments.map((c) => c.userId),
       );
 
@@ -107,7 +118,8 @@ class ProductDetailApiService {
         comments: comments
             .map((comment) => _toProductComment(
                   comment,
-                  authorLevel: commentAuthorLevels[comment.userId] ?? '',
+                  authorLevel: commentAuthorProfiles[comment.userId]?.level ?? '',
+                  authorPhotoUrl: commentAuthorProfiles[comment.userId]?.photoUrl ?? comment.userPhotoUrl ?? '',
                 ))
             .toList(growable: false),
       );
@@ -379,11 +391,11 @@ class ProductDetailApiService {
   }
 
 
-  Future<Map<String, String>> _resolveUserLevels(Iterable<String> userIds) async {
+  Future<Map<String, _UserProfileLite>> _resolveUserProfiles(Iterable<String> userIds) async {
     final ids = userIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet().toList(growable: false);
-    if (ids.isEmpty) return const <String, String>{};
+    if (ids.isEmpty) return const <String, _UserProfileLite>{};
 
-    final result = <String, String>{};
+    final result = <String, _UserProfileLite>{};
     final chunks = <List<String>>[];
     for (var i = 0; i < ids.length; i += 10) {
       final end = (i + 10 < ids.length) ? (i + 10) : ids.length;
@@ -398,9 +410,8 @@ class ProductDetailApiService {
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final level = _extractLevelLabel(data);
-        if (level.isNotEmpty) {
-          result[doc.id] = level;
-        }
+        final photoUrl = _readFirstNonEmptyString(data, const ['photoUrl', 'photoURL', 'imageUrl']) ?? '';
+        result[doc.id] = _UserProfileLite(level: level, photoUrl: photoUrl);
       }
     }
 
@@ -430,12 +441,13 @@ class ProductDetailApiService {
     return EliteLevelEngine.getLevelStyle(EliteLevelEngine.parseLevelLabel(raw)).label;
   }
 
-  ProductComment _toProductComment(CommentModel comment, {required String authorLevel}) {
+  ProductComment _toProductComment(CommentModel comment, {required String authorLevel, required String authorPhotoUrl}) {
     return ProductComment(
       id: comment.id,
       authorId: comment.userId,
       author: comment.userName,
       authorLevel: authorLevel,
+      authorPhotoUrl: authorPhotoUrl,
       avatarBgHex: '',
       text: comment.text,
       timeAgo: _formatTimeAgo(comment.createdAt),
