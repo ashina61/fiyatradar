@@ -16,6 +16,7 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
 import '../../utils/level_style.dart';
+import '../../widgets/app_network_image.dart';
 import '../add_price/add_price_screen.dart';
 
 const _bg = Color(0xFFECEAE4);
@@ -148,9 +149,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
                           sliver: SliverList(
                             delegate: SliverChildListDelegate([
-                              _ProductCard(product: state.data!, onLaunchMap: _launchMap),
+                              _ProductCard(product: state.data!),
                               const SizedBox(height: 10),
-                              _BestPriceHero(product: state.data!, onLaunchMap: _launchMap),
+                              _BestPriceHero(product: state.data!),
                               const SizedBox(height: 10),
                               _StoreGrid(product: state.data!),
                               const SizedBox(height: 10),
@@ -362,10 +363,9 @@ class _HdrBtn extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product, required this.onLaunchMap});
+  const _ProductCard({required this.product});
 
   final ProductDetailResponse product;
-  final Future<void> Function(BestPrice) onLaunchMap;
 
   @override
   Widget build(BuildContext context) {
@@ -417,11 +417,6 @@ class _ProductCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _statChip(Icons.people_alt_outlined, '${product.viewCount} kayıt'),
-                    _statChip(Icons.bolt_rounded, 'Aktif'),
-                    GestureDetector(
-                      onTap: () => onLaunchMap(product.bestPrice),
-                      child: _statChip(Icons.map_outlined, 'Harita'),
-                    ),
                   ],
                 ),
               ],
@@ -449,10 +444,9 @@ class _ProductCard extends StatelessWidget {
 }
 
 class _BestPriceHero extends ConsumerWidget {
-  const _BestPriceHero({required this.product, required this.onLaunchMap});
+  const _BestPriceHero({required this.product});
 
   final ProductDetailResponse product;
-  final Future<void> Function(BestPrice) onLaunchMap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -584,21 +578,7 @@ class _BestPriceHero extends ConsumerWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () => onLaunchMap(product.bestPrice),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-                      decoration: BoxDecoration(color: _white.withOpacity(0.09), borderRadius: BorderRadius.circular(10)),
-                      child: Row(
-                        children: [
-                          Icon(Icons.navigation_outlined, size: 13, color: _white.withOpacity(0.65)),
-                          const SizedBox(width: 6),
-                          Text('Yol tarifi', style: _pjs(size: 11, weight: FontWeight.w700, color: _white.withOpacity(0.65))),
-                        ],
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ],
@@ -1247,16 +1227,11 @@ class _PriceEntryRow extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(12)),
-                      child: Center(
-                        child: Text(
-                          ((entry.userName ?? 'K').isNotEmpty ? (entry.userName ?? 'K')[0] : 'K').toUpperCase(),
-                          style: _pjs(size: 12, weight: FontWeight.w800, color: _white),
-                        ),
-                      ),
+                    _UserAvatar(
+                      imageUrl: entry.userAvatarUrl ?? entry.photoUrl,
+                      fallbackText: entry.userName ?? 'K',
+                      size: 36,
+                      radius: 12,
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -1270,8 +1245,14 @@ class _PriceEntryRow extends ConsumerWidget {
                                 margin: const EdgeInsets.only(left: 4),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
-                                child: Text('${level.emoji} ${level.label}',
-                                    style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(level.icon, size: 10, color: level.badgeForeground),
+                                    const SizedBox(width: 3),
+                                    Text(level.label, style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+                                  ],
+                                ),
                               ),
                           ],
                         ),
@@ -1480,7 +1461,6 @@ class _CommentsSection extends StatelessWidget {
         ),
         ...display.map((c) {
           final level = LevelStyle.fromLevelLabel(c.authorLevel);
-          final avatarColor = _tanCard;
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(16),
@@ -1491,13 +1471,11 @@ class _CommentsSection extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(color: avatarColor, borderRadius: BorderRadius.circular(11)),
-                      alignment: Alignment.center,
-                      child: Text(c.author.isNotEmpty ? c.author[0].toUpperCase() : 'K',
-                          style: _pjs(size: 12, weight: FontWeight.w800, color: _white)),
+                    _UserAvatar(
+                      imageUrl: c.authorPhotoUrl,
+                      fallbackText: c.author,
+                      size: 34,
+                      radius: 11,
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -1511,8 +1489,14 @@ class _CommentsSection extends StatelessWidget {
                                 margin: const EdgeInsets.only(left: 4),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
-                                child: Text('${level.emoji} ${level.label}',
-                                    style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(level.icon, size: 10, color: level.badgeForeground),
+                                    const SizedBox(width: 3),
+                                    Text(level.label, style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+                                  ],
+                                ),
                               ),
                           ],
                         ),
@@ -1593,6 +1577,51 @@ class _CommentsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({
+    required this.imageUrl,
+    required this.fallbackText,
+    required this.size,
+    required this.radius,
+  });
+
+  final String? imageUrl;
+  final String fallbackText;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = (imageUrl ?? '').trim();
+    if (trimmed.isNotEmpty) {
+      return AppNetworkImage(
+        imageUrl: trimmed,
+        cacheKey: 'user_avatar',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        borderRadius: BorderRadius.circular(radius),
+      );
+    }
+
+    final letter =
+        fallbackText.trim().isNotEmpty ? fallbackText.trim()[0].toUpperCase() : 'K';
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: _tanCard,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        letter,
+        style: _pjs(size: 12, weight: FontWeight.w800, color: _white),
+      ),
     );
   }
 }

@@ -138,6 +138,7 @@ class ProductComment {
     required this.authorId,
     required this.author,
     required this.authorLevel,
+    required this.authorPhotoUrl,
     required this.avatarBgHex,
     required this.text,
     required this.timeAgo,
@@ -147,6 +148,7 @@ class ProductComment {
   final String authorId;
   final String author;
   final String authorLevel;
+  final String authorPhotoUrl;
   final String avatarBgHex;
   final String text;
   final String timeAgo;
@@ -157,6 +159,7 @@ class ProductComment {
       authorId: (json['authorId'] ?? '').toString(),
       author: (json['author'] ?? '').toString(),
       authorLevel: (json['authorLevel'] ?? '').toString(),
+      authorPhotoUrl: (json['authorPhotoUrl'] ?? '').toString(),
       avatarBgHex: (json['avatarBgHex'] ?? '').toString(),
       text: (json['text'] ?? '').toString(),
       timeAgo: (json['timeAgo'] ?? '').toString(),
