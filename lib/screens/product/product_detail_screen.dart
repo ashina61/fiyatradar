@@ -11,7 +11,6 @@ import '../../models/product_detail_api_model.dart';
 import '../../models/price_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
-import '../../providers/product_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
@@ -891,6 +890,38 @@ class _HistoryChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HistoryChartPainter oldDelegate) => oldDelegate.points != points;
+}
+
+class _StatBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatBox({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: _tanLt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: _pjs(size: 10, weight: FontWeight.w700, color: _t2)),
+          const SizedBox(height: 4),
+          Text(value, style: _pjs(size: 13, weight: FontWeight.w900, color: color)),
+        ],
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
