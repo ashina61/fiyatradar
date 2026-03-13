@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/banner_model.dart';
 import '../../providers/actual_provider.dart';
+import '../../providers/banner_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
@@ -483,6 +485,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
 
     final hasItems = state.items.isNotEmpty;
+    final activeBanners = ref.watch(activeBannersProvider).valueOrNull ?? const <BannerModel>[];
+    BannerModel? weeklyEventBanner;
+    for (final banner in activeBanners) {
+      if ((banner.targetType ?? '').toLowerCase() == 'weekly_event') {
+        weeklyEventBanner = banner;
+        break;
+      }
+    }
     final huntItem = state.items
         .where((item) => item.dropPercent > 0)
         .fold<ExploreFeedItem?>(null, (best, current) {
@@ -494,7 +504,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: _buildConditionalAktuelCard()),
-        if (huntItem != null) SliverToBoxAdapter(child: _buildHuntCard(huntItem)),
+        if (weeklyEventBanner != null)
+          SliverToBoxAdapter(child: _buildWeeklyEventCard(weeklyEventBanner))
+        else if (huntItem != null)
+          SliverToBoxAdapter(child: _buildHuntCard(huntItem)),
         if (!hasItems)
           const SliverFillRemaining(
             hasScrollBody: false,
@@ -665,6 +678,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     );
   }
 
+
+
+  Widget _buildWeeklyEventCard(BannerModel banner) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: PremiumPressable(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () => ref.read(exploreControllerProvider.notifier).updateMode(ExploreMode.drops),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF211510),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0x33C29B78)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text((banner.subtitle?.isNotEmpty ?? false) ? banner.subtitle! : 'HAFTANIN OLAYI', style: const TextStyle(color: Color(0xFFC29B78), fontSize: 11, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              Text(banner.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+              if ((banner.description?.isNotEmpty ?? false)) ...[
+                const SizedBox(height: 6),
+                Text(banner.description!, style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 12, fontWeight: FontWeight.w500)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildHuntCard(ExploreFeedItem item) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),

@@ -501,7 +501,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (banners.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
       child: SizedBox(
         height: 160,
         child: PageView.builder(
@@ -544,8 +544,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 color: FRColors.gold,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
-                                'GÜNÜN FIRSATI',
+                              child: Text(
+                                ((banner.subtitle?.trim().isNotEmpty ?? false)
+                                        ? banner.subtitle!
+                                        : (banner.description?.trim().isNotEmpty ?? false)
+                                            ? banner.description!
+                                            : 'GÜNÜN FIRSATI')
+                                    .toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
@@ -565,12 +570,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                             if (onTap != null) ...[
-                              const SizedBox(height: 10),
-                              const Row(
+                              const SizedBox(height: 6),
+                              Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Hemen İncele',
+                                    (banner.ctaText?.trim().isNotEmpty ?? false)
+                                        ? banner.ctaText!
+                                        : 'Keşfet',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -675,7 +682,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 34, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -684,10 +691,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 14,
-            mainAxisSpacing: 12,
+            mainAxisSpacing: 10,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.12,
+            childAspectRatio: 1.2,
             children: widgets,
           ),
         ],
