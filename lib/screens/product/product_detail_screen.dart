@@ -1114,7 +1114,7 @@ class _VerificationSection extends ConsumerWidget {
               ],
             ),
             if (isOwner)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Row(
                   children: [
