@@ -11,6 +11,7 @@ import '../../models/product_detail_api_model.dart';
 import '../../models/price_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/firestore_service.dart';
 import '../add_price/add_price_screen.dart';
