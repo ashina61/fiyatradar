@@ -204,13 +204,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     );
                                     return;
                                   }
-                                  final ownerUid = state.data!.bestPrice.userId.trim();
-                                  if (ownerUid.isNotEmpty && user.uid == ownerUid) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Kendi eklediğin fiyatı doğrulayamazsın')),
-                                    );
-                                    return;
-                                  }
                                   HapticFeedback.lightImpact();
                                   final result = await notifier.votePrice(
                                     priceId: priceId,
@@ -303,10 +296,7 @@ class _Header extends ConsumerWidget {
     final override = ref.watch(favoriteOverrideProvider(product.id));
     final favoriteAsync = ref.watch(isFavoriteProvider(product.id));
     final isFavorite = override ?? favoriteAsync.valueOrNull ?? false;
-    final subtitle = [
-      if (product.bestPrice.store.trim().isNotEmpty) product.bestPrice.store.trim(),
-      if (product.categories.isNotEmpty) product.categories.first,
-    ].join(' · ');
+    final subtitle = product.bestPrice.store.trim();
 
     return Container(
       padding: EdgeInsets.only(
@@ -455,7 +445,7 @@ class _ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${product.bestPrice.store} · ${product.id}',
+                  product.bestPrice.store,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _pjs(size: 12, weight: FontWeight.w500, color: _t2),
@@ -776,7 +766,7 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
     final low = values.reduce((a, b) => a < b ? a : b);
     final high = values.reduce((a, b) => a > b ? a : b);
     final avg = values.reduce((a, b) => a + b) / values.length;
-    final drop = high > 0 ? ((high - low) / high) * 100 : 0;
+    final stats = widget.product.stats;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,12 +786,12 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: _dark.withOpacity(0.2), borderRadius: BorderRadius.circular(999)),
-                    child: Text('📈 Son ${windows[_tab]} Gün', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85))),
+                    child: Text('📈  Son Kayıtlar', style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85))),
                   ),
                   const SizedBox(height: 10),
-                  Text('%${drop.toStringAsFixed(1)} ucuzladı', style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
+                  Text('Fiyat Geçmişi', style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
                   const SizedBox(height: 5),
-                  Text('En iyi alım zamanı bu hafta', style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.65))),
+                  Text('En düşük: ${stats.lowest.toStringAsFixed(2)}₺', style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.65))),
                 ]),
               ),
               Container(
@@ -916,9 +906,9 @@ class _StatBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: _pjs(size: 10, weight: FontWeight.w700, color: _t2)),
-          const SizedBox(height: 4),
           Text(value, style: _pjs(size: 13, weight: FontWeight.w900, color: color)),
+          const SizedBox(height: 2),
+          Text(label.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w700, color: _t3)),
         ],
       ),
     );
@@ -1085,6 +1075,8 @@ class _VerificationSection extends ConsumerWidget {
         final ownerUid = entry.userId.trim();
         final isOwner = currentUser != null && ownerUid.isNotEmpty && currentUser.uid == ownerUid;
         final canVote = currentUser != null && !hasVoted && !isOwner && !isSubmitting;
+        final approveCount = entry.upVotes > 0 ? entry.upVotes : entry.verifiedCount;
+        final rejectCount = entry.downVotes > 0 ? entry.downVotes : entry.unverifiedCount;
 
         return Column(
           children: [
@@ -1110,14 +1102,14 @@ class _VerificationSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _VerifyCountRow(approveCount: entry.upVotes, rejectCount: entry.downVotes),
+            _VerifyCountRow(approveCount: approveCount, rejectCount: rejectCount),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: _VoteBtn(
                     label: 'Doğru',
-                    sub: '${entry.upVotes} onay',
+                    sub: '$approveCount onay',
                     icon: Icons.check_rounded,
                     activeColor: _green,
                     isActive: isApprovedSelf,
@@ -1130,7 +1122,7 @@ class _VerificationSection extends ConsumerWidget {
                 Expanded(
                   child: _VoteBtn(
                     label: 'Yanlış',
-                    sub: '${entry.downVotes} itiraz',
+                    sub: '$rejectCount itiraz',
                     icon: Icons.close_rounded,
                     activeColor: _red,
                     isActive: isRejectedSelf,
