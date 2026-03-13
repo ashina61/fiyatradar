@@ -17,7 +17,6 @@ import '../../providers/price_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
-import '../../utils/level_style.dart';
 import '../../widgets/app_network_image.dart';
 import '../add_price/add_price_screen.dart';
 
@@ -869,7 +868,7 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                             style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85), letterSpacing: 0.5)),
                       ),
                       const SizedBox(height: 10),
-                      Text('%${drop.toStringAsFixed(1).replaceAll('.', ',')} ucuzladı',
+                      Text('Fiyat hareketi: %${drop.toStringAsFixed(1).replaceAll('.', ',')}',
                           style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
                       const SizedBox(height: 5),
                       Text('En iyi alım zamanı bu hafta',
@@ -1575,7 +1574,7 @@ class _UserLevelTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) {
-      return _buildChip(fallbackLevel, null);
+      return _buildChip(fallbackLevel);
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -1583,31 +1582,34 @@ class _UserLevelTag extends StatelessWidget {
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
         final remoteLevel = (data['levelName'] ?? data['level'] ?? data['tierName'])?.toString();
-        final points = (data['totalPoints'] as num?)?.toInt() ??
-            (data['pointsTotal'] as num?)?.toInt() ??
-            (data['points'] as num?)?.toInt();
-        return _buildChip(remoteLevel ?? fallbackLevel, points);
+        final computedLevel = EliteLevelEngine.getFinalLevel(
+          (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0,
+          (data['trustScore'] as num?)?.toInt() ?? (data['trustPercent'] as num?)?.toInt() ?? 100,
+          (data['trustTotalVotes'] as num?)?.toInt() ?? (data['voteCount'] as num?)?.toInt() ?? 0,
+        );
+        final resolvedLevel = remoteLevel ?? EliteLevelEngine.getLevelStyle(computedLevel).label;
+        return _buildChip(resolvedLevel);
       },
     );
   }
 
-  Widget _buildChip(String? levelLabel, int? points) {
+  Widget _buildChip(String? levelLabel) {
     final hasLevel = (levelLabel ?? '').trim().isNotEmpty;
-    if (!hasLevel && points == null) return const SizedBox.shrink();
+    if (!hasLevel) return const SizedBox.shrink();
 
-    final level = LevelStyle.fromLevelLabel(levelLabel);
-    final suffix = points == null ? '' : ' · ${points}p';
+    final elite = EliteLevelEngine.parseLevelLabel(levelLabel);
+    final style = EliteLevelEngine.getLevelStyle(elite);
 
     return Container(
       margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
+      decoration: BoxDecoration(color: style.badgeBackground, borderRadius: BorderRadius.circular(5)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(level.icon, size: 10, color: level.badgeForeground),
+          Icon(style.icon, size: 10, color: style.badgeForeground),
           const SizedBox(width: 3),
-          Text('${level.label}$suffix', style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+          Text(style.label, style: _pjs(size: 9, weight: FontWeight.w800, color: style.badgeForeground)),
         ],
       ),
     );

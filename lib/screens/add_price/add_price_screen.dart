@@ -26,10 +26,10 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     with TickerProviderStateMixin {
-  static const _headerBg = Color(0xFF1A110D);
-  static const _brandBrown = Color(0xFF6A442A);
-  static const _bgApp = Color(0xFFEFE9E4);
-  static const _surfaceIvory = Color(0xFFFCFAF8);
+  static const _headerBg = Color(0xFF1A120E);
+  static const _brandBrown = Color(0xFFB88A5B);
+  static const _bgApp = Color(0xFFEFECE6);
+  static const _surfaceIvory = Color(0xFFFAFAFA);
   static const _gold = Color(0xFFC29B78);
   final _priceController = TextEditingController();
   final _productController = TextEditingController();
