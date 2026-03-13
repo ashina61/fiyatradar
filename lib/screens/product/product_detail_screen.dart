@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,7 +151,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
                           sliver: SliverList(
                             delegate: SliverChildListDelegate([
-                              _ProductCard(product: state.data!),
+                              _ProductCard(
+                                product: state.data!,
+                                onMapTap: () => _launchMap(state.data!.bestPrice),
+                              ),
                               const SizedBox(height: 10),
                               _BestPriceHero(product: state.data!),
                               const SizedBox(height: 10),
@@ -363,9 +368,10 @@ class _HdrBtn extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product});
+  const _ProductCard({required this.product, required this.onMapTap});
 
   final ProductDetailResponse product;
+  final VoidCallback onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -416,7 +422,9 @@ class _ProductCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _statChip(Icons.people_alt_outlined, '${product.viewCount} kayıt'),
+                    _statChip(Icons.receipt_long_rounded, '${product.priceEntryCount} kayıt'),
+                    _statChip(Icons.visibility_outlined, '${product.viewCount} görüntülenme'),
+                    _statChip(Icons.map_outlined, 'Haritada Gör', onTap: onMapTap),
                   ],
                 ),
               ],
@@ -427,8 +435,8 @@ class _ProductCard extends StatelessWidget {
     );
   }
 
-  Widget _statChip(IconData icon, String text) {
-    return Container(
+  Widget _statChip(IconData icon, String text, {VoidCallback? onTap}) {
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(8)),
       child: Row(
@@ -440,6 +448,8 @@ class _ProductCard extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) return chip;
+    return GestureDetector(onTap: onTap, child: chip);
   }
 }
 
@@ -488,7 +498,7 @@ class _BestPriceHero extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(color: _white.withOpacity(0.09), borderRadius: BorderRadius.circular(999)),
                     child: Text(
-                      '🏷️ Bu hafta en ucuz'.toUpperCase(),
+                      '🏷️ Son fiyat'.toUpperCase(),
                       style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.7), letterSpacing: 0.6),
                     ),
                   ),
@@ -1216,7 +1226,6 @@ class _PriceEntryRow extends ConsumerWidget {
         final canVote = currentUser != null && !hasVoted && !isOwner;
         final approveCount = entry.upVotes > 0 ? entry.upVotes : entry.verifiedCount;
         final rejectCount = entry.downVotes > 0 ? entry.downVotes : entry.unverifiedCount;
-        final level = LevelStyle.fromLevelLabel(entry.addedByLevelSnapshot);
 
         return Column(
           children: [
@@ -1240,20 +1249,7 @@ class _PriceEntryRow extends ConsumerWidget {
                         Row(
                           children: [
                             Text(entry.userName ?? 'Kullanıcı', style: _pjs(size: 13, weight: FontWeight.w800)),
-                            if ((entry.addedByLevelSnapshot ?? '').trim().isNotEmpty)
-                              Container(
-                                margin: const EdgeInsets.only(left: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(level.icon, size: 10, color: level.badgeForeground),
-                                    const SizedBox(width: 3),
-                                    Text(level.label, style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
-                                  ],
-                                ),
-                              ),
+                            _UserLevelTag(userId: entry.userId, fallbackLevel: entry.addedByLevelSnapshot),
                           ],
                         ),
                         const SizedBox(height: 2),
@@ -1440,6 +1436,7 @@ class _CommentsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
     final all = product.comments;
     final display = isExpanded ? all : all.take(2).toList();
 
@@ -1460,7 +1457,6 @@ class _CommentsSection extends StatelessWidget {
           ),
         ),
         ...display.map((c) {
-          final level = LevelStyle.fromLevelLabel(c.authorLevel);
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(16),
@@ -1484,20 +1480,7 @@ class _CommentsSection extends StatelessWidget {
                         Row(
                           children: [
                             Text(c.author, style: _pjs(size: 13, weight: FontWeight.w800, color: _t1)),
-                            if (c.authorLevel.trim().isNotEmpty)
-                              Container(
-                                margin: const EdgeInsets.only(left: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(level.icon, size: 10, color: level.badgeForeground),
-                                    const SizedBox(width: 3),
-                                    Text(level.label, style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
-                                  ],
-                                ),
-                              ),
+                            _UserLevelTag(userId: c.authorId, fallbackLevel: c.authorLevel),
                           ],
                         ),
                         const SizedBox(height: 1),
@@ -1535,11 +1518,11 @@ class _CommentsSection extends StatelessWidget {
           decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(22), boxShadow: [_cardShadow]),
           child: Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(11)),
-                child: const Icon(Icons.person, size: 16, color: _white),
+              _UserAvatar(
+                imageUrl: currentUser?.photoURL,
+                fallbackText: currentUser?.displayName ?? 'Kullanıcı',
+                size: 32,
+                radius: 11,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1577,6 +1560,56 @@ class _CommentsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+class _UserLevelTag extends StatelessWidget {
+  const _UserLevelTag({required this.userId, required this.fallbackLevel});
+
+  final String userId;
+  final String? fallbackLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return _buildChip(fallbackLevel, null);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(trimmedUserId).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() ?? const <String, dynamic>{};
+        final remoteLevel = (data['levelName'] ?? data['level'] ?? data['tierName'])?.toString();
+        final points = (data['totalPoints'] as num?)?.toInt() ??
+            (data['pointsTotal'] as num?)?.toInt() ??
+            (data['points'] as num?)?.toInt();
+        return _buildChip(remoteLevel ?? fallbackLevel, points);
+      },
+    );
+  }
+
+  Widget _buildChip(String? levelLabel, int? points) {
+    final hasLevel = (levelLabel ?? '').trim().isNotEmpty;
+    if (!hasLevel && points == null) return const SizedBox.shrink();
+
+    final level = LevelStyle.fromLevelLabel(levelLabel);
+    final suffix = points == null ? '' : ' · ${points}p';
+
+    return Container(
+      margin: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(5)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(level.icon, size: 10, color: level.badgeForeground),
+          const SizedBox(width: 3),
+          Text('${level.label}$suffix', style: _pjs(size: 9, weight: FontWeight.w800, color: level.badgeForeground)),
+        ],
+      ),
     );
   }
 }
