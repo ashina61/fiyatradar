@@ -9,9 +9,9 @@ void main() {
       const BasketItemInput(key: 'p3', name: 'Yag', quantity: 1),
     ];
     final pricesIndex = {
-      'p1': {'m1': 10, 'm2': 12},
-      'p2': {'m1': 4, 'm2': 3},
-      'p3': {'m1': 20, 'm2': 19},
+      'p1': {'m1': 10.0, 'm2': 12.0},
+      'p2': {'m1': 4.0, 'm2': 3.0},
+      'p3': {'m1': 20.0, 'm2': 19.0},
     };
     final summary = calculateBasketPricing(
       items: items,
@@ -30,8 +30,8 @@ void main() {
       const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
     ];
     final pricesIndex = {
-      'p1': {'m1': 10, 'm2': 11},
-      'p2': {'m2': 5},
+      'p1': {'m1': 10.0, 'm2': 11.0},
+      'p2': {'m2': 5.0},
     };
     final summary = calculateBasketPricing(
       items: items,
@@ -50,8 +50,8 @@ void main() {
       const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
     ];
     final pricesIndex = {
-      'p1': {'m1': 10},
-      'p2': {'m2': 6},
+      'p1': {'m1': 10.0},
+      'p2': {'m2': 6.0},
     };
     final summary = calculateBasketPricing(
       items: items,
@@ -69,7 +69,7 @@ void main() {
       const BasketItemInput(key: 'p1', name: 'Sut', quantity: 1),
     ];
     final pricesIndex = {
-      'p1': {'m1': 10, 'm2': 10},
+      'p1': {'m1': 10.0, 'm2': 10.0},
     };
 
     final summary = calculateBasketPricing(
@@ -88,7 +88,7 @@ void main() {
       const BasketItemInput(key: 'p2', name: 'Ekmek', quantity: 1),
     ];
     final pricesIndex = {
-      'p1': {'m1': 10},
+      'p1': {'m1': 10.0},
       // p2 missing everywhere
     };
 

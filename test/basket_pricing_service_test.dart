@@ -18,7 +18,8 @@ void main() {
       userId: 'user',
       price: price,
       storeName: storeName,
-      createdAt: DateTime(2024, 1, 1),
+      branchStoreId: 'store-1',
+      reportedAt: DateTime(2024, 1, 1),
       isApproved: isApproved,
       isPending: !isApproved,
     );
