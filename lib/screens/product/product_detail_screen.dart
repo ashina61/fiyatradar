@@ -17,6 +17,7 @@ import '../../providers/price_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
+import '../../utils/elite_level_engine.dart';
 import '../../widgets/app_network_image.dart';
 import '../add_price/add_price_screen.dart';
 
