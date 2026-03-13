@@ -2254,6 +2254,40 @@ class FirestoreService {
     return _usersRef.doc(uid).collection('points_log').orderBy('createdAt', descending: true).limit(40).snapshots();
   }
 
+
+  Stream<bool> streamHasAlert(String productId, String userId) {
+    return _firestore
+        .collection('priceAlerts')
+        .where('productId', isEqualTo: productId)
+        .where('userId', isEqualTo: userId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((s) => s.docs.isNotEmpty);
+  }
+
+  Future<void> toggleAlert({
+    required String productId,
+    required String userId,
+    required double targetPrice,
+  }) async {
+    final col = _firestore.collection('priceAlerts');
+    final existing = await col.where('productId', isEqualTo: productId).where('userId', isEqualTo: userId).get();
+
+    if (existing.docs.isNotEmpty) {
+      for (final doc in existing.docs) {
+        await doc.reference.delete();
+      }
+    } else {
+      await col.add({
+        'productId': productId,
+        'userId': userId,
+        'targetPrice': targetPrice,
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
   Future<void> toggleFavorite({required String uid, required String productId, Map<String, dynamic>? payload}) async {
     final ref = _usersRef.doc(uid).collection('favorites').doc(productId);
     final doc = await ref.get();

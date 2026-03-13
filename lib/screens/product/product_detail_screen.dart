@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/price_model.dart';
 import '../../models/product_detail_api_model.dart';
@@ -16,7 +16,6 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
 import '../../utils/level_style.dart';
-import '../../utils/level_system.dart';
 import '../add_price/add_price_screen.dart';
 
 const _bg = Color(0xFFECEAE4);
@@ -72,6 +71,19 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
   bool _showAllComments = false;
+
+  Future<void> _launchMap(BestPrice bestPrice) async {
+    final query = bestPrice.storeLocation.trim().isNotEmpty
+        ? '${bestPrice.store} ${bestPrice.storeLocation}'
+        : bestPrice.store;
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harita açılamadı. Lütfen tekrar dene.')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -136,15 +148,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
                           sliver: SliverList(
                             delegate: SliverChildListDelegate([
-                              _ProductCard(product: state.data!),
+                              _ProductCard(product: state.data!, onLaunchMap: _launchMap),
                               const SizedBox(height: 10),
-                              _BestPriceHero(product: state.data!),
+                              _BestPriceHero(product: state.data!, onLaunchMap: _launchMap),
                               const SizedBox(height: 10),
                               _StoreGrid(product: state.data!),
                               const SizedBox(height: 10),
                               _PriceHistorySection(product: state.data!, history: state.history),
-                              const SizedBox(height: 10),
-                              _ContributorCard(product: state.data!),
                               const SizedBox(height: 10),
                               _VerificationSection(
                                 product: state.data!,
@@ -352,9 +362,10 @@ class _HdrBtn extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product});
+  const _ProductCard({required this.product, required this.onLaunchMap});
 
   final ProductDetailResponse product;
+  final Future<void> Function(BestPrice) onLaunchMap;
 
   @override
   Widget build(BuildContext context) {
@@ -407,6 +418,10 @@ class _ProductCard extends StatelessWidget {
                   children: [
                     _statChip(Icons.people_alt_outlined, '${product.viewCount} kayıt'),
                     _statChip(Icons.bolt_rounded, 'Aktif'),
+                    GestureDetector(
+                      onTap: () => onLaunchMap(product.bestPrice),
+                      child: _statChip(Icons.map_outlined, 'Harita'),
+                    ),
                   ],
                 ),
               ],
@@ -433,13 +448,15 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _BestPriceHero extends StatelessWidget {
-  const _BestPriceHero({required this.product});
+class _BestPriceHero extends ConsumerWidget {
+  const _BestPriceHero({required this.product, required this.onLaunchMap});
 
   final ProductDetailResponse product;
+  final Future<void> Function(BestPrice) onLaunchMap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(authStateProvider).valueOrNull;
     final price = product.bestPrice.price;
     final whole = price.floor();
     final frac = ((price - whole) * 100).round().toString().padLeft(2, '0');
@@ -515,15 +532,71 @@ class _BestPriceHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-                    decoration: BoxDecoration(color: _white.withOpacity(0.09), borderRadius: BorderRadius.circular(10)),
-                    child: Row(
-                      children: [
-                        Icon(Icons.notifications_none_rounded, size: 13, color: _white.withOpacity(0.65)),
-                        const SizedBox(width: 6),
-                        Text('Alarm kur', style: _pjs(size: 11, weight: FontWeight.w700, color: _white.withOpacity(0.65))),
-                      ],
+                  StreamBuilder<bool>(
+                    stream: currentUser == null
+                        ? const Stream<bool>.empty()
+                        : ref.watch(firestoreServiceProvider).streamHasAlert(product.id, currentUser.uid),
+                    builder: (context, snapshot) {
+                      final hasAlert = snapshot.data ?? false;
+                      return GestureDetector(
+                        onTap: () async {
+                          if (currentUser == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Alarm kurmak için giriş yapmalısın')),
+                            );
+                            return;
+                          }
+                          HapticFeedback.lightImpact();
+                          await ref.read(firestoreServiceProvider).toggleAlert(
+                                productId: product.id,
+                                userId: currentUser.uid,
+                                targetPrice: product.bestPrice.price * 0.95,
+                              );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: hasAlert ? _tan.withOpacity(0.25) : _white.withOpacity(0.09),
+                            borderRadius: BorderRadius.circular(10),
+                            border: hasAlert ? Border.all(color: _tan.withOpacity(0.5)) : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                hasAlert ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                                size: 13,
+                                color: hasAlert ? _tan : _white.withOpacity(0.65),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                hasAlert ? 'Alarm aktif' : 'Alarm kur',
+                                style: _pjs(
+                                  size: 11,
+                                  weight: FontWeight.w700,
+                                  color: hasAlert ? _tan : _white.withOpacity(0.65),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => onLaunchMap(product.bestPrice),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                      decoration: BoxDecoration(color: _white.withOpacity(0.09), borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        children: [
+                          Icon(Icons.navigation_outlined, size: 13, color: _white.withOpacity(0.65)),
+                          const SizedBox(width: 6),
+                          Text('Yol tarifi', style: _pjs(size: 11, weight: FontWeight.w700, color: _white.withOpacity(0.65))),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -561,7 +634,10 @@ class _StoreGrid extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Mağaza Fiyatları', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              GestureDetector(
+                onTap: () => _showAllStoresSheet(context, ref, pricesAsync.valueOrNull),
+                child: Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              ),
             ],
           ),
         ),
@@ -591,6 +667,106 @@ class _StoreGrid extends ConsumerWidget {
           Expanded(child: _StoreTile(entry: list[i], bestPrice: best)),
         ],
       ],
+    );
+  }
+
+  void _showAllStoresSheet(BuildContext context, WidgetRef ref, List<PriceModel>? loadedPrices) {
+    final allPrices = (loadedPrices ?? ref.read(pricesForProductProvider(product.id)).valueOrNull ?? <PriceModel>[])
+        .where((e) => e.isActive)
+        .toList()
+      ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+    final source = allPrices.isEmpty ? [_VerificationSection._toPriceModel(product.bestPrice)] : allPrices;
+
+    final Map<String, List<PriceModel>> byStore = {};
+    for (final p in source) {
+      final storeName = (p.storeName ?? 'Market').trim();
+      byStore.putIfAbsent(storeName, () => []).add(p);
+    }
+
+    final storeMinPrices = byStore.map((store, entries) {
+      final minEntry = entries.reduce((a, b) => a.price < b.price ? a : b);
+      return MapEntry(store, minEntry);
+    });
+
+    final sortedStores = storeMinPrices.entries.toList()
+      ..sort((a, b) => a.value.price.compareTo(b.value.price));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          top: 12,
+          left: 16,
+          right: 16,
+        ),
+        decoration: const BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 38, height: 4, decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Mağaza Fiyatları', style: _pjs(size: 18, weight: FontWeight.w900)),
+                Text('${sortedStores.length} mağaza', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...sortedStores.asMap().entries.map((e) {
+              final isBest = e.key == 0;
+              final storeName = e.value.key;
+              final entry = e.value.value;
+              final dot = _storeColors[storeName] ?? _t3;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: isBest ? Border.all(color: _dark, width: 2) : Border.all(color: _border),
+                  boxShadow: [BoxShadow(color: _dark.withOpacity(0.05), blurRadius: 8)],
+                ),
+                child: Row(
+                  children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+                    const SizedBox(width: 10),
+                    Text(storeName, style: _pjs(size: 14, weight: FontWeight.w800)),
+                    if (isBest) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
+                        child: Text('EN UCUZ', style: _pjs(size: 9, weight: FontWeight.w800, color: _green)),
+                      ),
+                    ],
+                    const Spacer(),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(_fmtPrice(entry.price),
+                            style: _pjs(
+                              size: 16,
+                              weight: FontWeight.w900,
+                              color: isBest ? _green : _t1,
+                              letterSpacing: -0.4,
+                            )),
+                        Text(_VerificationSection._timeAgo(entry.reportedAt), style: _pjs(size: 10, weight: FontWeight.w500, color: _t3)),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -668,15 +844,8 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
   Widget build(BuildContext context) {
     final stats = widget.product.stats;
     final drop = stats.highest > 0 ? ((stats.highest - stats.lowest) / stats.highest) * 100 : 0;
-    final source = widget.history.isNotEmpty
-        ? widget.history
-        : [
-            PriceHistoryPoint(dateLabel: '5 Mar', price: stats.highest, reportedAt: DateTime.now().subtract(const Duration(days: 20))),
-            PriceHistoryPoint(dateLabel: '7 Mar', price: stats.average, reportedAt: DateTime.now().subtract(const Duration(days: 14))),
-            PriceHistoryPoint(dateLabel: '9 Mar', price: stats.lowest, reportedAt: DateTime.now().subtract(const Duration(days: 9))),
-            PriceHistoryPoint(dateLabel: '11 Mar', price: stats.average, reportedAt: DateTime.now().subtract(const Duration(days: 4))),
-            PriceHistoryPoint(dateLabel: 'Bugün', price: widget.product.bestPrice.price, reportedAt: DateTime.now()),
-          ];
+    final source = widget.history;
+    final hasHistory = source.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -754,16 +923,19 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                 }),
               ),
               const SizedBox(height: 10),
-              SizedBox(height: 76, width: double.infinity, child: CustomPaint(painter: _HistoryPainter(source))),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(
-                  math.min(source.length, 5),
-                  (i) => Text(source[i].dateLabel.isEmpty ? '—' : source[i].dateLabel,
-                      style: _pjs(size: 9, weight: FontWeight.w600, color: _t3)),
+              if (hasHistory) ...[
+                SizedBox(height: 76, width: double.infinity, child: CustomPaint(painter: _HistoryPainter(source))),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    math.min(source.length, 5),
+                    (i) => Text(source[i].dateLabel.isEmpty ? '—' : source[i].dateLabel,
+                        style: _pjs(size: 9, weight: FontWeight.w600, color: _t3)),
+                  ),
                 ),
-              ),
+              ] else
+                Text('Henüz yeterli veri yok', style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -873,93 +1045,6 @@ class _HistoryPainter extends CustomPainter {
   bool shouldRepaint(covariant _HistoryPainter oldDelegate) => oldDelegate.points != points;
 }
 
-class _ContributorCard extends StatelessWidget {
-  const _ContributorCard({required this.product});
-
-  final ProductDetailResponse product;
-
-  @override
-  Widget build(BuildContext context) {
-    final fallbackLevel = LevelStyle.fromLevelLabel(product.bestPrice.userTier);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(24), boxShadow: [_cardShadow]),
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: product.bestPrice.userId.trim().isEmpty
-            ? const Stream.empty()
-            : FirebaseFirestore.instance.collection('users').doc(product.bestPrice.userId.trim()).snapshots(),
-        builder: (_, snap) {
-          final data = snap.data?.data() ?? const <String, dynamic>{};
-          final name = _resolveName(data, product.bestPrice.userName);
-          final level = _resolveLevel(data, product.bestPrice.userTier, fallbackLevel);
-          final isVerified = _resolveVerified(data, product.bestPrice);
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('FİYATI EKLEYEN', style: _pjs(size: 9, weight: FontWeight.w700, color: _t3, letterSpacing: 0.5)),
-                  const SizedBox(height: 7),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(color: level.badgeBackground, borderRadius: BorderRadius.circular(999)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(level.icon, size: 15, color: level.badgeBorder),
-                        const SizedBox(width: 6),
-                        Text(name, style: _pjs(size: 14, weight: FontWeight.w800, color: level.badgeForeground)),
-                        if (isVerified) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.verified, color: Color(0xFF2B6CB0), size: 15),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              const Icon(Icons.outlined_flag_rounded, color: _red, size: 20),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  static bool _resolveVerified(Map<String, dynamic> data, BestPrice bestPrice) {
-    return data['verifiedBadge'] == true ||
-        data['verified'] == true ||
-        bestPrice.addedByVerifiedBadge ||
-        bestPrice.createdByVerifiedSnapshot;
-  }
-
-  static String _resolveName(Map<String, dynamic> d, String fallback) {
-    for (final key in ['displayName', 'fullName', 'name', 'userName', 'username']) {
-      final v = (d[key] ?? '').toString().trim();
-      if (v.isNotEmpty && v.toLowerCase() != 'anonim') return v;
-    }
-    if (fallback.trim().isNotEmpty) return fallback.trim();
-    return 'Kullanıcı';
-  }
-
-  static UserLevel _resolveLevel(Map<String, dynamic> d, String fallbackLabel, UserLevel fallback) {
-    final pts = (d['totalPoints'] as num?)?.toInt() ?? (d['points'] as num?)?.toInt();
-    final trust = ((d['trustScorePercent'] as num?)?.toInt() ?? (d['reliabilityScore'] as num?)?.round())?.clamp(0, 100);
-    final votes = (d['trustTotalVotes'] as num?)?.toInt() ?? 0;
-    if (pts != null && trust != null) {
-      return LevelStyle.fromFinalLevel(totalPoints: pts, trustPercent: trust, totalVotes: votes);
-    }
-    final explicit = (d['level'] ?? d['levelName'] ?? d['tierName'])?.toString().trim();
-    if (explicit != null && explicit.isNotEmpty) return LevelStyle.fromLevelLabel(explicit);
-    if (fallbackLabel.trim().isNotEmpty) return LevelStyle.fromLevelLabel(fallbackLabel);
-    return fallback;
-  }
-}
-
 class _VerificationSection extends ConsumerWidget {
   const _VerificationSection({
     required this.product,
@@ -986,7 +1071,17 @@ class _VerificationSection extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Fiyat Doğrulama', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              Text('${product.priceEntryCount} kayıt', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              pricesAsync.when(
+                loading: () => Text('${product.priceEntryCount} kayıt', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+                error: (_, __) => Text('1 kayıt', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+                data: (list) {
+                  final allPrices = _resolveAllPrices(list);
+                  return GestureDetector(
+                    onTap: () => _showAllPricesSheet(context, ref, allPrices),
+                    child: Text('${allPrices.length} kayıt', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -995,19 +1090,29 @@ class _VerificationSection extends ConsumerWidget {
           decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(24), boxShadow: [_cardShadow]),
           child: pricesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator(color: _tanCard)),
-            error: (_, __) => _verificationRow(context, ref, _toPriceModel(product.bestPrice), true),
+            error: (_, __) => _PriceEntryRow(
+              entry: _toPriceModel(product.bestPrice),
+              isSubmitting: isSubmitting,
+              onVote: onVote,
+              onWrongTap: onWrongTap,
+            ),
             data: (list) {
-              final entries = list.where((e) => e.isActive).toList()..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
-              final shown = entries.isEmpty ? [_toPriceModel(product.bestPrice)] : entries;
+              final allPrices = _resolveAllPrices(list);
+              final displayedPrices = allPrices.take(5).toList();
               return Column(
                 children: [
-                  for (var i = 0; i < shown.length; i++)
+                  for (var i = 0; i < displayedPrices.length; i++)
                     Container(
-                      padding: EdgeInsets.only(top: i == 0 ? 0 : 12, bottom: i == shown.length - 1 ? 0 : 12),
+                      padding: EdgeInsets.only(top: i == 0 ? 0 : 12, bottom: i == displayedPrices.length - 1 ? 0 : 12),
                       decoration: BoxDecoration(
-                        border: i == shown.length - 1 ? null : const Border(bottom: BorderSide(color: _border)),
+                        border: i == displayedPrices.length - 1 ? null : const Border(bottom: BorderSide(color: _border)),
                       ),
-                      child: _verificationRow(context, ref, shown[i], false),
+                      child: _PriceEntryRow(
+                        entry: displayedPrices[i],
+                        isSubmitting: isSubmitting,
+                        onVote: onVote,
+                        onWrongTap: onWrongTap,
+                      ),
                     ),
                 ],
               );
@@ -1018,7 +1123,105 @@ class _VerificationSection extends ConsumerWidget {
     );
   }
 
-  Widget _verificationRow(BuildContext context, WidgetRef ref, PriceModel entry, bool fallback) {
+  List<PriceModel> _resolveAllPrices(List<PriceModel> list) {
+    final entries = list.where((e) => e.isActive).toList()..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+    return entries.isEmpty ? [_toPriceModel(product.bestPrice)] : entries;
+  }
+
+  void _showAllPricesSheet(BuildContext context, WidgetRef ref, List<PriceModel> allPrices) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tüm Fiyat Kayıtları', style: _pjs(size: 18, weight: FontWeight.w900, letterSpacing: -0.3)),
+                    Text('${allPrices.length} kayıt', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  controller: controller,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: allPrices.length,
+                  separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
+                  itemBuilder: (_, i) => _PriceEntryRow(
+                    entry: allPrices[i],
+                    isSubmitting: isSubmitting,
+                    onVote: onVote,
+                    onWrongTap: onWrongTap,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static PriceModel _toPriceModel(BestPrice b) {
+    return PriceModel(
+      id: b.id,
+      productId: '',
+      userId: b.userId,
+      price: b.price,
+      branchStoreId: b.storeId,
+      reportedAt: DateTime.now(),
+      userName: b.userName,
+      storeName: b.store,
+      upVotes: b.upVotes,
+      downVotes: b.downVotes,
+      addedByLevelSnapshot: b.userTier,
+    );
+  }
+
+  static String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inHours < 1) return '${d.inMinutes} dk önce';
+    if (d.inDays < 1) return '${d.inHours} saat önce';
+    return '${d.inDays} gün önce';
+  }
+}
+
+class _PriceEntryRow extends ConsumerWidget {
+  const _PriceEntryRow({
+    required this.entry,
+    required this.isSubmitting,
+    required this.onVote,
+    required this.onWrongTap,
+  });
+
+  final PriceModel entry;
+  final bool isSubmitting;
+  final Future<void> Function(String, bool) onVote;
+  final void Function(String) onWrongTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authStateProvider).valueOrNull;
     final voteStream = currentUser == null
         ? const Stream<String?>.empty()
@@ -1073,7 +1276,7 @@ class _VerificationSection extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text('${entry.storeName ?? 'Market'} · ${_timeAgo(entry.reportedAt)}',
+                        Text('${entry.storeName ?? 'Market'} · ${_VerificationSection._timeAgo(entry.reportedAt)}',
                             style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
                       ],
                     ),
@@ -1115,11 +1318,11 @@ class _VerificationSection extends ConsumerWidget {
             ),
             if (isOwner)
               Padding(
-                padding: EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: _red, size: 13),
-                    SizedBox(width: 5),
+                    const Icon(Icons.info_outline, color: _red, size: 13),
+                    const SizedBox(width: 5),
                     Text('Kendi eklediğin fiyatı doğrulayamazsın', style: _pjs(size: 11, weight: FontWeight.w600, color: _red)),
                   ],
                 ),
@@ -1176,13 +1379,12 @@ class _VerificationSection extends ConsumerWidget {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: i == 2 && count > 3 ? _t3 : colors[i % colors.length],
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: _white, width: 2),
+                color: i == 2 && count > 3 ? _dark : colors[i % colors.length],
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _white, width: 1.5),
               ),
-              alignment: Alignment.center,
               child: i == 2 && count > 3
-                  ? Text('+$remain', style: _pjs(size: 8, weight: FontWeight.w700, color: _white))
+                  ? Center(child: Text('+$remain', style: _pjs(size: 7, weight: FontWeight.w800, color: _white)))
                   : null,
             ),
           );
@@ -1198,50 +1400,43 @@ class _VerificationSection extends ConsumerWidget {
     required Color activeColor,
     required VoidCallback? onTap,
   }) {
+    final enabled = onTap != null;
+    final bgColor = active
+        ? (activeColor == _green ? _greenBg : _redBg)
+        : enabled
+            ? _bg
+            : _bg.withOpacity(0.7);
+    final borderColor = active ? activeColor.withOpacity(0.2) : Colors.transparent;
+    final iconColor = active
+        ? activeColor
+        : enabled
+            ? _t2
+            : _t3;
+    final textColor = active
+        ? activeColor
+        : enabled
+            ? _t2
+            : _t3;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? (activeColor == _green ? _greenBg : _redBg) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: active ? activeColor.withOpacity(0.25) : _border,
-            width: 1.5,
-          ),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 11, color: active ? activeColor : _t2),
+            Icon(icon, size: 13, color: iconColor),
             const SizedBox(width: 4),
-            Text(label, style: _pjs(size: 11, weight: FontWeight.w800, color: active ? activeColor : _t2)),
+            Text(label, style: _pjs(size: 11, weight: FontWeight.w700, color: textColor)),
           ],
         ),
       ),
     );
-  }
-
-  static PriceModel _toPriceModel(BestPrice b) {
-    return PriceModel(
-      id: b.id,
-      productId: '',
-      userId: b.userId,
-      price: b.price,
-      branchStoreId: b.storeId,
-      reportedAt: DateTime.now(),
-      userName: b.userName,
-      storeName: b.store,
-      upVotes: b.upVotes,
-      downVotes: b.downVotes,
-      addedByLevelSnapshot: b.userTier,
-    );
-  }
-
-  static String _timeAgo(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inHours < 1) return '${d.inMinutes} dk önce';
-    if (d.inDays < 1) return '${d.inHours} saat önce';
-    return '${d.inDays} gün önce';
   }
 }
 
@@ -1276,7 +1471,10 @@ class _CommentsSection extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Yorumlar', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              GestureDetector(
+                onTap: onExpand,
+                child: Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
+              ),
             ],
           ),
         ),
@@ -1348,11 +1546,6 @@ class _CommentsSection extends StatelessWidget {
             ),
           );
         }),
-        if (all.length > 2 && !isExpanded)
-          TextButton(
-            onPressed: onExpand,
-            child: Text('Tümü gör →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
-          ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(22), boxShadow: [_cardShadow]),
