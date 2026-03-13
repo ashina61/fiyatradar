@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'controllers/points_controller.dart';
-import 'models/points_models.dart';
-import 'widgets/porsche_points_widgets.dart';
-import 'widgets/radar_kingdom_leaderboard_view.dart';
+import 'widgets/performance_leaderboard_tab.dart';
+import 'widgets/performance_overview_tab.dart';
+import 'widgets/points_palette.dart';
 
 final pointsTabProvider = StateProvider<int>((ref) => 0);
 
@@ -22,17 +22,24 @@ class PointsScreen extends ConsumerWidget {
         textTheme: GoogleFonts.plusJakartaSansTextTheme(Theme.of(context).textTheme),
       ),
       child: Scaffold(
-        backgroundColor: AppColors.bgApp,
+        backgroundColor: PointsPalette.bgApp,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: const Text('Performans & Puanlar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.8)),
+          title: const Text(
+            'Performans & Puanlar',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              letterSpacing: 0.8,
+            ),
+          ),
         ),
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-              child: SegmentedTabs(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+              child: _SegmentedTabs(
                 selectedTab: selectedTab,
                 onChanged: (value) => ref.read(pointsTabProvider.notifier).state = value,
               ),
@@ -40,11 +47,11 @@ class PointsScreen extends ConsumerWidget {
             Expanded(
               child: selectedTab == 0
                   ? pointsAsync.when(
-                      data: (state) => _OverviewTab(state: state),
+                      data: (state) => PerformanceOverviewTab(state: state),
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (_, __) => const Center(child: Text('Puan verisi yüklenemedi')),
                     )
-                  : const RadarKingdomLeaderboardView(),
+                  : const PerformanceLeaderboardTab(),
             ),
           ],
         ),
@@ -53,53 +60,62 @@ class PointsScreen extends ConsumerWidget {
   }
 }
 
-class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.state});
+class _SegmentedTabs extends StatelessWidget {
+  const _SegmentedTabs({required this.selectedTab, required this.onChanged});
 
-  final PointsState state;
+  final int selectedTab;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        color: PointsPalette.espresso.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
         children: [
-          BentoGridCard(state: state),
-          const SizedBox(height: 12),
-          RankPodium(state: state),
-          const SizedBox(height: 18),
-          const Text('Ayrıcalıkların', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 132,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: const [
-                PrivilegeCard(title: 'Temel Fiyat Bildirimi', unlocked: true, icon: Icons.sell_rounded),
-                SizedBox(width: 10),
-                PrivilegeCard(title: 'Özel Market Alarmları', unlocked: true, icon: Icons.notifications_active_rounded),
-                SizedBox(width: 10),
-                PrivilegeCard(title: 'Geçmiş Fiyat Analizi', unlocked: false, icon: Icons.history_rounded),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text('Puan Kazan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: state.dailyGoals.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.45,
-            ),
-            itemBuilder: (context, index) => MissionBox(goal: state.dailyGoals[index]),
-          ),
+          _tab('Genel Bakış', 0),
+          _tab('Zirvedekiler', 1),
         ],
+      ),
+    );
+  }
+
+  Widget _tab(String text, int index) {
+    final active = index == selectedTab;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => onChanged(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: active ? PointsPalette.espresso : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: active
+                ? const [
+                    BoxShadow(
+                      color: Color(0x4D1A120E),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: active ? Colors.white : PointsPalette.textMuted,
+            ),
+          ),
+        ),
       ),
     );
   }

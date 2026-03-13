@@ -687,7 +687,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 14,
