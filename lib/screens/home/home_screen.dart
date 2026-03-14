@@ -689,6 +689,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
           const SizedBox(height: 6),
           GridView.count(
+            primary: false,
+            padding: EdgeInsets.zero,
             crossAxisCount: 2,
             crossAxisSpacing: 14,
             mainAxisSpacing: 10,
