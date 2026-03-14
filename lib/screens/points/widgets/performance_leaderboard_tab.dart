@@ -111,15 +111,25 @@ class LeaderboardPodium extends StatelessWidget {
     final second = findRank(2);
     final third = findRank(3);
 
+    final podiumChildren = <Widget>[];
+
+    if (second != null) {
+      podiumChildren.add(Expanded(flex: 5, child: _PodiumCard(item: second)));
+    }
+
+    if (first != null) {
+      if (podiumChildren.isNotEmpty) podiumChildren.add(const SizedBox(width: 12));
+      podiumChildren.add(Expanded(flex: 7, child: _PodiumCard(item: first, isFirst: true)));
+    }
+
+    if (third != null) {
+      if (podiumChildren.isNotEmpty) podiumChildren.add(const SizedBox(width: 12));
+      podiumChildren.add(Expanded(flex: 5, child: _PodiumCard(item: third)));
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (second != null) Expanded(child: _PodiumCard(item: second)),
-        if (second != null && first != null && third != null) const SizedBox(width: 8),
-        if (first != null) Expanded(flex: 12, child: _PodiumCard(item: first, isFirst: true)),
-        if (second != null && first != null && third != null) const SizedBox(width: 8),
-        if (third != null) Expanded(child: _PodiumCard(item: third)),
-      ],
+      children: podiumChildren,
     );
   }
 }
@@ -134,7 +144,7 @@ class _PodiumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: isFirst ? 210 : 170,
-      padding: const EdgeInsets.fromLTRB(8, 16, 8, 14),
+      padding: EdgeInsets.fromLTRB(isFirst ? 14 : 12, 16, isFirst ? 14 : 12, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -162,7 +172,13 @@ class _PodiumCard extends StatelessWidget {
             child: Text(_initials(item.item.name), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: isFirst ? 18 : 14)),
           ),
           const SizedBox(height: 8),
-          Text(item.item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: isFirst ? 14 : 12, fontWeight: FontWeight.w800, color: PointsPalette.textDark)),
+          Text(
+            item.item.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: isFirst ? 14 : 12, fontWeight: FontWeight.w800, color: PointsPalette.textDark),
+          ),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -177,7 +193,13 @@ class _PodiumCard extends StatelessWidget {
           ),
           const Spacer(),
           Text('${item.rank}.', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: PointsPalette.textMuted)),
-          Text(NumberFormat.decimalPattern('tr_TR').format(item.item.totalPoints), style: TextStyle(fontSize: isFirst ? 20 : 16, fontWeight: FontWeight.w900, color: isFirst ? PointsPalette.espresso : PointsPalette.camel)),
+          Text(
+            NumberFormat.decimalPattern('tr_TR').format(item.item.totalPoints),
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+            style: TextStyle(fontSize: isFirst ? 20 : 16, fontWeight: FontWeight.w900, color: isFirst ? PointsPalette.espresso : PointsPalette.camel),
+          ),
         ],
       ),
     );
