@@ -29,8 +29,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   static const _headerBg = Color(0xFF1A120E);
   static const _brandBrown = Color(0xFFB88A5B);
   static const _bgApp = Color(0xFFEFECE6);
-  static const _surfaceIvory = Color(0xFFFAFAFA);
   static const _gold = Color(0xFFC29B78);
+  static const _cardWhite = Color(0xFFFFFFFF);
   final _priceController = TextEditingController();
   final _productController = TextEditingController();
   final _searchController = TextEditingController();
@@ -199,45 +199,34 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                 children: [
                   FadeTransition(
                     opacity: _headerFade,
-                    child: _buildHeader(theme),
+                    child: _buildHeader(theme, state, notifier),
                   ),
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(
                         parent: AlwaysScrollableScrollPhysics(),
                       ),
-                      padding: EdgeInsets.fromLTRB(20, 20, 20, 100 + bottomSafe),
+                      padding: EdgeInsets.fromLTRB(14, 12, 14, 100 + bottomSafe),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           StaggeredFadeSlide(
                             index: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: _surfaceIvory,
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: _brandBrown.withOpacity(0.16),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _brandBrown.withOpacity(0.08),
-                                    blurRadius: 28,
-                                    offset: const Offset(0, 14),
-                                  ),
-                                ],
-                              ),
+                            child: _buildSectionCard(
                               child: Column(
                                 children: [
-                                  _buildPriceCard(state, theme, notifier),
-                                  _buildDivider(),
                                   _buildProductSection(state, notifier, theme),
                                   _buildDivider(),
                                   _buildCategorySection(state, notifier, theme),
-                                  _buildDivider(),
-                                  _buildStoreSection(state, notifier, theme),
                                 ],
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          StaggeredFadeSlide(
+                            index: 1,
+                            child: _buildSectionCard(
+                              child: _buildStoreSection(state, notifier, theme),
                             ),
                           ),
                         ],
@@ -266,10 +255,32 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   }
 
   // ─── Header ──────────────────────────────────────────────────
-  Widget _buildHeader(ThemeData theme) {
+  Widget _buildSectionCard({required Widget child}) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 20),
+      decoration: BoxDecoration(
+        color: _cardWhite,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _brandBrown.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildHeader(
+    ThemeData theme,
+    AddPriceState state,
+    AddPriceNotifier notifier,
+  ) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
       decoration: BoxDecoration(
         color: _headerBg,
         borderRadius: const BorderRadius.only(
@@ -284,69 +295,47 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          PremiumPressable(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => Navigator.maybePop(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _gold.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
+          Row(
+            children: [
+              PremiumPressable(
+                borderRadius: BorderRadius.circular(13),
+                onTap: () => Navigator.maybePop(context),
+                child: _buildHeaderButton(Icons.arrow_back_ios_new_rounded),
               ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: _gold,
-                size: 18,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  'Fiyat Ekle',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: _surfaceIvory,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 19,
-                    letterSpacing: 0.2,
-                  ),
+              const Spacer(),
+              Text(
+                'Fiyat Ekle',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.5),
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Topluluğa katkıda bulunun',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: _gold.withOpacity(0.9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          PremiumPressable(
-            borderRadius: BorderRadius.circular(14),
-            onTap: _showInfoModal,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _gold.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(
-                Icons.info_outline_rounded,
-                color: _gold,
-                size: 21,
+              const Spacer(),
+              PremiumPressable(
+                borderRadius: BorderRadius.circular(13),
+                onTap: _showInfoModal,
+                child: _buildHeaderButton(Icons.info_outline_rounded),
               ),
-            ),
+            ],
           ),
+          const SizedBox(height: 18),
+          _buildPriceCard(state, theme, notifier),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeaderButton(IconData icon) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Icon(icon, color: Colors.white.withOpacity(0.85), size: 18),
     );
   }
 
@@ -361,14 +350,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       builder: (context, child) {
         final glowOpacity = 0.05 + (_priceGlowController.value * 0.05);
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
           decoration: BoxDecoration(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
                 color: _brandBrown.withOpacity(
-                  state.price.isNotEmpty ? glowOpacity : 0.02,
+                  state.price.isNotEmpty ? glowOpacity : 0,
                 ),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
@@ -379,38 +368,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         );
       },
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: _brandBrown.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.sell_rounded, size: 14, color: _brandBrown),
-                const SizedBox(width: 6),
-                const Text(
-                  'ÜRÜN FİYATI',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: _brandBrown,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
+                constraints: const BoxConstraints(maxWidth: 250),
                 child: TextField(
                   controller: _priceController,
                   focusNode: _priceFocus,
@@ -422,9 +387,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   ],
                   style: const TextStyle(
                     fontFamily: 'DM Sans',
-                    fontSize: 60,
+                    fontSize: 62,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                     letterSpacing: -3,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
@@ -438,9 +403,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                     hintText: '0,00',
                     hintStyle: TextStyle(
                       fontFamily: 'DM Sans',
-                      fontSize: 60,
+                      fontSize: 62,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.outline,
+                      color: Colors.white24,
                       letterSpacing: -3,
                     ),
                     contentPadding: EdgeInsets.zero,
@@ -448,20 +413,41 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               const Padding(
-                padding: EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(bottom: 12),
                 child: Text(
                   '₺',
                   style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 42,
+                    fontFamily: 'Poppins',
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: _brandBrown,
+                    color: _gold,
                   ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Fiyatı girmek için dokun',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white.withOpacity(0.26),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  _gold.withOpacity(0.45),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -475,7 +461,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     ThemeData theme,
   ) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -688,7 +674,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     ThemeData theme,
   ) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -815,7 +801,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     ThemeData theme,
   ) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -830,27 +816,27 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: AppColors.surfaceVariant.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.outline.withOpacity(0.3)),
+            color: _bgApp,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _brandBrown.withOpacity(0.14)),
           ),
           child: TabBar(
             controller: _tabController,
             indicator: BoxDecoration(
-              color: AppColors.surface,
+              color: _headerBg,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.1),
-                  blurRadius: 8,
+                  color: Colors.black.withOpacity(0.14),
+                  blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textTertiary,
+            labelColor: Colors.white,
+            unselectedLabelColor: const Color(0xFFA89A8A),
             labelStyle: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
