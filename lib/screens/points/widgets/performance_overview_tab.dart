@@ -125,7 +125,6 @@ class OverviewBentoSection extends StatelessWidget {
           flex: 13,
           child: Container(
             height: 152,
-            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               color: PointsPalette.espresso,
               borderRadius: BorderRadius.circular(32),
@@ -133,19 +132,31 @@ class OverviewBentoSection extends StatelessWidget {
                 BoxShadow(color: Color(0x261A120E), blurRadius: 30, offset: Offset(0, 16)),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'TOPLAM PUAN',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0x99FFFFFF), letterSpacing: 1),
-                ),
-                const Spacer(),
-                Text(
-                  NumberFormat.decimalPattern('tr_TR').format(state.totalPoints),
-                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1.5, height: 1),
-                ),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const _TotalPointsDecorLayer(),
+                  Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TOPLAM PUAN',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0x99FFFFFF), letterSpacing: 1),
+                        ),
+                        const Spacer(),
+                        Text(
+                          NumberFormat.decimalPattern('tr_TR').format(state.totalPoints),
+                          style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1.5, height: 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -165,6 +176,42 @@ class OverviewBentoSection extends StatelessWidget {
                 label: 'Onaylı',
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TotalPointsDecorLayer extends StatelessWidget {
+  const _TotalPointsDecorLayer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          right: -30,
+          top: -40,
+          child: Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0x30D5B28A), width: 1.4),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 40,
+          bottom: -70,
+          child: Container(
+            width: 170,
+            height: 170,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0x10D5B28A),
+            ),
           ),
         ),
       ],
