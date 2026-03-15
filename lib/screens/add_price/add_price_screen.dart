@@ -1,4 +1,3 @@
-Haklısın kanka, düzeltilmiş hali:
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -488,11 +487,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                   child: PremiumPressable(
                     borderRadius: BorderRadius.circular(10),
                     onTap: () {
-                      _priceController.text = priceStr;
-                      notifier.setPrice(r.price.toString());
-                      notifier.setProductName(r.name);
-                      _productController.text = r.name;
-                    },
+  _priceController.text = priceStr;
+  notifier.setPrice(r.price.toString());
+  notifier.onProductInputChanged(r.name);  // ← DÜZELTME
+  _productController.text = r.name;
+},
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 7),
