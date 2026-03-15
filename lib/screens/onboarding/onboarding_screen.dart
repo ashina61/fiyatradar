@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../auth/login_screen.dart';
+import '../auth/widgets/auth_portal_widgets.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -14,307 +14,199 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _pageController = PageController();
-  int _currentIndex = 0;
+  int _currentStep = 0;
 
-  final List<Map<String, dynamic>> _pages = const [
-    {
-      'badge': 'Akıllı Takip',
-      'title': 'Market Rafları Cebinde',
-      'description':
+  static const _steps = [
+    (
+      title: 'Market Rafları Cebinde',
+      subtitle:
           'Fiyatları akılda tutma devri bitti. Etrafındaki tüm güncel fiyatları tek ekranda gör, alışverişini akıllıca planla.',
-      'icon': Icons.radar_rounded,
-    },
-    {
-      'badge': 'Gücümüz Topluluk',
-      'title': 'Birlikte Daha Güçlüyüz',
-      'description':
+      badge: 'Güncel Fiyatlar',
+      icon: Icons.track_changes_rounded,
+      badgeBg: authEspresso,
+      badgeFg: Colors.white,
+    ),
+    (
+      title: 'Birlikte Daha Güçlüyüz',
+      subtitle:
           'Gördüğün güncel fiyatları paylaşarak ağımıza katıl. Kullanıcıların desteğiyle büyüyen bu sistemde, herkes için en şeffaf fiyat haritasını oluşturalım.',
-      'icon': Icons.groups_rounded,
-    },
-    {
-      'badge': 'Net Tasarruf',
-      'title': 'Bütçenin Kontrolü Sende',
-      'description':
+      badge: 'Görevleri Tamamla',
+      icon: Icons.groups_rounded,
+      badgeBg: authCamel,
+      badgeFg: authEspresso,
+    ),
+    (
+      title: 'Bütçenin Kontrolü Sende',
+      subtitle:
           'İhtiyaç listeni gir, FiyatRadar senin için en uygun market kombinasyonunu bulsun. Hem zamanını hem paranı koru.',
-      'icon': Icons.account_balance_wallet_rounded,
-    },
+      badge: 'En Uygun Sepet',
+      icon: Icons.account_balance_wallet_rounded,
+      badgeBg: Colors.white,
+      badgeFg: authEspresso,
+    ),
   ];
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _completeOnboarding() async {
+  Future<void> _goLogin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_complete', true);
     widget.onComplete();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    context.go('/login');
   }
 
-  void _onNextPressed() {
-    if (_currentIndex < _pages.length - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+  void _next() {
+    if (_currentStep == _steps.length - 1) {
+      _goLogin();
       return;
     }
-    _completeOnboarding();
+    setState(() => _currentStep += 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAF6F0),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
-              child: Row(
+    final step = _steps[_currentStep];
+    return AuthSurface(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Row(
                 children: [
-                  Text(
-                    'FiyatRadar',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: const Color(0xFF6B4226),
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _completeOnboarding,
-                    child: Text(
-                      'Atla',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFA38671),
-                      ),
-                    ),
-                  ),
+                  const Icon(Icons.radar_rounded, color: authCamel, size: 24),
+                  const SizedBox(width: 6),
+                  Text('FiyatRadar', style: authText(size: 16, weight: FontWeight.w900, letterSpacing: -0.5)),
                 ],
               ),
+              const Spacer(),
+              TextButton(onPressed: _goLogin, child: Text('Atla', style: authText(size: 14, weight: FontWeight.w700, color: authMuted))),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 380),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(position: Tween(begin: const Offset(.06, 0), end: Offset.zero).animate(anim), child: child),
+              ),
+              child: _OnboardingStepCard(
+                key: ValueKey(_currentStep),
+                title: step.title,
+                subtitle: step.subtitle,
+                badge: step.badge,
+                icon: step.icon,
+                badgeBg: step.badgeBg,
+                badgeFg: step.badgeFg,
+              ),
             ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _pages.length,
-                onPageChanged: (index) => setState(() => _currentIndex = index),
-                itemBuilder: (context, index) {
-                  final page = _pages[index];
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            constraints: const BoxConstraints(maxHeight: 320),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFAF6F0),
-                              borderRadius: BorderRadius.circular(40),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.white,
-                                  offset: Offset(-12, -12),
-                                  blurRadius: 24,
-                                ),
-                                BoxShadow(
-                                  color: Color(0x1FA66632),
-                                  offset: Offset(12, 12),
-                                  blurRadius: 24,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              alignment: Alignment.center,
-                              children: [
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 110,
-                                      height: 110,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Color(0xFFFAF6F0),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Color(0x26A66632),
-                                            offset: Offset(8, 8),
-                                            blurRadius: 16,
-                                          ),
-                                          BoxShadow(
-                                            color: Color(0xFFFFFFFF),
-                                            offset: Offset(-8, -8),
-                                            blurRadius: 16,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        page['icon'] as IconData,
-                                        size: 52,
-                                        color: const Color(0xFF6B4226),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Positioned(
-                                  bottom: -15,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(100),
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Color(0xFF6B4226),
-                                          Color(0xFF4A2E1B),
-                                        ],
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x4D6B4226),
-                                          offset: Offset(0, 8),
-                                          blurRadius: 20,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      page['badge'] as String,
-                                      style: GoogleFonts.outfit(
-                                        color: const Color(0xFFFFFFFF),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: Column(
-                            children: [
-                              Text(
-                                page['title'] as String,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.outfit(
-                                  color: const Color(0xFF4A2E1B),
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                page['description'] as String,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.outfit(
-                                  color: const Color(0xFF8C6A53),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+          ),
+          const SizedBox(height: 26),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_steps.length, (i) {
+              final active = i == _currentStep;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: active ? 24 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: active ? authCamel : authEspresso.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 24),
+          MassivePrimaryButton(label: _currentStep == _steps.length - 1 ? 'Sisteme Bağlan' : 'Devam Et', onPressed: _next),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingStepCard extends StatelessWidget {
+  const _OnboardingStepCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.icon,
+    required this.badgeBg,
+    required this.badgeFg,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+  final IconData icon;
+  final Color badgeBg;
+  final Color badgeFg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 320,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(36),
+            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .12), blurRadius: 40, offset: Offset(0, 20))],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 110,
+                height: 260,
+                decoration: BoxDecoration(
+                  color: authWhite,
+                  borderRadius: BorderRadius.circular(60),
+                  border: Border.all(color: Colors.white.withOpacity(.8)),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 16, offset: Offset(-8, -8)),
+                    BoxShadow(color: Color.fromRGBO(28, 17, 8, .05), blurRadius: 24, offset: Offset(8, 8)),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    decoration: const BoxDecoration(
+                      color: authWhite,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 16, offset: Offset(6, 6)),
+                        BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 10, offset: Offset(-4, -4)),
                       ],
                     ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _pages.length,
-                      (index) {
-                        final isActive = _currentIndex == index;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: isActive ? 28 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? const Color(0xFF6B4226)
-                                : const Color(0xFFEAD8C8),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      },
-                    ),
+                    child: Icon(icon, size: 36, color: authEspresso),
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF8C5938), Color(0xFF4A2E1B)],
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x406B4226),
-                            offset: Offset(0, 10),
-                            blurRadius: 25,
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _onNextPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0x00000000),
-                          shadowColor: const Color(0x00000000),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          _currentIndex == _pages.length - 1
-                              ? 'Uygulamaya Başla'
-                              : 'Devam Et',
-                          style: GoogleFonts.outfit(
-                            color: const Color(0xFFFFFFFF),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+              Positioned(
+                bottom: -16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(100),
+                    border: const Border.fromBorderSide(BorderSide(color: authBg, width: 2)),
+                    boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .2), blurRadius: 20, offset: Offset(0, 8))],
+                  ),
+                  child: Text(badge, style: authText(size: 12, weight: FontWeight.w800, color: badgeFg)),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 40),
+        Text(title, textAlign: TextAlign.center, style: authText(size: 28, weight: FontWeight.w900, letterSpacing: -1, height: 1.15)),
+        const SizedBox(height: 12),
+        Text(subtitle, textAlign: TextAlign.center, style: authText(size: 14, weight: FontWeight.w500, color: authMuted, height: 1.5)),
+      ],
     );
   }
 }

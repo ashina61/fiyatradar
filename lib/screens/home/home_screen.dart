@@ -677,7 +677,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSpacing: 10,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.2,
+            childAspectRatio: 1.0,
             children: [
               _insightCard(
                 icon: Icons.price_change_rounded,
@@ -725,7 +725,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           Text(
             label,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 10,
@@ -746,17 +746,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 6),
-          Expanded(
-            child: Text(
-              meta,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color: FRColors.textMuted,
-                height: 1.32,
-              ),
+          const SizedBox(height: 8),
+          Text(
+            meta,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: FRColors.textMuted,
+              height: 1.32,
             ),
           ),
         ],

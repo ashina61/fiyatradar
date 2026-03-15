@@ -23,6 +23,7 @@ class AddPriceState {
     this.selectedCategoryId,
     this.selectedCategoryName,
     this.selectedProductId,
+    this.selectedProductImageUrl,
     this.lockedCategoryByProduct = false,
     this.productSuggestions = const [],
     this.activeTab = 0,
@@ -46,6 +47,7 @@ class AddPriceState {
   final String? selectedCategoryId;
   final String? selectedCategoryName;
   final String? selectedProductId;
+  final String? selectedProductImageUrl;
   final bool lockedCategoryByProduct;
   final List<ProductModel> productSuggestions;
   final int activeTab;
@@ -71,6 +73,7 @@ class AddPriceState {
     String? selectedCategoryName,
     bool clearCategory = false,
     String? selectedProductId,
+    String? selectedProductImageUrl,
     bool clearSelectedProduct = false,
     bool? lockedCategoryByProduct,
     List<ProductModel>? productSuggestions,
@@ -102,6 +105,9 @@ class AddPriceState {
           : (selectedCategoryName ?? this.selectedCategoryName),
       selectedProductId:
           clearSelectedProduct ? null : (selectedProductId ?? this.selectedProductId),
+      selectedProductImageUrl: clearSelectedProduct
+          ? null
+          : (selectedProductImageUrl ?? this.selectedProductImageUrl),
       lockedCategoryByProduct:
           lockedCategoryByProduct ?? this.lockedCategoryByProduct,
       productSuggestions: productSuggestions ?? this.productSuggestions,
@@ -308,6 +314,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       productSuggestions: const [],
       clearBarcode: true,
       clearSelectedProduct: shouldClearSelection,
+      selectedProductImageUrl: shouldClearSelection ? null : state.selectedProductImageUrl,
       lockedCategoryByProduct: shouldClearSelection ? false : state.lockedCategoryByProduct,
     );
 
@@ -350,6 +357,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       productName: product.name,
       barcode: barcode ?? product.barcode,
       selectedProductId: product.id,
+      selectedProductImageUrl: product.effectiveImage,
       productSuggestions: const [],
       selectedCategoryId: resolvedCategory?.id,
       selectedCategoryName: resolvedCategory?.title,
