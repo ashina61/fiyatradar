@@ -326,10 +326,10 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
-        final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 5);
+        final results = await _firestore.searchProducts(normalizedInput);
         _log('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
-        state = state.copyWith(productSuggestions: results);
+        state = state.copyWith(productSuggestions: results.take(5).toList(growable: false));
       } catch (_) {
         _log('PRODUCT_QUERY: $normalizedInput -> 0 results');
         state = state.copyWith(productSuggestions: const []);
@@ -538,5 +538,21 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       rethrow;
     }
   }
-}
 
+  Future<void> submitProductSuggestion({required String userId}) async {
+    final name = state.productName.trim();
+    if (userId.trim().isEmpty) {
+      throw Exception('Kullanıcı kimliği bulunamadı.');
+    }
+    if (name.length < 2) {
+      throw Exception('Ürün adı en az 2 karakter olmalı.');
+    }
+
+    await _firestore.addProductSuggestion(
+      name: name,
+      barcode: state.barcode,
+      category: state.selectedCategoryName,
+      userId: userId,
+    );
+  }
+}

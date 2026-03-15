@@ -135,7 +135,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: _buildInsightGrid(trendingProducts),
+                child: _buildInsightGrid(
+                  latestPrices,
+                  usersAsync.valueOrNull ?? const <UserModel>[],
+                ),
               ),
               SliverToBoxAdapter(
                 child: _buildTrendProducts(
@@ -641,45 +644,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return null;
   }
 
-  Widget _buildInsightGrid(List<ProductModel> trendingProducts) {
-    if (trendingProducts.isEmpty) return const SizedBox.shrink();
+  Widget _buildInsightGrid(
+    List<PriceModel> latestPrices,
+    List<UserModel> users,
+  ) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final tomorrowStart = todayStart.add(const Duration(days: 1));
 
-    final prices = trendingProducts
-        .map((e) => e.lastPrice ?? 0)
-        .where((e) => e > 0)
-        .toList()
-      ..sort();
-    final min = prices.isNotEmpty ? prices.first : 0.0;
-    final max = prices.length > 1 ? prices.last : 0.0;
+    final todaysPriceEntries = latestPrices.where((price) {
+      final dt = price.reportedAt;
+      return !dt.isBefore(todayStart) && dt.isBefore(tomorrowStart);
+    }).length;
 
-    final widgets = <Widget>[];
-
-    if (max > 0 && min > 0 && max > min) {
-      final advantage = ((max - min) / max * 100).round();
-      widgets.add(
-        _insightCard(
-          icon: Icons.savings_rounded,
-          iconBg: FRColors.successBg,
-          iconColor: FRColors.success,
-          label: 'SEPET AVANTAJI',
-          value: '%$advantage',
-          meta: 'Trend ürünlerde kaydedilen en düşük ve en yüksek fiyat karşılaştırıldı.',
-        ),
-      );
-
-      widgets.add(
-        _insightCard(
-          icon: Icons.stacked_line_chart_rounded,
-          iconBg: const Color(0x26C29B78),
-          iconColor: FRColors.gold,
-          label: 'FİYAT ARALIĞI',
-          value: formatTRY(max - min, withDecimals: false),
-          meta: 'Trend listesinde aynı ürünlerde görülen toplam fiyat oynaklığını gösterir.',
-        ),
-      );
-    }
-
-    if (widgets.isEmpty) return const SizedBox.shrink();
+    final todaysNewUsers = users.where((user) {
+      final dt = user.createdAt;
+      return !dt.isBefore(todayStart) && dt.isBefore(tomorrowStart);
+    }).length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -697,7 +678,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
             childAspectRatio: 1.2,
-            children: widgets,
+            children: [
+              _insightCard(
+                icon: Icons.price_change_rounded,
+                iconBg: const Color(0x261976D2),
+                iconColor: const Color(0xFF1976D2),
+                label: 'BUGÜN GİRİLEN FİYAT',
+                value: '$todaysPriceEntries',
+                meta: 'Bugün sisteme eklenen toplam fiyat bildirimi sayısı.',
+              ),
+              _insightCard(
+                icon: Icons.person_add_alt_1_rounded,
+                iconBg: FRColors.successBg,
+                iconColor: FRColors.success,
+                label: 'BUGÜN KAYDOLAN',
+                value: '$todaysNewUsers',
+                meta: 'Bugün uygulamaya yeni kayıt olan kullanıcı sayısı.',
+              ),
+            ],
           ),
         ],
       ),
