@@ -1,4 +1,5 @@
-import 'dart:ui';
+import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -6,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/category_model.dart';
+import '../../models/product_model.dart';
 import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
@@ -55,10 +58,9 @@ class AddPriceScreen extends ConsumerStatefulWidget {
   ConsumerState<AddPriceScreen> createState() => _AddPriceScreenState();
 }
 
-class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
-    with TickerProviderStateMixin {
+class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _productController = TextEditingController();
-  final _priceHiddenController = TextEditingController();
+  final _hiddenPriceController = TextEditingController();
   final _productFocus = FocusNode();
   final _priceFocus = FocusNode();
   final _scrollController = ScrollController();
@@ -67,11 +69,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   final _storeKey = GlobalKey();
   final _priceKey = GlobalKey();
 
+
   _AddStep _activeStep = _AddStep.product;
+  bool _productCollapsed = false;
+  bool _storeCollapsed = false;
   bool _showSuccess = false;
-  String _savedProduct = '';
-  String _savedStore = '';
-  String _savedPrice = '';
+  int _pricePopTick = 0;
+  String _rawDigits = '';
+  XFile? _productPhoto;
+
+  String _savedProduct = '—';
+  String _savedStore = '—';
+  String _savedPrice = '—';
 
   @override
   void initState() {
@@ -87,64 +96,60 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
   @override
   void dispose() {
     _productController.dispose();
-    _priceHiddenController.dispose();
+    _hiddenPriceController.dispose();
     _productFocus.dispose();
     _priceFocus.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  bool _isProductDone(AddPriceState state) {
-    return state.productName.trim().isNotEmpty && state.selectedCategoryId != null;
-  }
-
+  bool _isProductDone(AddPriceState state) =>
+      state.productName.trim().isNotEmpty && state.selectedCategoryId != null;
   bool _isStoreDone(AddPriceState state) => state.selectedStoreId != null;
+  bool _isPriceDone() => (_rawDigits.isNotEmpty && int.parse(_rawDigits) > 0);
 
-  double? _parsePrice(String v) {
-    final raw = v.replaceAll(' ', '').replaceAll(',', '.').trim();
-    if (raw.isEmpty) return null;
-    return double.tryParse(raw);
-  }
-
-  bool _isPriceDone(AddPriceState state) => (_parsePrice(state.price) ?? 0) > 0;
-
-  bool _isFormReady(AddPriceState state) {
-    return _isProductDone(state) && _isStoreDone(state) && _isPriceDone(state);
-  }
+  bool _isFormReady(AddPriceState state) =>
+      _isProductDone(state) && _isStoreDone(state) && _isPriceDone();
 
   void _syncControllers(AddPriceState state) {
     if (_productController.text != state.productName) {
-      _productController.value = _productController.value.copyWith(
+      _productController.value = TextEditingValue(
         text: state.productName,
         selection: TextSelection.collapsed(offset: state.productName.length),
       );
     }
-
-    if (_priceHiddenController.text != state.price) {
-      _priceHiddenController.value = _priceHiddenController.value.copyWith(
-        text: state.price,
-        selection: TextSelection.collapsed(offset: state.price.length),
-      );
+    final nextDigits = _digitsFromProviderPrice(state.price);
+    if (nextDigits != _rawDigits) {
+      _rawDigits = nextDigits;
     }
   }
 
-  void _advanceStepIfNeeded(AddPriceState state) {
-    final productDone = _isProductDone(state);
-    final storeDone = _isStoreDone(state);
+  String _digitsFromProviderPrice(String price) {
+    final clean = price.replaceAll(' ', '').replaceAll(',', '.').trim();
+    if (clean.isEmpty) return '';
+    final value = double.tryParse(clean);
+    if (value == null || value <= 0) return '';
+    return (value * 100).round().toString();
+  }
 
-    final next = !productDone
+  void _updateStep(AddPriceState state) {
+    final next = !_isProductDone(state)
         ? _AddStep.product
-        : !storeDone
+        : !_isStoreDone(state)
             ? _AddStep.store
             : _AddStep.price;
-
-    if (_activeStep != next) {
+    if (next != _activeStep) {
       setState(() => _activeStep = next);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToStep(next));
     }
   }
 
-  void _scrollToStep(_AddStep step) {
+  Future<void> _scrollToStep(_AddStep step, {bool expand = false}) async {
+    if (expand) {
+      setState(() {
+        if (step == _AddStep.product) _productCollapsed = false;
+        if (step == _AddStep.store) _storeCollapsed = false;
+      });
+    }
     final key = switch (step) {
       _AddStep.product => _productKey,
       _AddStep.store => _storeKey,
@@ -152,37 +157,31 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     };
     final ctx = key.currentContext;
     if (ctx == null) return;
-    Scrollable.ensureVisible(
+    await Scrollable.ensureVisible(
       ctx,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
-      alignment: 0.04,
+      alignment: 0.02,
     );
+    if (step == _AddStep.price) _priceFocus.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addPriceProvider);
     final notifier = ref.read(addPriceProvider.notifier);
-    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
 
     _syncControllers(state);
-    _advanceStepIfNeeded(state);
+    _updateStep(state);
 
-    ref.listen<String?>(
-      addPriceProvider.select((s) => s.error),
-      (_, next) {
-        if (next != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          );
-        }
-      },
-    );
+    ref.listen<String?>(addPriceProvider.select((s) => s.error), (_, next) {
+      if (next != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next), behavior: SnackBarBehavior.floating),
+        );
+      }
+    });
 
     return GestureDetector(
       onTap: () {
@@ -195,37 +194,36 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           children: [
             Column(
               children: [
-                _buildHeader(state),
+                _buildHeader(state, notifier),
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(16, 14, 16, 112 + bottomSafe),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 108 + safeBottom),
                     child: Column(
                       children: [
-                        _buildProductPanel(state, notifier),
-                        const SizedBox(height: 10),
-                        _buildStorePanel(state, notifier),
-                        const SizedBox(height: 10),
-                        _buildPricePanel(state, notifier),
+                        _buildProductSection(state, notifier),
+                        const SizedBox(height: 24),
+                        _buildStoreSection(state, notifier),
+                        const SizedBox(height: 24),
+                        _buildPriceSection(state, notifier),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-            _buildSaveBar(state, bottomSafe),
-            if (_showSuccess) _buildSuccessOverlay(bottomSafe),
+            _buildSaveBar(state, safeBottom),
+            _buildSuccessOverlay(safeBottom, notifier),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(AddPriceState state) {
+  Widget _buildHeader(AddPriceState state, AddPriceNotifier notifier) {
     final productDone = _isProductDone(state);
     final storeDone = _isStoreDone(state);
-    final priceDone = _isPriceDone(state);
+    final priceDone = _isPriceDone();
 
     return Container(
       decoration: const BoxDecoration(
@@ -238,15 +236,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       child: Stack(
         children: [
           Positioned(
-            right: -24,
-            top: -24,
+            right: -28,
+            top: -28,
             child: Container(
-              width: 140,
-              height: 140,
+              width: 150,
+              height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [_gold.withOpacity(0.22), Colors.transparent],
+                  colors: [_gold.withOpacity(0.2), Colors.transparent],
+                  stops: const [0, 0.62],
                 ),
               ),
             ),
@@ -254,7 +253,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
               child: Column(
                 children: [
                   Row(
@@ -264,39 +263,46 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                         child: Text(
                           'Fiyat Ekle',
                           textAlign: TextAlign.center,
-                          style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white.withOpacity(0.45)),
+                          style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white.withOpacity(0.4)),
                         ),
                       ),
-                      _headerButton(Icons.info_outline_rounded, _showInfoModal),
+                      PremiumPressable(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _resetAll(notifier),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Text('Sıfırla', style: _pjs(size: 11, weight: FontWeight.w800, color: Colors.white.withOpacity(0.3))),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
-                        child: _StepPill(
-                          title: 'Ürün',
-                          value: productDone ? _truncate(state.productName, 14) : 'Seçilmedi',
-                          active: _activeStep == _AddStep.product,
-                          done: productDone,
+                        child: _AnswerPill(
+                          label: 'Ürün',
+                          value: productDone ? _truncate(state.productName, 12) : '—',
+                          filled: productDone,
+                          onTap: () => _scrollToStep(_AddStep.product, expand: true),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Expanded(
-                        child: _StepPill(
-                          title: 'Market',
-                          value: storeDone ? _truncate(state.selectedStoreName ?? '', 14) : 'Seçilmedi',
-                          active: _activeStep == _AddStep.store,
-                          done: storeDone,
+                        child: _AnswerPill(
+                          label: 'Market',
+                          value: storeDone ? _truncate(state.selectedStoreName ?? '', 12) : '—',
+                          filled: storeDone,
+                          onTap: () => _scrollToStep(_AddStep.store, expand: true),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Expanded(
-                        child: _StepPill(
-                          title: 'Fiyat',
-                          value: priceDone ? _formatPrice(_parsePrice(state.price) ?? 0) : '—',
-                          active: _activeStep == _AddStep.price,
-                          done: priceDone,
+                        child: _AnswerPill(
+                          label: 'Fiyat',
+                          value: priceDone ? '${_displayAmount()} ₺' : '—',
+                          filled: priceDone,
+                          onTap: () => _scrollToStep(_AddStep.price),
                         ),
                       ),
                     ],
@@ -310,334 +316,351 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
-  Widget _buildProductPanel(AddPriceState state, AddPriceNotifier notifier) {
+  Widget _buildProductSection(AddPriceState state, AddPriceNotifier notifier) {
     final done = _isProductDone(state);
-
-    return _panel(
+    return Column(
       key: _productKey,
-      title: 'Hangi ürün?',
-      icon: Icons.sell_outlined,
-      iconBg: _tan.withOpacity(0.1),
-      iconColor: _gold,
-      showEdit: done,
-      onEdit: () => setState(() => _activeStep = _AddStep.product),
-      visible: true,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: done
-            ? _ProductDoneState(
-                name: state.productName,
-                category: state.selectedCategoryName ?? 'Kategori',
-              )
-            : Column(
-                key: const ValueKey('product-input'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _bg,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _productFocus.hasFocus ? _tan.withOpacity(0.36) : Colors.transparent,
-                        width: 1.5,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('🏷️  Hangi ürün?', style: _pjs(size: 13, weight: FontWeight.w900, letterSpacing: -0.15)),
+        const SizedBox(height: 10),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          child: _productCollapsed && done
+              ? _SummaryRowCard(
+                  icon: Icons.sell_outlined,
+                  iconBg: _tan.withOpacity(0.1),
+                  iconColor: _gold,
+                  title: state.productName,
+                  subtitle: state.selectedCategoryName ?? 'Ürün',
+                  onTap: () => setState(() => _productCollapsed = false),
+                )
+              : Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
                       ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _productController,
-                            focusNode: _productFocus,
-                            onChanged: notifier.onProductInputChanged,
-                            decoration: InputDecoration(
-                              hintText: 'Ürün adını yaz…',
-                              hintStyle: _pjs(size: 14, weight: FontWeight.w500, color: _t3),
-                              isDense: true,
-                              border: InputBorder.none,
-                            ),
-                            style: _pjs(size: 15, weight: FontWeight.w700),
-                          ),
-                        ),
-                        PremiumPressable(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: _scanBarcode,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: _tan.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: _tan.withOpacity(0.2), width: 1.5),
-                            ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                             child: Row(
                               children: [
-                                const Icon(Icons.qr_code_scanner_rounded, size: 13, color: _tan),
-                                const SizedBox(width: 4),
-                                Text('Tara', style: _pjs(size: 11, weight: FontWeight.w800, color: _tan)),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _productController,
+                                    focusNode: _productFocus,
+                                    onChanged: notifier.onProductInputChanged,
+                                    style: _pjs(size: 16, weight: FontWeight.w800),
+                                    decoration: InputDecoration(
+                                      hintText: 'ürün adını yaz…',
+                                      hintStyle: _pjs(size: 16, weight: FontWeight.w500, color: _t3),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                PremiumPressable(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: _scanBarcode,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: _tan.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.qr_code_2_rounded, size: 13, color: _tan),
+                                        const SizedBox(width: 4),
+                                        Text('Tara', style: _pjs(size: 11, weight: FontWeight.w800, color: _tan)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            height: _showSuggestions(state) ? math.min(52.0 * state.productSuggestions.length + 1, 260) : 0,
+                            child: ClipRect(
+                              child: ListView.separated(
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: state.productSuggestions.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+                                itemBuilder: (context, i) {
+                                  final p = state.productSuggestions[i];
+                                  return InkWell(
+                                    onTap: () => _onProductPicked(p, notifier),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(p.name, style: _pjs(size: 14, weight: FontWeight.w800))),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: _gold.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text((p.categories.isNotEmpty ? p.categories.first : 'Ürün'), style: _pjs(size: 10, weight: FontWeight.w800, color: _gold)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: done
+                          ? Padding(
+                              key: const ValueKey('product-image-row'),
+                              padding: const EdgeInsets.only(top: 10),
+                              child: _ProductImageRow(
+                                imagePath: _productPhoto?.path,
+                                productName: state.productName,
+                                subtitle: state.selectedCategoryName ?? 'Ürün seçildi',
+                                onTapPhoto: _pickProductImage,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+                    _CategoryChips(state: state, notifier: notifier),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStoreSection(AddPriceState state, AddPriceNotifier notifier) {
+    final done = _isStoreDone(state);
+    return Column(
+      key: _storeKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('📍  Nerede gördün?', style: _pjs(size: 13, weight: FontWeight.w900, letterSpacing: -0.15)),
+        const SizedBox(height: 10),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          child: _storeCollapsed && done && state.selectedStore != null
+              ? _SummaryRowCard(
+                  icon: Icons.store_mall_directory_outlined,
+                  iconBg: _dark.withOpacity(0.07),
+                  iconColor: _t2,
+                  title: state.selectedStore!.name,
+                  subtitle: _storeSubtitle(state.selectedStore!),
+                  onTap: () => setState(() => _storeCollapsed = false),
+                )
+              : Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StoreModeButton(
+                            icon: Icons.location_on_outlined,
+                            text: 'Yakınımda',
+                            on: state.activeTab == 0,
+                            onTap: () => notifier.setActiveTab(0),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _StoreModeButton(
+                            icon: Icons.language,
+                            text: 'Online',
+                            on: state.activeTab == 1,
+                            onTap: () => notifier.setActiveTab(1),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  if (state.productSuggestions.isNotEmpty && _productFocus.hasFocus) ...[
                     const SizedBox(height: 10),
                     Container(
                       decoration: BoxDecoration(
-                        color: _bg,
-                        borderRadius: BorderRadius.circular(14),
+                        color: _white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
                       ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: state.productSuggestions.length,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: _border.withOpacity(0.4)),
-                        itemBuilder: (_, i) {
-                          final item = state.productSuggestions[i];
-                          final subtitle = [
-                            if (item.brand.trim().isNotEmpty) item.brand.trim(),
-                            ...item.categories.take(1),
-                          ].join(' · ');
-                          return ListTile(
-                            dense: true,
-                            title: Text(item.name, style: _pjs(size: 14, weight: FontWeight.w800)),
-                            subtitle: Text(subtitle, style: _pjs(size: 11, color: _t3)),
-                            trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: _t3),
-                            onTap: () {
-                              notifier.selectProductSuggestion(item);
-                              _productFocus.unfocus();
-                            },
-                          );
-                        },
-                      ),
+                      child: state.isStoresLoading
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 26),
+                              child: Center(child: CircularProgressIndicator(color: _tan)),
+                            )
+                          : Column(
+                              children: state.visibleStores.asMap().entries.map((entry) {
+                                final idx = entry.key;
+                                final store = entry.value;
+                                final selected = state.selectedStore?.id == store.id;
+                                return _StoreRow(
+                                  store: store,
+                                  selected: selected,
+                                  showDivider: idx != state.visibleStores.length - 1,
+                                  showNearestBadge: state.activeTab == 0 && idx == 0,
+                                  onTap: () {
+                                    notifier.setSelectedStore(store);
+                                    Future.delayed(const Duration(milliseconds: 320), () {
+                                      if (!mounted) return;
+                                      setState(() => _storeCollapsed = true);
+                                      _scrollToStep(_AddStep.price);
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
                     ),
                   ],
-                  if (state.barcode != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(8)),
-                      child: Text('Barkod: ${state.barcode}', style: _pjs(size: 11, weight: FontWeight.w700, color: _green)),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  _CategoryChips(state: state, notifier: notifier),
-                ],
-              ),
-      ),
+                ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStorePanel(AddPriceState state, AddPriceNotifier notifier) {
-    final productDone = _isProductDone(state);
-    final storeDone = _isStoreDone(state);
-
-    return _panel(
-      key: _storeKey,
-      title: 'Nerede gördün?',
-      icon: Icons.storefront_outlined,
-      iconBg: _dark.withOpacity(0.07),
-      iconColor: _t2,
-      showEdit: storeDone,
-      onEdit: () {
-        notifier.setSearchQuery('');
-        setState(() => _activeStep = _AddStep.store);
-      },
-      visible: productDone,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: storeDone
-            ? _StoreDoneState(store: state.selectedStore!)
-            : Column(
-                key: const ValueKey('store-input'),
-                children: [
-                  Row(
+  Widget _buildPriceSection(AddPriceState state, AddPriceNotifier notifier) {
+    final hasPrice = _isPriceDone();
+    final parts = _displayAmount().split(',');
+    return Column(
+      key: _priceKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('💰  Kaç lira?', style: _pjs(size: 13, weight: FontWeight.w900, letterSpacing: -0.15)),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: () => _priceFocus.requestFocus(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 1,
+                  height: 1,
+                  child: TextField(
+                    controller: _hiddenPriceController,
+                    focusNode: _priceFocus,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
+                    onChanged: (v) => _onPriceInput(v, notifier),
+                    decoration: const InputDecoration(border: InputBorder.none),
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 130),
+                      transitionBuilder: (child, animation) => ScaleTransition(scale: Tween<double>(begin: 1.05, end: 1).animate(animation), child: child),
+                      child: Text(
+                        parts.first,
+                        key: ValueKey('$_pricePopTick-${parts.first}'),
+                        style: _pjs(
+                          size: 64,
+                          weight: FontWeight.w900,
+                          color: hasPrice ? _t1 : _t1.withOpacity(.1),
+                          letterSpacing: -3.5,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(',${parts[1]}', style: _pjs(size: 28, weight: FontWeight.w700, color: _t1.withOpacity(hasPrice ? .42 : .18), letterSpacing: -1)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 6),
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: hasPrice ? 1 : 0.45,
+                        child: Text('₺', style: _pjs(size: 28, weight: FontWeight.w900, color: _gold)),
+                      ),
+                    ),
+                  ],
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 170),
+                  opacity: hasPrice ? 0 : 1,
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: _StoreModeButton(
-                          icon: Icons.location_on_outlined,
-                          text: 'Yakınımda',
-                          on: state.activeTab == 0,
-                          onTap: () => notifier.setActiveTab(0),
-                        ),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: .55, end: 1),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeInOut,
+                        builder: (context, value, child) => Transform.scale(scale: value, child: Opacity(opacity: value, child: child)),
+                        onEnd: () {
+                          if (mounted && !_isPriceDone()) setState(() {});
+                        },
+                        child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _StoreModeButton(
-                          icon: Icons.public_rounded,
-                          text: 'Online',
-                          on: state.activeTab == 1,
-                          onTap: () => notifier.setActiveTab(1),
-                        ),
-                      ),
+                      const SizedBox(width: 6),
+                      Text('Dokunarak fiyatı gir', style: _pjs(size: 12, weight: FontWeight.w600, color: _t3)),
                     ],
                   ),
-                  if (state.locationMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(state.locationMessage!, style: _pjs(size: 11, color: _t3)),
-                  ],
-                  const SizedBox(height: 10),
-                  if (state.isStoresLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator(color: _tan)),
-                    )
-                  else
-                    ...state.visibleStores.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final store = entry.value;
-                      final isSelected = state.selectedStore?.id == store.id;
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: idx == state.visibleStores.length - 1 ? 0 : 6),
-                        child: _StoreRow(
-                          store: store,
-                          selected: isSelected,
-                          showNearestBadge: state.activeTab == 0 && idx == 0,
-                          onTap: () {
-                            notifier.setSelectedStore(store);
-                            FocusScope.of(context).unfocus();
-                          },
-                        ),
-                      );
-                    }),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildPricePanel(AddPriceState state, AddPriceNotifier notifier) {
-    final visible = _isProductDone(state) && _isStoreDone(state);
-    final done = _isPriceDone(state);
-
-    final value = _parsePrice(state.price) ?? 0;
-    final intPart = NumberFormat.decimalPattern('tr_TR').format(value.floor());
-    final frac = ((value - value.floor()) * 100).round().clamp(0, 99).toString().padLeft(2, '0');
-
-    return _panel(
-      key: _priceKey,
-      title: 'Kaç lira?',
-      icon: Icons.currency_lira_rounded,
-      iconBg: _tan.withOpacity(0.1),
-      iconColor: _gold,
-      showEdit: done,
-      onEdit: () => setState(() => _activeStep = _AddStep.price),
-      visible: visible,
-      child: GestureDetector(
-        onTap: () => _priceFocus.requestFocus(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 0,
-              height: 0,
-              child: TextField(
-                controller: _priceHiddenController,
-                focusNode: _priceFocus,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,\.]'))],
-                onChanged: (v) => notifier.setPrice(v.replaceAll(' ', '')),
-                decoration: const InputDecoration(border: InputBorder.none),
-              ),
-            ),
-            Container(
-              height: 1.5,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(1),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    _tan.withOpacity(0.4),
-                    _tan.withOpacity(0.4),
-                    Colors.transparent,
-                  ],
-                  stops: const [0, 0.35, 0.65, 1],
-                ),
-              ),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Flexible(
-                  child: Text(
-                    intPart,
-                    overflow: TextOverflow.ellipsis,
-                    style: _pjs(
-                      size: 64,
-                      weight: FontWeight.w900,
-                      color: done ? _t1 : _t1.withOpacity(0.16),
-                      letterSpacing: -3.8,
-                      height: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 7),
-                  child: Text(',${frac}', style: _pjs(size: 30, weight: FontWeight.w700, color: _t1.withOpacity(done ? 0.42 : 0.18))),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 6, bottom: 9),
-                  child: Text('₺', style: _pjs(size: 30, weight: FontWeight.w900, color: _gold.withOpacity(done ? 1 : 0.45))),
                 ),
               ],
             ),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              opacity: done ? 0 : 1,
-              child: Text('Fiyatı girmek için dokun', style: _pjs(size: 12, weight: FontWeight.w600, color: _t3)),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildSaveBar(AddPriceState state, double bottomSafe) {
+  Widget _buildSaveBar(AddPriceState state, double safeBottom) {
     final enabled = _isFormReady(state) && !state.isLoading;
-
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + bottomSafe),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 30 + safeBottom),
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [_bg, _bg, Colors.transparent],
-            stops: [0, 0.55, 1],
-          ),
+          gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [_bg, _bg, Colors.transparent], stops: [0, .58, 1]),
         ),
-        child: PremiumPressable(
-          borderRadius: BorderRadius.circular(20),
-          onTap: enabled ? _submit : null,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            height: 58,
-            decoration: BoxDecoration(
-              color: enabled ? _dark : _dark.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: enabled
-                  ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, 0.26), blurRadius: 30, offset: Offset(0, 10))]
-                  : null,
-            ),
-            child: Center(
-              child: state.isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_rounded, size: 18, color: enabled ? Colors.white : _t3),
-                        const SizedBox(width: 8),
-                        Text('Fiyatı Kaydet', style: _pjs(size: 16, weight: FontWeight.w900, color: enabled ? Colors.white : _t3)),
-                      ],
-                    ),
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: PremiumPressable(
+            borderRadius: BorderRadius.circular(20),
+            onTap: enabled ? _submit : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              height: 58,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: enabled ? const LinearGradient(colors: [_dark, Color(0xFF2C1A0A)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                color: enabled ? null : _dark.withOpacity(.07),
+                boxShadow: enabled
+                    ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .26), blurRadius: 30, offset: Offset(0, 10))]
+                    : null,
+              ),
+              child: Center(
+                child: state.isLoading
+                    ? const CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_rounded, size: 17, color: enabled ? Colors.white : _t3),
+                          const SizedBox(width: 9),
+                          Text('Fiyatı Kaydet', style: _pjs(size: 16, weight: FontWeight.w900, color: enabled ? Colors.white : _t3)),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
@@ -645,70 +668,80 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
-  Widget _buildSuccessOverlay(double bottomSafe) {
-    return Positioned.fill(
-      child: Material(
-        color: Colors.transparent,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 240),
-          opacity: _showSuccess ? 1 : 0,
+  Widget _buildSuccessOverlay(double safeBottom, AddPriceNotifier notifier) {
+    return IgnorePointer(
+      ignoring: !_showSuccess,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        opacity: _showSuccess ? 1 : 0,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          offset: _showSuccess ? Offset.zero : const Offset(0, .03),
           child: Container(
             color: _bg,
             child: Column(
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 30),
+                  padding: const EdgeInsets.fromLTRB(28, 52, 28, 32),
                   decoration: const BoxDecoration(
                     color: _dark,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(36),
-                      bottomRight: Radius.circular(36),
-                    ),
+                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)),
                   ),
-                  child: Column(
-                    children: [
-                      Text('🎉', style: _pjs(size: 44, weight: FontWeight.w700, color: Colors.white)),
-                      const SizedBox(height: 10),
-                      Text('Kaydedildi!', style: _pjs(size: 24, weight: FontWeight.w900, color: Colors.white)),
-                      const SizedBox(height: 4),
-                      Text('Katkın için teşekkürler · +10 puan', style: _pjs(size: 12, color: Colors.white.withOpacity(0.42))),
-                    ],
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 500),
+                          tween: Tween(begin: .3, end: 1),
+                          curve: Curves.easeOutBack,
+                          builder: (context, value, child) => Opacity(opacity: value.clamp(0, 1), child: Transform.scale(scale: value, child: child)),
+                          child: Text('🎉', style: _pjs(size: 48, weight: FontWeight.w700, color: Colors.white)),
+                        ),
+                        const SizedBox(height: 14),
+                        Text('Kaydedildi!', style: _pjs(size: 24, weight: FontWeight.w900, color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text('Katkın için teşekkürler · +10 puan', style: _pjs(size: 12, weight: FontWeight.w500, color: Colors.white.withOpacity(.35))),
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                     child: Column(
                       children: [
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: _white,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, 0.07), blurRadius: 14, offset: Offset(0, 2))],
+                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
                           ),
                           child: Column(
                             children: [
-                              Text('GİRİLEN FİYAT', style: _pjs(size: 10, weight: FontWeight.w800, color: _t3, letterSpacing: 1)),
+                              Text('Girilen Fiyat'.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w800, color: _t3, letterSpacing: .8)),
                               const SizedBox(height: 6),
-                              Text(_savedPrice, style: _pjs(size: 50, weight: FontWeight.w900, color: _green, letterSpacing: -2.2)),
+                              Text(_savedPrice, style: _pjs(size: 52, weight: FontWeight.w900, color: _green, letterSpacing: -2.5)),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
                             color: _white,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, 0.07), blurRadius: 14, offset: Offset(0, 2))],
+                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 10, offset: Offset(0, 1))],
                           ),
                           child: Column(
                             children: [
-                              _SummaryRow(label: 'Ürün', value: _savedProduct),
-                              _SummaryRow(label: 'Market', value: _savedStore),
-                              const _SummaryRow(label: 'Kazanılan', value: '+10 puan ⭐', highlight: true, isLast: true),
+                              _SuccessSummaryRow(label: 'Ürün', value: _savedProduct),
+                              _SuccessSummaryRow(label: 'Market', value: _savedStore),
+                              const _SuccessSummaryRow(label: 'Kazanılan', value: '+10 puan ⭐', highlight: true, last: true),
                             ],
                           ),
                         ),
@@ -717,16 +750,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
+                            onPressed: () async {
+                              setState(() => _showSuccess = false);
+                              await Future.delayed(const Duration(milliseconds: 200));
+                              _resetAll(notifier);
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _dark,
-                              foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                             ),
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            child: Text('Ana Sayfaya Dön', style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white)),
+                            child: Text('Yeni Fiyat Ekle', style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white)),
                           ),
                         ),
-                        SizedBox(height: bottomSafe > 0 ? bottomSafe : 18),
+                        SizedBox(height: safeBottom > 0 ? safeBottom : 6),
                       ],
                     ),
                   ),
@@ -739,93 +775,60 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     );
   }
 
-  Widget _panel({
-    required Key key,
-    required String title,
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required bool showEdit,
-    required bool visible,
-    required Widget child,
-    required VoidCallback onEdit,
-  }) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 230),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: !visible
-          ? const SizedBox.shrink()
-          : Container(
-              key: key,
-              decoration: BoxDecoration(
-                color: _white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromRGBO(28, 17, 8, 0.07),
-                    blurRadius: 14,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
-                          child: Icon(icon, size: 15, color: iconColor),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(title, style: _pjs(size: 14, weight: FontWeight.w900))),
-                        if (showEdit)
-                          TextButton(
-                            onPressed: onEdit,
-                            style: TextButton.styleFrom(
-                              foregroundColor: _tan,
-                              backgroundColor: _tan.withOpacity(0.1),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: Text('Değiştir', style: _pjs(size: 11, weight: FontWeight.w700, color: _tan)),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: _border),
-                  Padding(padding: const EdgeInsets.fromLTRB(18, 14, 18, 16), child: child),
-                ],
-              ),
-            ),
-    );
+  bool _showSuggestions(AddPriceState state) =>
+      _productFocus.hasFocus && state.productSuggestions.isNotEmpty;
+
+  Future<void> _onProductPicked(ProductModel p, AddPriceNotifier notifier) async {
+    notifier.selectProductSuggestion(p);
+    FocusScope.of(context).unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+    if (!mounted) return;
+    setState(() => _productCollapsed = true);
+    await _scrollToStep(_AddStep.store);
+  }
+
+  void _onPriceInput(String value, AddPriceNotifier notifier) {
+    final digits = value.replaceAll(RegExp(r'\D'), '').substring(0, math.min(value.replaceAll(RegExp(r'\D'), '').length, 8));
+    _hiddenPriceController.clear();
+    if (digits == _rawDigits) return;
+    setState(() {
+      _rawDigits = digits;
+      _pricePopTick++;
+    });
+    final amount = digits.isEmpty ? '' : (int.parse(digits) / 100).toStringAsFixed(2);
+    notifier.setPrice(amount.replaceAll('.', ','));
+  }
+
+  String _displayAmount() {
+    final cents = int.tryParse(_rawDigits) ?? 0;
+    final formatted = (cents / 100).toStringAsFixed(2).split('.');
+    final intPart = NumberFormat.decimalPattern('tr_TR').format(int.parse(formatted[0]));
+    return '$intPart,${formatted[1]}';
+  }
+
+  String _storeSubtitle(Store store) {
+    if (store.distanceMeters != null) {
+      return '${store.distanceMeters}m${store.subtitle != null ? ' · ${store.subtitle}' : ''}';
+    }
+    return store.subtitle ?? 'Online';
   }
 
   Future<void> _scanBarcode() async {
     final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
     if (barcode == null || !mounted) return;
-
     final found = await ref.read(addPriceProvider.notifier).applyScannedBarcode(barcode);
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(found ? 'Ürün bulundu: $barcode' : 'Barkod okundu: $barcode'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (found) {
+      await Future<void>.delayed(const Duration(milliseconds: 320));
+      if (!mounted) return;
+      setState(() => _productCollapsed = true);
+      _scrollToStep(_AddStep.store);
+    }
   }
 
   Future<void> _submit() async {
     final auth = ref.read(authStateProvider).value;
     final user = auth ?? FirebaseAuth.instance.currentUser;
-
     if (user == null || user.uid.trim().isEmpty || user.isAnonymous) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fiyat eklemek için giriş yapman gerekiyor.')),
@@ -837,10 +840,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     try {
       await ref.read(addPriceProvider.notifier).submitPrice(userId: user.uid);
       if (!mounted) return;
-
-      final raw = _parsePrice(stateBefore.price) ?? 0;
       setState(() {
-        _savedPrice = '${_formatPrice(raw)} ₺';
+        _savedPrice = '${_displayAmount()} ₺';
         _savedProduct = stateBefore.productName;
         _savedStore = stateBefore.selectedStoreName ?? '—';
         _showSuccess = true;
@@ -849,50 +850,37 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            kDebugMode ? 'Kaydedilemedi: $e' : 'Fiyat kaydedilemedi. Lütfen tekrar deneyin.',
-          ),
-          behavior: SnackBarBehavior.floating,
+          content: Text(kDebugMode ? 'Kaydedilemedi: $e' : 'Fiyat kaydedilemedi. Lütfen tekrar deneyin.'),
           backgroundColor: AppColors.error,
         ),
       );
     }
   }
 
-  Future<void> _showInfoModal() async {
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.outline.withOpacity(0.5)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  _InfoBullet(icon: Icons.stars_rounded, text: 'Her fiyat girişi +10 puan kazandırır.'),
-                  SizedBox(height: 10),
-                  _InfoBullet(icon: Icons.groups_rounded, text: 'Fiyatlar kullanıcılar tarafından raporlanır.'),
-                  SizedBox(height: 10),
-                  _InfoBullet(icon: Icons.verified_rounded, text: 'Doğru fiyat girişleri güven skorunu artırır.'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _pickProductImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (file == null || !mounted) return;
+    setState(() => _productPhoto = file);
+  }
+
+  void _resetAll(AddPriceNotifier notifier) {
+    notifier.onProductInputChanged('');
+    notifier.setCategory(null);
+    notifier.setPrice('');
+    notifier.setActiveTab(0);
+    notifier.setSearchQuery('');
+    setState(() {
+      _rawDigits = '';
+      _productCollapsed = false;
+      _storeCollapsed = false;
+      _showSuccess = false;
+      _productPhoto = null;
+      _activeStep = _AddStep.product;
+      _pricePopTick++;
+    });
+    _hiddenPriceController.clear();
+    _scrollController.animateTo(0, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
   }
 
   Widget _headerButton(IconData icon, VoidCallback onTap) {
@@ -903,10 +891,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withOpacity(.08),
           borderRadius: BorderRadius.circular(13),
         ),
-        child: Icon(icon, color: Colors.white.withOpacity(0.8), size: 16),
+        child: Icon(icon, size: 16, color: Colors.white.withOpacity(.8)),
       ),
     );
   }
@@ -915,83 +903,163 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen>
     if (value.length <= max) return value;
     return '${value.substring(0, max - 1)}…';
   }
-
-  String _formatPrice(double value) {
-    return NumberFormat.currency(locale: 'tr_TR', symbol: '', decimalDigits: 2)
-        .format(value)
-        .trim();
-  }
 }
 
-class _StepPill extends StatelessWidget {
-  const _StepPill({
-    required this.title,
-    required this.value,
-    required this.active,
-    required this.done,
-  });
+class _AnswerPill extends StatelessWidget {
+  const _AnswerPill({required this.label, required this.value, required this.filled, required this.onTap});
 
-  final String title;
+  final String label;
   final String value;
-  final bool active;
-  final bool done;
+  final bool filled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      decoration: BoxDecoration(
-        color: done
-            ? _greenBg
-            : active
-                ? Colors.white.withOpacity(0.1)
-                : Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: done
-              ? _green.withOpacity(0.26)
-              : active
-                  ? _gold.withOpacity(0.4)
-                  : Colors.transparent,
-          width: 1.5,
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: filled ? _gold.withOpacity(.15) : Colors.white.withOpacity(.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: filled ? _gold.withOpacity(.35) : Colors.white.withOpacity(.08), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label.toUpperCase(), style: _pjs(size: 9, weight: FontWeight.w800, letterSpacing: .7, color: filled ? _gold.withOpacity(.7) : Colors.white.withOpacity(.28))),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _pjs(size: 12, weight: FontWeight.w800, color: filled ? Colors.white.withOpacity(.75) : Colors.white.withOpacity(.22)),
+            ),
+          ],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class _SummaryRowCard extends StatelessWidget {
+  const _SummaryRowCard({required this.icon, required this.iconBg, required this.iconColor, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 14, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, overflow: TextOverflow.ellipsis, style: _pjs(size: 14, weight: FontWeight.w800)),
+                  const SizedBox(height: 1),
+                  Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                ],
+              ),
+            ),
+            Text('Değiştir', style: _pjs(size: 11, weight: FontWeight.w700, color: _tan)),
+            const SizedBox(width: 8),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(7)),
+              child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductImageRow extends StatelessWidget {
+  const _ProductImageRow({required this.imagePath, required this.productName, required this.subtitle, required this.onTapPhoto});
+
+  final String? imagePath;
+  final String productName;
+  final String subtitle;
+  final VoidCallback onTapPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Row(
         children: [
-          Text(
-            title,
-            style: _pjs(
-              size: 9,
-              weight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: done
-                  ? _green.withOpacity(0.9)
-                  : active
-                      ? _gold.withOpacity(0.9)
-                      : Colors.white.withOpacity(0.3),
+          PremiumPressable(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTapPhoto,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: _bg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _border, width: 1.5),
+              ),
+              child: imagePath == null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_outlined, color: _t3.withOpacity(.9), size: 20),
+                        const SizedBox(height: 4),
+                        Text('Fotoğraf', style: _pjs(size: 9, weight: FontWeight.w800, color: _t3, letterSpacing: .5)),
+                      ],
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.file(File(imagePath!), fit: BoxFit.cover),
+                    ),
             ),
           ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _pjs(
-                    size: 12,
-                    weight: FontWeight.w800,
-                    color: active || done
-                        ? Colors.white.withOpacity(0.72)
-                        : Colors.white.withOpacity(0.25),
-                  ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(productName, maxLines: 1, overflow: TextOverflow.ellipsis, style: _pjs(size: 15, weight: FontWeight.w800, letterSpacing: -0.2)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                const SizedBox(height: 6),
+                PremiumPressable(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: onTapPhoto,
+                  child: Text('+ Fotoğraf ekle', style: _pjs(size: 10, weight: FontWeight.w700, color: _tan)),
                 ),
-              ),
-              if (done) const Icon(Icons.check_rounded, size: 13, color: _green),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1015,19 +1083,20 @@ class _CategoryChips extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: PremiumPressable(
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: BorderRadius.circular(999),
               onTap: state.lockedCategoryByProduct ? null : () => notifier.setCategory(cat),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
-                  color: selected ? _dark : _bg,
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: selected ? Colors.transparent : _tan.withOpacity(0.24), width: 1.2),
+                  color: selected ? _dark : _white,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .06), blurRadius: 5, offset: Offset(0, 1))],
+                  border: Border.all(color: selected ? Colors.transparent : Colors.transparent, width: 1.5),
                 ),
                 child: Text(
-                  '${_categoryEmoji(cat)} ${cat.title}',
-                  style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white : _t2),
+                  '${cat.emoji?.trim().isNotEmpty == true ? cat.emoji!.trim() : '🏷️'} ${cat.title}',
+                  style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
                 ),
               ),
             ),
@@ -1036,8 +1105,6 @@ class _CategoryChips extends StatelessWidget {
       ),
     );
   }
-
-  String _categoryEmoji(CategoryModel c) => c.emoji?.trim().isNotEmpty == true ? c.emoji!.trim() : '🏷️';
 }
 
 class _StoreModeButton extends StatelessWidget {
@@ -1051,23 +1118,21 @@ class _StoreModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(13),
       onTap: onTap,
       child: Container(
-        height: 38,
+        height: 40,
         decoration: BoxDecoration(
-          color: on ? _white : _bg,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: on
-              ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, 0.08), blurRadius: 8, offset: Offset(0, 1))]
-              : null,
+          color: on ? _dark : _white,
+          borderRadius: BorderRadius.circular(13),
+          boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .06), blurRadius: 5, offset: Offset(0, 1))],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: on ? _dark : _t3),
-            const SizedBox(width: 5),
-            Text(text, style: _pjs(size: 12, weight: FontWeight.w800, color: on ? _dark : _t3)),
+            Icon(icon, size: 12, color: on ? Colors.white : _t3),
+            const SizedBox(width: 6),
+            Text(text, style: _pjs(size: 12, weight: FontWeight.w800, color: on ? Colors.white : _t3)),
           ],
         ),
       ),
@@ -1076,58 +1141,47 @@ class _StoreModeButton extends StatelessWidget {
 }
 
 class _StoreRow extends StatelessWidget {
-  const _StoreRow({
-    required this.store,
-    required this.selected,
-    required this.showNearestBadge,
-    required this.onTap,
-  });
+  const _StoreRow({required this.store, required this.selected, required this.showDivider, required this.showNearestBadge, required this.onTap});
 
   final Store store;
   final bool selected;
+  final bool showDivider;
   final bool showNearestBadge;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = store.distanceMeters != null
-        ? '${store.distanceMeters}m${store.subtitle == null ? '' : ' · ${store.subtitle}'}'
-        : (store.subtitle ?? 'Online');
-
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.zero,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 170),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Container(
         decoration: BoxDecoration(
-          color: _bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? _dark : Colors.transparent, width: 1.5),
+          color: selected ? _dark.withOpacity(.028) : Colors.transparent,
+          border: showDivider ? const Border(bottom: BorderSide(color: _border)) : null,
         ),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: _avatarColor(store.name),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: const [BoxShadow(color: Color.fromRGBO(0, 0, 0, .16), blurRadius: 8, offset: Offset(0, 3))],
+                border: selected ? Border.all(color: _gold, width: 2) : null,
               ),
               alignment: Alignment.center,
-              child: Text(
-                store.logoUrl.isNotEmpty ? store.logoUrl[0] : '?',
-                style: _pjs(size: 14, weight: FontWeight.w900, color: Colors.white),
-              ),
+              child: Text(store.logoUrl.isNotEmpty ? store.logoUrl[0] : '?', style: _pjs(size: 14, weight: FontWeight.w900, color: Colors.white)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(store.name, style: _pjs(size: 13, weight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: _pjs(size: 11, color: _t3)),
+                  Text(store.name, style: _pjs(size: 14, weight: FontWeight.w900)),
+                  const SizedBox(height: 1),
+                  Text(_subText(store), style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
                 ],
               ),
             ),
@@ -1135,17 +1189,16 @@ class _StoreRow extends StatelessWidget {
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(4)),
-                child: Text('EN YAKIN', style: _pjs(size: 8, weight: FontWeight.w900, color: _green, letterSpacing: 0.5)),
+                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
+                child: Text('En Yakın'.toUpperCase(), style: _pjs(size: 8, weight: FontWeight.w900, color: _green, letterSpacing: .4)),
               ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: 20,
-              height: 20,
+            Container(
+              width: 22,
+              height: 22,
               decoration: BoxDecoration(
-                color: selected ? _dark : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
                 border: Border.all(color: selected ? _dark : _border, width: 2),
-                borderRadius: BorderRadius.circular(6),
+                color: selected ? _dark : Colors.transparent,
               ),
               child: selected ? const Icon(Icons.check_rounded, size: 12, color: Colors.white) : null,
             ),
@@ -1155,12 +1208,20 @@ class _StoreRow extends StatelessWidget {
     );
   }
 
+  String _subText(Store store) {
+    if (store.distanceMeters != null) {
+      return '${store.distanceMeters}m${store.subtitle != null ? ' · ${store.subtitle}' : ''}';
+    }
+    return store.subtitle ?? 'Online';
+  }
+
   Color _avatarColor(String text) {
     final palette = [
       const Color(0xFFD44020),
       const Color(0xFFC89018),
       const Color(0xFF6020C0),
       const Color(0xFF1840C0),
+      const Color(0xFFC07010),
       const Color(0xFFB01818),
     ];
     final idx = text.isEmpty ? 0 : text.codeUnitAt(0) % palette.length;
@@ -1168,93 +1229,22 @@ class _StoreRow extends StatelessWidget {
   }
 }
 
-class _ProductDoneState extends StatelessWidget {
-  const _ProductDoneState({required this.name, required this.category});
-
-  final String name;
-  final String category;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(name, style: _pjs(size: 16, weight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(category, style: _pjs(size: 11, weight: FontWeight.w600, color: _t3)),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _StoreDoneState extends StatelessWidget {
-  const _StoreDoneState({required this.store});
-
-  final Store store;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = store.distanceMeters != null
-        ? '${store.distanceMeters}m${store.subtitle == null ? '' : ' · ${store.subtitle}'}'
-        : (store.subtitle ?? 'Online');
-
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xFFC89018),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            store.logoUrl.isNotEmpty ? store.logoUrl[0] : '?',
-            style: _pjs(size: 12, weight: FontWeight.w900, color: Colors.white),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(store.name, style: _pjs(size: 15, weight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.highlight = false,
-    this.isLast = false,
-  });
+class _SuccessSummaryRow extends StatelessWidget {
+  const _SuccessSummaryRow({required this.label, required this.value, this.highlight = false, this.last = false});
 
   final String label;
   final String value;
   final bool highlight;
-  final bool isLast;
+  final bool last;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: _border)),
-      ),
+      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: _border))),
       child: Row(
         children: [
-          Text(label.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w700, color: _t3, letterSpacing: 0.5)),
+          Text(label.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w700, color: _t3, letterSpacing: .5)),
           const Spacer(),
           Flexible(
             child: Text(
@@ -1270,21 +1260,3 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _InfoBullet extends StatelessWidget {
-  const _InfoBullet({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: AppColors.accent),
-        const SizedBox(width: 8),
-        Expanded(child: Text(text, style: _pjs(size: 13, color: AppColors.textSecondary))),
-      ],
-    );
-  }
-}
