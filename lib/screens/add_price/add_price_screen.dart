@@ -190,6 +190,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       },
       child: Scaffold(
         backgroundColor: _bg,
+        resizeToAvoidBottomInset: false,
+        bottomNavigationBar: _buildSaveBar(state, safeBottom),
         body: Stack(
           children: [
             Column(
@@ -198,7 +200,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 108 + safeBottom),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     child: Column(
                       children: [
                         _buildProductSection(state, notifier),
@@ -212,7 +214,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 ),
               ],
             ),
-            _buildSaveBar(state, safeBottom),
             _buildSuccessOverlay(safeBottom, notifier),
           ],
         ),
@@ -423,6 +424,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       ),
                     ),
                     AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _showRequestProductCta(state)
+                          ? Padding(
+                              key: const ValueKey('request-product-cta'),
+                              padding: const EdgeInsets.only(top: 10),
+                              child: _buildRequestProductButton(state, notifier),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
                       child: done
                           ? Padding(
@@ -626,13 +637,13 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   Widget _buildSaveBar(AddPriceState state, double safeBottom) {
     final enabled = _isFormReady(state) && !state.isLoading;
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 30 + safeBottom),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [_bg, _bg, Colors.transparent], stops: [0, .58, 1]),
-        ),
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 14 + safeBottom),
+      decoration: const BoxDecoration(
+        color: _bg,
+      ),
+      child: SafeArea(
+        top: false,
         child: IgnorePointer(
           ignoring: !enabled,
           child: PremiumPressable(
@@ -778,6 +789,41 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   bool _showSuggestions(AddPriceState state) =>
       _productFocus.hasFocus && state.productSuggestions.isNotEmpty;
 
+  bool _showRequestProductCta(AddPriceState state) {
+    final query = state.productName.trim();
+    return query.length >= 2 && state.productSuggestions.isEmpty && state.selectedProductId == null;
+  }
+
+  Widget _buildRequestProductButton(AddPriceState state, AddPriceNotifier notifier) {
+    return PremiumPressable(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _submitProductSuggestion(notifier),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _gold.withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.campaign_outlined, color: _tan, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Aradığın ürünü bulamadın mı? Ürün talebi gönder',
+                style: _pjs(size: 12, weight: FontWeight.w800, color: _t2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _tan),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _onProductPicked(ProductModel p, AddPriceNotifier notifier) async {
     notifier.selectProductSuggestion(p);
     FocusScope.of(context).unfocus();
@@ -788,8 +834,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   void _onPriceInput(String value, AddPriceNotifier notifier) {
-    final digits = value.replaceAll(RegExp(r'\D'), '').substring(0, math.min(value.replaceAll(RegExp(r'\D'), '').length, 8));
-    _hiddenPriceController.clear();
+    final onlyDigits = value.replaceAll(RegExp(r'\D'), '');
+    final digits = onlyDigits.substring(0, math.min(onlyDigits.length, 8));
+
+    if (_hiddenPriceController.text != digits) {
+      _hiddenPriceController.value = TextEditingValue(
+        text: digits,
+        selection: TextSelection.collapsed(offset: digits.length),
+      );
+    }
+
     if (digits == _rawDigits) return;
     setState(() {
       _rawDigits = digits;
@@ -823,6 +877,30 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       if (!mounted) return;
       setState(() => _productCollapsed = true);
       _scrollToStep(_AddStep.store);
+    }
+  }
+
+  Future<void> _submitProductSuggestion(AddPriceNotifier notifier) async {
+    final auth = ref.read(authStateProvider).value;
+    final user = auth ?? FirebaseAuth.instance.currentUser;
+    if (user == null || user.uid.trim().isEmpty || user.isAnonymous) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ürün talebi göndermek için giriş yapman gerekiyor.')),
+      );
+      return;
+    }
+
+    try {
+      await notifier.submitProductSuggestion(userId: user.uid);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ürün talebi alındı, teşekkürler!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
     }
   }
 

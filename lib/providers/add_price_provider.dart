@@ -314,9 +314,9 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
-        final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 5);
+        final results = await _firestore.searchProducts(normalizedInput);
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
-        state = state.copyWith(productSuggestions: results);
+        state = state.copyWith(productSuggestions: results.take(5).toList(growable: false));
       } catch (_) {
         state = state.copyWith(productSuggestions: const []);
       }

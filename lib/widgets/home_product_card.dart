@@ -30,7 +30,7 @@ class HomeProductCard extends StatelessWidget {
     
     // Gerçek projede modelden hesaplanacak değerler
     final isDrop = true; 
-    final marketName = "En Uygun"; 
+    final marketName = (product.lastStore ?? "").trim().isNotEmpty ? product.lastStore!.trim() : "Market bilgisi yok"; 
 
     return PremiumPressable(
       onTap: onTap,
