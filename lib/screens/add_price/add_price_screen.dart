@@ -16,6 +16,7 @@ import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../utils/theme.dart';
+import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
 
@@ -441,6 +442,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               padding: const EdgeInsets.only(top: 10),
                               child: _ProductImageRow(
                                 imagePath: _productPhoto?.path,
+                                imageUrl: state.selectedProductImageUrl,
                                 productName: state.productName,
                                 subtitle: state.selectedCategoryName ?? 'Ürün seçildi',
                                 onTapPhoto: _pickProductImage,
@@ -568,8 +570,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   child: TextField(
                     controller: _hiddenPriceController,
                     focusNode: _priceFocus,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (v) => _onPriceInput(v, notifier),
                     decoration: const InputDecoration(border: InputBorder.none),
                   ),
@@ -849,8 +851,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _rawDigits = digits;
       _pricePopTick++;
     });
-    final amount = digits.isEmpty ? '' : (int.parse(digits) / 100).toStringAsFixed(2);
-    notifier.setPrice(amount.replaceAll('.', ','));
+
+    if (digits.isEmpty) {
+      notifier.setPrice('');
+      return;
+    }
+
+    final amountText = digits.length < 3
+        ? '0,${digits.padLeft(2, '0')}'
+        : '${digits.substring(0, digits.length - 2)},${digits.substring(digits.length - 2)}';
+    notifier.setPrice(amountText);
   }
 
   String _displayAmount() {
@@ -1078,9 +1088,10 @@ class _SummaryRowCard extends StatelessWidget {
 }
 
 class _ProductImageRow extends StatelessWidget {
-  const _ProductImageRow({required this.imagePath, required this.productName, required this.subtitle, required this.onTapPhoto});
+  const _ProductImageRow({required this.imagePath, required this.imageUrl, required this.productName, required this.subtitle, required this.onTapPhoto});
 
   final String? imagePath;
+  final String? imageUrl;
   final String productName;
   final String subtitle;
   final VoidCallback onTapPhoto;
@@ -1107,18 +1118,16 @@ class _ProductImageRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: _border, width: 1.5),
               ),
-              child: imagePath == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image_outlined, color: _t3.withOpacity(.9), size: 20),
-                        const SizedBox(height: 4),
-                        Text('Fotoğraf', style: _pjs(size: 9, weight: FontWeight.w800, color: _t3, letterSpacing: .5)),
-                      ],
-                    )
-                  : ClipRRect(
+              child: imagePath != null
+                  ? ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.file(File(imagePath!), fit: BoxFit.cover),
+                    )
+                  : AppNetworkImage(
+                      imageUrl: imageUrl,
+                      cacheKey: 'add-price-selected-product',
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(14),
                     ),
             ),
           ),
@@ -1172,9 +1181,25 @@ class _CategoryChips extends StatelessWidget {
                   boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .06), blurRadius: 5, offset: Offset(0, 1))],
                   border: Border.all(color: selected ? Colors.transparent : Colors.transparent, width: 1.5),
                 ),
-                child: Text(
-                  '${cat.emoji?.trim().isNotEmpty == true ? cat.emoji!.trim() : '🏷️'} ${cat.title}',
-                  style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      cat.iconAssetPath,
+                      width: 14,
+                      height: 14,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Text(
+                        cat.emoji?.trim().isNotEmpty == true ? cat.emoji!.trim() : '🏷️',
+                        style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      cat.title,
+                      style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
+                    ),
+                  ],
                 ),
               ),
             ),
