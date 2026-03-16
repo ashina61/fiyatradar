@@ -333,7 +333,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
-        final results = await _firestore.searchProducts(normalizedInput);
+        final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 10);
         _log('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
         state = state.copyWith(productSuggestions: results.take(5).toList(growable: false));
@@ -428,33 +428,22 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       }
     }
 
-    setBarcode(normalizedBarcode);
+    state = state.copyWith(
+      productName: normalizedBarcode,
+      barcode: normalizedBarcode,
+      clearSelectedProduct: true,
+      lockedCategoryByProduct: false,
+      productSuggestions: const [],
+      error: 'Bu barkoda ait katalog ürünü bulunamadı.',
+    );
     return false;
   }
 
   Future<ProductModel?> _resolveProductByNameOrBarcode() async {
     final selectedProductId = state.selectedProductId?.trim() ?? '';
-    if (selectedProductId.isNotEmpty) {
-      _log('[AddPrice] Firestore query: products (id="$selectedProductId")');
-      final selectedProduct = await _firestore.getProduct(selectedProductId);
-      if (selectedProduct != null) return selectedProduct;
-    }
-
-    final byBarcode = state.barcode?.trim() ?? '';
-    final query = byBarcode.isNotEmpty ? byBarcode : state.productName.trim();
-    if (query.isEmpty) return null;
-
-    _log('[AddPrice] Firestore query: products (search="$query")');
-    final matches = await _firestore.searchProducts(query);
-    if (matches.isEmpty) return null;
-
-    final normalizedName = state.productName.trim().toLowerCase();
-    for (final product in matches) {
-      if (product.name.trim().toLowerCase() == normalizedName && normalizedName.isNotEmpty) {
-        return product;
-      }
-    }
-    return matches.first;
+    if (selectedProductId.isEmpty) return null;
+    _log('[AddPrice] Firestore query: products (id="$selectedProductId")');
+    return _firestore.getProduct(selectedProductId);
   }
 
   Future<void> submitPrice({required String userId}) async {
@@ -465,6 +454,9 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
     if (parsedPrice == null || parsedPrice <= 0) {
       throw Exception('Lütfen geçerli bir fiyat girin.');
+    }
+    if (state.selectedProductId == null || state.selectedProductId!.trim().isEmpty) {
+      throw Exception('Lütfen katalogdan geçerli bir ürün seçin.');
     }
     if (state.productName.trim().isEmpty) {
       throw Exception('Lütfen ürün adını girin.');

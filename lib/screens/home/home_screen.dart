@@ -19,9 +19,12 @@ import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
+import '../campaign/campaign_detail_screen.dart';
+import '../campaign/campaigns_screen.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FRColors {
   static const Color bgApp = Color(0xFFF5F3F0);
@@ -572,15 +575,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 height: 1.2,
                               ),
                             ),
-                            if (onTap != null) ...[
+                            if (onTap != null || (banner.ctaText?.trim().isNotEmpty ?? false)) ...[
                               const SizedBox(height: 6),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    (banner.ctaText?.trim().isNotEmpty ?? false)
-                                        ? banner.ctaText!
-                                        : 'Keşfet',
+                                    _resolveBannerCtaText(banner),
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -608,6 +609,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+
+  String _resolveBannerCtaText(BannerModel banner) {
+    final cta = banner.ctaText?.trim();
+    if (cta != null && cta.isNotEmpty) return cta;
+    final actionLabel = banner.actionLabel?.trim();
+    if (actionLabel != null && actionLabel.isNotEmpty) return actionLabel;
+    return 'Keşfet';
   }
 
   VoidCallback? _resolveBannerAction(BuildContext context, BannerModel banner) {
@@ -639,6 +648,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               builder: (_) => ProductDetailScreen(productId: id),
             ),
           );
+    }
+
+    final targetType = (banner.targetType ?? '').trim().toLowerCase();
+    final targetId = (banner.targetId ?? '').trim();
+    if (targetType == 'campaign') {
+      if (targetId.isNotEmpty) {
+        return () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CampaignDetailScreen(campaignId: targetId),
+              ),
+            );
+      }
+      return () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CampaignsScreen()),
+          );
+    }
+
+    if ((banner.actionType ?? '').trim().toLowerCase() == 'external' ||
+        (banner.actionUrl ?? '').trim().isNotEmpty ||
+        targetType == 'external' ||
+        targetType == 'url' ||
+        targetType == 'web') {
+      final rawUrl = (banner.actionUrl ?? banner.targetId ?? '').trim();
+      final uri = Uri.tryParse(rawUrl);
+      if (uri == null || (!uri.hasScheme && !uri.hasAuthority)) return null;
+      return () {
+        launchUrl(uri, mode: LaunchMode.externalApplication);
+      };
     }
 
     return null;

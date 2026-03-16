@@ -61,7 +61,7 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _productController = TextEditingController();
-  final _hiddenPriceController = TextEditingController();
+  final _priceController = TextEditingController();
   final _productFocus = FocusNode();
   final _priceFocus = FocusNode();
   final _scrollController = ScrollController();
@@ -75,8 +75,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   bool _productCollapsed = false;
   bool _storeCollapsed = false;
   bool _showSuccess = false;
-  int _pricePopTick = 0;
-  String _rawDigits = '';
   XFile? _productPhoto;
 
   String _savedProduct = '—';
@@ -97,7 +95,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   @override
   void dispose() {
     _productController.dispose();
-    _hiddenPriceController.dispose();
+    _priceController.dispose();
     _productFocus.dispose();
     _priceFocus.dispose();
     _scrollController.dispose();
@@ -107,10 +105,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   bool _isProductDone(AddPriceState state) =>
       state.productName.trim().isNotEmpty && state.selectedCategoryId != null;
   bool _isStoreDone(AddPriceState state) => state.selectedStoreId != null;
-  bool _isPriceDone() => (_rawDigits.isNotEmpty && int.parse(_rawDigits) > 0);
+  bool _isPriceDone(AddPriceState state) => _parsePriceInput(state.price) != null;
 
   bool _isFormReady(AddPriceState state) =>
-      _isProductDone(state) && _isStoreDone(state) && _isPriceDone();
+      _isProductDone(state) && _isStoreDone(state) && _isPriceDone(state);
 
   void _syncControllers(AddPriceState state) {
     if (_productController.text != state.productName) {
@@ -119,19 +117,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         selection: TextSelection.collapsed(offset: state.productName.length),
       );
     }
-    final nextDigits = _digitsFromProviderPrice(state.price);
-    if (nextDigits != _rawDigits) {
-      _rawDigits = nextDigits;
+    if (_priceController.text != state.price) {
+      _priceController.value = TextEditingValue(
+        text: state.price,
+        selection: TextSelection.collapsed(offset: state.price.length),
+      );
     }
   }
 
-  String _digitsFromProviderPrice(String price) {
-    final clean = price.replaceAll(' ', '').replaceAll(',', '.').trim();
-    if (clean.isEmpty) return '';
-    final value = double.tryParse(clean);
-    if (value == null || value <= 0) return '';
-    return (value * 100).round().toString();
-  }
 
   void _updateStep(AddPriceState state) {
     final next = !_isProductDone(state)
@@ -225,7 +218,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget _buildHeader(AddPriceState state, AddPriceNotifier notifier) {
     final productDone = _isProductDone(state);
     final storeDone = _isStoreDone(state);
-    final priceDone = _isPriceDone();
+    final priceDone = _isPriceDone(state);
 
     return Container(
       decoration: const BoxDecoration(
@@ -302,7 +295,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       Expanded(
                         child: _AnswerPill(
                           label: 'Fiyat',
-                          value: priceDone ? '${_displayAmount()} ₺' : '—',
+                          value: priceDone ? '${_displayAmount(state.price)} ₺' : '—',
                           filled: priceDone,
                           onTap: () => _scrollToStep(_AddStep.price),
                         ),
@@ -544,8 +537,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildPriceSection(AddPriceState state, AddPriceNotifier notifier) {
-    final hasPrice = _isPriceDone();
-    final parts = _displayAmount().split(',');
+    final hasPrice = _isPriceDone(state);
+    final parts = _displayAmount(state.price).split(',');
     return Column(
       key: _priceKey,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,16 +557,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 1,
-                  height: 1,
-                  child: TextField(
-                    controller: _hiddenPriceController,
-                    focusNode: _priceFocus,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (v) => _onPriceInput(v, notifier),
-                    decoration: const InputDecoration(border: InputBorder.none),
+                TextField(
+                  controller: _priceController,
+                  focusNode: _priceFocus,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                  onChanged: (v) => _onPriceInput(v, notifier),
+                  style: _pjs(size: 16, weight: FontWeight.w700, color: _t2),
+                  decoration: InputDecoration(
+                    hintText: 'Örn: 50,75',
+                    hintStyle: _pjs(size: 14, weight: FontWeight.w500, color: _t3),
+                    border: InputBorder.none,
+                    isDense: true,
                   ),
                 ),
                 Row(
@@ -584,7 +579,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       transitionBuilder: (child, animation) => ScaleTransition(scale: Tween<double>(begin: 1.05, end: 1).animate(animation), child: child),
                       child: Text(
                         parts.first,
-                        key: ValueKey('$_pricePopTick-${parts.first}'),
+                        key: ValueKey(parts.first),
                         style: _pjs(
                           size: 64,
                           weight: FontWeight.w900,
@@ -620,7 +615,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         curve: Curves.easeInOut,
                         builder: (context, value, child) => Transform.scale(scale: value, child: Opacity(opacity: value, child: child)),
                         onEnd: () {
-                          if (mounted && !_isPriceDone()) setState(() {});
+                          if (mounted && !_isPriceDone(state)) setState(() {});
                         },
                         child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
                       ),
@@ -836,36 +831,22 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   void _onPriceInput(String value, AddPriceNotifier notifier) {
-    final onlyDigits = value.replaceAll(RegExp(r'\D'), '');
-    final digits = onlyDigits.substring(0, math.min(onlyDigits.length, 8));
-
-    if (_hiddenPriceController.text != digits) {
-      _hiddenPriceController.value = TextEditingValue(
-        text: digits,
-        selection: TextSelection.collapsed(offset: digits.length),
-      );
-    }
-
-    if (digits == _rawDigits) return;
-    setState(() {
-      _rawDigits = digits;
-      _pricePopTick++;
-    });
-
-    if (digits.isEmpty) {
-      notifier.setPrice('');
-      return;
-    }
-
-    final amountText = digits.length < 3
-        ? '0,${digits.padLeft(2, '0')}'
-        : '${digits.substring(0, digits.length - 2)},${digits.substring(digits.length - 2)}';
-    notifier.setPrice(amountText);
+    notifier.setPrice(value);
   }
 
-  String _displayAmount() {
-    final cents = int.tryParse(_rawDigits) ?? 0;
-    final formatted = (cents / 100).toStringAsFixed(2).split('.');
+  double? _parsePriceInput(String input) {
+    final normalized = input.replaceAll(' ', '').replaceAll(',', '.').trim();
+    if (normalized.isEmpty) return null;
+    if (!RegExp(r'^\d+(\.\d{0,2})?$').hasMatch(normalized)) return null;
+    final parsed = double.tryParse(normalized);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
+  String _displayAmount(String input) {
+    final parsed = _parsePriceInput(input);
+    if (parsed == null) return '0,00';
+    final formatted = parsed.toStringAsFixed(2).split('.');
     final intPart = NumberFormat.decimalPattern('tr_TR').format(int.parse(formatted[0]));
     return '$intPart,${formatted[1]}';
   }
@@ -929,7 +910,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       await ref.read(addPriceProvider.notifier).submitPrice(userId: user.uid);
       if (!mounted) return;
       setState(() {
-        _savedPrice = '${_displayAmount()} ₺';
+        _savedPrice = '${_displayAmount(stateBefore.price)} ₺';
         _savedProduct = stateBefore.productName;
         _savedStore = stateBefore.selectedStoreName ?? '—';
         _showSuccess = true;
@@ -959,15 +940,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     notifier.setActiveTab(0);
     notifier.setSearchQuery('');
     setState(() {
-      _rawDigits = '';
       _productCollapsed = false;
       _storeCollapsed = false;
       _showSuccess = false;
       _productPhoto = null;
       _activeStep = _AddStep.product;
-      _pricePopTick++;
     });
-    _hiddenPriceController.clear();
     _scrollController.animateTo(0, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
   }
 
@@ -1362,4 +1340,3 @@ class _SuccessSummaryRow extends StatelessWidget {
     );
   }
 }
-
