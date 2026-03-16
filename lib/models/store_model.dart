@@ -148,7 +148,13 @@ class StoreModel {
   static String _parseDisplayName(Map<String, dynamic> data) {
     final displayName = data['displayName']?.toString().trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
-    return data['name']?.toString().trim() ?? '';
+    final name = data['name']?.toString().trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final branchName = data['branchName']?.toString().trim() ?? '';
+    if (branchName.isNotEmpty) return branchName;
+    final storeName = data['storeName']?.toString().trim() ?? '';
+    if (storeName.isNotEmpty) return storeName;
+    return '';
   }
 
   static (double, double) _extractCoordinates(Map<String, dynamic> data) {
