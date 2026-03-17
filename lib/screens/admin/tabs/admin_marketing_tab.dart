@@ -320,6 +320,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
   // =========================================================================
 
   Future<void> _showBannerBottomSheet(BuildContext context, WidgetRef ref, {BannerModel? banner}) async {
+    final badgeTextController = TextEditingController(text: banner?.badgeText ?? '');
     final titleController = TextEditingController(text: banner?.title ?? '');
     final descriptionController = TextEditingController(text: banner?.description ?? '');
     final imageUrlController = TextEditingController(text: banner?.imageUrl ?? '');
@@ -353,6 +354,8 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                       Center(child: Text(banner == null ? 'Banner Ekle' : 'Banner Düzenle', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: pTextMain))),
                       const SizedBox(height: 24),
 
+                      _PremiumInput(icon: Icons.sell_outlined, hint: 'Etiket / Rozet Yazısı (Örn: Topluluk, Kampanya)', controller: badgeTextController),
+                      const SizedBox(height: 12),
                       _PremiumInput(icon: Icons.title, hint: 'Başlık', controller: titleController),
                       const SizedBox(height: 12),
                       _PremiumInput(icon: Icons.link, hint: 'Görsel URL', controller: imageUrlController),
@@ -414,6 +417,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                         onTap: () async {
                           if (titleController.text.trim().isEmpty) return;
                           final payload = {
+                            'badgeText': badgeTextController.text.trim().isEmpty ? null : badgeTextController.text.trim(),
                             'title': titleController.text.trim(),
                             'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                             'imageUrl': imageUrlController.text.trim(),
@@ -426,7 +430,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                           };
 
                           if (banner == null) {
-                            final model = BannerModel(id: '', title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl']! as String, targetType: payload['targetType']! as String, targetId: payload['targetId'] as String?, ctaText: payload['ctaText']! as String, aspectRatio: 'wide', isActive: true, createdAt: DateTime.now());
+                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl']! as String, targetType: payload['targetType']! as String, targetId: payload['targetId'] as String?, ctaText: payload['ctaText']! as String, aspectRatio: 'wide', isActive: isActive, createdAt: DateTime.now());
                             await ref.read(adminBannerManagementDomainServiceProvider).addBanner(model);
                           } else {
                             await ref.read(adminBannerManagementDomainServiceProvider).updateBanner(banner.id, payload);
