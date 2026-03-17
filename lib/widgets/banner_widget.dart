@@ -96,7 +96,7 @@ class _PremiumBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = banner.imageUrl.trim().isNotEmpty;
+    final hasImage = banner.imageUrl?.trim().isNotEmpty ?? false;
 
     return Material(
       color: Colors.transparent,
@@ -121,7 +121,7 @@ class _PremiumBannerCard extends StatelessWidget {
             children: [
               if (hasImage)
                 CachedNetworkImage(
-                  imageUrl: banner.imageUrl,
+                  imageUrl: banner.imageUrl ?? '',
                   fit: BoxFit.cover,
                   errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF1C1108)),
                 )
