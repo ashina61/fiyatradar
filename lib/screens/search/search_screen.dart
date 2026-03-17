@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/banner_model.dart';
 import '../../providers/actual_provider.dart';
@@ -488,7 +489,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final activeBanners = ref.watch(activeBannersProvider).valueOrNull ?? const <BannerModel>[];
     BannerModel? weeklyEventBanner;
     for (final banner in activeBanners) {
-      if ((banner.targetType ?? '').toLowerCase() == 'weekly_event') {
+      if ((banner.linkUrl ?? '').trim().isNotEmpty) {
         weeklyEventBanner = banner;
         break;
       }
@@ -682,18 +683,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildWeeklyEventCard(BannerModel banner) {
     final imageUrl = (banner.imageUrl ?? '').trim();
-    final badgeText = (banner.badgeText ?? banner.tagLabel).trim().isNotEmpty
-        ? (banner.badgeText ?? banner.tagLabel).trim()
+    final badgeText = (banner.badgeText ?? '').trim().isNotEmpty
+        ? banner.badgeText!.trim()
         : 'ETİKET';
-    final actionText = (banner.ctaText ?? banner.ctaLabel).trim().isNotEmpty
-        ? (banner.ctaText ?? banner.ctaLabel).trim()
+    final actionText = banner.buttonText.trim().isNotEmpty
+        ? banner.buttonText.trim()
         : 'KEŞFET';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: PremiumPressable(
         borderRadius: BorderRadius.circular(28),
-        onTap: () => ref.read(exploreControllerProvider.notifier).updateMode(ExploreMode.drops),
+        onTap: () async {
+          final linkUrl = (banner.linkUrl ?? '').trim();
+          if (linkUrl.isEmpty) return;
+          final uri = Uri.tryParse(linkUrl);
+          if (uri == null) return;
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        },
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
