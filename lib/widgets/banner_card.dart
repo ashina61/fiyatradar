@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/banner_model.dart';
 import '../providers/banner_provider.dart';
 
+final activeBannersProvider = bannersProvider;
+
 const _dark = Color(0xFF1C1108);
 const _bg   = Color(0xFFECEAE4);
 const _tc   = Color(0xFFC09A60);
@@ -21,15 +23,16 @@ class BannerSection extends ConsumerWidget {
   const BannerSection({super.key});
   @override
   Widget build(BuildContext context,WidgetRef ref){
-    return ref.watch(bannersProvider).when(
+    return ref.watch(activeBannersProvider).when(
       loading:()=>const _Skeleton(),
       error:(_,__)=>const SizedBox.shrink(),
       data:(banners){
-        if(banners.isEmpty) return const SizedBox.shrink();
-        if(banners.length==1) return Padding(
+        final visible = banners.where((b) => b.isActive).toList();
+        if(visible.isEmpty) return const SizedBox.shrink();
+        if(visible.length==1) return Padding(
           padding:const EdgeInsets.symmetric(horizontal:16),
-          child:BannerCard(banner:banners.first));
-        return _Pager(banners:banners);
+          child:BannerCard(banner:visible.first));
+        return _Pager(banners:visible);
       },
     );
   }
@@ -99,8 +102,8 @@ class _BannerCardState extends State<BannerCard> with SingleTickerProviderStateM
   void _tap(){
     HapticFeedback.lightImpact();
     if(widget.onTap!=null){widget.onTap!();return;}
-    final url=widget.banner.linkUrl;
-    if(url!=null&&url.isNotEmpty) launchUrl(Uri.parse(url),mode:LaunchMode.externalApplication);
+    final url = _linkUrl(widget.banner);
+    if(url.isNotEmpty) launchUrl(Uri.parse(url),mode:LaunchMode.externalApplication);
   }
 
   @override
@@ -164,15 +167,15 @@ class _Body extends StatelessWidget {
             _TagChip(banner:b,isDark:isDark),
             Row(mainAxisSize:MainAxisSize.min,children:[
               if(b.brandName!=null&&b.brandName!.isNotEmpty) _BrandChip(name:b.brandName!,isDark:isDark),
-              if(b.metaLabel!=null&&b.metaLabel!.isNotEmpty)...[
+              if(_badgeText(b).isNotEmpty)...[
                 if(b.brandName!=null) const SizedBox(width:8),
-                Text(b.metaLabel!,style:_pjs(size:11,color:metaColor))],
+                Text(_badgeText(b),style:_pjs(size:11,color:metaColor))],
             ]),
           ]),
           const SizedBox(height:10),
           Text(b.title,style:_pjs(size:18,weight:FontWeight.w900,color:textColor,letterSpacing:-0.4,height:1.25)),
           const SizedBox(height:4),
-          Text(b.subtitle,style:_pjs(size:12,color:subColor,height:1.4)),
+          Text(_description(b),style:_pjs(size:12,color:subColor,height:1.4)),
           const SizedBox(height:14),
           Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,crossAxisAlignment:CrossAxisAlignment.center,children:[
             _CTA(banner:b,onTap:onTap),
@@ -198,7 +201,7 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
       decoration:BoxDecoration(color:bg,borderRadius:BorderRadius.circular(8),border:border),
-      child:Text(banner.tagLabel,style:_pjs(size:10,weight:FontWeight.w800,color:color,letterSpacing:0.05)));
+      child:Text(_tagChipText(banner),style:_pjs(size:10,weight:FontWeight.w800,color:color,letterSpacing:0.05)));
   }
 }
 
@@ -224,12 +227,53 @@ class _CTA extends StatelessWidget {
         color:isAmber?_tc:_dark,borderRadius:BorderRadius.circular(12),
         boxShadow:[BoxShadow(color:isAmber?_tc.withOpacity(0.32):Colors.black.withOpacity(0.22),blurRadius:14,offset:const Offset(0,4))]),
       child:Row(mainAxisSize:MainAxisSize.min,children:[
-        Text(banner.ctaLabel,style:_pjs(size:13,weight:FontWeight.w800,color:Colors.white)),
+        Text(_ctaText(banner),style:_pjs(size:13,weight:FontWeight.w800,color:Colors.white)),
         const SizedBox(width:6),
         const Icon(Icons.arrow_forward_rounded,size:14,color:Colors.white),
       ]),
     ));
   }
+}
+
+
+String _description(BannerModel banner) {
+  final dynamic d = banner;
+  final value = d.description;
+  if (value is String && value.isNotEmpty) return value;
+  final fallback = d.subtitle;
+  return fallback is String ? fallback : '';
+}
+
+String _ctaText(BannerModel banner) {
+  final dynamic d = banner;
+  final value = d.ctaText;
+  if (value is String && value.isNotEmpty) return value;
+  final fallback = d.ctaLabel;
+  return fallback is String && fallback.isNotEmpty ? fallback : 'Keşfet';
+}
+
+String _badgeText(BannerModel banner) {
+  final dynamic d = banner;
+  final value = d.badgeText;
+  if (value is String) return value;
+  final fallback = d.metaLabel;
+  return fallback is String ? fallback : '';
+}
+
+String _linkUrl(BannerModel banner) {
+  final dynamic d = banner;
+  final primary = d.linkUrl;
+  if (primary is String && primary.isNotEmpty) return primary;
+  final fallback = d.actionUrl;
+  return fallback is String ? fallback : '';
+}
+
+String _tagChipText(BannerModel banner) {
+  final badge = _badgeText(banner).trim();
+  final tag = banner.tagLabel.trim();
+  if (badge.isEmpty) return tag;
+  if (tag.isEmpty) return badge;
+  return '$tag • $badge';
 }
 
 class _Skeleton extends StatefulWidget {
