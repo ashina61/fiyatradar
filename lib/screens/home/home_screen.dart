@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/banner_model.dart';
 import '../../models/category_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
@@ -14,15 +13,12 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../widgets/banner_widget.dart';
+import '../../widgets/banner_card.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
-import '../campaign/campaign_detail_screen.dart';
-import '../campaign/campaigns_screen.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class FRColors {
   static const Color bgApp = Color(0xFFF5F3F0);
@@ -107,13 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: _buildCategories(context, categoriesAsync.valueOrNull ?? const []),
               ),
-              SliverToBoxAdapter(
-                child: PremiumBannerSection(
-                  onBannerTap: (banner) {
-                    final onTap = _resolveBannerAction(context, banner);
-                    onTap?.call();
-                  },
-                ),
+              const SliverToBoxAdapter(
+                child: BannerSection(),
               ),
               SliverToBoxAdapter(
                 child: _buildInsightGrid(
@@ -481,67 +472,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  VoidCallback? _resolveBannerAction(BuildContext context, BannerModel banner) {
-    final directProductId = banner.productId?.trim();
-    if (directProductId != null && directProductId.isNotEmpty) {
-      return () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(productId: directProductId),
-            ),
-          );
-    }
-
-    final targetProductId = banner.targetProductIds
-        .map((e) => e.trim())
-        .firstWhere((e) => e.isNotEmpty, orElse: () => '');
-    if (targetProductId.isNotEmpty) {
-      return () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(productId: targetProductId),
-            ),
-          );
-    }
-
-    if ((banner.targetType ?? '').toLowerCase() == 'product' &&
-        (banner.targetId ?? '').trim().isNotEmpty) {
-      final id = banner.targetId!.trim();
-      return () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(productId: id),
-            ),
-          );
-    }
-
-    final targetType = (banner.targetType ?? '').trim().toLowerCase();
-    final targetId = (banner.targetId ?? '').trim();
-    if (targetType == 'campaign') {
-      if (targetId.isNotEmpty) {
-        return () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => CampaignDetailScreen(campaignId: targetId),
-              ),
-            );
-      }
-      return () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CampaignsScreen()),
-          );
-    }
-
-    if ((banner.actionType ?? '').trim().toLowerCase() == 'external' ||
-        (banner.actionUrl ?? '').trim().isNotEmpty ||
-        targetType == 'external' ||
-        targetType == 'url' ||
-        targetType == 'web') {
-      final rawUrl = (banner.actionUrl ?? banner.targetId ?? '').trim();
-      final uri = Uri.tryParse(rawUrl);
-      if (uri == null || (!uri.hasScheme && !uri.hasAuthority)) return null;
-      return () {
-        launchUrl(uri, mode: LaunchMode.externalApplication);
-      };
-    }
-
-    return null;
-  }
 
   Widget _buildInsightGrid(
     List<PriceModel> latestPrices,
