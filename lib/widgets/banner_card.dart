@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../screens/campaign/campaign_detail_screen.dart';
+
 import '../models/banner_model.dart';
 import '../providers/banner_provider.dart';
 
@@ -86,12 +88,23 @@ class _PorscheBannerCard extends StatelessWidget {
 
   const _PorscheBannerCard({required this.banner});
 
-  void _launchURL() async {
-    if (banner.linkUrl != null && banner.linkUrl!.isNotEmpty) {
-      final url = Uri.parse(banner.linkUrl!);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      }
+  Future<void> _handleTap(BuildContext context) async {
+    final targetType = (banner.targetType ?? '').trim();
+    final targetId = (banner.targetId ?? '').trim();
+    if ((targetType == 'campaign' || targetType == 'weekly_event') && targetId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => CampaignDetailScreen(campaignId: targetId)),
+      );
+      return;
+    }
+
+    final linkUrl = (banner.linkUrl ?? '').trim();
+    if (linkUrl.isEmpty) return;
+    final url = Uri.tryParse(linkUrl);
+    if (url == null) return;
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -103,12 +116,13 @@ class _PorscheBannerCard extends StatelessWidget {
     const camel = Color(0xFFC09A60);
 
     return GestureDetector(
-      onTap: _launchURL,
+      onTap: () => _handleTap(context),
       child: Container(
-        clipBehavior: Clip.antiAlias,
+        clipBehavior: Clip.antiAliasWithSaveLayer,
         decoration: BoxDecoration(
           color: espresso,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.transparent, width: 0),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.15),
@@ -119,25 +133,34 @@ class _PorscheBannerCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            if (hasImage)
-              Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: banner.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (c, u, e) => const SizedBox.shrink(),
-                ),
-              ),
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      espresso.withOpacity(0.95),
-                      espresso.withOpacity(hasImage ? 0.3 : 0.95),
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Stack(
+                  children: [
+                    if (hasImage)
+                      Positioned.fill(
+                        child: CachedNetworkImage(
+                          imageUrl: banner.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (c, u, e) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              espresso.withOpacity(0.95),
+                              espresso.withOpacity(hasImage ? 0.3 : 0.95),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

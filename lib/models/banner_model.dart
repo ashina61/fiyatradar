@@ -9,6 +9,8 @@ class BannerModel {
   final String? badgeText;
   final bool isSponsor;
   final String? linkUrl;
+  final String? targetType;
+  final String? targetId;
   final bool isActive;
   final int order;
   final DateTime? createdAt;
@@ -22,6 +24,8 @@ class BannerModel {
     this.badgeText,
     this.isSponsor = false,
     this.linkUrl,
+    this.targetType,
+    this.targetId,
     required this.isActive,
     required this.order,
     this.createdAt,
@@ -38,6 +42,8 @@ class BannerModel {
       badgeText: m['badgeText'],
       isSponsor: m['isSponsor'] ?? false,
       linkUrl: m['linkUrl'],
+      targetType: m['targetType'],
+      targetId: m['targetId'],
       isActive: m['isActive'] ?? false,
       order: m['order'] ?? 0,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
@@ -52,6 +58,8 @@ class BannerModel {
         if (badgeText != null) 'badgeText': badgeText,
         'isSponsor': isSponsor,
         if (linkUrl != null) 'linkUrl': linkUrl,
+        if (targetType != null) 'targetType': targetType,
+        if (targetId != null) 'targetId': targetId,
         'isActive': isActive,
         'order': order,
         'createdAt': FieldValue.serverTimestamp(),
