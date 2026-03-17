@@ -137,6 +137,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
           itemBuilder: (context, index) {
             final banner = banners[index];
             final isActive = banner.isActive;
+            final imageUrl = (banner.imageUrl ?? '').trim();
 
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
@@ -160,8 +161,8 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                         children: [
                           ClipRRect(
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
-                            child: banner.imageUrl.isNotEmpty
-                                ? Image.network(banner.imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(color: pStudio, child: const Icon(Icons.image_not_supported, color: pTextMuted)))
+                            child: imageUrl.isNotEmpty
+                                ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(color: pStudio, child: const Icon(Icons.image_not_supported, color: pTextMuted)))
                                 : Container(color: pStudio, child: const Icon(Icons.image, color: pTextMuted, size: 40)),
                           ),
                           // Statü Rozeti (Cam Efektli)
