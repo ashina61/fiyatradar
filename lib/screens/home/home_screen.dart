@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,12 +9,12 @@ import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../pages/notification_center_page.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/banner_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/banner_widget.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
 import '../campaign/campaign_detail_screen.dart';
@@ -55,29 +53,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final PageController _bannerController = PageController();
-  Timer? _bannerTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      final banners = ref.read(activeBannersProvider).valueOrNull ?? const [];
-      if (banners.length < 2 || !_bannerController.hasClients) return;
-      final page = _bannerController.page?.round() ?? 0;
-      final next = (page + 1) % banners.length;
-      _bannerController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
   @override
   void dispose() {
-    _bannerTimer?.cancel();
-    _bannerController.dispose();
     super.dispose();
   }
 
@@ -85,7 +62,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final bannersAsync = ref.watch(activeBannersProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final usersAsync = ref.watch(allUsersProvider);
@@ -132,9 +108,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildCategories(context, categoriesAsync.valueOrNull ?? const []),
               ),
               SliverToBoxAdapter(
-                child: _buildBannerSection(
-                  context,
-                  bannersAsync.valueOrNull ?? const [],
+                child: PremiumBannerSection(
+                  onBannerTap: (banner) {
+                    final onTap = _resolveBannerAction(context, banner);
+                    onTap?.call();
+                  },
                 ),
               ),
               SliverToBoxAdapter(
@@ -501,122 +479,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildBannerSection(BuildContext context, List<BannerModel> banners) {
-    if (banners.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-      child: SizedBox(
-        height: 160,
-        child: PageView.builder(
-          controller: _bannerController,
-          itemCount: banners.length,
-          itemBuilder: (context, index) {
-            final banner = banners[index];
-            final onTap = _resolveBannerAction(context, banner);
-
-            return Padding(
-              padding: EdgeInsets.only(right: index == banners.length - 1 ? 0 : 10),
-              child: PremiumPressable(
-                borderRadius: BorderRadius.circular(24),
-                onTap: onTap,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CachedNetworkImage(imageUrl: banner.imageUrl, fit: BoxFit.cover),
-                      Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [Color(0xF2211510), Color(0x1A211510)],
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: FRColors.gold,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                ((banner.subtitle?.trim().isNotEmpty ?? false)
-                                        ? banner.subtitle!
-                                        : (banner.description?.trim().isNotEmpty ?? false)
-                                            ? banner.description!
-                                            : 'GÜNÜN FIRSATI')
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              banner.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: FRColors.surface,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                height: 1.2,
-                              ),
-                            ),
-                            if (onTap != null || (banner.ctaText?.trim().isNotEmpty ?? false)) ...[
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _resolveBannerCtaText(banner),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: FRColors.surface,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Icon(
-                                    Icons.arrow_forward_rounded,
-                                    size: 14,
-                                    color: FRColors.surface,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  String _resolveBannerCtaText(BannerModel banner) {
-    final cta = banner.ctaText?.trim();
-    if (cta != null && cta.isNotEmpty) return cta;
-    final actionLabel = banner.actionLabel?.trim();
-    if (actionLabel != null && actionLabel.isNotEmpty) return actionLabel;
-    return 'Keşfet';
   }
 
   VoidCallback? _resolveBannerAction(BuildContext context, BannerModel banner) {

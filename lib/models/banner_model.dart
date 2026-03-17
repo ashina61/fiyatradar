@@ -4,6 +4,7 @@ class BannerModel {
   final String id;
   final String title;
   final String? subtitle;
+  final String? badgeText;
   final String? description;
   final String imageUrl;
   final String? actionUrl;
@@ -25,6 +26,7 @@ class BannerModel {
     required this.id,
     required this.title,
     this.subtitle,
+    this.badgeText,
     this.description,
     required this.imageUrl,
     this.actionUrl,
@@ -57,6 +59,7 @@ class BannerModel {
       id: doc.id,
       title: data['title'] ?? '',
       subtitle: data['subtitle']?.toString(),
+      badgeText: data['badgeText']?.toString(),
       description: data['description'],
       imageUrl: data['imageUrl'] ?? '',
       actionUrl: data['actionUrl'],
@@ -81,6 +84,7 @@ class BannerModel {
     return {
       'title': title,
       'subtitle': subtitle,
+      'badgeText': badgeText,
       'description': description,
       'imageUrl': imageUrl,
       'actionUrl': actionUrl,
@@ -104,6 +108,7 @@ class BannerModel {
     String? id,
     String? title,
     String? subtitle,
+    String? badgeText,
     String? description,
     String? imageUrl,
     String? actionUrl,
@@ -125,6 +130,7 @@ class BannerModel {
       id: id ?? this.id,
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
+      badgeText: badgeText ?? this.badgeText,
       description: description ?? this.description,
       imageUrl: imageUrl ?? this.imageUrl,
       actionUrl: actionUrl ?? this.actionUrl,
