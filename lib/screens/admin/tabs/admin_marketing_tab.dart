@@ -213,7 +213,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                               children: [
                                 Text(banner.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isActive ? pTextMain : pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 2),
-                                Text('Hedef: ${banner.targetType ?? 'Yok'} • ${banner.targetId ?? '-'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text('Link: ${(banner.linkUrl ?? '').trim().isNotEmpty ? banner.linkUrl : 'Link Yok'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ],
                             ),
                           ),
@@ -325,10 +325,9 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
     final titleController = TextEditingController(text: banner?.title ?? '');
     final descriptionController = TextEditingController(text: banner?.description ?? '');
     final imageUrlController = TextEditingController(text: banner?.imageUrl ?? '');
-    final ctaController = TextEditingController(text: banner?.ctaText ?? 'Keşfet');
+    final ctaController = TextEditingController(text: banner?.buttonText ?? 'KEŞFET');
 
-    String selectedTargetType = 'campaign';
-    String? selectedCampaignId = banner?.targetId;
+    final linkUrlController = TextEditingController(text: banner?.linkUrl ?? '');
     bool isActive = banner?.isActive ?? true;
     bool isSponsor = banner?.isSponsor ?? false;
 
@@ -338,7 +337,6 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Consumer(
         builder: (context, ref, _) {
-          final campaignsAsync = ref.watch(activeCampaignsProvider);
           return StatefulBuilder(
             builder: (ctx, setState) => Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -362,43 +360,15 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                       const SizedBox(height: 12),
                       _PremiumInput(icon: Icons.link, hint: 'Görsel URL', controller: imageUrlController),
                       const SizedBox(height: 12),
-                      _PremiumInput(icon: Icons.smart_button, hint: 'CTA Buton Yazısı (Örn: Keşfet)', controller: ctaController),
+                      _PremiumInput(icon: Icons.smart_button, hint: 'Buton Yazısı (Örn: KEŞFET)', controller: ctaController),
                       const SizedBox(height: 12),
                       _PremiumInput(icon: Icons.description, hint: 'Açıklama (Opsiyonel)', controller: descriptionController, maxLines: 2),
                       const SizedBox(height: 24),
 
-                      const Text('Hedef (Tıklanınca nereye gidecek?)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pTextMuted)),
+                      const Text('Link URL (Tıklanınca açılacak bağlantı)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pTextMuted)),
                       const SizedBox(height: 8),
                       
-                      // Hedef Kampanya Seçici
-                      campaignsAsync.when(
-                        data: (campaigns) {
-                          if(campaigns.isEmpty) return const Text('Aktif kampanya bulunamadı.', style: TextStyle(color: pAlert, fontSize: 12));
-                          return Wrap(
-                            spacing: 8, runSpacing: 8,
-                            children: campaigns.take(8).map((c) {
-                              final isSelected = selectedCampaignId == c.id;
-                              return GestureDetector(
-                                onTap: () => setState(() => selectedCampaignId = c.id),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(color: isSelected ? pBrandBrown : pSurface, border: Border.all(color: isSelected ? pBrandBrown : pBorder), borderRadius: BorderRadius.circular(100)),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if(isSelected) const Icon(Icons.check, color: pSurface, size: 14),
-                                      if(isSelected) const SizedBox(width: 4),
-                                      Text(c.title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? pSurface : pTextMuted)),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                        loading: () => const CircularProgressIndicator(strokeWidth: 2),
-                        error: (_,__) => const SizedBox(),
-                      ),
+                      _PremiumInput(icon: Icons.travel_explore, hint: 'https://... ', controller: linkUrlController),
                       const SizedBox(height: 24),
 
                       Container(
@@ -436,17 +406,15 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                             'title': titleController.text.trim(),
                             'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                             'imageUrl': imageUrlController.text.trim(),
-                            'ctaText': ctaController.text.trim().isEmpty ? 'Keşfet' : ctaController.text.trim(),
-                            'targetType': selectedTargetType,
-                            'targetId': selectedTargetType == 'campaign' ? selectedCampaignId : null,
+                            'buttonText': ctaController.text.trim().isEmpty ? 'KEŞFET' : ctaController.text.trim(),
+                            'linkUrl': linkUrlController.text.trim().isEmpty ? null : linkUrlController.text.trim(),
                             'isSponsor': isSponsor,
                             'isActive': isActive,
                             'order': banner?.order ?? 0,
-                            'aspectRatio': 'wide',
                           };
 
                           if (banner == null) {
-                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl']! as String, targetType: payload['targetType']! as String, targetId: payload['targetId'] as String?, ctaText: payload['ctaText']! as String, aspectRatio: 'wide', isActive: isActive, isSponsor: isSponsor, createdAt: DateTime.now());
+                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl'] as String?, buttonText: payload['buttonText']! as String, linkUrl: payload['linkUrl'] as String?, isActive: isActive, isSponsor: isSponsor, order: payload['order']! as int, createdAt: DateTime.now());
                             await ref.read(adminBannerManagementDomainServiceProvider).addBanner(model);
                           } else {
                             await ref.read(adminBannerManagementDomainServiceProvider).updateBanner(banner.id, payload);

@@ -18,7 +18,7 @@ class BannerService {
     return query.snapshots().map((snapshot) {
       final list = snapshot.docs
           .map(BannerModel.fromFirestore)
-          .where((banner) => banner.shouldShow)
+          .where((banner) => banner.isActive)
           .toList();
       list.sort((a, b) => a.order.compareTo(b.order));
       return list;
@@ -34,7 +34,7 @@ class BannerService {
   }
 
   Future<String> addBanner(BannerModel banner) async {
-    final doc = await _bannersRef.add(banner.toFirestore());
+    final doc = await _bannersRef.add(banner.toMap());
     return doc.id;
   }
 
