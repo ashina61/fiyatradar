@@ -681,28 +681,160 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
 
   Widget _buildWeeklyEventCard(BannerModel banner) {
+    final imageUrl = (banner.imageUrl ?? '').trim();
+    final badgeText = (banner.badgeText ?? banner.tagLabel).trim().isNotEmpty
+        ? (banner.badgeText ?? banner.tagLabel).trim()
+        : 'ETİKET';
+    final actionText = (banner.ctaText ?? banner.ctaLabel).trim().isNotEmpty
+        ? (banner.ctaText ?? banner.ctaLabel).trim()
+        : 'KEŞFET';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: PremiumPressable(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         onTap: () => ref.read(exploreControllerProvider.notifier).updateMode(ExploreMode.drops),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: const Color(0xFF211510),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0x33C29B78)),
+            color: const Color(0xFF1C1108),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x261C1108),
+                blurRadius: 32,
+                offset: Offset(0, 16),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Text((banner.subtitle?.isNotEmpty ?? false) ? banner.subtitle! : 'HAFTANIN OLAYI', style: const TextStyle(color: Color(0xFFC29B78), fontSize: 11, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              Text(banner.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
-              if ((banner.description?.isNotEmpty ?? false)) ...[
-                const SizedBox(height: 6),
-                Text(banner.description!, style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 12, fontWeight: FontWeight.w500)),
-              ],
+              Positioned.fill(
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      )
+                    : const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF1C1108),
+                          gradient: RadialGradient(
+                            center: Alignment(1, -1),
+                            radius: 1.15,
+                            colors: [Color(0x66C09A60), Color(0x001C1108)],
+                            stops: [0.0, 1.0],
+                          ),
+                        ),
+                      ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: imageUrl.isNotEmpty
+                        ? const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [Color(0xDE000000), Color(0x00000000)],
+                            stops: [0.0, 0.9],
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: banner.isSponsor ? const Color(0x40C09A60) : const Color(0x26C09A60),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: banner.isSponsor ? const Color(0xFFC09A60) : const Color(0x4DC09A60),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            banner.isSponsor ? Icons.star : Icons.circle,
+                            size: banner.isSponsor ? 12 : 6,
+                            color: const Color(0xFFC09A60),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            badgeText.toUpperCase(),
+                            style: TextStyle(
+                              color: banner.isSponsor ? const Color(0xFFFFE6C9) : const Color(0xFFC09A60),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      banner.title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        height: 1.2,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if ((banner.description ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        banner.description!.trim(),
+                        style: const TextStyle(
+                          color: Color(0x99FFFFFF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          actionText.toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFFC09A60),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFC09A60),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0x4DC09A60),
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF1C1108)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

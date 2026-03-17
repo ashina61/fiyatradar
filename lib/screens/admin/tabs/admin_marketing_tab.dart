@@ -330,6 +330,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
     String selectedTargetType = 'campaign';
     String? selectedCampaignId = banner?.targetId;
     bool isActive = banner?.isActive ?? true;
+    bool isSponsor = banner?.isSponsor ?? false;
 
     await showModalBottomSheet(
       context: context,
@@ -400,6 +401,19 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                       ),
                       const SizedBox(height: 24),
 
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(color: pSurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: pBorder)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Sponsorlu İçerik mi?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: pTextMain)),
+                            Switch.adaptive(value: isSponsor, activeColor: pSurface, activeTrackColor: pBrandBrown, inactiveThumbColor: pSurface, inactiveTrackColor: pStudio, onChanged: (v) => setState(() => isSponsor = v)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
                       // Sistemde Yayında Switch'i
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -425,13 +439,14 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                             'ctaText': ctaController.text.trim().isEmpty ? 'Keşfet' : ctaController.text.trim(),
                             'targetType': selectedTargetType,
                             'targetId': selectedTargetType == 'campaign' ? selectedCampaignId : null,
+                            'isSponsor': isSponsor,
                             'isActive': isActive,
                             'order': banner?.order ?? 0,
                             'aspectRatio': 'wide',
                           };
 
                           if (banner == null) {
-                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl']! as String, targetType: payload['targetType']! as String, targetId: payload['targetId'] as String?, ctaText: payload['ctaText']! as String, aspectRatio: 'wide', isActive: isActive, createdAt: DateTime.now());
+                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl']! as String, targetType: payload['targetType']! as String, targetId: payload['targetId'] as String?, ctaText: payload['ctaText']! as String, aspectRatio: 'wide', isActive: isActive, isSponsor: isSponsor, createdAt: DateTime.now());
                             await ref.read(adminBannerManagementDomainServiceProvider).addBanner(model);
                           } else {
                             await ref.read(adminBannerManagementDomainServiceProvider).updateBanner(banner.id, payload);
