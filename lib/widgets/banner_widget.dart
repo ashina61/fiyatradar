@@ -1,18 +1,14 @@
 import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Kendi projendeki doğru yolları (path) buraya yaz kanka
 import '../models/banner_model.dart';
 import '../providers/banner_provider.dart';
 
 class PremiumBannerSection extends ConsumerStatefulWidget {
-  const PremiumBannerSection({
-    super.key,
-    this.onBannerTap,
-  });
-
+  const PremiumBannerSection({super.key, this.onBannerTap});
   final void Function(BannerModel banner)? onBannerTap;
 
   @override
@@ -20,28 +16,31 @@ class PremiumBannerSection extends ConsumerStatefulWidget {
 }
 
 class _PremiumBannerSectionState extends ConsumerState<PremiumBannerSection> {
-  final PageController _pageController = PageController();
-  Timer? _autoSlideTimer;
+  final PageController _pageController = PageController(viewportFraction: 1.0);
+  Timer? _timer;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      final banners = ref.read(activeBannersProvider).valueOrNull ?? const <BannerModel>[];
-      if (banners.length < 2 || !_pageController.hasClients) return;
-      final next = (_currentPage + 1) % banners.length;
+    // Bannerlar arası 5 saniyede bir otomatik geçiş
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final banners = ref.read(activeBannersProvider).valueOrNull ?? [];
+      final activeBanners = banners.where((b) => b.isActive).toList();
+      if (activeBanners.length < 2 || !_pageController.hasClients) return;
+      
+      final next = (_currentPage + 1) % activeBanners.length;
       _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeOutCubic,
+        next, 
+        duration: const Duration(milliseconds: 500), 
+        curve: Curves.easeOutQuart,
       );
     });
   }
 
   @override
   void dispose() {
-    _autoSlideTimer?.cancel();
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -52,21 +51,22 @@ class _PremiumBannerSectionState extends ConsumerState<PremiumBannerSection> {
 
     return bannersAsync.when(
       data: (banners) {
-        if (banners.isEmpty) return const SizedBox.shrink();
+        final activeBanners = banners.where((b) => b.isActive).toList();
+        if (activeBanners.isEmpty) return const SizedBox.shrink();
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           child: SizedBox(
-            height: 190,
+            height: 190, // Tasarımın jilet gibi oturacağı ideal yükseklik
             child: PageView.builder(
               controller: _pageController,
-              itemCount: banners.length,
+              itemCount: activeBanners.length,
               onPageChanged: (index) => setState(() => _currentPage = index),
               itemBuilder: (context, index) {
-                final banner = banners[index];
+                final banner = activeBanners[index];
                 return Padding(
-                  padding: EdgeInsets.only(right: index == banners.length - 1 ? 0 : 10),
-                  child: _PremiumBannerCard(
+                  padding: EdgeInsets.only(right: activeBanners.length > 1 ? 8.0 : 0),
+                  child: _PorscheBannerCard(
                     banner: banner,
                     onTap: () => widget.onBannerTap?.call(banner),
                   ),
@@ -77,236 +77,215 @@ class _PremiumBannerSectionState extends ConsumerState<PremiumBannerSection> {
         );
       },
       loading: () => const Padding(
-        padding: EdgeInsets.fromLTRB(24, 14, 24, 0),
-        child: SizedBox(height: 190, child: _BannerSkeleton()),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: SizedBox(
+          height: 190, 
+          child: Center(child: CircularProgressIndicator(color: Color(0xFFC09A60))),
+        ),
       ),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
 
-class _PremiumBannerCard extends StatelessWidget {
-  const _PremiumBannerCard({
-    required this.banner,
-    this.onTap,
-  });
-
+class _PorscheBannerCard extends StatelessWidget {
   final BannerModel banner;
   final VoidCallback? onTap;
 
+  const _PorscheBannerCard({required this.banner, this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    final hasImage = banner.imageUrl?.trim().isNotEmpty ?? false;
+    final hasImage = banner.imageUrl != null && banner.imageUrl!.isNotEmpty;
+    // Modelinde isSponsor bool yoksa burayı false yap geç
+    final isSponsor = banner.isSponsor ?? false; 
+    
+    const espresso = Color(0xFF1C1108);
+    const camel = Color(0xFFC09A60);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(28),
-        onTap: onTap,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1108),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x80000000),
-                blurRadius: 40,
-                offset: Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (hasImage)
-                CachedNetworkImage(
-                  imageUrl: banner.imageUrl ?? '',
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        // HATA 1 ÇÖZÜMÜ: Köşe sızmalarını engeller
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: espresso,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // 1. Resim Katmanı
+            if (hasImage)
+              Positioned.fill(
+                child: CachedNetworkImage(
+                  imageUrl: banner.imageUrl!,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF1C1108)),
-                )
-              else
-                const ColoredBox(color: Color(0xFF1C1108)),
-              if (hasImage)
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xDE000000), Color(0x73000000)],
-                    ),
+                  errorWidget: (context, url, error) => const SizedBox.shrink(),
+                ),
+              ),
+
+            // 2. Linear Gradient (Soldan sağa kararır, yazıları öne çıkarır)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      espresso.withOpacity(0.95),
+                      espresso.withOpacity(hasImage ? 0.3 : 0.95),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
                 ),
-              if (!hasImage)
-                CustomPaint(painter: _DiagonalPatternPainter()),
-              const _GlowOverlay(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    if ((banner.badgeText?.trim().isNotEmpty ?? false)) ...[
-                      _BadgeChip(text: banner.badgeText!.trim()),
-                      const SizedBox(height: 14),
+              ),
+            ),
+
+            // 3. Sağ Üst Radial Parlama
+            Positioned(
+              top: -60,
+              right: -40,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      camel.withOpacity(0.35),
+                      Colors.transparent,
                     ],
-                    Text(
-                      banner.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                        height: 1.25,
-                      ),
-                    ),
-                    if (banner.description?.trim().isNotEmpty ?? false) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        banner.description!.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0x99FFFFFF),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 18),
+                    stops: const [0.0, 0.7],
+                  ),
+                ),
+              ),
+            ),
+
+            // 4. İçerik Katmanı
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                // HATA 2 ÇÖZÜMÜ: Butonu dibe itmez, yazının peşinden sürükler
+                mainAxisSize: MainAxisSize.min, 
+                children: [
+                  // Dinamik Rozet
+                  if (banner.badgeText != null && banner.badgeText!.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      margin: const EdgeInsets.bottom: 10,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC09A60),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x59C09A60),
-                            blurRadius: 20,
-                            offset: Offset(0, 6),
+                        color: isSponsor ? camel.withOpacity(0.25) : camel.withOpacity(0.15),
+                        border: Border.all(
+                          color: isSponsor ? camel : camel.withOpacity(0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSponsor)
+                            const Icon(Icons.star, color: Color(0xFFFFE6C9), size: 12)
+                          else
+                            Container(
+                              width: 6, height: 6,
+                              decoration: const BoxDecoration(
+                                color: camel,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            banner.badgeText!.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isSponsor ? const Color(0xFFFFE6C9) : camel,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ],
                       ),
-                      child: Text(
-                        (banner.ctaText?.trim().isNotEmpty ?? false) ? banner.ctaText!.trim() : 'Keşfet',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1C1108),
-                        ),
+                    ),
+
+                  // Başlık
+                  Text(
+                    banner.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.2,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+
+                  // Açıklama
+                  if (banner.description != null && banner.description!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      banner.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.6),
+                        height: 1.4,
                       ),
                     ),
                   ],
-                ),
+
+                  const SizedBox(height: 14),
+
+                  // Lüks Buton
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        (banner.ctaText ?? 'KEŞFET').toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: camel,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: camel,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: camel.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward,
+                          color: espresso,
+                          size: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlowOverlay extends StatelessWidget {
-  const _GlowOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      right: -20,
-      top: -20,
-      child: IgnorePointer(
-        child: Container(
-          width: 160,
-          height: 160,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [Color(0x73C09A60), Colors.transparent],
-              stops: [0, 0.62],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BadgeChip extends StatelessWidget {
-  const _BadgeChip({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0x2EC09A60),
-        border: Border.all(color: const Color(0x40C09A60)),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-              color: Color(0xFFC09A60),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            text.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Color(0xE6C09A60),
-              letterSpacing: 0.7,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DiagonalPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x0FFFFFFF)
-      ..strokeWidth = 1;
-
-    const spacing = 16.0;
-    for (double x = -size.height; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BannerSkeleton extends StatelessWidget {
-  const _BannerSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEE8E2),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          ],
         ),
       ),
     );
