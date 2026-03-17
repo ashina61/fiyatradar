@@ -104,6 +104,7 @@ class _PremiumBannerCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         onTap: onTap,
         child: Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: const Color(0xFF1C1108),
             borderRadius: BorderRadius.circular(28),
@@ -115,95 +116,92 @@ class _PremiumBannerCard extends StatelessWidget {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (hasImage)
-                  CachedNetworkImage(
-                    imageUrl: banner.imageUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF1C1108)),
-                  )
-                else
-                  const ColoredBox(color: Color(0xFF1C1108)),
-                if (hasImage)
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xDE000000), Color(0x73000000)],
-                      ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                CachedNetworkImage(
+                  imageUrl: banner.imageUrl,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF1C1108)),
+                )
+              else
+                const ColoredBox(color: Color(0xFF1C1108)),
+              if (hasImage)
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xDE000000), Color(0x73000000)],
                     ),
                   ),
-                if (!hasImage)
-                  CustomPaint(painter: _DiagonalPatternPainter()),
-                const _GlowOverlay(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if ((banner.badgeText?.trim().isNotEmpty ?? false)) ...[
-                        _BadgeChip(text: banner.badgeText!.trim()),
-                        const SizedBox(height: 14),
-                      ],
+                ),
+              if (!hasImage)
+                CustomPaint(painter: _DiagonalPatternPainter()),
+              const _GlowOverlay(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    if ((banner.badgeText?.trim().isNotEmpty ?? false)) ...[
+                      _BadgeChip(text: banner.badgeText!.trim()),
+                      const SizedBox(height: 14),
+                    ],
+                    Text(
+                      banner.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (banner.description?.trim().isNotEmpty ?? false) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        banner.title,
+                        banner.description!.trim(),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                          height: 1.25,
-                        ),
-                      ),
-                      if (banner.description?.trim().isNotEmpty ?? false) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          banner.description!.trim(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0x99FFFFFF),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFC09A60),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x59C09A60),
-                              blurRadius: 20,
-                              offset: Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          (banner.ctaText?.trim().isNotEmpty ?? false) ? banner.ctaText!.trim() : 'Keşfet',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1C1108),
-                          ),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0x99FFFFFF),
                         ),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC09A60),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x59C09A60),
+                            blurRadius: 20,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        (banner.ctaText?.trim().isNotEmpty ?? false) ? banner.ctaText!.trim() : 'Keşfet',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1C1108),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
