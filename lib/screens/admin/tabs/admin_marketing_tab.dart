@@ -213,7 +213,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                               children: [
                                 Text(banner.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isActive ? pTextMain : pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 2),
-                                Text('Link: ${(banner.linkUrl ?? '').trim().isNotEmpty ? banner.linkUrl : 'Link Yok'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text('Hedef: ${(banner.targetType ?? '').trim().isNotEmpty ? banner.targetType : ((banner.linkUrl ?? '').trim().isNotEmpty ? 'external' : 'Yok')}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ],
                             ),
                           ),
@@ -328,6 +328,14 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
     final ctaController = TextEditingController(text: banner?.buttonText ?? 'KEŞFET');
 
     final linkUrlController = TextEditingController(text: banner?.linkUrl ?? '');
+    final campaigns = ref.read(allCampaignsProvider).valueOrNull ?? const <CampaignBasketModel>[];
+    String selectedTargetType = (banner?.targetType ?? ((banner?.linkUrl ?? '').trim().isNotEmpty ? 'external' : 'campaign')).trim().isEmpty
+        ? 'campaign'
+        : (banner?.targetType ?? ((banner?.linkUrl ?? '').trim().isNotEmpty ? 'external' : 'campaign')).trim();
+    String? selectedTargetId = (banner?.targetId ?? '').trim().isEmpty ? null : banner?.targetId?.trim();
+    if (selectedTargetType != 'external' && selectedTargetId == null && campaigns.isNotEmpty) {
+      selectedTargetId = campaigns.first.id;
+    }
     bool isActive = banner?.isActive ?? true;
     bool isSponsor = banner?.isSponsor ?? false;
 
@@ -365,10 +373,62 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                       _PremiumInput(icon: Icons.description, hint: 'Açıklama (Opsiyonel)', controller: descriptionController, maxLines: 2),
                       const SizedBox(height: 24),
 
-                      const Text('Link URL (Tıklanınca açılacak bağlantı)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pTextMuted)),
+                      const Text('Hedef (Tıklanınca nereye gidecek?)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pTextMuted)),
                       const SizedBox(height: 8),
-                      
-                      _PremiumInput(icon: Icons.travel_explore, hint: 'https://... ', controller: linkUrlController),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(color: pSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: pBorder)),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedTargetType,
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(value: 'campaign', child: Text('Kampanya')),
+                              DropdownMenuItem(value: 'weekly_event', child: Text('Haftalık Etkinlik')),
+                              DropdownMenuItem(value: 'external', child: Text('Dış Link')),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                selectedTargetType = value;
+                                if (value == 'external') {
+                                  selectedTargetId = null;
+                                } else if (campaigns.isNotEmpty) {
+                                  final exists = campaigns.any((c) => c.id == selectedTargetId);
+                                  if (!exists) selectedTargetId = campaigns.first.id;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (selectedTargetType == 'external') ...[
+                        _PremiumInput(icon: Icons.travel_explore, hint: 'https://... ', controller: linkUrlController),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(color: pSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: pBorder)),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: campaigns.any((c) => c.id == selectedTargetId) ? selectedTargetId : (campaigns.isNotEmpty ? campaigns.first.id : null),
+                              isExpanded: true,
+                              hint: const Text('Kampanya seçin'),
+                              items: campaigns
+                                  .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.title, overflow: TextOverflow.ellipsis)))
+                                  .toList(),
+                              onChanged: campaigns.isEmpty
+                                  ? null
+                                  : (value) => setState(() => selectedTargetId = value),
+                            ),
+                          ),
+                        ),
+                        if (campaigns.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text('Önce bir kampanya oluşturmalısınız.', style: TextStyle(fontSize: 11, color: pAlert, fontWeight: FontWeight.w600)),
+                          ),
+                      ],
                       const SizedBox(height: 24),
 
                       Container(
@@ -407,14 +467,16 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                             'description': descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
                             'imageUrl': imageUrlController.text.trim(),
                             'buttonText': ctaController.text.trim().isEmpty ? 'KEŞFET' : ctaController.text.trim(),
-                            'linkUrl': linkUrlController.text.trim().isEmpty ? null : linkUrlController.text.trim(),
+                            'linkUrl': selectedTargetType == 'external' && linkUrlController.text.trim().isNotEmpty ? linkUrlController.text.trim() : null,
+                            'targetType': selectedTargetType,
+                            'targetId': selectedTargetType == 'external' ? null : selectedTargetId,
                             'isSponsor': isSponsor,
                             'isActive': isActive,
                             'order': banner?.order ?? 0,
                           };
 
                           if (banner == null) {
-                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl'] as String?, buttonText: payload['buttonText']! as String, linkUrl: payload['linkUrl'] as String?, isActive: isActive, isSponsor: isSponsor, order: payload['order']! as int, createdAt: DateTime.now());
+                            final model = BannerModel(id: '', badgeText: payload['badgeText'] as String?, title: payload['title']! as String, description: payload['description'] as String?, imageUrl: payload['imageUrl'] as String?, buttonText: payload['buttonText']! as String, linkUrl: payload['linkUrl'] as String?, targetType: payload['targetType'] as String?, targetId: payload['targetId'] as String?, isActive: isActive, isSponsor: isSponsor, order: payload['order']! as int, createdAt: DateTime.now());
                             await ref.read(adminBannerManagementDomainServiceProvider).addBanner(model);
                           } else {
                             await ref.read(adminBannerManagementDomainServiceProvider).updateBanner(banner.id, payload);
