@@ -1,297 +1,267 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../models/banner_model.dart';
 import '../providers/banner_provider.dart';
 
-final activeBannersProvider = bannersProvider;
-
-const _dark = Color(0xFF1C1108);
-const _bg   = Color(0xFFECEAE4);
-const _tc   = Color(0xFFC09A60);
-const _t2   = Color(0xFF6B5D4E);
-const _t3   = Color(0xFFA89A8A);
-
-TextStyle _pjs({double size=13,FontWeight weight=FontWeight.w600,Color color=_dark,double? letterSpacing,double? height})=>
-    GoogleFonts.plusJakartaSans(fontSize:size,fontWeight:weight,color:color,letterSpacing:letterSpacing,height:height);
-
-// ── BannerSection: ana sayfaya sadece bunu koy ──────────────────
-class BannerSection extends ConsumerWidget {
-  const BannerSection({super.key});
+class PremiumBannerSection extends ConsumerStatefulWidget {
+  const PremiumBannerSection({super.key});
   @override
-  Widget build(BuildContext context,WidgetRef ref){
-    return ref.watch(activeBannersProvider).when(
-      loading:()=>const _Skeleton(),
-      error:(_,__)=>const SizedBox.shrink(),
-      data:(banners){
-        final visible = banners.where((b) => b.isActive).toList();
-        if(visible.isEmpty) return const SizedBox.shrink();
-        if(visible.length==1) return Padding(
-          padding:const EdgeInsets.symmetric(horizontal:16),
-          child:BannerCard(banner:visible.first));
-        return _Pager(banners:visible);
-      },
-    );
+  ConsumerState<PremiumBannerSection> createState() => _PremiumBannerSectionState();
+}
+
+class _PremiumBannerSectionState extends ConsumerState<PremiumBannerSection> {
+  final PageController _pageController = PageController(viewportFraction: 1.0);
+  Timer? _timer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      final banners = ref.read(bannersProvider).valueOrNull ?? [];
+      final activeBanners = banners.where((b) => b.isActive).toList();
+      if (activeBanners.length < 2 || !_pageController.hasClients) return;
+
+      final next = (_currentPage + 1) % activeBanners.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutQuart,
+      );
+    });
   }
-}
 
-// ── Pager ────────────────────────────────────────────────────────
-class _Pager extends StatefulWidget {
-  const _Pager({required this.banners});
-  final List<BannerModel> banners;
-  @override State<_Pager> createState()=>_PagerState();
-}
-class _PagerState extends State<_Pager> {
-  final _ctrl=PageController(viewportFraction:0.92);
-  int _cur=0;
-  @override void dispose(){_ctrl.dispose();super.dispose();}
   @override
-  Widget build(BuildContext context){
-    final hasPhoto=widget.banners.any((b)=>b.imageUrl!=null&&b.imageUrl!.isNotEmpty);
-    return Column(children:[
-      SizedBox(
-        height:hasPhoto?298:176,
-        child:PageView.builder(
-          controller:_ctrl,
-          itemCount:widget.banners.length,
-          onPageChanged:(i)=>setState(()=>_cur=i),
-          itemBuilder:(_,i)=>Padding(
-            padding:EdgeInsets.only(left:i==0?16:6,right:i==widget.banners.length-1?16:6),
-            child:BannerCard(banner:widget.banners[i])),
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bannersAsync = ref.watch(bannersProvider);
+
+    return bannersAsync.when(
+      data: (banners) {
+        final activeBanners = banners.where((b) => b.isActive).toList();
+        if (activeBanners.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          child: SizedBox(
+            height: 190,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: activeBanners.length,
+              onPageChanged: (index) => setState(() => _currentPage = index),
+              itemBuilder: (context, index) {
+                final banner = activeBanners[index];
+                return Padding(
+                  padding: EdgeInsets.only(right: activeBanners.length > 1 ? 8.0 : 0),
+                  child: _PorscheBannerCard(banner: banner),
+                );
+              },
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 190,
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFFC09A60)),
         ),
       ),
-      const SizedBox(height:10),
-      Row(
-        mainAxisAlignment:MainAxisAlignment.center,
-        children:List.generate(widget.banners.length,(i){
-          final on=i==_cur;
-          return AnimatedContainer(
-            duration:const Duration(milliseconds:240),
-            margin:const EdgeInsets.symmetric(horizontal:3),
-            width:on?18:6,height:6,
-            decoration:BoxDecoration(
-              color:on?_tc:_tc.withOpacity(0.25),
-              borderRadius:BorderRadius.circular(3)),
-          );
-        }),
-      ),
-    ]);
-  }
-}
-
-// ── BannerCard ───────────────────────────────────────────────────
-class BannerCard extends StatefulWidget {
-  const BannerCard({super.key,required this.banner,this.onTap});
-  final BannerModel banner;
-  final VoidCallback? onTap;
-  @override State<BannerCard> createState()=>_BannerCardState();
-}
-class _BannerCardState extends State<BannerCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-  @override void initState(){
-    super.initState();
-    _ctrl=AnimationController(vsync:this,duration:const Duration(milliseconds:160));
-    _scale=Tween(begin:1.0,end:0.968).animate(CurvedAnimation(parent:_ctrl,curve:Curves.easeInOut));
-  }
-  @override void dispose(){_ctrl.dispose();super.dispose();}
-
-  void _tap(){
-    HapticFeedback.lightImpact();
-    if(widget.onTap!=null){widget.onTap!();return;}
-    final url = _linkUrl(widget.banner);
-    if(url.isNotEmpty) launchUrl(Uri.parse(url),mode:LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context){
-    final b=widget.banner;
-    final isDark=b.type!=BannerType.sponsor;
-    final bodyBg=isDark?_dark:_bg;
-    return GestureDetector(
-      onTapDown:(_)=>_ctrl.forward(),
-      onTapUp:(_){_ctrl.reverse();_tap();},
-      onTapCancel:()=>_ctrl.reverse(),
-      child:ScaleTransition(scale:_scale,child:Container(
-        decoration:BoxDecoration(
-          borderRadius:BorderRadius.circular(26),
-          boxShadow:[BoxShadow(color:Colors.black.withOpacity(0.28),blurRadius:28,offset:const Offset(0,8))]),
-        child:ClipRRect(borderRadius:BorderRadius.circular(26),child:Column(mainAxisSize:MainAxisSize.min,children:[
-          if(b.imageUrl!=null&&b.imageUrl!.isNotEmpty) _Photo(url:b.imageUrl!,fadeTo:bodyBg),
-          _Body(banner:b,isDark:isDark,bodyBg:bodyBg,onTap:_tap),
-        ])),
-      )),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
 
-// ── Photo ────────────────────────────────────────────────────────
-class _Photo extends StatelessWidget {
-  const _Photo({required this.url,required this.fadeTo});
-  final String url; final Color fadeTo;
-  @override
-  Widget build(BuildContext context)=>SizedBox(
-    width:double.infinity,height:160,
-    child:Stack(fit:StackFit.expand,children:[
-      CachedNetworkImage(imageUrl:url,fit:BoxFit.cover,
-        fadeInDuration:const Duration(milliseconds:280),
-        placeholder:(_,__)=>Container(color:_dark,child:Center(child:SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:_tc.withOpacity(0.4))))),
-        errorWidget:(_,__,___)=>Container(color:_dark,child:Icon(Icons.broken_image_outlined,color:_tc.withOpacity(0.25),size:26))),
-      Positioned(left:0,right:0,bottom:0,child:Container(height:90,decoration:BoxDecoration(
-        gradient:LinearGradient(begin:Alignment.bottomCenter,end:Alignment.topCenter,colors:[fadeTo,fadeTo.withOpacity(0)])))),
-    ]),
-  );
-}
+class _PorscheBannerCard extends StatelessWidget {
+  final BannerModel banner;
 
-// ── Body ─────────────────────────────────────────────────────────
-class _Body extends StatelessWidget {
-  const _Body({required this.banner,required this.isDark,required this.bodyBg,required this.onTap});
-  final BannerModel banner; final bool isDark; final Color bodyBg; final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context){
-    final b=banner;
-    final textColor=isDark?Colors.white:_dark;
-    final subColor=isDark?Colors.white.withOpacity(0.5):_t3;
-    final metaColor=isDark?Colors.white.withOpacity(0.35):_t3;
-    return Stack(children:[
-      if(isDark) Positioned(right:-18,top:-18,child:Container(width:110,height:110,decoration:BoxDecoration(
-        shape:BoxShape.circle,gradient:RadialGradient(colors:[_tc.withOpacity(0.18),Colors.transparent])))),
-      Container(
-        width:double.infinity,color:bodyBg,
-        padding:const EdgeInsets.fromLTRB(18,14,18,18),
-        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
-            _TagChip(banner:b,isDark:isDark),
-            Row(mainAxisSize:MainAxisSize.min,children:[
-              if(b.brandName!=null&&b.brandName!.isNotEmpty) _BrandChip(name:b.brandName!,isDark:isDark),
-              if(_badgeText(b).isNotEmpty)...[
-                if(b.brandName!=null) const SizedBox(width:8),
-                Text(_badgeText(b),style:_pjs(size:11,color:metaColor))],
-            ]),
-          ]),
-          const SizedBox(height:10),
-          Text(b.title,style:_pjs(size:18,weight:FontWeight.w900,color:textColor,letterSpacing:-0.4,height:1.25)),
-          const SizedBox(height:4),
-          Text(_description(b),style:_pjs(size:12,color:subColor,height:1.4)),
-          const SizedBox(height:14),
-          Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,crossAxisAlignment:CrossAxisAlignment.center,children:[
-            _CTA(banner:b,onTap:onTap),
-            if(b.type==BannerType.sponsor) Text('Reklam',style:_pjs(size:10,color:metaColor)),
-          ]),
-        ]),
-      ),
-    ]);
-  }
-}
+  const _PorscheBannerCard({required this.banner});
 
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.banner,required this.isDark});
-  final BannerModel banner; final bool isDark;
-  @override
-  Widget build(BuildContext context){
-    Color bg,color; Border? border;
-    switch(banner.type){
-      case BannerType.kampanya: bg=_tc.withOpacity(0.2);color=_tc;border=Border.all(color:_tc.withOpacity(0.25));break;
-      case BannerType.sponsor: bg=_dark.withOpacity(0.08);color=_t2;break;
-      default: bg=Colors.white.withOpacity(0.09);color=Colors.white.withOpacity(0.65);
+  void _launchURL() async {
+    if (banner.linkUrl != null && banner.linkUrl!.isNotEmpty) {
+      final url = Uri.parse(banner.linkUrl!);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
     }
-    return Container(
-      padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
-      decoration:BoxDecoration(color:bg,borderRadius:BorderRadius.circular(8),border:border),
-      child:Text(_tagChipText(banner),style:_pjs(size:10,weight:FontWeight.w800,color:color,letterSpacing:0.05)));
   }
-}
 
-class _BrandChip extends StatelessWidget {
-  const _BrandChip({required this.name,required this.isDark});
-  final String name; final bool isDark;
   @override
-  Widget build(BuildContext context)=>Container(
-    padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
-    decoration:BoxDecoration(color:isDark?Colors.white.withOpacity(0.1):_dark.withOpacity(0.08),borderRadius:BorderRadius.circular(8)),
-    child:Text(name,style:_pjs(size:11,weight:FontWeight.w800,color:isDark?Colors.white.withOpacity(0.7):_t2)));
-}
+  Widget build(BuildContext context) {
+    final hasImage = banner.imageUrl != null && banner.imageUrl!.isNotEmpty;
+    final isSponsor = banner.isSponsor;
+    const espresso = Color(0xFF1C1108);
+    const camel = Color(0xFFC09A60);
 
-class _CTA extends StatelessWidget {
-  const _CTA({required this.banner,required this.onTap});
-  final BannerModel banner; final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context){
-    final isAmber=banner.type==BannerType.kampanya||(banner.type==BannerType.duyuru&&(banner.imageUrl==null||banner.imageUrl!.isEmpty));
-    return GestureDetector(onTap:onTap,child:Container(
-      padding:const EdgeInsets.symmetric(horizontal:18,vertical:10),
-      decoration:BoxDecoration(
-        color:isAmber?_tc:_dark,borderRadius:BorderRadius.circular(12),
-        boxShadow:[BoxShadow(color:isAmber?_tc.withOpacity(0.32):Colors.black.withOpacity(0.22),blurRadius:14,offset:const Offset(0,4))]),
-      child:Row(mainAxisSize:MainAxisSize.min,children:[
-        Text(_ctaText(banner),style:_pjs(size:13,weight:FontWeight.w800,color:Colors.white)),
-        const SizedBox(width:6),
-        const Icon(Icons.arrow_forward_rounded,size:14,color:Colors.white),
-      ]),
-    ));
+    return GestureDetector(
+      onTap: _launchURL,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: espresso,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            if (hasImage)
+              Positioned.fill(
+                child: CachedNetworkImage(
+                  imageUrl: banner.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (c, u, e) => const SizedBox.shrink(),
+                ),
+              ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      espresso.withOpacity(0.95),
+                      espresso.withOpacity(hasImage ? 0.3 : 0.95),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -60,
+              right: -40,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [camel.withOpacity(0.35), Colors.transparent],
+                    stops: const [0.0, 0.7],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (banner.badgeText != null && banner.badgeText!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSponsor ? camel.withOpacity(0.25) : camel.withOpacity(0.15),
+                        border: Border.all(color: isSponsor ? camel : camel.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSponsor)
+                            const Icon(Icons.star, color: Color(0xFFFFE6C9), size: 12)
+                          else
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: camel,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            banner.badgeText!.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isSponsor ? const Color(0xFFFFE6C9) : camel,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Text(
+                    banner.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.2,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  if (banner.description != null && banner.description!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      banner.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.6),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        banner.buttonText.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: camel,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: camel,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: camel.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.arrow_forward, color: espresso, size: 16),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-}
-
-
-String _description(BannerModel banner) {
-  final dynamic d = banner;
-  final value = d.description;
-  if (value is String && value.isNotEmpty) return value;
-  final fallback = d.subtitle;
-  return fallback is String ? fallback : '';
-}
-
-String _ctaText(BannerModel banner) {
-  final dynamic d = banner;
-  final value = d.ctaText;
-  if (value is String && value.isNotEmpty) return value;
-  final fallback = d.ctaLabel;
-  return fallback is String && fallback.isNotEmpty ? fallback : 'Keşfet';
-}
-
-String _badgeText(BannerModel banner) {
-  final dynamic d = banner;
-  final value = d.badgeText;
-  if (value is String) return value;
-  final fallback = d.metaLabel;
-  return fallback is String ? fallback : '';
-}
-
-String _linkUrl(BannerModel banner) {
-  final dynamic d = banner;
-  final primary = d.linkUrl;
-  if (primary is String && primary.isNotEmpty) return primary;
-  final fallback = d.actionUrl;
-  return fallback is String ? fallback : '';
-}
-
-String _tagChipText(BannerModel banner) {
-  final badge = _badgeText(banner).trim();
-  final tag = banner.tagLabel.trim();
-  if (badge.isEmpty) return tag;
-  if (tag.isEmpty) return badge;
-  return '$tag • $badge';
-}
-
-class _Skeleton extends StatefulWidget {
-  const _Skeleton();
-  @override State<_Skeleton> createState()=>_SkeletonState();
-}
-class _SkeletonState extends State<_Skeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _a;
-  @override void initState(){
-    super.initState();
-    _ctrl=AnimationController(vsync:this,duration:const Duration(milliseconds:1100))..repeat(reverse:true);
-    _a=Tween(begin:0.4,end:0.85).animate(CurvedAnimation(parent:_ctrl,curve:Curves.easeInOut));
-  }
-  @override void dispose(){_ctrl.dispose();super.dispose();}
-  @override
-  Widget build(BuildContext context)=>Padding(
-    padding:const EdgeInsets.symmetric(horizontal:16),
-    child:AnimatedBuilder(animation:_a,builder:(_,__)=>Container(height:176,decoration:BoxDecoration(
-      color:_dark.withOpacity(_a.value*0.14),borderRadius:BorderRadius.circular(26)))));
 }

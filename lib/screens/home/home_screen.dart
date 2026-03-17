@@ -104,7 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildCategories(context, categoriesAsync.valueOrNull ?? const []),
               ),
               const SliverToBoxAdapter(
-                child: BannerSection(),
+                child: PremiumBannerSection(),
               ),
               SliverToBoxAdapter(
                 child: _buildInsightGrid(
