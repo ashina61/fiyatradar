@@ -14,6 +14,7 @@ class BannerModel {
     this.tagLabel = 'Duyuru',
     this.badgeText,
     this.isActive = false,
+    this.isSponsor = false,
     this.order = 0,
     this.imageUrl,
     this.brandName,
@@ -36,6 +37,7 @@ class BannerModel {
   final String tagLabel;
   final String? badgeText;
   final bool isActive;
+  final bool isSponsor;
   final int order;
   final String? imageUrl;
   final String? brandName;
@@ -85,6 +87,7 @@ class BannerModel {
       tagLabel: m['tagLabel'] as String? ?? resolvedBadgeText ?? 'Duyuru',
       badgeText: resolvedBadgeText,
       isActive: m['isActive'] as bool? ?? false,
+      isSponsor: m['isSponsor'] as bool? ?? false,
       order: (m['order'] as num?)?.toInt() ?? 0,
       imageUrl: m['imageUrl'] as String?,
       brandName: m['brandName'] as String?,
@@ -108,6 +111,7 @@ class BannerModel {
         'tagLabel': tagLabel,
         'badgeText': badgeText ?? tagLabel,
         'isActive': isActive,
+        'isSponsor': isSponsor,
         'order': order,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (brandName != null) 'brandName': brandName,
