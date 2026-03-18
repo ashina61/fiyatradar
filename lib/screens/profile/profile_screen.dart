@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
@@ -16,12 +15,10 @@ import '../../utils/elite_level_engine.dart';
 import '../../utils/level_config.dart';
 import '../../utils/theme.dart';
 import '../../services/firestore_service.dart';
-import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-import 'fiyatradar_settings.dart';
-import 'update_history_screen.dart';
+import '../settings/settings_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -76,9 +73,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       _ProfilePremiumHeader(
                         data: data,
-                        onEdit: () async {
+                        onSettingsTap: () async {
                           await Navigator.of(context).push(
-                            CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
+                            CupertinoPageRoute(builder: (_) => SettingsScreen(isAdmin: data.isAdmin)),
                           );
                           if (mounted) setState(() => _reloadKey++);
                         },
@@ -88,7 +85,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: _ProfileSections(
                           data: data,
                           uid: uid,
-                          onReload: () => setState(() => _reloadKey++),
                         ),
                       ),
                     ],
@@ -133,7 +129,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final pendingPricesCount = await _resolvePendingPrices(uid);
     final alertsCount = await _countCollection(userRef.collection('watchlist'));
     final favoritesCount = await _countCollection(userRef.collection('favorites'));
-    final historyCount = await _countCollection(userRef.collection('searchHistory'));
 
     return _ProfileData(
       displayName: (data['name'] ?? data['displayName'] ?? userModel?.name ?? 'Kullanıcı').toString(),
@@ -151,7 +146,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       pendingPricesCount: pendingPricesCount,
       alertsCount: alertsCount,
       favoritesCount: favoritesCount,
-      historyCount: historyCount,
       nextLeagueRemaining: _nextLeagueRemaining(totalPoints),
     );
   }
@@ -244,10 +238,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
 
 class _ProfilePremiumHeader extends StatelessWidget {
-  const _ProfilePremiumHeader({required this.data, required this.onEdit});
+  const _ProfilePremiumHeader({required this.data, required this.onSettingsTap});
 
   final _ProfileData data;
-  final VoidCallback onEdit;
+  final VoidCallback onSettingsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -288,11 +282,11 @@ class _ProfilePremiumHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: onEdit,
+                  onTap: onSettingsTap,
                   child: const SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(Icons.edit_rounded, color: Color(0xFFC29B78), size: 20),
+                    child: Icon(CupertinoIcons.settings, color: Color(0xFFC29B78), size: 19),
                   ),
                 ),
               ),
@@ -380,26 +374,24 @@ class _ProfilePremiumHeader extends StatelessWidget {
   }
 }
 
-class _ProfileSections extends ConsumerWidget {
+class _ProfileSections extends StatelessWidget {
   const _ProfileSections({
     required this.data,
     required this.uid,
-    required this.onReload,
   });
 
   final _ProfileData data;
   final String uid;
-  final VoidCallback onReload;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ImpactCard(data: data),
         const SizedBox(height: 24),
         _MenuGroup(
-          title: 'RADAR YÖNETİMİ',
+          title: 'KOLEKSİYONLAR',
           items: [
             _MenuGroupItem(
               icon: Icons.notifications_active_rounded,
@@ -414,67 +406,40 @@ class _ProfileSections extends ConsumerWidget {
               icon: Icons.bookmark_rounded,
               title: 'Koleksiyonlarım (Favoriler)',
               badge: data.favoritesCount == null ? null : '${data.favoritesCount}',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen(userId: uid))),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FavoritesScreen(userId: uid)),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 24),
         _MenuGroup(
-          title: 'AVCI KARİYERİ',
+          title: 'LİDERLİK & AV',
           items: [
             _MenuGroupItem(
               icon: Icons.fact_check_rounded,
               title: 'Eklenen Fiyatlar',
               subtitle: data.pendingPricesCount == null
                   ? null
-                  : (data.pendingPricesCount! > 0 ? 'Son eklenen ${data.pendingPricesCount} fiyat bekliyor' : 'Bekleyen fiyatın bulunmuyor'),
+                  : (data.pendingPricesCount! > 0
+                      ? 'Son eklenen ${data.pendingPricesCount} fiyat bekliyor'
+                      : 'Bekleyen fiyatın bulunmuyor'),
               trailingLabel: data.addedPricesCount == null ? null : '${data.addedPricesCount}',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MyPricesScreen(userId: uid))),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => MyPricesScreen(userId: uid)),
+              ),
             ),
             _MenuGroupItem(
               icon: Icons.emoji_events_rounded,
               title: 'Liderlik Tablosu & Ligler',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsScreen())),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _MenuGroup(
-          title: 'SİSTEM',
-          items: [
-            _MenuGroupItem(
-              icon: Icons.tune_rounded,
-              title: 'Uygulama Tercihleri',
-              onTap: () async {
-                await Navigator.of(context).push(
-                  CupertinoPageRoute(builder: (_) => const FiyatRadarSettingsScreen()),
-                );
-                onReload();
-              },
-            ),
-            if (data.isAdmin)
-              _MenuGroupItem(
-                icon: Icons.admin_panel_settings_rounded,
-                title: 'Admin Konsolu',
-                trailingLabel: 'YETKİLİ',
-                emphasize: true,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-                ),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PointsScreen()),
               ),
+            ),
           ],
-        ),
-        const SizedBox(height: 24),
-        _LogoutButton(
-          onTap: () async {
-            await ref.read(authServiceProvider).signOut();
-            if (!context.mounted) return;
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
-          },
         ),
       ],
     );
@@ -777,46 +742,6 @@ class _MenuGroupItem extends StatelessWidget {
             else
               const Icon(Icons.chevron_right_rounded, color: Color(0xFFC2BBB5)),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoutButton extends StatelessWidget {
-  const _LogoutButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFFEBEE)),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.logout_rounded, color: Color(0xFFF44336)),
-              SizedBox(width: 8),
-              Text(
-                'Güvenli Çıkış Yap',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFF44336),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1590,7 +1515,6 @@ class _ProfileData {
     required this.pendingPricesCount,
     required this.alertsCount,
     required this.favoritesCount,
-    required this.historyCount,
     required this.nextLeagueRemaining,
   });
 
@@ -1609,6 +1533,5 @@ class _ProfileData {
   final int? pendingPricesCount;
   final int? alertsCount;
   final int? favoritesCount;
-  final int? historyCount;
   final int? nextLeagueRemaining;
 }
