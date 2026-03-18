@@ -31,7 +31,7 @@ class UserSettingsRepository {
     required String firstName,
     required String lastName,
     required String city,
-    required String district,
+    required String username,
     required String neighborhood,
   }) async {
     final uid = _auth.currentUser?.uid;
@@ -46,7 +46,7 @@ class UserSettingsRepository {
       'lastName': lastName,
       'city': city,
       'cityName': city,
-      'district': district,
+      'username': username.trim().toLowerCase(),
       'neighborhood': neighborhood,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

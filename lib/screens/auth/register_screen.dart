@@ -9,16 +9,6 @@ import '../../providers/firebase_init_provider.dart';
 import '../../utils/cities_tr.dart';
 import 'widgets/auth_portal_widgets.dart';
 
-class DistrictTR {
-  const DistrictTR({required this.name});
-  final String name;
-}
-
-const Map<String, List<DistrictTR>> kDistrictsByCityCode = {
-  '34': [DistrictTR(name: 'Kadıköy'), DistrictTR(name: 'Beşiktaş'), DistrictTR(name: 'Üsküdar')],
-  '06': [DistrictTR(name: 'Çankaya'), DistrictTR(name: 'Keçiören'), DistrictTR(name: 'Yenimahalle')],
-  '35': [DistrictTR(name: 'Konak'), DistrictTR(name: 'Karşıyaka'), DistrictTR(name: 'Bornova')],
-};
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -32,11 +22,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
   final _inviteController = TextEditingController();
   final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   CityTR? _selectedCity;
-  String? _selectedDistrict;
 
   static const _legalConsentVersion = 'v1.0';
   static final _termsUri = Uri.parse('https://fiyatradar.com/kullanim-kosullari');
@@ -47,13 +37,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   bool _legalConsentAccepted = false;
 
-  List<DistrictTR> get _districts => kDistrictsByCityCode[_selectedCity?.code] ?? const [];
+  static final RegExp _usernamePattern = RegExp(r'^[a-z0-9_]{3,20}$');
 
   @override
   void dispose() {
     _nameController.dispose();
     _inviteController.dispose();
     _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -61,8 +52,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCity == null || _selectedDistrict == null) {
-      _showError('Lütfen şehir ve ilçe seçin.');
+    if (_selectedCity == null) {
+      _showError('Lütfen şehir seçin.');
       return;
     }
     if (!ref.read(firebaseInitializedProvider)) {
@@ -83,7 +74,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             inviteCode: _inviteController.text.trim(),
             cityCode: _selectedCity?.code,
             cityName: _selectedCity?.name,
-            district: _selectedDistrict,
+            username: _usernameController.text.trim(),
             legalConsentVersion: _legalConsentVersion,
           );
       if (!mounted) return;
@@ -242,18 +233,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 itemLabel: (v) => v.name,
                 onChanged: (v) => setState(() {
                   _selectedCity = v;
-                  _selectedDistrict = null;
                 }),
               ),
               const SizedBox(height: 14),
-              _DropdownField<String>(
-                label: 'İlçe',
-                hint: 'İlçe',
-                icon: Icons.map_outlined,
-                value: _selectedDistrict,
-                items: _districts.map((e) => e.name).toList(),
-                itemLabel: (v) => v,
-                onChanged: (v) => setState(() => _selectedDistrict = v),
+              AuthInputField(
+                label: 'Kullanıcı Adı',
+                hint: 'Sistemde görünecek anonim adınız',
+                icon: Icons.alternate_email_rounded,
+                controller: _usernameController,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.none,
+                prefixText: '@',
+                helperText: '3-20 karakter, sadece küçük harf, rakam ve alt çizgi kullanın.',
+                validator: (v) {
+                  final username = (v ?? '').trim();
+                  if (username.isEmpty) return 'Kullanıcı adı gerekli';
+                  if (username.contains(' ')) return 'Kullanıcı adında boşluk olamaz';
+                  if (username != username.toLowerCase()) return 'Kullanıcı adı küçük harf olmalı';
+                  if (!_usernamePattern.hasMatch(username)) {
+                    return 'Geçerli bir kullanıcı adı girin';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 14),
               AuthInputField(
