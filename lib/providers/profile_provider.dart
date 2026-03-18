@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/user_model.dart'; // Senin oluşturduğun UserModel
+import '../models/user_model.dart';
 
 // Bu provider'ı ekranlarında ref.watch(profileProvider) diye dinleyeceksin
 final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<UserModel?>>((ref) {
@@ -29,7 +29,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       final doc = await _db.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
         // Gerçek veriyi State'e aktar
-        state = AsyncData(UserModel.fromMap(doc.data()!, doc.id));
+        state = AsyncData(UserModel.fromFirestore(doc));
       } else {
         // Firebase'de adamın kaydı yoksa, null döndür (Sahte Adem Bayram yok!)
         state = const AsyncData(null); 
@@ -45,12 +45,13 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     if (uid == null) return false;
 
     try {
-      await _db.collection('users').doc(uid).set(updatedUser.toMap(), SetOptions(merge: true));
+      await _db.collection('users').doc(uid).set(updatedUser.toFirestore(), SetOptions(merge: true));
       // Veritabanı başarıyla güncellendi, şimdi ekrandaki state'i de anında güncelle!
       state = AsyncData(updatedUser);
       return true;
     } catch (e) {
-      print("Firebase Yazma Hatası: $e");
+      // ignore: avoid_print
+      print('Firebase Yazma Hatası: $e');
       return false;
     }
   }

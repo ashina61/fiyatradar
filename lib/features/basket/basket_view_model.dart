@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -71,25 +70,7 @@ class BasketViewModel extends ChangeNotifier {
   void setUser(String? nextUserId) {
     if (userId == nextUserId) return;
     userId = nextUserId;
-    _basketSubscription?.cancel();
-    _productsSubscription?.cancel();
-    items = [];
-    productMap = {};
-    pricingSummary = null;
-    comparisonResult = null;
-    latestProductPrices = {};
-    unverifiedPriceItemKeys = {};
-    hasLocationPermission = false;
-    calculationNotice = null;
-    marketNames = {};
-    lastPriceDocumentCount = 0;
-    availableStores = [];
-    selectedStoreIds = <String>{};
-    missingPriceProducts = const <String>[];
-    _inFlightLastPriceFetches.clear();
-    _resolvedLastPriceFetches.clear();
-    errorMessage = null;
-    comparisonState = const CartComparisonState.idle();
+    _resetState();
     if (userId == null) {
       notifyListeners();
       return;
@@ -115,6 +96,30 @@ class BasketViewModel extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  void _resetState() {
+    _basketSubscription?.cancel();
+    _productsSubscription?.cancel();
+    isLoadingItems = false;
+    isCalculating = false;
+    items = [];
+    productMap = {};
+    pricingSummary = null;
+    comparisonResult = null;
+    latestProductPrices = {};
+    unverifiedPriceItemKeys = {};
+    hasLocationPermission = false;
+    calculationNotice = null;
+    marketNames = {};
+    lastPriceDocumentCount = 0;
+    availableStores = [];
+    selectedStoreIds = <String>{};
+    missingPriceProducts = const <String>[];
+    _inFlightLastPriceFetches.clear();
+    _resolvedLastPriceFetches.clear();
+    errorMessage = null;
+    comparisonState = const CartComparisonState.idle();
   }
 
   void _subscribeProducts() {
@@ -401,10 +406,10 @@ final basketViewModelProvider =
     locationService: LocationService(),
   );
 
-  ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
-    viewModel.setUser(next.value?.uid);
+  ref.listen<String?>(authUidProvider, (previous, next) {
+    viewModel.setUser(next);
   });
 
-  viewModel.setUser(ref.read(authStateProvider).value?.uid);
+  viewModel.setUser(ref.read(authUidProvider));
   return viewModel;
 });

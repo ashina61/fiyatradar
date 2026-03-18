@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_init_provider.dart';
 import '../models/user_model.dart';
@@ -14,38 +13,25 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges;
 });
 
-final currentUserProvider = FutureProvider<UserModel?>((ref) async {
-  if (!ref.watch(firebaseInitializedProvider)) return null;
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) async {
-      if (user != null) {
-        return await ref.read(authServiceProvider).getUserModel(user.uid);
-      }
-      return null;
-    },
-    loading: () => null,
-    error: (_, __) => null,
-  );
+final authUidProvider = Provider<String?>((ref) {
+  return ref.watch(authStateProvider).valueOrNull?.uid;
+});
+
+final currentUserProvider = Provider<AsyncValue<UserModel?>>((ref) {
+  return ref.watch(userModelStreamProvider);
 });
 
 final userModelStreamProvider = StreamProvider<UserModel?>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value(null);
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) {
-      if (user != null) {
-        return FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .snapshots()
-            .map((doc) => doc.exists ? UserModel.fromFirestore(doc) : null);
-      }
-      return Stream.value(null);
-    },
-    loading: () => Stream.value(null),
-    error: (_, __) => Stream.value(null),
-  );
+
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) {
+    return Stream.value(null);
+  }
+
+  return ref
+      .watch(authServiceProvider)
+      .watchUserModel(user.uid);
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {

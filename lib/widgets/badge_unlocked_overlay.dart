@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../theme/fr_colors.dart';
 import '../utils/theme.dart';
 
 class BadgeUnlockedOverlay extends StatefulWidget {
@@ -47,6 +48,8 @@ class _BadgeUnlockedOverlayState extends State<BadgeUnlockedOverlay> with Ticker
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final overlayWidth = (size.width * 0.85).clamp(280.0, 320.0);
     return GestureDetector(
       onTap: _close,
       child: Material(
@@ -59,17 +62,17 @@ class _BadgeUnlockedOverlayState extends State<BadgeUnlockedOverlay> with Ticker
               child: ScaleTransition(
                 scale: Tween<double>(begin: 0.8, end: 1).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack)),
                 child: Container(
-                  width: 320,
+                  width: overlayWidth,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
                     color: AppColors.surface.withOpacity(0.88),
                     border: Border.all(
                       width: 1.2,
-                      color: const Color(0xFFE9C46A).withOpacity(0.8),
+                      color: FRColors.goldGlow.withOpacity(0.8),
                     ),
                     boxShadow: [
-                      BoxShadow(color: const Color(0xFFE9C46A).withOpacity(0.22), blurRadius: 24, spreadRadius: 2),
+                      BoxShadow(color: FRColors.goldGlow.withOpacity(0.22), blurRadius: 24, spreadRadius: 2),
                     ],
                   ),
                   child: Column(
@@ -84,7 +87,7 @@ class _BadgeUnlockedOverlayState extends State<BadgeUnlockedOverlay> with Ticker
                             height: 92,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(colors: [Color(0xFFF4D06F), Color(0xFFE9C46A)]),
+                              gradient: const LinearGradient(colors: [FRColors.goldGlowSoft, FRColors.goldGlow]),
                               boxShadow: [
                                 BoxShadow(color: AppColors.success.withOpacity((0.14 * wave).clamp(0, 0.18)), blurRadius: 22, spreadRadius: 4),
                               ],

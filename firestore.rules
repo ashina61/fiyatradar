@@ -23,13 +23,22 @@ service cloud.firestore {
     function hasOnlyUserWritableKeys() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'name',
+        'firstName',
+        'lastName',
         'photoUrl',
         'cityCode',
         'cityName',
         'city',
+        'district',
+        'neighborhood',
         'savedProducts',
+        'notificationPrefs',
+        'alarmNotifications',
+        'campaignNotifications',
+        'badgeNotifications',
+        'fcmToken',
         'lastLoginAt',
-        'fcmToken'
+        'updatedAt'
       ]);
     }
 
@@ -99,12 +108,25 @@ service cloud.firestore {
           isOwner(uid) &&
           hasOnlyUserWritableKeys() &&
           immutable('isAdmin') &&
+          immutable('isBanned') &&
+          immutable('banReason') &&
           immutable('role') &&
+          immutable('email') &&
           immutable('points') &&
+          immutable('priceEntries') &&
+          immutable('validations') &&
+          immutable('inviteCount') &&
+          immutable('reliabilityScore') &&
+          immutable('reliabilityVotesTotal') &&
+          immutable('reliabilityVotesUp') &&
+          immutable('reliabilityVotesDown') &&
           immutable('trustScorePercent') &&
           immutable('trustTotalVotes') &&
           immutable('trustVerifiedTotal') &&
-          immutable('trustWrongTotal')
+          immutable('trustWrongTotal') &&
+          immutable('inviteCode') &&
+          immutable('invitedBy') &&
+          immutable('createdAt')
         );
 
       allow delete: if isAdmin();
