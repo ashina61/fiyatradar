@@ -38,6 +38,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _legalConsentAccepted = false;
 
   static final RegExp _usernamePattern = RegExp(r'^[a-z0-9_]{3,20}$');
+  static final RegExp _emailPattern = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  static final RegExp _strongPasswordPattern = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$');
 
   @override
   void dispose() {
@@ -82,7 +84,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         return;
       }
       if (!mounted) return;
-      context.go('/main');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Kayıt başarılı! Lütfen gelen kutunuzu kontrol edin ve içeri girmeden önce e-postanızı onaylayın.',
+            style: authText(size: 12, weight: FontWeight.w700, color: Colors.white),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: authEspresso,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      context.go('/login');
     } on FirebaseAuthException catch (e) {
       _showError(ref.read(authServiceProvider).getErrorMessage(e));
     } catch (e) {
@@ -269,8 +283,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _emailController,
                 textInputAction: TextInputAction.next,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'E-posta gerekli';
-                  if (!v.contains('@')) return 'Geçerli bir e-posta girin';
+                  final email = (v ?? '').trim();
+                  if (email.isEmpty) return 'E-posta gerekli';
+                  if (!_emailPattern.hasMatch(email)) {
+                    return 'Lütfen geçerli bir e-posta adresi girin.';
+                  }
                   return null;
                 },
               ),
@@ -286,7 +303,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: authMuted),
                 ),
-                validator: (v) => (v == null || v.length < 6) ? 'Şifre en az 6 karakter olmalı' : null,
+                validator: (v) {
+                  final password = v ?? '';
+                  if (!_strongPasswordPattern.hasMatch(password)) {
+                    return 'Şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 14),
               AuthInputField(

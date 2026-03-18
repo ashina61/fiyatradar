@@ -19,10 +19,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  static final RegExp _emailPattern = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _isResendingVerification = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _showResendVerification = false;
 
   @override
   void dispose() {
@@ -49,8 +53,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
       if (!mounted) return;
+      setState(() => _showResendVerification = false);
       context.go('/main');
     } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => _showResendVerification = e.code == 'email-not-verified');
+      }
       _showError(ref.read(authServiceProvider).getErrorMessage(e));
     } catch (e) {
       _showError('Giriş yapılamadı: $e');
@@ -76,6 +84,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _showError('Google ile giriş yapılamadı.');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+
+  Future<void> _resendVerificationEmail() async {
+    if (_isResendingVerification) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Doğrulama mailini tekrar göndermek için e-posta ve şifrenizi girin.');
+      return;
+    }
+
+    setState(() => _isResendingVerification = true);
+    try {
+      await ref.read(authServiceProvider).resendVerificationEmail(
+            email: email,
+            password: password,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Doğrulama maili tekrar gönderildi. Lütfen gelen kutunuzu kontrol edin.', style: authText(size: 12, weight: FontWeight.w700, color: Colors.white)),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: authEspresso,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      _showError(ref.read(authServiceProvider).getErrorMessage(e));
+    } catch (e) {
+      _showError('Doğrulama maili gönderilemedi: $e');
+    } finally {
+      if (mounted) setState(() => _isResendingVerification = false);
     }
   }
 
@@ -110,8 +153,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 textInputAction: TextInputAction.next,
                 controller: _emailController,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Lütfen e-posta adresinizi girin';
-                  if (!v.contains('@')) return 'Geçerli bir e-posta girin';
+                  final email = (v ?? '').trim();
+                  if (email.isEmpty) return 'Lütfen e-posta adresinizi girin';
+                  if (!_emailPattern.hasMatch(email)) return 'Lütfen geçerli bir e-posta adresi girin.';
                   return null;
                 },
               ),
@@ -146,6 +190,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 16),
               MassivePrimaryButton(label: 'Giriş Yap', onPressed: _login, loading: _isLoading),
+              if (_showResendVerification) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _isResendingVerification ? null : _resendVerificationEmail,
+                    icon: _isResendingVerification
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: authEspresso),
+                          )
+                        : const Icon(Icons.mark_email_read_outlined, size: 18, color: authEspresso),
+                    label: Text(
+                      'Doğrulama mailini tekrar gönder',
+                      style: authText(size: 12, weight: FontWeight.w800, color: authEspresso),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               const SocialDivider(),
               const SizedBox(height: 16),
