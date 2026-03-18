@@ -171,7 +171,7 @@ class SettingsScreen extends StatelessWidget {
                       onTap: () => _openUrl(context, 'https://fiyatradar.com/kullanim-kosullari'),
                     ),
                     _SettingsMenuItem(
-                      icon: CupertinoIcons.lock_doc,
+                      icon: CupertinoIcons.lock,
                       title: 'Gizlilik Politikası',
                       onTap: () => _openUrl(context, 'https://fiyatradar.com/gizlilik'),
                     ),
