@@ -30,13 +30,44 @@ class AuthService {
     return uid.substring(0, uid.length.clamp(1, 6)).toUpperCase();
   }
 
+  String? _normalizeUsername(String? username) {
+    final normalized = username?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    return normalized;
+  }
+
+  Future<void> _ensureUsernameAvailable(String username) async {
+    final reservedDoc = await _firestore.collection('usernames').doc(username).get();
+    if (reservedDoc.exists) {
+      throw FirebaseAuthException(
+        code: 'username-already-in-use',
+        message: 'Bu kullanıcı adı zaten kullanılıyor.',
+      );
+    }
+
+    final existing = await SafeQueryBuilder.safeWhere(
+      _firestore.collection('users'),
+      'username',
+      username,
+      expectedType: String,
+    ).limit(1).get();
+
+    if (existing.docs.isNotEmpty) {
+      throw FirebaseAuthException(
+        code: 'username-already-in-use',
+        message: 'Bu kullanıcı adı zaten kullanılıyor.',
+      );
+    }
+  }
+
   // Email/Password Sign In
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
     String? cityCode,
     String? cityName,
-    String? district,
     String? neighborhood,
   }) async {
     try {
@@ -52,7 +83,6 @@ class AuthService {
             'cityCode': cityCode,
             'cityName': cityName,
             'city': cityName,
-            'district': district,
             'neighborhood': neighborhood,
           }, SetOptions(merge: true));
         }
@@ -72,11 +102,21 @@ class AuthService {
     String? inviteCode,
     String? cityCode,
     String? cityName,
-    String? district,
+    String? username,
     String? neighborhood,
     String legalConsentVersion = 'v1.0',
   }) async {
     try {
+      final normalizedUsername = _normalizeUsername(username);
+      if (normalizedUsername == null) {
+        throw FirebaseAuthException(
+          code: 'invalid-username',
+          message: 'Geçerli bir kullanıcı adı girin.',
+        );
+      }
+
+      await _ensureUsernameAvailable(normalizedUsername);
+
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -110,7 +150,7 @@ class AuthService {
           cityCode: cityCode,
           cityName: cityName,
           city: cityName,
-          district: district,
+          username: normalizedUsername,
           neighborhood: neighborhood,
           inviteCode: newInviteCode,
           invitedBy: inviterId,
@@ -127,7 +167,7 @@ class AuthService {
           'displayName': name,
           'photoURL': '',
           'city': cityName,
-          'district': district,
+          'username': normalizedUsername,
           'neighborhood': neighborhood,
           'totalPoints': 0,
           'weeklyPoints': 0,
@@ -141,6 +181,12 @@ class AuthService {
           'trustScore': 0.0,
           'level': 'Standart',
         }, SetOptions(merge: true));
+
+        batch.set(_firestore.collection('usernames').doc(normalizedUsername), {
+          'uid': firebaseUser.uid,
+          'username': normalizedUsername,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
 
         if (inviterId != null) {
           batch.update(userRef, {
@@ -373,6 +419,10 @@ class AuthService {
         return e.message ?? 'Google ile giriş yapılamadı.';
       case 'invalid-credential':
         return 'E-posta veya şifre hatalı.';
+      case 'username-already-in-use':
+        return 'Bu kullanıcı adı zaten kullanılıyor.';
+      case 'invalid-username':
+        return 'Geçerli bir kullanıcı adı girin.';
       default:
         return 'Bir hata oluştu: ${e.message}';
     }

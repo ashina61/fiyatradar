@@ -25,7 +25,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   final _nameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
-  final _districtCtrl = TextEditingController();
   final _neighborhoodCtrl = TextEditingController();
   final LocationService _locationService = LocationService();
   bool _isInit = false;
@@ -39,7 +38,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
-    _districtCtrl.dispose();
     _neighborhoodCtrl.dispose();
     super.dispose();
   }
@@ -90,14 +88,12 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
       final place = placemarks.first;
       final cityCandidate = (place.administrativeArea ?? place.locality ?? '').trim();
-      final districtCandidate = (place.subAdministrativeArea ?? place.locality ?? '').trim();
       final neighborhoodCandidate = (place.subLocality ?? place.street ?? place.name ?? '').trim();
 
       setState(() {
         if (_cities.contains(cityCandidate)) {
           _city = cityCandidate;
         }
-        _districtCtrl.text = districtCandidate;
         _neighborhoodCtrl.text = neighborhoodCandidate;
       });
     } catch (_) {
@@ -113,15 +109,14 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   Future<void> _save(UserModel user) async {
     setState(() => _isSaving = true);
     final fullName = _nameCtrl.text.trim();
-    final district = _districtCtrl.text.trim();
     final neighborhood = _neighborhoodCtrl.text.trim();
     final selectedCity = kCitiesTR.where((city) => city.name == _city);
     final cityCode = selectedCity.isEmpty ? null : selectedCity.first.code;
 
-    if (district.isEmpty || neighborhood.isEmpty) {
+    if (neighborhood.isEmpty) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('İlçe ve mahalle alanları boş bırakılamaz.'), backgroundColor: Color(0xFFDC2626)),
+        const SnackBar(content: Text('Mahalle alanı boş bırakılamaz.'), backgroundColor: Color(0xFFDC2626)),
       );
       return;
     }
@@ -138,7 +133,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       cityCode: cityCode,
       city: _city,
       cityName: _city,
-      district: district,
       neighborhood: neighborhood,
       photoUrl: _photoUrl,
     );
@@ -181,11 +175,10 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             if (!_cities.contains(_city)) {
               _city = 'İstanbul';
             }
-            _districtCtrl.text = user.district ?? '';
             _neighborhoodCtrl.text = user.neighborhood ?? '';
             _photoUrl = user.photoUrl;
             _isInit = true;
-            if (_districtCtrl.text.trim().isEmpty || _neighborhoodCtrl.text.trim().isEmpty) {
+            if (_neighborhoodCtrl.text.trim().isEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
                   _fillLocationFromCurrentPosition();
@@ -260,7 +253,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
               ),
               _group([
                 _dropdown('İl', _city, _cities, (value) => setState(() => _city = value)),
-                _input(label: 'İlçe', controller: _districtCtrl, readOnly: true),
                 _input(label: 'Mahalle', controller: _neighborhoodCtrl, readOnly: true),
                 _locationFillTile(),
               ]),
@@ -330,7 +322,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             child: OutlinedButton.icon(
               onPressed: _isSaving ? null : _fillLocationFromCurrentPosition,
               icon: const Icon(Icons.my_location_rounded),
-              label: const Text('Mevcut konumu kullan (İl/İlçe/Mahalle)'),
+              label: const Text('Mevcut konumu kullan (İl/Mahalle)'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _sienna,
                 side: const BorderSide(color: Color(0x338B4D22)),

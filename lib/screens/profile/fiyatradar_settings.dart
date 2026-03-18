@@ -268,7 +268,6 @@ class _ProfileEntryCard extends StatelessWidget {
         final name = (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString();
         final username = (data['username'] ?? '').toString();
         final city = (data['city'] ?? data['cityName'] ?? 'İstanbul').toString();
-        final district = (data['district'] ?? 'Kadıköy').toString();
         final trust = (data['trustScorePercent'] as num?)?.toInt() ?? 86;
         final initials = name.trim().isEmpty
             ? 'FR'
@@ -305,7 +304,7 @@ class _ProfileEntryCard extends StatelessWidget {
                     children: [
                       Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF2D241E))),
                       const SizedBox(height: 4),
-                      Text('$city, $district • @$username', style: const TextStyle(fontSize: 13, color: Color(0xFF8E8A86))),
+                      Text(username.trim().isEmpty ? city : '$city • @$username', style: const TextStyle(fontSize: 13, color: Color(0xFF8E8A86))),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

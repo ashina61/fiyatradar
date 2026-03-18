@@ -13,7 +13,6 @@ class UserModel {
     this.cityCode,
     this.cityName,
     this.city,
-    this.district,
     this.neighborhood,
     this.firstName,
     this.lastName,
@@ -51,7 +50,6 @@ class UserModel {
   final String? cityCode;
   final String? cityName;
   final String? city;
-  final String? district;
   final String? neighborhood;
   final String? firstName;
   final String? lastName;
@@ -116,7 +114,6 @@ class UserModel {
       cityCode: _asTrimmedString(data['cityCode']),
       cityName: _asTrimmedString(data['cityName']),
       city: _asTrimmedString(data['city']) ?? _asTrimmedString(data['cityName']),
-      district: _asTrimmedString(data['district']),
       neighborhood: _asTrimmedString(data['neighborhood']),
       firstName: firstName,
       lastName: lastName,
@@ -167,7 +164,6 @@ class UserModel {
       'cityCode': cityCode,
       'cityName': cityName,
       'city': city,
-      'district': district,
       'neighborhood': neighborhood,
       'firstName': firstName,
       'lastName': lastName,
@@ -215,7 +211,6 @@ class UserModel {
     String? cityCode,
     String? cityName,
     String? city,
-    String? district,
     String? neighborhood,
     String? firstName,
     String? lastName,
@@ -254,7 +249,6 @@ class UserModel {
       cityCode: cityCode ?? this.cityCode,
       cityName: cityName ?? this.cityName,
       city: city ?? this.city,
-      district: district ?? this.district,
       neighborhood: neighborhood ?? this.neighborhood,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,

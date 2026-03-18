@@ -102,6 +102,9 @@ class AuthInputField extends StatelessWidget {
     this.suffix,
     this.keyboardType,
     this.readOnly = false,
+    this.prefixText,
+    this.helperText,
+    this.textCapitalization = TextCapitalization.sentences,
     this.onTap,
     this.validator,
     this.textInputAction,
@@ -116,6 +119,9 @@ class AuthInputField extends StatelessWidget {
   final Widget? suffix;
   final TextInputType? keyboardType;
   final bool readOnly;
+  final String? prefixText;
+  final String? helperText;
+  final TextCapitalization textCapitalization;
   final VoidCallback? onTap;
   final String? Function(String?)? validator;
   final TextInputAction? textInputAction;
@@ -144,6 +150,7 @@ class AuthInputField extends StatelessWidget {
             obscureText: obscureText,
             keyboardType: keyboardType,
             readOnly: readOnly,
+            textCapitalization: textCapitalization,
             onTap: onTap,
             validator: validator,
             textInputAction: textInputAction,
@@ -163,8 +170,12 @@ class AuthInputField extends StatelessWidget {
                 borderSide: const BorderSide(color: authCamel, width: 2),
               ),
               hintText: hint,
+              helperText: helperText,
+              helperStyle: authText(size: 11, weight: FontWeight.w600, color: authMuted, height: 1.3),
               hintStyle: authText(size: 15, weight: FontWeight.w500, color: FRColors.textHint),
               prefixIcon: Icon(icon, color: authMuted, size: 20),
+              prefixText: prefixText,
+              prefixStyle: authText(size: 15, weight: FontWeight.w800, color: authEspresso),
               suffixIcon: suffix,
             ),
           ),
