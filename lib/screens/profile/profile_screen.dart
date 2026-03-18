@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
@@ -19,6 +20,7 @@ import '../auth/login_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../settings/settings_screen.dart';
+import 'update_history_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
