@@ -359,7 +359,7 @@ class _PodiumBanner extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(item.rank == 1 ? CupertinoIcons.crown_fill : CupertinoIcons.star_fill, size: 14, color: palette.accent),
+                    Icon(item.rank == 1 ? Icons.emoji_events_rounded : Icons.star_rounded, size: 14, color: palette.accent),
                     const SizedBox(width: 8),
                     Text('${item.rank}. SIRA', style: _FRText.badge.copyWith(color: palette.accent)),
                   ],
@@ -639,7 +639,7 @@ class _RankedItem {
   });
 
   final int rank;
-  final LeaderboardItem item;
+  final UserLeaderboardItem item;
   final bool isCurrentUser;
 }
 
