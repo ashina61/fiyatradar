@@ -133,7 +133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final favoritesCount = await _countCollection(userRef.collection('favorites'));
 
     return _ProfileData(
-      displayName: (data['username'] ?? data['displayName'] ?? data['name'] ?? userModel?.username ?? 'Kullanıcı').toString(),
+      displayName: _resolveDisplayName(data, userModel),
       username: (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? userModel?.photoUrl ?? '').toString(),
       roleTitle: (data['role'] ?? userModel?.role ?? '').toString().trim(),
@@ -150,6 +150,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       favoritesCount: favoritesCount,
       nextLeagueRemaining: _nextLeagueRemaining(totalPoints),
     );
+  }
+
+
+  String _resolveDisplayName(Map<String, dynamic> data, UserModel? userModel) {
+    final username = (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString().trim();
+    if (username.isNotEmpty) return username;
+
+    final name = (data['displayName'] ?? data['name'] ?? userModel?.name ?? '').toString().trim();
+    if (name.isNotEmpty) return name;
+
+    final email = (data['email'] ?? userModel?.email ?? '').toString().trim();
+    if (email.contains('@')) {
+      final prefix = email.split('@').first.trim();
+      if (prefix.isNotEmpty) return prefix;
+    }
+
+    return userModel?.uid ?? 'Kullanıcı';
   }
 
   Future<int?> _countCollection(CollectionReference<Map<String, dynamic>> ref) async {

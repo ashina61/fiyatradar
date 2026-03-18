@@ -40,10 +40,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(authServiceProvider).signInWithEmailAndPassword(
+      final user = await ref.read(authNotifierProvider.notifier).signIn(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
+      if (user == null) {
+        _showError('Kullanıcı profili yüklenemedi.');
+        return;
+      }
       if (!mounted) return;
       context.go('/main');
     } on FirebaseAuthException catch (e) {
@@ -62,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     setState(() => _isGoogleLoading = true);
     try {
-      final user = await ref.read(authServiceProvider).signInWithGoogle();
+      final user = await ref.read(authNotifierProvider.notifier).signInWithGoogle();
       if (user != null && mounted) {
         context.go('/main');
       }

@@ -136,8 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHeader(BuildContext context, UserModel? user, int unreadCount) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    final displayName =
-        (user?.displayName?.isNotEmpty == true ? user!.displayName! : 'Radar Kullanıcısı');
+    final displayName = user?.preferredDisplayName ?? 'Radar Kullanıcısı';
     final points = user?.points ?? 0;
 
     return Padding(

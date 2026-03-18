@@ -2,22 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../providers/auth_provider.dart';
 import 'about_screen.dart';
 import 'notification_settings_screen.dart';
 import 'personal_info_screen.dart';
 import 'security_settings_screen.dart';
 import '../auth/login_screen.dart';
 
-class FiyatRadarSettingsScreen extends StatefulWidget {
+class FiyatRadarSettingsScreen extends ConsumerStatefulWidget {
   const FiyatRadarSettingsScreen({super.key});
 
   @override
-  State<FiyatRadarSettingsScreen> createState() => _FiyatRadarSettingsScreenState();
+  ConsumerState<FiyatRadarSettingsScreen> createState() => _FiyatRadarSettingsScreenState();
 }
 
-class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
+class _FiyatRadarSettingsScreenState extends ConsumerState<FiyatRadarSettingsScreen> {
   static const _bg = Color(0xFFF5F3F0);
   static const _card = Colors.white;
   static const _sienna = Color(0xFF8B4D22);
@@ -119,7 +121,7 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
               icon: Icons.logout_rounded,
               title: 'Çıkış Yap',
               onTap: () async {
-                await FirebaseAuth.instance.signOut();
+                await ref.read(authNotifierProvider.notifier).signOut();
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   CupertinoPageRoute(builder: (_) => const LoginScreen()),

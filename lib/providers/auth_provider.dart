@@ -35,11 +35,12 @@ final userModelStreamProvider = StreamProvider<UserModel?>((ref) {
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
+  AuthNotifier(this._ref, this._authService) : super(const AsyncValue.data(null));
+
+  final Ref _ref;
   final AuthService _authService;
 
-  AuthNotifier(this._authService) : super(const AsyncValue.loading());
-
-  Future<void> signIn({
+  Future<UserModel?> signIn({
     required String email,
     required String password,
   }) async {
@@ -50,15 +51,24 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         password: password,
       );
       state = AsyncValue.data(user);
+      _ref.invalidate(userModelStreamProvider);
+      return user;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
-  Future<void> register({
+  Future<UserModel?> register({
     required String email,
     required String password,
     required String name,
+    String? inviteCode,
+    String? cityCode,
+    String? cityName,
+    String? username,
+    String? neighborhood,
+    String legalConsentVersion = 'v1.0',
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -66,16 +76,50 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         email: email,
         password: password,
         name: name,
+        inviteCode: inviteCode,
+        cityCode: cityCode,
+        cityName: cityName,
+        username: username,
+        neighborhood: neighborhood,
+        legalConsentVersion: legalConsentVersion,
       );
       state = AsyncValue.data(user);
+      _ref.invalidate(userModelStreamProvider);
+      return user;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<UserModel?> signInWithGoogle({
+    bool recordLegalConsent = false,
+    String legalConsentVersion = 'v1.0',
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final user = await _authService.signInWithGoogle(
+        recordLegalConsent: recordLegalConsent,
+        legalConsentVersion: legalConsentVersion,
+      );
+      state = AsyncValue.data(user);
+      _ref.invalidate(userModelStreamProvider);
+      return user;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
   Future<void> signOut() async {
-    await _authService.signOut();
-    state = const AsyncValue.data(null);
+    try {
+      state = const AsyncValue.data(null);
+      _ref.invalidate(userModelStreamProvider);
+      await _authService.signOut();
+    } finally {
+      state = const AsyncValue.data(null);
+      _ref.invalidate(userModelStreamProvider);
+    }
   }
 
   Future<void> resetPassword(String email) async {
@@ -106,5 +150,5 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
-  return AuthNotifier(ref.watch(authServiceProvider));
+  return AuthNotifier(ref, ref.watch(authServiceProvider));
 });
