@@ -88,6 +88,16 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       await _authService.makeAdmin(currentUser.uid);
     }
   }
+
+  Future<void> refreshCurrentUser() async {
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+
+    state = AsyncValue.data(await _authService.getUserModel(currentUser.uid));
+  }
 }
 
 final authNotifierProvider =

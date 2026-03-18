@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../services/auth_service.dart';
 import '../../theme/fr_colors.dart';
 
 class PersonalInfoScreen extends ConsumerStatefulWidget {
@@ -64,10 +66,21 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   }
 
   Future<void> _saveProfile(UserModel user) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen geçerli bir kullanıcı adı girin.'),
+          backgroundColor: FRColors.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final fullName = _nameController.text.trim();
-    final username = _usernameController.text.trim();
     final parts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList(growable: false);
 
     final updatedUser = user.copyWith(
@@ -78,18 +91,51 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       photoUrl: _photoUrl,
     );
 
-    final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
-    if (!mounted) return;
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.updateUsername(
+        uid: user.uid,
+        username: username,
+      );
+      final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
+      await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
+      ref.invalidate(userModelStreamProvider);
+      if (!mounted) return;
 
-    setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? 'Profil kimliğin güncellendi.' : 'Profil kaydedilemedi.'),
-        backgroundColor: success ? FRColors.espresso : FRColors.danger,
-      ),
-    );
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Profil güncellendi.'),
+          backgroundColor: success ? FRColors.espresso : FRColors.danger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
 
-    if (success) Navigator.of(context).maybePop();
+      if (success) Navigator.of(context).maybePop();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(AuthService.mapAuthError(error)),
+          backgroundColor: FRColors.danger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Profil güncellenemedi. Lütfen tekrar deneyin.'),
+          backgroundColor: FRColors.danger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+    }
   }
 
   @override
