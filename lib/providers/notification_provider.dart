@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/notification_model.dart';
@@ -7,6 +8,9 @@ import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 import 'firebase_init_provider.dart';
 import 'product_provider.dart';
+
+final _notificationOptimisticProvider =
+    StateProvider<Map<String, bool>>((ref) => <String, bool>{});
 
 final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) {
@@ -28,12 +32,25 @@ final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref)
   );
 });
 
-final notificationsProvider = notificationsStreamProvider;
+final notificationsProvider = Provider<AsyncValue<List<NotificationItem>>>((ref) {
+  final asyncList = ref.watch(notificationsStreamProvider);
+  final optimistic = ref.watch(_notificationOptimisticProvider);
+
+  return asyncList.whenData(
+    (list) => list
+        .map(
+          (item) => optimistic.containsKey(item.id)
+              ? item.copyWith(isRead: optimistic[item.id])
+              : item,
+        )
+        .toList(growable: false),
+  );
+});
 
 final unreadCountProvider = Provider<int>((ref) {
-  final asyncList = ref.watch(notificationsStreamProvider);
+  final asyncList = ref.watch(notificationsProvider);
   return asyncList.maybeWhen(
-    data: (list) => list.where((n) => !n.read).length,
+    data: (list) => list.where((n) => !n.isRead).length,
     orElse: () => 0,
   );
 });
@@ -41,45 +58,67 @@ final unreadCountProvider = Provider<int>((ref) {
 final unreadNotificationCountProvider = unreadCountProvider;
 
 class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
-  final FirestoreService _firestoreService;
-  final Ref _ref;
-
   NotificationNotifier(this._firestoreService, this._ref)
       : super(const AsyncValue.data(null));
 
+  final FirestoreService _firestoreService;
+  final Ref _ref;
+
   Future<void> markAsRead(String notificationId) async {
-    final authState = _ref.read(authStateProvider);
-    final user = authState.valueOrNull;
+    final user = _ref.read(authStateProvider).valueOrNull;
     if (user == null) return;
-    await _firestoreService.markRead(user.uid, notificationId);
+
+    final current = _ref.read(_notificationOptimisticProvider);
+    _ref.read(_notificationOptimisticProvider.notifier).state = {
+      ...current,
+      notificationId: true,
+    };
+
+    try {
+      await _firestoreService.markRead(user.uid, notificationId);
+    } catch (_) {
+      _ref.read(_notificationOptimisticProvider.notifier).state = current;
+      rethrow;
+    }
   }
 
   Future<void> markAllAsRead() async {
-    final authState = _ref.read(authStateProvider);
-    authState.whenData((user) async {
-      if (user != null) {
-        await _firestoreService.markAllNotificationsAsRead(user.uid);
-      }
-    });
+    final user = _ref.read(authStateProvider).valueOrNull;
+    final notifications = _ref.read(notificationsProvider).valueOrNull;
+    if (user == null || notifications == null) return;
+
+    final current = _ref.read(_notificationOptimisticProvider);
+    final optimistic = <String, bool>{...current};
+    for (final item in notifications.where((item) => !item.isRead)) {
+      optimistic[item.id] = true;
+    }
+    _ref.read(_notificationOptimisticProvider.notifier).state = optimistic;
+
+    try {
+      await _firestoreService.markAllNotificationsAsRead(user.uid);
+    } catch (_) {
+      _ref.read(_notificationOptimisticProvider.notifier).state = current;
+      rethrow;
+    }
   }
 
   Future<void> sendNotification({
     required String userId,
-    required NotificationType type,
+    required String type,
     required String title,
-    required String body,
+    required String message,
     String? productId,
     String? productName,
     String? imageUrl,
   }) async {
     final notification = NotificationItem(
       id: '',
-      source: NotificationSource.primary,
       type: type,
       title: title,
-      body: body,
-      createdAt: DateTime.now(),
-      meta: {
+      message: message,
+      isRead: false,
+      createdAt: Timestamp.now(),
+      metaData: {
         'userId': userId,
         if (productId != null) 'productId': productId,
         if (productName != null) 'productName': productName,
@@ -95,10 +134,3 @@ final notificationNotifierProvider =
     StateNotifierProvider<NotificationNotifier, AsyncValue<void>>((ref) {
   return NotificationNotifier(ref.watch(firestoreServiceProvider), ref);
 });
-
-// Verification checklist for inbox live badge:
-// 1) Add doc to users/{uid}/inbox => badge increments instantly.
-// 2) Legacy docs exist only once then migrate to inbox on first watch.
-// 3) Mark read in inbox => badge decrements instantly.
-// 4) Navigate tabs back/forth => badge remains live.
-// 5) Enable debug flag and verify [inbox] stream + migration logs.
