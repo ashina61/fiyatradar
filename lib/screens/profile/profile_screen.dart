@@ -57,7 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           backgroundColor: const Color(0xFFF5F3F0),
           body: FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
-            future: _loadProfile(liveUser),
+            future: _loadProfile(liveUser!),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

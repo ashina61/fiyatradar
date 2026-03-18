@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../utils/elite_level_engine.dart';
 import '../utils/level_config.dart';
+import 'notification_service.dart';
 
 class PointsRule {
   const PointsRule({
@@ -184,9 +185,13 @@ class WeeklyLeaderboardEntry {
 }
 
 class PointsService {
-  PointsService({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  PointsService({FirebaseFirestore? firestore, NotificationService? notificationService})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _notificationService = notificationService ??
+            NotificationService(firestore: firestore ?? FirebaseFirestore.instance);
 
   final FirebaseFirestore _firestore;
+  final NotificationService _notificationService;
 
   CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
 
@@ -540,6 +545,8 @@ class PointsService {
       final uniqueRef = uniqueKey == null ? null : userRef.collection('points_event_uniques').doc(uniqueKey);
       final levels = await _levels();
 
+      String? previousLevelName;
+      String? nextLevelName;
       final awarded = await _firestore.runTransaction<bool>((txn) async {
         final dailySnap = await txn.get(dailyRef);
         final dailyData = dailySnap.data() ?? <String, dynamic>{};
@@ -569,6 +576,10 @@ class PointsService {
         final userSnap = await txn.get(userRef);
         final userData = userSnap.data() ?? <String, dynamic>{};
         final currentPoints = _resolveUserTotalPoints(userData);
+        final previousLevel = levels.firstWhere(
+          (level) => level.includes(currentPoints),
+          orElse: () => levels.first,
+        );
         final newTotal = currentPoints + awardedDelta;
         final previousWeekKey = (userData['weeklyResetKey'] ?? userData['weeklyPointsWeekKey'] ?? '').toString();
         final currentWeeklyPoints = previousWeekKey == activeWeekKey ? (userData['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
@@ -618,6 +629,8 @@ class PointsService {
         txn.set(userActivityRef, activityPayload);
 
         final standardizedLevel = _standardizeTierName(currentLevel.title);
+        previousLevelName = _standardizeTierName(previousLevel.title);
+        nextLevelName = standardizedLevel;
         txn.set(userRef, {
           'totalPoints': FieldValue.increment(awardedDelta),
           'pointsTotal': FieldValue.increment(awardedDelta),
@@ -641,6 +654,26 @@ class PointsService {
       if (!awarded) return false;
       await _updateStreak(uid, eventType: normalizedType);
       await _evaluateBadges(uid);
+      final leveledUp = nextLevelName != null && previousLevelName != null && nextLevelName != previousLevelName;
+      if (leveledUp) {
+        await _notificationService.addNotification(
+          NotificationItem(
+            id: '',
+            type: 'level_up',
+            title: 'Rütbe Atladın! 👑',
+            message: 'Tebrikler, ${nextLevelName!} rütbesine yükseldin.',
+            isRead: false,
+            createdAt: Timestamp.now(),
+            metaData: {
+              'userId': uid,
+              'eventType': normalizedType,
+              ...meta,
+              'previousLevel': previousLevelName,
+              'newLevel': nextLevelName,
+            },
+          ),
+        );
+      }
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('PointsService.awardEvent failed for $eventType/$uid: $e');

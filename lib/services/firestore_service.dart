@@ -891,6 +891,17 @@ class FirestoreService {
     }
 
     try {
+      await _triggerPriceAlerts(
+        productId: price.productId,
+        productName: productData?['name']?.toString() ?? price.productName ?? 'Ürün',
+        newPrice: price.price,
+        sourcePriceReportId: priceRef.id,
+      );
+    } catch (e, st) {
+      _logFirestoreQueryError('addPriceReport/triggerPriceAlerts', e, st);
+    }
+
+    try {
       await _pointsService.awardEvent(
         uid: reporterUid,
         eventType: 'price_add',
@@ -907,6 +918,47 @@ class FirestoreService {
     }
 
     return priceRef.id;
+  }
+
+
+  Future<void> _triggerPriceAlerts({
+    required String productId,
+    required String productName,
+    required double newPrice,
+    required String sourcePriceReportId,
+  }) async {
+    final alerts = await _firestore
+        .collection('priceAlerts')
+        .where('productId', isEqualTo: productId)
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    for (final doc in alerts.docs) {
+      final data = doc.data();
+      final targetPrice = (data['targetPrice'] as num?)?.toDouble();
+      final userId = (data['userId'] ?? '').toString().trim();
+      if (targetPrice == null || userId.isEmpty || targetPrice < newPrice) {
+        continue;
+      }
+
+      await _notificationService.addNotification(
+        NotificationItem(
+          id: '',
+          type: 'alarm',
+          title: 'Hedef Fiyata Ulaşıldı!',
+          message: '$productName an itibarıyla ${newPrice.toStringAsFixed(2)} ₺ oldu. Hemen yakala!',
+          isRead: false,
+          createdAt: Timestamp.now(),
+          metaData: {
+            'userId': userId,
+            'productId': productId,
+            'productName': productName,
+            'targetPrice': targetPrice,
+            'priceId': sourcePriceReportId,
+          },
+        ),
+      );
+    }
   }
 
   Future<void> setFollowedProduct({
@@ -1231,12 +1283,23 @@ class FirestoreService {
         final priceValue = (data['price'] as num?)?.toDouble();
         final priceText = priceValue != null ? priceValue.toStringAsFixed(2) : '-';
 
-        await _notificationService.sendToUser(
-          ownerUid,
-          '✅ Fiyatınız Doğrulandı',
-          '$productName için girdiğiniz ${priceText}₺ fiyatı doğrulandı',
-          'price_verified',
-          productId.isEmpty ? null : productId,
+        await _notificationService.addNotification(
+          NotificationItem(
+            id: '',
+            type: 'system',
+            title: 'Fiyatın Onaylandı',
+            message: 'Eklediğin fiyat topluluk tarafından doğrulandı. +2 Puan kazandın.',
+            isRead: false,
+            createdAt: Timestamp.now(),
+            metaData: {
+              'userId': ownerUid,
+              if (productId.isNotEmpty) 'productId': productId,
+              'productName': productName,
+              'priceText': priceText,
+              'verifiedBy': voterId,
+              'priceId': priceId,
+            },
+          ),
         );
       }
 
