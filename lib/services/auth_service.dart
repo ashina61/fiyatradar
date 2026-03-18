@@ -77,16 +77,27 @@ class AuthService {
       );
 
       if (credential.user != null) {
-        await _updateLastLogin(credential.user!.uid);
+        final firebaseUser = credential.user!;
+        await firebaseUser.reload();
+        final refreshedUser = _auth.currentUser;
+        if (refreshedUser == null || !refreshedUser.emailVerified) {
+          await signOut();
+          throw FirebaseAuthException(
+            code: 'email-not-verified',
+            message: 'Giriş başarısız. Lütfen önce e-postanızı doğrulayın.',
+          );
+        }
+
+        await _updateLastLogin(firebaseUser.uid);
         if ((cityName ?? '').trim().isNotEmpty) {
-          await _firestore.collection('users').doc(credential.user!.uid).set({
+          await _firestore.collection('users').doc(firebaseUser.uid).set({
             'cityCode': cityCode,
             'cityName': cityName,
             'city': cityName,
             'neighborhood': neighborhood,
           }, SetOptions(merge: true));
         }
-        return await getUserModel(credential.user!.uid);
+        return await getUserModel(firebaseUser.uid);
       }
       return null;
     } on FirebaseAuthException {
@@ -201,6 +212,8 @@ class AuthService {
         }
 
         await batch.commit();
+        await firebaseUser.sendEmailVerification();
+        await signOut();
         return user;
       }
       return null;
@@ -309,6 +322,45 @@ class AuthService {
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
+  }
+
+  Future<void> resendVerificationEmail({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Doğrulama e-postası gönderilecek kullanıcı bulunamadı.',
+        );
+      }
+
+      await user.reload();
+      final refreshedUser = _auth.currentUser;
+      if (refreshedUser == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Doğrulama e-postası gönderilecek kullanıcı bulunamadı.',
+        );
+      }
+
+      if (refreshedUser.emailVerified) {
+        throw FirebaseAuthException(
+          code: 'email-already-verified',
+          message: 'Bu e-posta adresi zaten doğrulanmış.',
+        );
+      }
+
+      await refreshedUser.sendEmailVerification();
+    } finally {
+      await signOut();
+    }
   }
 
   // Password Reset
@@ -517,6 +569,10 @@ class AuthService {
         return 'Lütfen önce kimliğinizi yeniden doğrulayın.';
       case 'email-change-needs-verification':
         return 'Yeni e-posta için doğrulama gerekiyor.';
+      case 'email-not-verified':
+        return 'Giriş başarısız. Lütfen önce e-postanızı doğrulayın.';
+      case 'email-already-verified':
+        return 'Bu e-posta adresi zaten doğrulanmış.';
       case 'user-disabled':
         return 'Bu hesap devre dışı bırakılmış.';
       case 'too-many-requests':
