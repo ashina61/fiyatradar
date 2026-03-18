@@ -22,6 +22,15 @@ class PersonalInfoScreen extends ConsumerStatefulWidget {
 }
 
 class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
+  static const List<String> _badWords = [
+    'admin',
+    'fiyatradar',
+    'kurucu',
+    'küfür1',
+    'küfür2',
+  ];
+
+  final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _didInit = false;
   bool _isSaving = false;
@@ -29,6 +38,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _usernameController.dispose();
     super.dispose();
   }
@@ -67,11 +77,33 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   Future<void> _saveProfile(UserModel user) async {
     final messenger = ScaffoldMessenger.of(context);
     final username = _usernameController.text.trim().toLowerCase();
+    final lockedName = _nameController.text.trim();
+
+    if (lockedName.isEmpty) {
+      messenger.showSnackBar(
+        _feedbackBar(
+          'Ad Soyad alanı boş olamaz.',
+          isError: true,
+        ),
+      );
+      return;
+    }
+
     if (username.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen geçerli bir kullanıcı adı girin.'),
-          backgroundColor: FRColors.danger,
+        _feedbackBar(
+          'Lütfen geçerli bir kullanıcı adı girin.',
+          isError: true,
+        ),
+      );
+      return;
+    }
+
+    if (_containsBadWord(username)) {
+      messenger.showSnackBar(
+        _feedbackBar(
+          'Yasaklı kelime içerdiği için bu kullanıcı adı kabul edilemez.',
+          isError: true,
         ),
       );
       return;
@@ -91,13 +123,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           if (!mounted) return;
           setState(() => _isSaving = false);
           messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                'Kullanıcı adınızı 3 ayda bir değiştirebilirsiniz. Kalan süre: $remainingDays gün.',
-              ),
-              backgroundColor: FRColors.danger,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            _feedbackBar(
+              'Kullanıcı adınızı 3 ayda bir değiştirebilirsiniz. Kalan süre: $remainingDays gün.',
+              isError: true,
             ),
           );
           return;
@@ -118,7 +146,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
       final updatedUser = user.copyWith(
         username: username,
-        name: username,
+        name: lockedName,
         lastUsernameChange: isUsernameChanged ? usernameTimestamp : user.lastUsernameChange,
         photoUrl: _photoUrl,
       );
@@ -130,11 +158,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
       setState(() => _isSaving = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Kullanıcı adınız ve profiliniz güncellendi.' : 'Profil güncellenemedi.'),
-          backgroundColor: success ? FRColors.espresso : FRColors.danger,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        _feedbackBar(
+          success ? 'Kullanıcı adınız ve profiliniz güncellendi.' : 'Profil güncellenemedi.',
+          isError: !success,
         ),
       );
 
@@ -143,25 +169,32 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       if (!mounted) return;
       setState(() => _isSaving = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(AuthService.mapAuthError(error)),
-          backgroundColor: FRColors.danger,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
+        _feedbackBar(AuthService.mapAuthError(error), isError: true),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Profil güncellenemedi. Lütfen tekrar deneyin.'),
-          backgroundColor: FRColors.danger,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        _feedbackBar(
+          'Profil güncellenemedi. Lütfen tekrar deneyin.',
+          isError: true,
         ),
       );
     }
+  }
+
+  bool _containsBadWord(String username) {
+    final normalized = username.trim().toLowerCase();
+    return _badWords.any((keyword) => normalized.contains(keyword));
+  }
+
+  SnackBar _feedbackBar(String message, {required bool isError}) {
+    return SnackBar(
+      content: Text(message),
+      backgroundColor: isError ? FRColors.danger : FRColors.espresso,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    );
   }
 
   @override
@@ -169,9 +202,9 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     final profileState = ref.watch(profileProvider);
 
     return Scaffold(
-      backgroundColor: FRColors.background,
+      backgroundColor: FRColors.bgApp,
       appBar: AppBar(
-        backgroundColor: FRColors.background,
+        backgroundColor: FRColors.bgApp,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -186,7 +219,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
         ),
       ),
       body: profileState.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: FRColors.espresso)),
+        loading: () => const Center(child: CircularProgressIndicator(color: FRColors.camel)),
         error: (error, _) => Center(child: Text('Bir hata oluştu: $error')),
         data: (user) {
           if (user == null) {
@@ -194,6 +227,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           }
 
           if (!_didInit) {
+            _nameController.text = user.name.trim().isEmpty ? 'Admin' : user.name;
             _usernameController.text = user.username;
             _photoUrl = user.photoUrl;
             _didInit = true;
@@ -210,14 +244,42 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                     const SizedBox(height: 4),
                     _AvatarHero(
                       photoUrl: _photoUrl,
-                      fallbackName: _usernameController.text,
+                      fallbackName: _nameController.text,
                       onTap: _pickPhoto,
                     ),
                     const SizedBox(height: 18),
                     _LuxuryField(
+                      label: 'Ad Soyad',
+                      controller: _nameController,
+                      readOnly: true,
+                      prefix: const Icon(
+                        CupertinoIcons.lock_fill,
+                        size: 14,
+                        color: Color(0xFF9E9E9E),
+                      ),
+                      textColor: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 14),
+                    _LuxuryField(
                       label: 'Kullanıcı Adı',
                       controller: _usernameController,
                       hintText: '@fiyatradar',
+                    ),
+                    const SizedBox(height: 10),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          'Kullanıcı adınız 3 ayda bir değiştirilebilir.',
+                          style: TextStyle(
+                            color: FRColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 22),
                     _SaveButton(
@@ -304,12 +366,13 @@ class _LuxuryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: FRColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: const [
           BoxShadow(
             color: FRColors.shadowSoft,
-            blurRadius: 20,
-            offset: Offset(0, 10),
+            blurRadius: 24,
+            spreadRadius: 1,
+            offset: Offset(0, 12),
           ),
         ],
       ),
@@ -331,22 +394,18 @@ class _AvatarHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = fallbackName.trim().isEmpty
+    final parts = fallbackName.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+    final initials = parts.isEmpty
         ? 'FR'
-        : fallbackName
-            .trim()
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((part) => part[0].toUpperCase())
-            .join();
+        : parts.take(2).map((part) => part.substring(0, 1).toUpperCase()).join();
 
     return Center(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 90,
-            height: 90,
+            width: 96,
+            height: 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -437,10 +496,10 @@ class _LuxuryField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: FRColors.backgroundWarm.withOpacity(readOnly ? 0.55 : 0.85),
+        color: readOnly ? Colors.grey.shade100 : FRColors.backgroundWarm.withOpacity(0.85),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: readOnly ? FRColors.borderStrong.withOpacity(0.55) : FRColors.borderStrong.withOpacity(0.8),
+          color: readOnly ? Colors.grey.shade300 : FRColors.borderStrong.withOpacity(0.8),
         ),
       ),
       child: Column(
@@ -450,8 +509,8 @@ class _LuxuryField extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: FRColors.espresso,
+                style: TextStyle(
+                  color: readOnly ? Colors.grey.shade400 : FRColors.espresso,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.5,

@@ -65,7 +65,6 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     final normalizedUsername = username.trim().toLowerCase();
     final updatedUser = currentUser.copyWith(
       username: normalizedUsername,
-      name: normalizedUsername,
       lastUsernameChange: lastUsernameChange,
     );
     return updateProfile(updatedUser);

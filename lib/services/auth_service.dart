@@ -390,7 +390,6 @@ class AuthService {
     if (currentUsername == normalizedUsername) {
       await userRef.set({
         'username': normalizedUsername,
-        'name': normalizedUsername,
         'displayName': normalizedUsername,
         'lastUsernameChange': usernameChangedAt,
       }, SetOptions(merge: true));
@@ -402,7 +401,6 @@ class AuthService {
     final batch = _firestore.batch();
     batch.set(userRef, {
       'username': normalizedUsername,
-      'name': normalizedUsername,
       'displayName': normalizedUsername,
       'lastUsernameChange': usernameChangedAt,
     }, SetOptions(merge: true));
