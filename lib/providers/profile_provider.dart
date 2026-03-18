@@ -10,23 +10,36 @@ final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<UserMo
 });
 
 class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
-  ProfileNotifier(this._ref) : super(const AsyncLoading()) {
-    loadProfile();
+  ProfileNotifier(this._ref) : super(const AsyncValue.data(null)) {
+    _ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
+      final uid = next.valueOrNull?.uid;
+      if (uid == null) {
+        state = const AsyncValue.data(null);
+        _ref.read(authNotifierProvider.notifier).setCurrentUser(null);
+        return;
+      }
+
+      if (uid != previous?.valueOrNull?.uid) {
+        loadProfile(uid: uid);
+      }
+    }, fireImmediately: true);
   }
 
   final Ref _ref;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Future<void> loadProfile() async {
+  Future<void> loadProfile({String? uid}) async {
     try {
-      final uid = _auth.currentUser?.uid;
-      if (uid == null) {
-        state = AsyncError('Kullanıcı girişi bulunamadı.', StackTrace.current);
+      final resolvedUid = uid ?? _auth.currentUser?.uid;
+      if (resolvedUid == null) {
+        state = const AsyncValue.data(null);
+        _ref.read(authNotifierProvider.notifier).setCurrentUser(null);
         return;
       }
 
-      final doc = await _db.collection('users').doc(uid).get();
+      state = const AsyncValue.loading();
+      final doc = await _db.collection('users').doc(resolvedUid).get();
       if (doc.exists && doc.data() != null) {
         final user = UserModel.fromFirestore(doc);
         state = AsyncData(user);

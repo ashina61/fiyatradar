@@ -81,10 +81,26 @@ class UserModel {
   final bool campaignNotifications;
   final bool badgeNotifications;
 
-  String? get displayName {
+  String get emailPrefix {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty || !trimmed.contains('@')) return uid;
+    final prefix = trimmed.split('@').first.trim();
+    return prefix.isEmpty ? uid : prefix;
+  }
+
+  String get preferredDisplayName {
     final normalizedUsername = username.trim();
     if (normalizedUsername.isNotEmpty) return normalizedUsername;
-    return name.trim().isEmpty ? null : name;
+
+    final normalizedName = name.trim();
+    if (normalizedName.isNotEmpty) return normalizedName;
+
+    return emailPrefix;
+  }
+
+  String? get displayName {
+    final value = preferredDisplayName.trim();
+    return value.isEmpty ? null : value;
   }
   String get id => uid;
 

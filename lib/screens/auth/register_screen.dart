@@ -67,7 +67,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(authServiceProvider).registerWithEmailAndPassword(
+      final user = await ref.read(authNotifierProvider.notifier).register(
             email: _emailController.text.trim(),
             password: _passwordController.text,
             name: _nameController.text.trim(),
@@ -77,6 +77,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             username: _usernameController.text.trim(),
             legalConsentVersion: _legalConsentVersion,
           );
+      if (user == null) {
+        _showError('Kullanıcı profili yüklenemedi.');
+        return;
+      }
       if (!mounted) return;
       context.go('/main');
     } on FirebaseAuthException catch (e) {
@@ -101,7 +105,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _isGoogleLoading = true);
     try {
-      final user = await ref.read(authServiceProvider).signInWithGoogle(
+      final user = await ref.read(authNotifierProvider.notifier).signInWithGoogle(
             recordLegalConsent: true,
             legalConsentVersion: _legalConsentVersion,
           );

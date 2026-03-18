@@ -227,7 +227,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           }
 
           if (!_didInit) {
-            _nameController.text = user.name.trim().isEmpty ? 'Admin' : user.name;
+            _nameController.text = user.preferredDisplayName;
             _usernameController.text = user.username;
             _photoUrl = user.photoUrl;
             _didInit = true;

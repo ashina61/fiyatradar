@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../theme/fr_colors.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
@@ -14,7 +15,7 @@ import '../profile/security_screen.dart';
 import 'changelog_screen.dart';
 import 'help_and_faq_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key, required this.isAdmin});
 
   final bool isAdmin;
@@ -68,7 +69,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final topPadding = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: FRColors.background,
@@ -190,7 +191,7 @@ class SettingsScreen extends StatelessWidget {
                     actionLabel: 'Çıkış Yap',
                     actionColor: FRColors.espresso,
                     onConfirm: () async {
-                      await FirebaseAuth.instance.signOut();
+                      await ref.read(authNotifierProvider.notifier).signOut();
                       if (!context.mounted) return;
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
