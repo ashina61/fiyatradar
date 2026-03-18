@@ -38,7 +38,7 @@ class AuthService {
     return normalized;
   }
 
-  Future<void> _ensureUsernameAvailable(String username) async {
+  Future<void> ensureUsernameAvailable(String username) async {
     final reservedDoc = await _firestore.collection('usernames').doc(username).get();
     if (reservedDoc.exists) {
       throw FirebaseAuthException(
@@ -115,7 +115,7 @@ class AuthService {
         );
       }
 
-      await _ensureUsernameAvailable(normalizedUsername);
+      await ensureUsernameAvailable(normalizedUsername);
 
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -151,6 +151,7 @@ class AuthService {
           cityName: cityName,
           city: cityName,
           username: normalizedUsername,
+          lastUsernameChange: Timestamp.now(),
           neighborhood: neighborhood,
           inviteCode: newInviteCode,
           invitedBy: inviterId,
@@ -164,10 +165,11 @@ class AuthService {
           ...user.toFirestore(),
           'termsAcceptedAt': FieldValue.serverTimestamp(),
           'legalConsentVersion': legalConsentVersion,
-          'displayName': name,
+          'displayName': normalizedUsername,
           'photoURL': '',
           'city': cityName,
           'username': normalizedUsername,
+          'lastUsernameChange': FieldValue.serverTimestamp(),
           'neighborhood': neighborhood,
           'totalPoints': 0,
           'weeklyPoints': 0,
@@ -246,16 +248,21 @@ class AuthService {
             name: user.displayName ?? 'Kullanıcı',
             photoUrl: user.photoURL,
             inviteCode: _generateInviteCode(user.uid),
+            username: _normalizeUsername(user.displayName) ?? _normalizeUsername(user.email?.split('@').first) ?? user.uid,
+            lastUsernameChange: Timestamp.now(),
             city: null,
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
           );
 
-          await _firestore.collection('users').doc(user.uid).set({
+          final batch = _firestore.batch();
+          batch.set(_firestore.collection('users').doc(user.uid), {
             ...newUser.toFirestore(),
-            'displayName': newUser.name,
+            'displayName': newUser.username,
             'photoURL': user.photoURL ?? '',
             'city': null,
+            'username': newUser.username,
+            'lastUsernameChange': FieldValue.serverTimestamp(),
             'totalPoints': 0,
             'weeklyPoints': 0,
             'monthlyPoints': 0,
@@ -266,6 +273,12 @@ class AuthService {
             if (recordLegalConsent) 'termsAcceptedAt': FieldValue.serverTimestamp(),
             if (recordLegalConsent) 'legalConsentVersion': legalConsentVersion,
           }, SetOptions(merge: true));
+          batch.set(_firestore.collection('usernames').doc(newUser.username), {
+            'uid': user.uid,
+            'username': newUser.username,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          await batch.commit();
           return newUser;
         } else {
           final data = docSnapshot.data();
@@ -359,6 +372,7 @@ class AuthService {
   Future<void> updateUsername({
     required String uid,
     required String username,
+    Timestamp? changedAt,
   }) async {
     final normalizedUsername = _normalizeUsername(username);
     if (normalizedUsername == null) {
@@ -371,20 +385,32 @@ class AuthService {
     final userRef = _firestore.collection('users').doc(uid);
     final userDoc = await userRef.get();
     final currentUsername = _normalizeUsername(userDoc.data()?['username'] as String?);
+    final usernameChangedAt = changedAt ?? Timestamp.now();
 
     if (currentUsername == normalizedUsername) {
-      await userRef.set({'username': normalizedUsername}, SetOptions(merge: true));
+      await userRef.set({
+        'username': normalizedUsername,
+        'name': normalizedUsername,
+        'displayName': normalizedUsername,
+        'lastUsernameChange': usernameChangedAt,
+      }, SetOptions(merge: true));
       return;
     }
 
-    await _ensureUsernameAvailable(normalizedUsername);
+    await ensureUsernameAvailable(normalizedUsername);
 
     final batch = _firestore.batch();
-    batch.set(userRef, {'username': normalizedUsername}, SetOptions(merge: true));
+    batch.set(userRef, {
+      'username': normalizedUsername,
+      'name': normalizedUsername,
+      'displayName': normalizedUsername,
+      'lastUsernameChange': usernameChangedAt,
+    }, SetOptions(merge: true));
     batch.set(_firestore.collection('usernames').doc(normalizedUsername), {
       'uid': uid,
       'username': normalizedUsername,
       'createdAt': FieldValue.serverTimestamp(),
+      'lastUsernameChange': usernameChangedAt,
     });
 
     if (currentUsername != null && currentUsername.isNotEmpty) {
@@ -517,6 +543,8 @@ class AuthService {
         return e.message ?? 'Google ile giriş yapılamadı.';
       case 'invalid-credential':
         return 'E-posta veya şifre hatalı.';
+      case 'password-renewal-period-save-failed':
+        return 'Şifre yenileme hatırlatıcısı kaydedilemedi.';
       case 'username-already-in-use':
         return 'Bu kullanıcı adı zaten kullanılıyor.';
       case 'invalid-username':

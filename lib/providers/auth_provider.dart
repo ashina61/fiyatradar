@@ -98,6 +98,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
 
     state = AsyncValue.data(await _authService.getUserModel(currentUser.uid));
   }
+
+  void setCurrentUser(UserModel? user) {
+    state = AsyncValue.data(user);
+  }
 }
 
 final authNotifierProvider =

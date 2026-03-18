@@ -100,7 +100,7 @@ class _PremiumUserCardState extends ConsumerState<_PremiumUserCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isBanned ? pAlert : pTextMain), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text((user.username ?? user.name).toString(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isBanned ? pAlert : pTextMain), maxLines: 1, overflow: TextOverflow.ellipsis),
                           Text(user.email ?? '', style: const TextStyle(fontSize: 12, color: pTextMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 6),
                           _buildStats(user),
@@ -133,7 +133,7 @@ class _PremiumUserCardState extends ConsumerState<_PremiumUserCard> {
           ),
           alignment: Alignment.center,
           child: user.photoUrl == null 
-            ? Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?', 
+            ? Text(((user.username ?? user.name).toString().isNotEmpty ? (user.username ?? user.name).toString()[0].toUpperCase() : '?'),
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isBanned ? pAlert : (isAdmin ? pDarkHeader : pTextMuted))) 
             : null,
         ),

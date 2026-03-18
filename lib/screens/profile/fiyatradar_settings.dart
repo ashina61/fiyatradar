@@ -265,7 +265,7 @@ class _ProfileEntryCard extends StatelessWidget {
       stream: uid == null ? null : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? <String, dynamic>{};
-        final name = (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString();
+        final name = (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString();
         final username = (data['username'] ?? '').toString();
         final city = (data['city'] ?? data['cityName'] ?? 'İstanbul').toString();
         final trust = (data['trustScorePercent'] as num?)?.toInt() ?? 86;

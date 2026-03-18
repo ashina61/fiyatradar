@@ -16,7 +16,9 @@ class UserModel {
     this.neighborhood,
     this.firstName,
     this.lastName,
-    this.username,
+    required this.username,
+    this.lastUsernameChange,
+    this.passwordRenewalPeriod,
     this.points = 0,
     this.priceEntries = 0,
     this.validations = 0,
@@ -53,7 +55,9 @@ class UserModel {
   final String? neighborhood;
   final String? firstName;
   final String? lastName;
-  final String? username;
+  final String username;
+  final Timestamp? lastUsernameChange;
+  final int? passwordRenewalPeriod;
   final int points;
   final int priceEntries;
   final int validations;
@@ -77,7 +81,11 @@ class UserModel {
   final bool campaignNotifications;
   final bool badgeNotifications;
 
-  String? get displayName => name.trim().isEmpty ? null : name;
+  String? get displayName {
+    final normalizedUsername = username.trim();
+    if (normalizedUsername.isNotEmpty) return normalizedUsername;
+    return name.trim().isEmpty ? null : name;
+  }
   String get id => uid;
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -117,7 +125,12 @@ class UserModel {
       neighborhood: _asTrimmedString(data['neighborhood']),
       firstName: firstName,
       lastName: lastName,
-      username: _asTrimmedString(data['username'] ?? data['userName']),
+      username: _asTrimmedString(data['username'] ?? data['userName']) ??
+          _asTrimmedString(data['name']) ??
+          _asTrimmedString(data['displayName']) ??
+          documentId,
+      lastUsernameChange: data['lastUsernameChange'] as Timestamp?,
+      passwordRenewalPeriod: (data['passwordRenewalPeriod'] as num?)?.toInt(),
       points: (data['points'] as num?)?.toInt() ?? 0,
       priceEntries: (data['priceEntries'] as num?)?.toInt() ?? 0,
       validations: (data['validations'] as num?)?.toInt() ?? 0,
@@ -156,7 +169,7 @@ class UserModel {
     return {
       'email': email,
       'name': name,
-      'displayName': displayName ?? name,
+      'displayName': displayName ?? username,
       'photoUrl': photoUrl,
       'fcmToken': fcmToken,
       'inviteCode': inviteCode,
@@ -168,6 +181,8 @@ class UserModel {
       'firstName': firstName,
       'lastName': lastName,
       'username': username,
+      'lastUsernameChange': lastUsernameChange,
+      'passwordRenewalPeriod': passwordRenewalPeriod,
       'points': points,
       'priceEntries': priceEntries,
       'validations': validations,
@@ -215,6 +230,8 @@ class UserModel {
     String? firstName,
     String? lastName,
     String? username,
+    Timestamp? lastUsernameChange,
+    int? passwordRenewalPeriod,
     int? points,
     int? priceEntries,
     int? validations,
@@ -253,6 +270,8 @@ class UserModel {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       username: username ?? this.username,
+      lastUsernameChange: lastUsernameChange ?? this.lastUsernameChange,
+      passwordRenewalPeriod: passwordRenewalPeriod ?? this.passwordRenewalPeriod,
       points: points ?? this.points,
       priceEntries: priceEntries ?? this.priceEntries,
       validations: validations ?? this.validations,

@@ -1,57 +1,94 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/user_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Bu provider'ı ekranlarında ref.watch(profileProvider) diye dinleyeceksin
+import '../models/user_model.dart';
+import 'auth_provider.dart';
+
 final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<UserModel?>>((ref) {
-  return ProfileNotifier();
+  return ProfileNotifier(ref);
 });
 
 class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
-  ProfileNotifier() : super(const AsyncLoading()) {
+  ProfileNotifier(this._ref) : super(const AsyncLoading()) {
     loadProfile();
   }
 
+  final Ref _ref;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Firebase'den Gerçek Veriyi Çek!
   Future<void> loadProfile() async {
     try {
       final uid = _auth.currentUser?.uid;
       if (uid == null) {
-        // Adam giriş yapmamışsa mock data gösterme, hata fırlat!
-        state = AsyncError("Kullanıcı girişi bulunamadı.", StackTrace.current);
+        state = AsyncError('Kullanıcı girişi bulunamadı.', StackTrace.current);
         return;
       }
 
       final doc = await _db.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        // Gerçek veriyi State'e aktar
-        state = AsyncData(UserModel.fromFirestore(doc));
+        final user = UserModel.fromFirestore(doc);
+        state = AsyncData(user);
+        _ref.read(authNotifierProvider.notifier).setCurrentUser(user);
       } else {
-        // Firebase'de adamın kaydı yoksa, null döndür (Sahte Adem Bayram yok!)
-        state = const AsyncData(null); 
+        state = const AsyncData(null);
+        _ref.read(authNotifierProvider.notifier).setCurrentUser(null);
       }
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
 
-  // Firebase'e Gerçek Veriyi Yaz!
   Future<bool> updateProfile(UserModel updatedUser) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return false;
 
     try {
       await _db.collection('users').doc(uid).set(updatedUser.toFirestore(), SetOptions(merge: true));
-      // Veritabanı başarıyla güncellendi, şimdi ekrandaki state'i de anında güncelle!
       state = AsyncData(updatedUser);
+      _ref.read(authNotifierProvider.notifier).setCurrentUser(updatedUser);
+      _ref.invalidate(userModelStreamProvider);
       return true;
     } catch (e) {
       // ignore: avoid_print
-      print('Firebase Yazma Hatası: $e');
+      print('Firebase yazma hatası: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateUsername({
+    required UserModel currentUser,
+    required String username,
+    required Timestamp lastUsernameChange,
+  }) async {
+    final normalizedUsername = username.trim().toLowerCase();
+    final updatedUser = currentUser.copyWith(
+      username: normalizedUsername,
+      name: normalizedUsername,
+      lastUsernameChange: lastUsernameChange,
+    );
+    return updateProfile(updatedUser);
+  }
+
+  Future<bool> updatePasswordRenewalPeriod(int periodInMonths) async {
+    final currentUser = state.valueOrNull;
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || currentUser == null) return false;
+
+    try {
+      await _db.collection('users').doc(uid).set({
+        'passwordRenewalPeriod': periodInMonths,
+      }, SetOptions(merge: true));
+
+      final updatedUser = currentUser.copyWith(passwordRenewalPeriod: periodInMonths);
+      state = AsyncData(updatedUser);
+      _ref.read(authNotifierProvider.notifier).setCurrentUser(updatedUser);
+      _ref.invalidate(userModelStreamProvider);
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Şifre yenileme periyodu kaydedilemedi: $e');
       return false;
     }
   }

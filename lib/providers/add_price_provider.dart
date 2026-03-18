@@ -394,7 +394,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       }
 
       final userModel = await _firestore.getUserById(userId);
-      final userName = (userModel?.name ?? userModel?.displayName ?? '').trim();
+      final userName = (userModel?.username ?? userModel?.displayName ?? '').trim();
 
       final payload = PriceModel(
         id: '',

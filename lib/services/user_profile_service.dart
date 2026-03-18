@@ -57,9 +57,9 @@ class UserProfileService {
 
       return UserProfileSummary(
         uid: doc.id,
-        displayName: ((data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString()).trim().isEmpty
+        displayName: ((data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString()).trim().isEmpty
             ? 'Kullanıcı'
-            : (data['displayName'] ?? data['name']).toString().trim(),
+            : (data['username'] ?? data['displayName'] ?? data['name']).toString().trim(),
         photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
         city: (data['city'] ?? data['cityName'] ?? '').toString(),
         totalPoints: totalPoints,

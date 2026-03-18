@@ -133,7 +133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final favoritesCount = await _countCollection(userRef.collection('favorites'));
 
     return _ProfileData(
-      displayName: (data['name'] ?? data['displayName'] ?? userModel?.name ?? 'Kullanıcı').toString(),
+      displayName: (data['username'] ?? data['displayName'] ?? data['name'] ?? userModel?.username ?? 'Kullanıcı').toString(),
       username: (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? userModel?.photoUrl ?? '').toString(),
       roleTitle: (data['role'] ?? userModel?.role ?? '').toString().trim(),

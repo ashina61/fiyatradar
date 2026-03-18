@@ -483,7 +483,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       }
 
       final userModel = await _firestore.getUserById(userId);
-      final reporterName = (userModel?.name ?? userModel?.displayName ?? '').trim();
+      final reporterName = (userModel?.username ?? userModel?.displayName ?? '').trim();
       final fallbackReporterName = reporterName.isEmpty ? 'Kullanıcı' : reporterName;
       final reporterIsAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
 
