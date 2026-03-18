@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../models/notification_model.dart';
 import '../utils/elite_level_engine.dart';
 import '../utils/level_config.dart';
 import 'notification_service.dart';
