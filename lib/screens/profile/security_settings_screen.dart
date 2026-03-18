@@ -42,8 +42,8 @@ class _SecuritySettingsScreenState extends ConsumerState<SecuritySettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentEmail = FirebaseAuth.instance.currentUser?.email?.trim() ?? '';
-    final profile = ref.watch(profileProvider).valueOrNull;
+    final profile = ref.watch(userModelStreamProvider).valueOrNull;
+    final currentEmail = profile?.email.trim() ?? '';
     _selectedRenewalPeriod = profile?.passwordRenewalPeriod ?? _selectedRenewalPeriod;
 
     if (_newEmailController.text.isEmpty && currentEmail.isNotEmpty) {
@@ -146,8 +146,6 @@ class _SecuritySettingsScreenState extends ConsumerState<SecuritySettingsScreen>
             newEmail: newEmail,
           );
       await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
-      await ref.read(profileProvider.notifier).loadProfile();
-      ref.invalidate(userModelStreamProvider);
       if (!mounted) return;
       messenger.showSnackBar(_feedbackBar('E-posta adresiniz başarıyla güncellendi.', isError: false));
       setState(() {
@@ -196,8 +194,6 @@ class _SecuritySettingsScreenState extends ConsumerState<SecuritySettingsScreen>
             newPassword: newPassword,
           );
       await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
-      await ref.read(profileProvider.notifier).loadProfile();
-      ref.invalidate(userModelStreamProvider);
       if (!mounted) return;
       messenger.showSnackBar(_feedbackBar('Şifreniz ve yenileme hatırlatıcınız güncellendi.', isError: false));
       setState(() {

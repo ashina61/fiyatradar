@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,28 +33,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      });
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     final userAsync = ref.watch(userModelStreamProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F3F0),
-      body: userAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _ErrorState(onRetry: () => setState(() => _reloadKey++)),
-        data: (userModel) {
-          return FutureBuilder<_ProfileData>(
+    return userAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => Scaffold(
+        backgroundColor: const Color(0xFFF5F3F0),
+        body: _ErrorState(onRetry: () => setState(() => _reloadKey++)),
+      ),
+      data: (liveUser) {
+        final uid = liveUser?.uid;
+        if (uid == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          });
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F3F0),
+          body: FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
-            future: _loadProfile(uid, userModel),
+            future: _loadProfile(liveUser),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -94,51 +96,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Future<_ProfileData> _loadProfile(String uid, UserModel? userModel) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    final data = (await userRef.get()).data() ?? <String, dynamic>{};
+  Future<_ProfileData> _loadProfile(UserModel userModel) async {
+    final uid = userModel.uid;
     Map<String, dynamic> trustProfile = const <String, dynamic>{};
     try {
       trustProfile = await ref.read(firestoreServiceProvider).getUserTrustProfile(uid);
     } catch (_) {
       trustProfile = const <String, dynamic>{};
     }
-    final totalPoints =
-        (data['totalPoints'] as num?)?.toInt() ??
-        (data['pointsTotal'] as num?)?.toInt() ??
-        (data['points'] as num?)?.toInt() ??
-        userModel?.points ??
-        0;
-    final trustTotalVotes =
-        (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? userModel?.trustTotalVotes ?? 0;
-    final trustPercent =
-        (trustProfile['trustScorePercent'] as num?)?.toInt() ?? userModel?.trustScorePercent ?? 0;
-    // Profildeki seviye etiketi puan ekranı ve ürün detayındakiyle birebir aynı
-    // hesaplamayı kullanır: puan + güven bazlı final seviye.
+
+    final totalPoints = userModel.totalPoints;
+    final trustTotalVotes = (trustProfile['trustTotalVotes'] as num?)?.toInt() ?? userModel.trustTotalVotes;
+    final trustPercent = (trustProfile['trustScorePercent'] as num?)?.toInt() ?? userModel.trustScorePercent;
     final finalLevel = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, trustTotalVotes);
     final finalLevelName = EliteLevelEngine.getLevelStyle(finalLevel).label;
-    final userCity = (data['cityName'] ?? data['city'] ?? '').toString().trim();
+    final userCity = (userModel.cityName ?? userModel.city ?? '').trim();
     final cityRank = await _resolveCityRank(uid: uid, cityName: userCity);
 
-    final addedPricesCount =
-        (data['priceEntries'] as num?)?.toInt() ?? userModel?.priceEntries;
+    final addedPricesCount = userModel.priceEntries;
     final pendingPricesCount = await _resolvePendingPrices(uid);
-    final alertsCount = await _countCollection(userRef.collection('watchlist'));
-    final favoritesCount = await _countCollection(userRef.collection('favorites'));
+    final alertsCount = await _countUserSubcollection(uid, 'watchlist');
+    final favoritesCount = await _countUserSubcollection(uid, 'favorites');
 
     return _ProfileData(
-      displayName: _resolveDisplayName(data, userModel),
-      username: (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString(),
-      photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? userModel?.photoUrl ?? '').toString(),
-      roleTitle: (data['role'] ?? userModel?.role ?? '').toString().trim(),
-      isVerified: (data['verifiedBadge'] as bool?) ?? (data['verified'] as bool?) ?? false,
-      isAdmin: (data['isAdmin'] as bool?) ?? userModel?.isAdmin == true,
+      displayName: _resolveDisplayName(userModel),
+      username: userModel.username,
+      photoUrl: userModel.photoUrl ?? '',
+      roleTitle: (userModel.role ?? '').trim(),
+      isVerified: false,
+      isAdmin: userModel.isAdmin,
       totalPoints: totalPoints,
       cityRank: cityRank,
       pointsLevelName: finalLevelName,
@@ -152,24 +144,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-
-  String _resolveDisplayName(Map<String, dynamic> data, UserModel? userModel) {
-    final username = (data['username'] ?? data['userName'] ?? userModel?.username ?? '').toString().trim();
-    if (username.isNotEmpty) return username;
-
-    final name = (data['displayName'] ?? data['name'] ?? userModel?.name ?? '').toString().trim();
-    if (name.isNotEmpty) return name;
-
-    final email = (data['email'] ?? userModel?.email ?? '').toString().trim();
-    if (email.contains('@')) {
-      final prefix = email.split('@').first.trim();
-      if (prefix.isNotEmpty) return prefix;
-    }
-
-    return userModel?.uid ?? 'Kullanıcı';
+  String _resolveDisplayName(UserModel userModel) {
+    if (userModel.username.trim().isNotEmpty) return userModel.username.trim();
+    if (userModel.name.trim().isNotEmpty) return userModel.name.trim();
+    return userModel.emailPrefix;
   }
 
-  Future<int?> _countCollection(CollectionReference<Map<String, dynamic>> ref) async {
+  Future<int?> _countUserSubcollection(String uid, String path) async {
+    final ref = FirebaseFirestore.instance.collection('users').doc(uid).collection(path);
     try {
       final snap = await ref.count().get();
       return snap.count;
@@ -254,7 +236,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return null;
   }
 }
-
 
 class _ProfilePremiumHeader extends StatelessWidget {
   const _ProfilePremiumHeader({required this.data, required this.onSettingsTap});

@@ -7,7 +7,8 @@ import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/auth_service.dart';
-import '../utils/constants.dart';
+import '../services/points_service.dart';
+import '../utils/elite_level_engine.dart';
 import 'auth_provider.dart';
 
 // Eğer sende zaten varsa, bunu kaldırma. Burada yoksa ekliyoruz.
@@ -45,12 +46,14 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
   final StorageService _storageService;
   final LocationService _locationService;
   final AuthService _authService;
+  final PointsService _pointsService;
 
   PriceNotifier(
     this._firestoreService,
     this._storageService,
     this._locationService,
     this._authService,
+    this._pointsService,
   ) : super(const AsyncValue.data(null));
 
   Future<void> addPrice({
@@ -69,6 +72,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       final userModel = await _authService.getUserModel(currentUser.uid);
+      final currentLevelLabel = EliteLevelEngine.getLevelStyle(EliteLevelEngine.parseLevelLabel(userModel?.level ?? 'Gözlemci')).label;
       final locationData = await _locationService.getLocationData();
 
       // Create price ID first (sadece görsel upload path vs için)
@@ -102,33 +106,37 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
 
         // Snapshot alanları
         addedByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        addedByLevelSnapshot: ((userModel?.points ?? 0) >= 5000)
-            ? 'Elmas'
-            : (((userModel?.points ?? 0) >= 2000)
-                ? 'Gümüş'
-                : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
-        addedByVerifiedBadge: (userModel?.points ?? 0) >= 5000,
+        addedByLevelSnapshot: currentLevelLabel,
+        addedByVerifiedBadge: false,
 
         createdByTrustScoreSnapshot: userModel?.reliabilityScore ?? 0,
-        createdByBadgeSnapshot: ((userModel?.points ?? 0) >= 5000)
-            ? 'Elmas'
-            : (((userModel?.points ?? 0) >= 2000)
-                ? 'Gümüş'
-                : (((userModel?.points ?? 0) >= 500) ? 'Bronz' : 'Standart')),
-        createdByVerifiedSnapshot: (userModel?.points ?? 0) >= 5000,
+        createdByBadgeSnapshot: currentLevelLabel,
+        createdByVerifiedSnapshot: false,
       );
 
       // ✅ Asıl kritik fix: FirestoreService artık status/createdAt’i garanti ediyor
       await _firestoreService.addPriceReport(priceModel);
 
-      // Update user stats
-      await _authService.incrementPriceEntries(currentUser.uid);
-
-      // Add points (2x for photos)
-      final points = images != null && images.isNotEmpty
-          ? AppConstants.pointsForPriceEntryWithPhoto
-          : AppConstants.pointsForPriceEntry;
-      await _authService.addPoints(currentUser.uid, points);
+      await _pointsService.awardEvent(
+        uid: currentUser.uid,
+        eventType: 'price_entry',
+        meta: {
+          'productId': productId,
+          'branchStoreId': branchStoreId,
+          'priceEntryId': priceId,
+        },
+      );
+      if (images != null && images.isNotEmpty) {
+        await _pointsService.awardEvent(
+          uid: currentUser.uid,
+          eventType: 'photo_bonus',
+          meta: {
+            'productId': productId,
+            'branchStoreId': branchStoreId,
+            'priceEntryId': priceId,
+          },
+        );
+      }
 
       state = const AsyncValue.data(null);
     } catch (e, st) {
@@ -159,6 +167,7 @@ final priceNotifierProvider =
     ref.watch(storageServiceProvider),
     ref.watch(locationServiceProvider),
     ref.watch(authServiceProvider),
+    PointsService(),
   );
 });
 
