@@ -118,171 +118,159 @@ class _PorscheBannerCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _handleTap(context),
       child: Container(
-        clipBehavior: Clip.antiAliasWithSaveLayer,
-        decoration: BoxDecoration(
+        width: double.infinity,
+        child: PhysicalShape(
           color: espresso,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.transparent, width: 0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: Stack(
+          clipper: ShapeBorderClipper(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          ),
+          elevation: 20,
+          shadowColor: Colors.black.withOpacity(0.15),
+          clipBehavior: Clip.antiAliasWithSaveLayer,
+          child: Stack(
+            children: [
+              if (hasImage)
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: banner.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorWidget: (c, u, e) => const SizedBox.shrink(),
+                  ),
+                ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        espresso.withOpacity(0.95),
+                        espresso.withOpacity(hasImage ? 0.3 : 0.95),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -60,
+                right: -40,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [camel.withOpacity(0.35), Colors.transparent],
+                      stops: const [0.0, 0.7],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (hasImage)
-                      Positioned.fill(
-                        child: CachedNetworkImage(
-                          imageUrl: banner.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (c, u, e) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              espresso.withOpacity(0.95),
-                              espresso.withOpacity(hasImage ? 0.3 : 0.95),
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              top: -60,
-              right: -40,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [camel.withOpacity(0.35), Colors.transparent],
-                    stops: const [0.0, 0.7],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (banner.badgeText != null && banner.badgeText!.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSponsor ? camel.withOpacity(0.25) : camel.withOpacity(0.15),
-                        border: Border.all(color: isSponsor ? camel : camel.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSponsor)
-                            const Icon(Icons.star, color: Color(0xFFFFE6C9), size: 12)
-                          else
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: camel,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          const SizedBox(width: 6),
-                          Text(
-                            banner.badgeText!.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: isSponsor ? const Color(0xFFFFE6C9) : camel,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Text(
-                    banner.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.2,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  if (banner.description != null && banner.description!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      banner.description!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.6),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        banner.buttonText.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: camel,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                    if (banner.badgeText != null && banner.badgeText!.isNotEmpty)
                       Container(
-                        width: 28,
-                        height: 28,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: camel,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: camel.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                          color: isSponsor ? camel.withOpacity(0.25) : camel.withOpacity(0.15),
+                          border: Border.all(color: isSponsor ? camel : camel.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSponsor)
+                              const Icon(Icons.star, color: Color(0xFFFFE6C9), size: 12)
+                            else
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: camel,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              banner.badgeText!.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: isSponsor ? const Color(0xFFFFE6C9) : camel,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.arrow_forward, color: espresso, size: 16),
+                      ),
+                    Text(
+                      banner.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.2,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    if (banner.description != null && banner.description!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        banner.description!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.6),
+                          height: 1.4,
+                        ),
                       ),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          banner.buttonText.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: camel,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: camel,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: camel.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.arrow_forward, color: espresso, size: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
