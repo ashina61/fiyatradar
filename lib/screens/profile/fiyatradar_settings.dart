@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'about_screen.dart';
-import 'notification_settings.dart';
+import 'notification_settings_screen.dart';
 import 'personal_info_screen.dart';
-import 'security_screen.dart';
+import 'security_settings_screen.dart';
 import '../auth/login_screen.dart';
 
 class FiyatRadarSettingsScreen extends StatefulWidget {
@@ -106,13 +106,13 @@ class _FiyatRadarSettingsScreenState extends State<FiyatRadarSettingsScreen> {
           _group([
             _tile(
               icon: Icons.person_outline_rounded,
-              title: 'Kişisel Bilgiler & Konum',
+              title: 'Kişisel Bilgiler',
               onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PersonalInfoScreen())),
             ),
             _tile(
               icon: Icons.lock_outline_rounded,
               title: 'Güvenlik ve Giriş',
-              onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const SecurityScreen())),
+              onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const SecuritySettingsScreen())),
             ),
 
             _tile(
