@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../services/points_service.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/actual_model.dart';
@@ -10,6 +12,8 @@ import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
 
 class DealsScreen extends ConsumerWidget {
+  static final _stockReportReward = PointsService.pointValues['stock_report'] ?? 0;
+
   const DealsScreen({super.key});
 
   @override
@@ -99,19 +103,19 @@ class DealItemsScreen extends ConsumerWidget {
                               final rewarded = await ref.read(firestoreServiceProvider).submitStockReport(uid: user.uid, dealItemId: dealItemId, branchId: branchId, status: 'in_stock');
                               if (!context.mounted) return;
                               HapticFeedback.lightImpact();
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +2 puan kazandın.' : 'Stok bildirimi güncellendi.')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +$_stockReportReward puan kazandın.' : 'Stok bildirimi güncellendi.')));
                             }),
                             _StockButton(label: 'Az Kaldı', color: Colors.orange, onTap: user == null ? null : () async {
                               final rewarded = await ref.read(firestoreServiceProvider).submitStockReport(uid: user.uid, dealItemId: dealItemId, branchId: branchId, status: 'low_stock');
                               if (!context.mounted) return;
                               HapticFeedback.lightImpact();
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +2 puan kazandın.' : 'Stok bildirimi güncellendi.')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +$_stockReportReward puan kazandın.' : 'Stok bildirimi güncellendi.')));
                             }),
                             _StockButton(label: 'Stok Bitti', color: Colors.red, onTap: user == null ? null : () async {
                               final rewarded = await ref.read(firestoreServiceProvider).submitStockReport(uid: user.uid, dealItemId: dealItemId, branchId: branchId, status: 'out_of_stock');
                               if (!context.mounted) return;
                               HapticFeedback.lightImpact();
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +2 puan kazandın.' : 'Stok bildirimi güncellendi.')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(rewarded ? 'Teşekkürler! +$_stockReportReward puan kazandın.' : 'Stok bildirimi güncellendi.')));
                             }),
                           ],
                         ),

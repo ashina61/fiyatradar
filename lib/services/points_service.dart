@@ -236,20 +236,26 @@ class PointsService {
   };
 
   static const Map<String, int> _pointValues = {
-    'price_entry': 5,
+    'price_entry': 10,
     'price_verify': 2,
-    'photo_bonus': 3,
+    'photo_bonus': 5,
     'admin_bonus': 10,
-    'comment': 1,
+    'comment': 3,
     'report_confirmed': 3,
     'invite_reward': 50,
-    'streak_bonus': 2,
+    'daily_streak': 5,
+    'alarm_set': 5,
+    'stock_report': 2,
   };
+
+  static Map<String, int> get pointValues => Map.unmodifiable(_pointValues);
+
 
   static const Map<String, String> _eventAliases = {
     'price_add': 'price_entry',
     'verification': 'price_verify',
     'verify_vote': 'price_verify',
+    'streak_bonus': 'daily_streak',
   };
 
   Future<void> ensurePointsDefaultsSeeded() async {
@@ -260,8 +266,8 @@ class PointsService {
         {
           'id': 'price_entry',
           'title': 'Fiyat Girişi',
-          'description': 'Fiyat ekleme başına +5 puan. Günlük en fazla 20 kez puanlanır.',
-          'points': 5,
+          'description': 'Fiyat ekleme başına +10 puan. Günlük en fazla 20 kez puanlanır.',
+          'points': 10,
           'dailyCap': 20,
           'active': true,
           'eventType': 'price_entry',
@@ -278,8 +284,8 @@ class PointsService {
         {
           'id': 'photo_bonus',
           'title': 'Foto Bonusu',
-          'description': 'Fotoğraflı katkıda +3 bonus puan. Günlük en fazla 10 kez puanlanır.',
-          'points': 3,
+          'description': 'Fotoğraflı katkıda +5 bonus puan. Günlük en fazla 10 kez puanlanır.',
+          'points': 5,
           'dailyCap': 10,
           'active': true,
           'eventType': 'photo_bonus',
@@ -336,7 +342,7 @@ class PointsService {
           .toList();
       if (parsed.isNotEmpty) return parsed;
       return const [
-        PointsRule(id: 'price_entry', title: 'Fiyat Girişi', description: 'Fiyat ekleme başına +5 puan.', points: 5, dailyCap: 20, active: true, eventType: 'price_entry'),
+        PointsRule(id: 'price_entry', title: 'Fiyat Girişi', description: 'Fiyat ekleme başına +10 puan.', points: 10, dailyCap: 20, active: true, eventType: 'price_entry'),
         PointsRule(id: 'price_verify', title: 'Fiyat Doğrulama', description: 'Doğrulama başına +2 puan. Günlük en fazla 30 doğrulama puanlanır.', points: 2, dailyCap: 30, active: true, eventType: 'price_verify'),
       ];
     });
@@ -566,7 +572,12 @@ class PointsService {
         final newTotal = currentPoints + awardedDelta;
         final previousWeekKey = (userData['weeklyResetKey'] ?? userData['weeklyPointsWeekKey'] ?? '').toString();
         final currentWeeklyPoints = previousWeekKey == activeWeekKey ? (userData['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
+        final now = DateTime.now();
+        final activeMonthKey = DateFormat('yyyy-MM').format(now.toLocal());
+        final previousMonthKey = (userData['monthlyResetKey'] ?? userData['monthlyPointsMonthKey'] ?? '').toString();
+        final currentMonthlyPoints = previousMonthKey == activeMonthKey ? (userData['monthlyPoints'] as num?)?.toInt() ?? 0 : 0;
         final newWeeklyPoints = currentWeeklyPoints + awardedDelta;
+        final newMonthlyPoints = currentMonthlyPoints + awardedDelta;
         final currentLevel = levels.firstWhere(
           (level) => level.includes(newTotal),
           orElse: () => levels.first,
@@ -616,8 +627,11 @@ class PointsService {
           'tierName': standardizedLevel,
           'eliteLevel': standardizedLevel,
           'weeklyPoints': newWeeklyPoints,
+          'monthlyPoints': newMonthlyPoints,
           'weeklyResetKey': activeWeekKey,
           'weeklyPointsWeekKey': activeWeekKey,
+          'monthlyResetKey': activeMonthKey,
+          'monthlyPointsMonthKey': activeMonthKey,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
@@ -721,7 +735,7 @@ class PointsService {
     });
 
     if (shouldAwardStreakBonus) {
-      await awardEvent(uid: uid, eventType: 'streak_bonus', meta: {'day': today}, checkDailyCap: true);
+      await awardEvent(uid: uid, eventType: 'daily_streak', meta: {'day': today}, checkDailyCap: true);
     }
   }
 
@@ -746,10 +760,18 @@ class PointsService {
     final activitySnap = await _firestore.collection('points_activity').doc(uid).collection('items').get();
     final activityDocs = activitySnap.docs;
     final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    final currentMonthStart = DateTime(DateTime.now().year, DateTime.now().month);
     final weeklyPoints = activityDocs.fold<int>(0, (sum, doc) {
       final data = doc.data();
       final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
       if (createdAt == null || createdAt.isBefore(oneWeekAgo)) return sum;
+      final delta = ((data['pointsDelta'] ?? data['points']) as num?)?.toInt() ?? 0;
+      return sum + delta;
+    });
+    final monthlyPoints = activityDocs.fold<int>(0, (sum, doc) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt == null || createdAt.isBefore(currentMonthStart)) return sum;
       final delta = ((data['pointsDelta'] ?? data['points']) as num?)?.toInt() ?? 0;
       return sum + delta;
     });
@@ -763,8 +785,11 @@ class PointsService {
       'tierName': standardizedTier,
       'eliteLevel': standardizedTier,
       'weeklyPoints': weeklyPoints,
+      'monthlyPoints': monthlyPoints,
       'weeklyResetKey': _weekKey(DateTime.now()),
       'weeklyPointsWeekKey': _weekKey(DateTime.now()),
+      'monthlyResetKey': DateFormat('yyyy-MM').format(DateTime.now().toLocal()),
+      'monthlyPointsMonthKey': DateFormat('yyyy-MM').format(DateTime.now().toLocal()),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     final activityPriceCount = activityDocs.where((d) => (d.data()['type'] ?? '') == 'price_entry').length;

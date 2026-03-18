@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/fr_colors.dart';
 
@@ -11,7 +12,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileState = ref.watch(profileProvider);
+    final profileState = ref.watch(userModelStreamProvider);
 
     return Scaffold(
       backgroundColor: FRColors.background,

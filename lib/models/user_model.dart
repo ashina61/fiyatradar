@@ -20,6 +20,10 @@ class UserModel {
     this.lastUsernameChange,
     this.passwordRenewalPeriod,
     this.points = 0,
+    this.totalPoints = 0,
+    this.weeklyPoints = 0,
+    this.monthlyPoints = 0,
+    this.level = 'Gözlemci',
     this.priceEntries = 0,
     this.validations = 0,
     this.inviteCount = 0,
@@ -59,6 +63,10 @@ class UserModel {
   final Timestamp? lastUsernameChange;
   final int? passwordRenewalPeriod;
   final int points;
+  final int totalPoints;
+  final int weeklyPoints;
+  final int monthlyPoints;
+  final String level;
   final int priceEntries;
   final int validations;
   final int inviteCount;
@@ -148,6 +156,10 @@ class UserModel {
       lastUsernameChange: data['lastUsernameChange'] as Timestamp?,
       passwordRenewalPeriod: (data['passwordRenewalPeriod'] as num?)?.toInt(),
       points: (data['points'] as num?)?.toInt() ?? 0,
+      totalPoints: (data['totalPoints'] as num?)?.toInt() ?? (data['pointsTotal'] as num?)?.toInt() ?? (data['points'] as num?)?.toInt() ?? 0,
+      weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
+      monthlyPoints: (data['monthlyPoints'] as num?)?.toInt() ?? 0,
+      level: _asTrimmedString(data['level'] ?? data['levelName'] ?? data['tierName']) ?? 'Gözlemci',
       priceEntries: (data['priceEntries'] as num?)?.toInt() ?? 0,
       validations: (data['validations'] as num?)?.toInt() ?? 0,
       inviteCount: (data['inviteCount'] as num?)?.toInt() ?? 0,
@@ -200,6 +212,10 @@ class UserModel {
       'lastUsernameChange': lastUsernameChange,
       'passwordRenewalPeriod': passwordRenewalPeriod,
       'points': points,
+      'totalPoints': totalPoints,
+      'weeklyPoints': weeklyPoints,
+      'monthlyPoints': monthlyPoints,
+      'level': level,
       'priceEntries': priceEntries,
       'validations': validations,
       'inviteCount': inviteCount,
@@ -249,6 +265,10 @@ class UserModel {
     Timestamp? lastUsernameChange,
     int? passwordRenewalPeriod,
     int? points,
+    int? totalPoints,
+    int? weeklyPoints,
+    int? monthlyPoints,
+    String? level,
     int? priceEntries,
     int? validations,
     int? inviteCount,
@@ -289,6 +309,10 @@ class UserModel {
       lastUsernameChange: lastUsernameChange ?? this.lastUsernameChange,
       passwordRenewalPeriod: passwordRenewalPeriod ?? this.passwordRenewalPeriod,
       points: points ?? this.points,
+      totalPoints: totalPoints ?? this.totalPoints,
+      weeklyPoints: weeklyPoints ?? this.weeklyPoints,
+      monthlyPoints: monthlyPoints ?? this.monthlyPoints,
+      level: level ?? this.level,
       priceEntries: priceEntries ?? this.priceEntries,
       validations: validations ?? this.validations,
       inviteCount: inviteCount ?? this.inviteCount,

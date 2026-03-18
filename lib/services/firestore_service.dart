@@ -1663,7 +1663,7 @@ class FirestoreService {
         'displayName': 'Kullanıcı',
         'trustScorePercent': 0,
         'trustTotalVotes': 0,
-        'tierName': 'Standart',
+        'tierName': 'Gözlemci',
       });
     }
 
@@ -1693,7 +1693,7 @@ class FirestoreService {
         'displayName': 'Kullanıcı',
         'trustScorePercent': 0,
         'trustTotalVotes': 0,
-        'tierName': 'Standart',
+        'tierName': 'Gözlemci',
       };
     }
 
@@ -2161,14 +2161,6 @@ class FirestoreService {
       if (canReward) {
         rewarded = true;
         txn.set(rewardRef, {'lastRewardAt': Timestamp.fromDate(now)}, SetOptions(merge: true));
-        txn.set(userRef.collection('points_log').doc(), {
-          'type': 'stock_report',
-          'points': 2,
-          'dealItemId': dealItemId,
-          'branchId': branchId,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        txn.update(userRef, {'points': FieldValue.increment(2)});
         txn.set(userRef.collection('stats').doc('summary'), {
           'stockReportsCount': FieldValue.increment(1),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -2176,6 +2168,14 @@ class FirestoreService {
       }
     });
 
+    if (rewarded) {
+      await _pointsService.awardEvent(
+        uid: uid,
+        eventType: 'stock_report',
+        meta: {'dealItemId': dealItemId, 'branchId': branchId, 'status': status},
+        checkDailyCap: false,
+      );
+    }
     await _grantStockHunterBadges(uid);
     return rewarded;
   }
@@ -2237,13 +2237,6 @@ class FirestoreService {
         if (ownerUid.isEmpty) return;
         final userRef = _usersRef.doc(ownerUid);
         txn.update(reportRef, {'bonusAwarded': true});
-        txn.update(userRef, {'points': FieldValue.increment(3)});
-        txn.set(userRef.collection('points_log').doc(), {
-          'type': 'stock_validation_bonus',
-          'points': 3,
-          'reportId': reportId,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
         rewarded = true;
       });
     }
@@ -2273,6 +2266,8 @@ class FirestoreService {
     final col = _firestore.collection('priceAlerts');
     final existing = await col.where('productId', isEqualTo: productId).where('userId', isEqualTo: userId).get();
 
+    final isFirstAlert = existing.docs.isEmpty;
+
     if (existing.docs.isNotEmpty) {
       for (final doc in existing.docs) {
         await doc.reference.delete();
@@ -2285,6 +2280,15 @@ class FirestoreService {
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      if (isFirstAlert) {
+        await _pointsService.awardEvent(
+          uid: userId,
+          eventType: 'alarm_set',
+          meta: {'productId': productId, 'targetPrice': targetPrice},
+          checkDailyCap: false,
+          ensureUniqueByMeta: true,
+        );
+      }
     }
   }
 

@@ -11,16 +11,17 @@ final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<UserMo
 
 class ProfileNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   ProfileNotifier(this._ref) : super(const AsyncValue.data(null)) {
+    _ref.listen<AsyncValue<UserModel?>>(userModelStreamProvider, (previous, next) {
+      next.whenData((user) {
+        state = AsyncValue.data(user);
+        _ref.read(authNotifierProvider.notifier).setCurrentUser(user);
+      });
+    }, fireImmediately: true);
+
     _ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
-      final uid = next.valueOrNull?.uid;
-      if (uid == null) {
+      if (next.valueOrNull == null) {
         state = const AsyncValue.data(null);
         _ref.read(authNotifierProvider.notifier).setCurrentUser(null);
-        return;
-      }
-
-      if (uid != previous?.valueOrNull?.uid) {
-        loadProfile(uid: uid);
       }
     }, fireImmediately: true);
   }

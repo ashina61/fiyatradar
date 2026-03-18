@@ -32,12 +32,31 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
-  bool _didInit = false;
   bool _isSaving = false;
   String? _photoUrl;
+  String? _syncedUserId;
+  String? _syncedName;
+  String? _syncedUsername;
+  String? _syncedPhotoUrl;
+  ProviderSubscription<AsyncValue<UserModel?>>? _userModelSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _userModelSubscription = ref.listenManual<AsyncValue<UserModel?>>(userModelStreamProvider, (previous, next) {
+      next.whenData((user) {
+        if (user == null) {
+          _clearControllers();
+          return;
+        }
+        _syncControllers(user);
+      });
+    }, fireImmediately: true);
+  }
 
   @override
   void dispose() {
+    _userModelSubscription?.close();
     _nameController.dispose();
     _usernameController.dispose();
     super.dispose();
@@ -153,7 +172,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
       final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
       await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
-      ref.invalidate(userModelStreamProvider);
       if (!mounted) return;
 
       setState(() => _isSaving = false);
@@ -197,9 +215,50 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     );
   }
 
+  void _clearControllers() {
+    _syncedUserId = null;
+    _syncedName = null;
+    _syncedUsername = null;
+    _syncedPhotoUrl = null;
+    _photoUrl = null;
+    _nameController.clear();
+    _usernameController.clear();
+    if (mounted) setState(() {});
+  }
+
+  void _syncControllers(UserModel user) {
+    final nextName = user.preferredDisplayName;
+    final nextUsername = user.username;
+    final nextPhotoUrl = user.photoUrl;
+    final shouldSync = _syncedUserId != user.uid || _syncedName != nextName || _syncedUsername != nextUsername || _syncedPhotoUrl != nextPhotoUrl;
+    if (!shouldSync) return;
+
+    _syncedUserId = user.uid;
+    _syncedName = nextName;
+    _syncedUsername = nextUsername;
+    _syncedPhotoUrl = nextPhotoUrl;
+
+    _nameController.value = _nameController.value.copyWith(
+      text: nextName,
+      selection: TextSelection.collapsed(offset: nextName.length),
+      composing: TextRange.empty,
+    );
+    _usernameController.value = _usernameController.value.copyWith(
+      text: nextUsername,
+      selection: TextSelection.collapsed(offset: nextUsername.length),
+      composing: TextRange.empty,
+    );
+
+    if (_photoUrl != nextPhotoUrl && mounted) {
+      setState(() => _photoUrl = nextPhotoUrl);
+      return;
+    }
+    _photoUrl = nextPhotoUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profileState = ref.watch(profileProvider);
+    final profileState = ref.watch(userModelStreamProvider);
 
     return Scaffold(
       backgroundColor: FRColors.bgApp,
@@ -226,12 +285,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
             return const Center(child: Text('Profil bulunamadı.'));
           }
 
-          if (!_didInit) {
-            _nameController.text = user.preferredDisplayName;
-            _usernameController.text = user.username;
-            _photoUrl = user.photoUrl;
-            _didInit = true;
-          }
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),

@@ -181,7 +181,7 @@ class AuthService {
           'trustWrongTotal': 0,
           'trustScoreStatus': 'veri_az',
           'trustScore': 0.0,
-          'level': 'Standart',
+          'level': 'Gözlemci',
         }, SetOptions(merge: true));
 
         batch.set(_firestore.collection('usernames').doc(normalizedUsername), {
@@ -269,7 +269,7 @@ class AuthService {
             'streakDays': 0,
             'trustScorePercent': 0,
             'trustScore': 0.0,
-            'level': 'Standart',
+            'level': 'Gözlemci',
             if (recordLegalConsent) 'termsAcceptedAt': FieldValue.serverTimestamp(),
             if (recordLegalConsent) 'legalConsentVersion': legalConsentVersion,
           }, SetOptions(merge: true));
@@ -477,18 +477,6 @@ class AuthService {
   Future<void> makeAdmin(String uid) async {
     await _firestore.collection('users').doc(uid).update({
       'isAdmin': true,
-    });
-  }
-
-  Future<void> addPoints(String uid, int points) async {
-    await _firestore.collection('users').doc(uid).update({
-      'points': FieldValue.increment(points),
-    });
-  }
-
-  Future<void> incrementPriceEntries(String uid) async {
-    await _firestore.collection('users').doc(uid).update({
-      'priceEntries': FieldValue.increment(1),
     });
   }
 

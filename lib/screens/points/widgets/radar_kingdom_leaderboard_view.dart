@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../models/leaderboard_item.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/leaderboard_provider.dart';
+import '../../../services/points_service.dart';
 import '../../../utils/elite_level_engine.dart';
 
 class RadarKingdomLeaderboardView extends ConsumerStatefulWidget {
@@ -15,6 +16,7 @@ class RadarKingdomLeaderboardView extends ConsumerStatefulWidget {
 }
 
 class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeaderboardView> {
+  static final _pointValues = PointsService.pointValues;
   static const _bgApp = Color(0xFFFDFBF9);
   static const _textDark = Color(0xFF3A2B24);
   static const _textMuted = Color(0xFF8C7A6B);
@@ -166,6 +168,11 @@ class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeader
     );
   }
 
+  String _rewardLabel(String eventType, String fallback) {
+    final points = _pointValues[eventType];
+    return points == null ? fallback : '+$points Puan';
+  }
+
   void _showInfoBottomSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -178,7 +185,7 @@ class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeader
             color: Color(0xFFFDFBF9),
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -191,7 +198,7 @@ class _RadarKingdomLeaderboardViewState extends ConsumerState<RadarKingdomLeader
               SizedBox(height: 12),
               Text('Radar Krallığı Nasıl Çalışır?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _textDark)),
               SizedBox(height: 16),
-              Text('Barkod okutarak (+10 Puan), Yeni fiyat ekleyerek (+50 Puan), İndirim yakalayarak (+100 Puan).', style: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w700, color: _textMuted)),
+              Text('Yeni fiyat ekleyerek (${_rewardLabel('price_entry', '+10 Puan')}), doğrulama yaparak (${_rewardLabel('price_verify', '+2 Puan')}), fotoğraflı katkı vererek (${_rewardLabel('photo_bonus', '+5 Puan')}).', style: const TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w700, color: _textMuted)),
               SizedBox(height: 14),
               Text('Güven skoru %70 altı olanlar podyuma çıkamaz!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFFAF6B3E))),
             ],
