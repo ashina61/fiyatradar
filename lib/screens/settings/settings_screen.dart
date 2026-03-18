@@ -108,7 +108,7 @@ class SettingsScreen extends StatelessWidget {
                   items: [
                     _SettingsMenuItem(
                       icon: CupertinoIcons.person,
-                      title: 'Kişisel Bilgiler & Konum',
+                      title: 'Kişisel Bilgiler',
                       onTap: () => Navigator.of(context).push(
                         CupertinoPageRoute(builder: (_) => const PersonalInfoScreen()),
                       ),
@@ -117,7 +117,7 @@ class SettingsScreen extends StatelessWidget {
                       icon: CupertinoIcons.lock_shield,
                       title: 'Güvenlik ve Giriş',
                       onTap: () => Navigator.of(context).push(
-                        CupertinoPageRoute(builder: (_) => const SecurityScreen()),
+                        CupertinoPageRoute(builder: (_) => const SecuritySettingsScreen()),
                       ),
                     ),
                     _SettingsMenuItem(
