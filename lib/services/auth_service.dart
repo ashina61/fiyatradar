@@ -356,6 +356,100 @@ class AuthService {
     }
   }
 
+  Future<void> updateUsername({
+    required String uid,
+    required String username,
+  }) async {
+    final normalizedUsername = _normalizeUsername(username);
+    if (normalizedUsername == null) {
+      throw FirebaseAuthException(
+        code: 'invalid-username',
+        message: 'Geçerli bir kullanıcı adı girin.',
+      );
+    }
+
+    final userRef = _firestore.collection('users').doc(uid);
+    final userDoc = await userRef.get();
+    final currentUsername = _normalizeUsername(userDoc.data()?['username'] as String?);
+
+    if (currentUsername == normalizedUsername) {
+      await userRef.set({'username': normalizedUsername}, SetOptions(merge: true));
+      return;
+    }
+
+    await _ensureUsernameAvailable(normalizedUsername);
+
+    final batch = _firestore.batch();
+    batch.set(userRef, {'username': normalizedUsername}, SetOptions(merge: true));
+    batch.set(_firestore.collection('usernames').doc(normalizedUsername), {
+      'uid': uid,
+      'username': normalizedUsername,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (currentUsername != null && currentUsername.isNotEmpty) {
+      batch.delete(_firestore.collection('usernames').doc(currentUsername));
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> reauthenticate({
+    required String email,
+    required String password,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Aktif kullanıcı bulunamadı.',
+      );
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  Future<void> updateEmailWithReauth({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || (user.email?.trim().isEmpty ?? true)) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Aktif kullanıcı bulunamadı.',
+      );
+    }
+
+    final normalizedEmail = newEmail.trim();
+    await reauthenticate(email: user.email!.trim(), password: currentPassword);
+    await user.updateEmail(normalizedEmail);
+    await _firestore.collection('users').doc(user.uid).set({
+      'email': normalizedEmail,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updatePasswordWithReauth({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || (user.email?.trim().isEmpty ?? true)) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Aktif kullanıcı bulunamadı.',
+      );
+    }
+
+    await reauthenticate(email: user.email!.trim(), password: currentPassword);
+    await user.updatePassword(newPassword.trim());
+  }
+
   Future<void> makeAdmin(String uid) async {
     await _firestore.collection('users').doc(uid).update({
       'isAdmin': true,
@@ -407,6 +501,10 @@ class AuthService {
         return 'Şifre çok zayıf. En az 6 karakter kullanın.';
       case 'invalid-email':
         return 'Geçersiz e-posta adresi.';
+      case 'requires-recent-login':
+        return 'Lütfen önce kimliğinizi yeniden doğrulayın.';
+      case 'email-change-needs-verification':
+        return 'Yeni e-posta için doğrulama gerekiyor.';
       case 'user-disabled':
         return 'Bu hesap devre dışı bırakılmış.';
       case 'too-many-requests':
