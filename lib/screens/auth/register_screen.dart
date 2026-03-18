@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
@@ -37,10 +38,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   CityTR? _selectedCity;
   String? _selectedDistrict;
 
+  static const _legalConsentVersion = 'v1.0';
+  static final _termsUri = Uri.parse('https://fiyatradar.com/kullanim-kosullari');
+
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _legalConsentAccepted = false;
 
   List<DistrictTR> get _districts => kDistrictsByCityCode[_selectedCity?.code] ?? const [];
 
@@ -64,6 +69,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _showError('Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.');
       return;
     }
+    if (!_legalConsentAccepted) {
+      _showError('Lütfen devam etmek için koşulları onaylayın.');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -75,6 +84,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             cityCode: _selectedCity?.code,
             cityName: _selectedCity?.name,
             district: _selectedDistrict,
+            legalConsentVersion: _legalConsentVersion,
           );
       if (!mounted) return;
       context.go('/main');
@@ -93,9 +103,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
 
+    if (!_legalConsentAccepted) {
+      _showError('Lütfen devam etmek için koşulları onaylayın.');
+      return;
+    }
+
     setState(() => _isGoogleLoading = true);
     try {
-      final user = await ref.read(authServiceProvider).signInWithGoogle();
+      final user = await ref.read(authServiceProvider).signInWithGoogle(
+            recordLegalConsent: true,
+            legalConsentVersion: _legalConsentVersion,
+          );
       if (user != null && mounted) {
         context.go('/main');
       }
@@ -110,7 +128,76 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: authText(size: 12, weight: FontWeight.w700, color: Colors.white)),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: authEspresso,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    );
+  }
+
+  Future<void> _openTerms() async {
+    await launchUrl(_termsUri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openDisclosureSheet() async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          decoration: BoxDecoration(
+            color: authWhite,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(color: authEspresso.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -6)),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: authEspresso.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                Text('Aydınlatma Metni', style: authText(size: 20, weight: FontWeight.w900, letterSpacing: -0.4)),
+                const SizedBox(height: 12),
+                Text(
+                  'FiyatRadar; kimlik, iletişim ve konum bilgilerini hesap oluşturma, kişiselleştirme, güvenlik ve bildirim süreçlerini yürütmek amacıyla işler. Onayınızın zamanı Firestore üzerinde kayıt altına alınır.',
+                  style: authText(size: 13, weight: FontWeight.w600, color: authMuted, height: 1.6),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: authCamel.withOpacity(0.35)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: authCamel.withOpacity(0.06),
+                    ),
+                    child: Text('Tamam', style: authText(size: 14, weight: FontWeight.w800, color: authEspresso)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -210,6 +297,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 validator: (v) => (v != _passwordController.text) ? 'Şifreler eşleşmiyor' : null,
               ),
+              const SizedBox(height: 18),
+              _LegalConsentToggle(
+                value: _legalConsentAccepted,
+                onChanged: () => setState(() => _legalConsentAccepted = !_legalConsentAccepted),
+                onTermsTap: _openTerms,
+                onDisclosureTap: _openDisclosureSheet,
+              ),
               const SizedBox(height: 22),
               MassivePrimaryButton(label: 'Kayıt Ol', onPressed: _register, loading: _isLoading),
               const SizedBox(height: 18),
@@ -233,14 +327,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Center(
-                child: Text(
-                  "Kayıt olarak Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmiş olursunuz.",
-                  textAlign: TextAlign.center,
-                  style: authText(size: 10, weight: FontWeight.w500, color: authMuted, height: 1.5),
                 ),
               ),
             ],
@@ -308,6 +394,105 @@ class _DropdownField<T> extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+class _LegalConsentToggle extends StatelessWidget {
+  const _LegalConsentToggle({
+    required this.value,
+    required this.onChanged,
+    required this.onTermsTap,
+    required this.onDisclosureTap,
+  });
+
+  final bool value;
+  final VoidCallback onChanged;
+  final VoidCallback onTermsTap;
+  final VoidCallback onDisclosureTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onChanged,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: authWhite,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: value ? authCamel.withOpacity(.8) : authEspresso.withOpacity(.08),
+            width: value ? 1.4 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: authEspresso.withOpacity(.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 22,
+              height: 22,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: value ? authCamel : Colors.transparent,
+                border: Border.all(
+                  color: value ? authCamel : const Color(0xFFC4B9B1),
+                  width: 1.8,
+                ),
+                boxShadow: value
+                    ? [
+                        BoxShadow(
+                          color: authCamel.withOpacity(.22),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : const [],
+              ),
+              child: value
+                  ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text("'", style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
+                  GestureDetector(
+                    onTap: onTermsTap,
+                    child: Text(
+                      'Kullanım Koşulları',
+                      style: authText(size: 12.5, weight: FontWeight.w800, color: authEspresso)
+                          .copyWith(decoration: TextDecoration.underline),
+                    ),
+                  ),
+                  Text(' ve ', style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
+                  GestureDetector(
+                    onTap: onDisclosureTap,
+                    child: Text(
+                      'Aydınlatma Metni',
+                      style: authText(size: 12.5, weight: FontWeight.w800, color: authEspresso)
+                          .copyWith(decoration: TextDecoration.underline),
+                    ),
+                  ),
+                  Text("'ni okudum, onaylıyorum.", style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

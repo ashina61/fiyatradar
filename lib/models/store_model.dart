@@ -35,23 +35,29 @@ class StoreModel {
   });
 
   GeoPoint get geoPoint => GeoPoint(lat, lng);
+  String get name => displayName;
+  bool get isOnline => type == StoreType.online || legacyIsOnline == true;
 
   factory StoreModel.fromFirestore(DocumentSnapshot doc) {
     final raw = doc.data();
     final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    return StoreModel.fromMap(data, id: doc.id);
+  }
+
+  factory StoreModel.fromMap(Map<String, dynamic> data, {String id = ''}) {
     final coordinates = _extractCoordinates(data);
 
     return StoreModel(
-      id: doc.id,
-      brandId: data['brandId'],
+      id: id.isNotEmpty ? id : (data['id']?.toString() ?? ''),
+      brandId: data['brandId']?.toString(),
       displayName: _parseDisplayName(data),
-      city: data['city'] ?? '',
-      district: data['district'] ?? '',
-      neighborhood: data['neighborhood'] ?? '',
-      address: data['address'],
+      city: data['city']?.toString() ?? '',
+      district: data['district']?.toString() ?? '',
+      neighborhood: data['neighborhood']?.toString() ?? '',
+      address: data['address']?.toString(),
       lat: coordinates.$1,
       lng: coordinates.$2,
-      status: _parseStatus(data['status']),
+      status: _parseStatus(data['status']?.toString()),
       type: _parseType(data['type']),
       legacyIsOnline: data['isOnline'] as bool?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -71,10 +77,15 @@ class StoreModel {
       'lng': lng,
       'status': status.name,
       'type': type.name,
-      'isOnline': type == StoreType.online,
+      'isOnline': isOnline,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        ...toFirestore(),
+      };
 
   static StoreType _parseType(dynamic value) {
     final normalized = value?.toString();
@@ -142,8 +153,6 @@ class StoreModel {
       createdAt: createdAt ?? this.createdAt,
     );
   }
-
-  bool get isOnline => type == StoreType.online || legacyIsOnline == true;
 
   static String _parseDisplayName(Map<String, dynamic> data) {
     final displayName = data['displayName']?.toString().trim() ?? '';

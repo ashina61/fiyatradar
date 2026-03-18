@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Kendi projendeki doğru yolları (path) buraya yaz kanka
 import '../models/banner_model.dart';
 import '../providers/banner_provider.dart';
+import '../theme/fr_colors.dart';
 
 class PremiumBannerSection extends ConsumerStatefulWidget {
   const PremiumBannerSection({super.key, this.onBannerTap});
@@ -80,7 +81,7 @@ class _PremiumBannerSectionState extends ConsumerState<PremiumBannerSection> {
         padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
         child: SizedBox(
           height: 190, 
-          child: Center(child: CircularProgressIndicator(color: Color(0xFFC09A60))),
+          child: Center(child: CircularProgressIndicator(color: FRColors.camel)),
         ),
       ),
       error: (_, __) => const SizedBox.shrink(),
@@ -100,8 +101,6 @@ class _PorscheBannerCard extends StatelessWidget {
     // Modelinde isSponsor bool yoksa burayı false yap geç
     final isSponsor = banner.isSponsor ?? false; 
     
-    const espresso = Color(0xFF1C1108);
-    const camel = Color(0xFFC09A60);
 
     return GestureDetector(
       onTap: onTap,
@@ -110,7 +109,7 @@ class _PorscheBannerCard extends StatelessWidget {
         // HATA 1 ÇÖZÜMÜ: Köşe sızmalarını engeller
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: espresso,
+          color: FRColors.espresso,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -138,8 +137,8 @@ class _PorscheBannerCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      espresso.withOpacity(0.95),
-                      espresso.withOpacity(hasImage ? 0.3 : 0.95),
+                      FRColors.espresso.withOpacity(0.95),
+                      FRColors.espresso.withOpacity(hasImage ? 0.3 : 0.95),
                     ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
@@ -159,7 +158,7 @@ class _PorscheBannerCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      camel.withOpacity(0.35),
+                      FRColors.camel.withOpacity(0.35),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.7],
@@ -182,9 +181,9 @@ class _PorscheBannerCard extends StatelessWidget {
                       margin: const EdgeInsets.bottom: 10,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSponsor ? camel.withOpacity(0.25) : camel.withOpacity(0.15),
+                        color: isSponsor ? FRColors.camel.withOpacity(0.25) : FRColors.camel.withOpacity(0.15),
                         border: Border.all(
-                          color: isSponsor ? camel : camel.withOpacity(0.3),
+                          color: isSponsor ? FRColors.camel : FRColors.camel.withOpacity(0.3),
                         ),
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -192,12 +191,12 @@ class _PorscheBannerCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (isSponsor)
-                            const Icon(Icons.star, color: Color(0xFFFFE6C9), size: 12)
+                            const Icon(Icons.star, color: FRColors.ivory, size: 12)
                           else
                             Container(
                               width: 6, height: 6,
                               decoration: const BoxDecoration(
-                                color: camel,
+                                color: FRColors.camel,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -207,7 +206,7 @@ class _PorscheBannerCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: isSponsor ? const Color(0xFFFFE6C9) : camel,
+                              color: isSponsor ? FRColors.ivory : FRColors.camel,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -223,7 +222,7 @@ class _PorscheBannerCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: FRColors.white,
                       height: 1.2,
                       letterSpacing: -0.5,
                     ),
@@ -256,7 +255,7 @@ class _PorscheBannerCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: camel,
+                          color: FRColors.camel,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -264,11 +263,11 @@ class _PorscheBannerCard extends StatelessWidget {
                       Container(
                         width: 28, height: 28,
                         decoration: BoxDecoration(
-                          color: camel,
+                          color: FRColors.camel,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: camel.withOpacity(0.3),
+                              color: FRColors.camel.withOpacity(0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -276,7 +275,7 @@ class _PorscheBannerCard extends StatelessWidget {
                         ),
                         child: const Icon(
                           Icons.arrow_forward,
-                          color: espresso,
+                          color: FRColors.espresso,
                           size: 16,
                         ),
                       ),

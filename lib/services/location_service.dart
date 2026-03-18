@@ -53,17 +53,22 @@ class LocationService {
         final place = placemarks.first;
         final parts = <String>[];
 
-        if (place.thoroughfare?.isNotEmpty ?? false) {
-          parts.add(place.thoroughfare!);
+        final thoroughfare = (place.thoroughfare ?? '').trim();
+        final subLocality = (place.subLocality ?? '').trim();
+        final locality = (place.locality ?? '').trim();
+        final administrativeArea = (place.administrativeArea ?? '').trim();
+
+        if (thoroughfare.isNotEmpty) {
+          parts.add(thoroughfare);
         }
-        if (place.subLocality?.isNotEmpty ?? false) {
-          parts.add(place.subLocality!);
+        if (subLocality.isNotEmpty) {
+          parts.add(subLocality);
         }
-        if (place.locality?.isNotEmpty ?? false) {
-          parts.add(place.locality!);
+        if (locality.isNotEmpty) {
+          parts.add(locality);
         }
-        if (place.administrativeArea?.isNotEmpty ?? false) {
-          parts.add(place.administrativeArea!);
+        if (administrativeArea.isNotEmpty) {
+          parts.add(administrativeArea);
         }
 
         return parts.join(', ');

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../models/user_model.dart';
 import '../../providers/profile_provider.dart';
 import '../../services/location_service.dart';
 import '../../utils/cities_tr.dart';
@@ -109,7 +110,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     }
   }
 
-  Future<void> _save(user) async {
+  Future<void> _save(UserModel user) async {
     setState(() => _isSaving = true);
     final fullName = _nameCtrl.text.trim();
     final district = _districtCtrl.text.trim();
@@ -125,8 +126,14 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       return;
     }
 
+    final nameParts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList(growable: false);
+    final firstName = nameParts.isEmpty ? null : nameParts.first;
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null;
+
     final updatedUser = user.copyWith(
       name: fullName,
+      firstName: firstName,
+      lastName: lastName,
       username: _usernameCtrl.text.trim(),
       cityCode: cityCode,
       city: _city,

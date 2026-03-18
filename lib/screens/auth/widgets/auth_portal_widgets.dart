@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+
+import '../../../theme/fr_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const authBg = Color(0xFFEFECE6);
-const authEspresso = Color(0xFF1C1108);
-const authCamel = Color(0xFFC09A60);
-const authWhite = Color(0xFFFAFAFA);
-const authMuted = Color(0xFF8E847A);
+const authBg = FRColors.backgroundWarm;
+const authEspresso = FRColors.espresso;
+const authCamel = FRColors.camel;
+const authWhite = FRColors.surfaceSoft;
+const authMuted = FRColors.textMuted;
 
 TextStyle authText({
   double size = 14,
@@ -161,7 +163,7 @@ class AuthInputField extends StatelessWidget {
                 borderSide: const BorderSide(color: authCamel, width: 2),
               ),
               hintText: hint,
-              hintStyle: authText(size: 15, weight: FontWeight.w500, color: const Color(0xFFB3ABA3)),
+              hintStyle: authText(size: 15, weight: FontWeight.w500, color: FRColors.textHint),
               prefixIcon: Icon(icon, color: authMuted, size: 20),
               suffixIcon: suffix,
             ),

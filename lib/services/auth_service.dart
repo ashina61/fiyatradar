@@ -14,6 +14,14 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  Stream<UserModel?> watchUserModel(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists ? UserModel.fromFirestore(doc) : null);
+  }
+
   String _generateInviteCode(String uid) {
     final normalized = uid.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
     if (normalized.length >= 6) {
@@ -66,6 +74,7 @@ class AuthService {
     String? cityName,
     String? district,
     String? neighborhood,
+    String legalConsentVersion = 'v1.0',
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -74,13 +83,28 @@ class AuthService {
       );
 
       if (credential.user != null) {
+        final firebaseUser = credential.user!;
         final normalizedInviteCode =
             inviteCode?.trim().toUpperCase().replaceAll(' ', '');
-        final newInviteCode = _generateInviteCode(credential.user!.uid);
-        await credential.user!.updateDisplayName(name);
+        final newInviteCode = _generateInviteCode(firebaseUser.uid);
+        await firebaseUser.updateDisplayName(name);
+
+        String? inviterId;
+        if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
+          final inviterQuery = SafeQueryBuilder.safeWhere(
+            _firestore.collection('users'),
+            'inviteCode',
+            normalizedInviteCode,
+            expectedType: String,
+          );
+          final inviterSnapshot = await inviterQuery.limit(1).get();
+          if (inviterSnapshot.docs.isNotEmpty) {
+            inviterId = inviterSnapshot.docs.first.id;
+          }
+        }
 
         final user = UserModel(
-          uid: credential.user!.uid,
+          uid: firebaseUser.uid,
           email: email,
           name: name,
           cityCode: cityCode,
@@ -89,15 +113,17 @@ class AuthService {
           district: district,
           neighborhood: neighborhood,
           inviteCode: newInviteCode,
+          invitedBy: inviterId,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
         );
 
-        await _firestore
-            .collection('users')
-            .doc(credential.user!.uid)
-            .set(user.toFirestore());
-        await _firestore.collection('users').doc(credential.user!.uid).set({
+        final batch = _firestore.batch();
+        final userRef = _firestore.collection('users').doc(firebaseUser.uid);
+        batch.set(userRef, {
+          ...user.toFirestore(),
+          'termsAcceptedAt': FieldValue.serverTimestamp(),
+          'legalConsentVersion': legalConsentVersion,
           'displayName': name,
           'photoURL': '',
           'city': cityName,
@@ -116,30 +142,17 @@ class AuthService {
           'level': 'Standart',
         }, SetOptions(merge: true));
 
-        if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
-          try {
-            final inviterQuery = SafeQueryBuilder.safeWhere(
-              _firestore.collection('users'),
-              'inviteCode',
-              normalizedInviteCode,
-              expectedType: String,
-            );
-            final inviterSnapshot = await inviterQuery.limit(1).get();
-            if (inviterSnapshot.docs.isNotEmpty) {
-              final inviterId = inviterSnapshot.docs.first.id;
-              await _firestore.collection('users').doc(credential.user!.uid).update({
-                'invitedBy': inviterId,
-              });
-              await _firestore.collection('users').doc(inviterId).update({
-                'inviteCount': FieldValue.increment(1),
-                'points': FieldValue.increment(AppConstants.pointsForInvite),
-              });
-            }
-          } catch (e) {
-            if (kDebugMode) debugPrint("FIRESTORE QUERY ERROR -> $e");
-          }
+        if (inviterId != null) {
+          batch.update(userRef, {
+            'invitedBy': inviterId,
+          });
+          batch.update(_firestore.collection('users').doc(inviterId), {
+            'inviteCount': FieldValue.increment(1),
+            'points': FieldValue.increment(AppConstants.pointsForInvite),
+          });
         }
 
+        await batch.commit();
         return user;
       }
       return null;
@@ -149,7 +162,10 @@ class AuthService {
   }
 
   // Google Sign In
-  Future<UserModel?> signInWithGoogle() async {
+  Future<UserModel?> signInWithGoogle({
+    bool recordLegalConsent = false,
+    String legalConsentVersion = 'v1.0',
+  }) async {
     try {
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -201,14 +217,18 @@ class AuthService {
             'trustScorePercent': 0,
             'trustScore': 0.0,
             'level': 'Standart',
+            if (recordLegalConsent) 'termsAcceptedAt': FieldValue.serverTimestamp(),
+            if (recordLegalConsent) 'legalConsentVersion': legalConsentVersion,
           }, SetOptions(merge: true));
           return newUser;
         } else {
           final data = docSnapshot.data();
+          final updates = <String, dynamic>{};
           if (data != null && data['inviteCode'] == null) {
-            await _firestore.collection('users').doc(user.uid).update({
-              'inviteCode': _generateInviteCode(user.uid),
-            });
+            updates['inviteCode'] = _generateInviteCode(user.uid);
+          }
+          if (updates.isNotEmpty) {
+            await _firestore.collection('users').doc(user.uid).update(updates);
           }
           // Update last login
           await _updateLastLogin(user.uid);

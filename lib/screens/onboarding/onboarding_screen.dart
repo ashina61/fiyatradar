@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../theme/fr_colors.dart';
 import '../auth/widgets/auth_portal_widgets.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -145,11 +146,16 @@ class _OnboardingStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final cardHeight = (size.height * 0.42).clamp(260.0, 320.0);
+    final pillarHeight = (cardHeight * 0.81).clamp(210.0, 260.0);
+    final pillarWidth = (size.width * 0.29).clamp(96.0, 110.0);
     return Column(
       children: [
         Container(
           width: double.infinity,
-          height: 320,
+          constraints: BoxConstraints(maxHeight: cardHeight),
+          height: cardHeight,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .12), blurRadius: 40, offset: Offset(0, 20))],
@@ -159,14 +165,14 @@ class _OnboardingStepCard extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Container(
-                width: 110,
-                height: 260,
+                width: pillarWidth,
+                height: pillarHeight,
                 decoration: BoxDecoration(
                   color: authWhite,
                   borderRadius: BorderRadius.circular(60),
                   border: Border.all(color: Colors.white.withOpacity(.8)),
                   boxShadow: const [
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 16, offset: Offset(-8, -8)),
+                    BoxShadow(color: FRColors.white, blurRadius: 16, offset: Offset(-8, -8)),
                     BoxShadow(color: Color.fromRGBO(28, 17, 8, .05), blurRadius: 24, offset: Offset(8, 8)),
                   ],
                 ),
@@ -179,7 +185,7 @@ class _OnboardingStepCard extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 16, offset: Offset(6, 6)),
-                        BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 10, offset: Offset(-4, -4)),
+                        BoxShadow(color: FRColors.white, blurRadius: 10, offset: Offset(-4, -4)),
                       ],
                     ),
                     child: Icon(icon, size: 36, color: authEspresso),

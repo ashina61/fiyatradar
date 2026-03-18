@@ -19,27 +19,7 @@ import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
-
-class FRColors {
-  static const Color bgApp = Color(0xFFF5F3F0);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color studio = Color(0xFFEBE5DF);
-
-  static const Color darkMain = Color(0xFF211510);
-  static const Color gold = Color(0xFFC29B78);
-
-  static const Color textMain = Color(0xFF211510);
-  static const Color textMuted = Color(0xFF948A82);
-
-  static const Color success = Color(0xFF4CAF50);
-  static const Color successBg = Color(0xFFE8F5E9);
-  static const Color danger = Color(0xFFF44336);
-  static const Color dangerBg = Color(0xFFFFEBEE);
-
-  static const Color border = Color(0x0D211510);
-  static const Color cardShadow = Color(0x0A211510);
-  static const Color heavyShadow = Color(0x14211510);
-}
+import '../../theme/fr_colors.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -71,7 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : null;
 
     return Scaffold(
-      backgroundColor: FRColors.bgApp,
+      backgroundColor: FRColors.background,
       body: Stack(
         children: [
           Positioned(
@@ -79,7 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             right: -90,
             child: _ambientBlob(
               size: 200,
-              color: const Color(0x33C29B78),
+              color: FRColors.borderStrong,
             ),
           ),
           Positioned(
@@ -87,7 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             left: -72,
             child: _ambientBlob(
               size: 180,
-              color: const Color(0x1A211510),
+              color: Color(0x1A211510),
             ),
           ),
           CustomScrollView(
@@ -168,7 +148,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Container(
             padding: EdgeInsets.fromLTRB(24, topPadding + 16, 24, 50),
             decoration: const BoxDecoration(
-              color: FRColors.darkMain,
+              color: FRColors.espressoSoft,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(32),
                 bottomRight: Radius.circular(32),
@@ -188,7 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 50,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    border: Border.all(color: FRColors.gold, width: 1.5),
+                    border: Border.all(color: FRColors.camelStrong, width: 1.5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: ClipRRect(
@@ -202,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               displayName.characters.first.toUpperCase(),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
-                                color: FRColors.darkMain,
+                                color: FRColors.espressoSoft,
                               ),
                             ),
                           ),
@@ -219,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           fontSize: 11,
                           letterSpacing: 1,
                           fontWeight: FontWeight.w600,
-                          color: FRColors.gold,
+                          color: FRColors.camelStrong,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -251,12 +231,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Row(
                       children: [
                         const Icon(Icons.stars_rounded,
-                            color: FRColors.gold, size: 16),
+                            color: FRColors.camelStrong, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           formatCompactCount(points),
                           style: const TextStyle(
-                            color: FRColors.gold,
+                            color: FRColors.camelStrong,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
@@ -318,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: const [
                     BoxShadow(
-                      color: FRColors.heavyShadow,
+                      color: FRColors.shadowMedium,
                       blurRadius: 35,
                       offset: Offset(0, 15),
                     ),
@@ -333,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Text(
                         'Ürün, marka veya mağaza ara...',
                         style: TextStyle(
-                          color: Color(0xFFAFA59D),
+                          color: FRColors.textSubtle,
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
                         ),
@@ -358,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         child: const Icon(
                           Icons.qr_code_scanner_rounded,
-                          color: FRColors.darkMain,
+                          color: FRColors.espressoSoft,
                           size: 20,
                         ),
                       ),
@@ -431,14 +411,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.darkMain : FRColors.surface,
+          color: isActive ? FRColors.espressoSoft : FRColors.surface,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: isActive ? FRColors.darkMain : FRColors.border,
+            color: isActive ? FRColors.espressoSoft : FRColors.border,
           ),
           boxShadow: [
             BoxShadow(
-              color: isActive ? const Color(0x2B211510) : FRColors.cardShadow,
+              color: isActive ? const Color(0x2B211510) : FRColors.shadowSoft,
               blurRadius: isActive ? 16 : 12,
               offset: const Offset(0, 4),
             ),
@@ -462,7 +442,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: isActive ? FRColors.surface : FRColors.textMain,
+                  color: isActive ? FRColors.surface : FRColors.textPrimary,
                 ),
               ),
             ),
@@ -510,15 +490,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _insightCard(
                 icon: Icons.price_change_rounded,
-                iconBg: const Color(0x261976D2),
-                iconColor: const Color(0xFF1976D2),
+                iconBg: FRColors.sapphireSurface,
+                iconColor: FRColors.sapphire,
                 label: 'BUGÜN GİRİLEN FİYAT',
                 value: '$todaysPriceEntries',
                 meta: 'Bugün sisteme eklenen toplam fiyat bildirimi sayısı.',
               ),
               _insightCard(
                 icon: Icons.person_add_alt_1_rounded,
-                iconBg: FRColors.successBg,
+                iconBg: FRColors.successSurface,
                 iconColor: FRColors.success,
                 label: 'BUGÜN KAYDOLAN',
                 value: '$todaysNewUsers',
@@ -571,7 +551,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             style: const TextStyle(
               fontSize: 21,
               fontWeight: FontWeight.w900,
-              color: FRColors.darkMain,
+              color: FRColors.espressoSoft,
               height: 1.1,
             ),
           ),
@@ -670,7 +650,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: const [
                                         BoxShadow(
-                                          color: Color(0x33170D08),
+                                          color: FRColors.shadowStrong,
                                           blurRadius: 12,
                                           offset: Offset(0, 4),
                                         ),
@@ -690,7 +670,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     shape: BoxShape.circle,
                                     boxShadow: const [
                                       BoxShadow(
-                                        color: Color(0x33170D08),
+                                        color: FRColors.shadowStrong,
                                         blurRadius: 10,
                                         offset: Offset(0, 4),
                                       ),
@@ -759,7 +739,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   style: TextStyle(
                                     fontSize: hasPrice ? 17 : 11,
                                     fontWeight: hasPrice ? FontWeight.w900 : FontWeight.w600,
-                                    color: hasPrice ? FRColors.darkMain : FRColors.textMuted,
+                                    color: hasPrice ? FRColors.espressoSoft : FRColors.textMuted,
                                   ),
                                 ),
                               ],
@@ -794,21 +774,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             badge: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: FRColors.gold,
+                color: FRColors.camelStrong,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.verified_rounded,
-                      size: 12, color: FRColors.darkMain),
+                      size: 12, color: FRColors.espressoSoft),
                   SizedBox(width: 4),
                   Text(
                     'ONAYLI',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
-                      color: FRColors.darkMain,
+                      color: FRColors.espressoSoft,
                     ),
                   ),
                 ],
@@ -826,12 +806,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Container(
               height: 160,
               decoration: BoxDecoration(
-                color: FRColors.darkMain,
+                color: FRColors.espressoSoft,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0x33C29B78)),
+                border: Border.all(color: FRColors.borderStrong),
                 boxShadow: const [
                   BoxShadow(
-                    color: FRColors.heavyShadow,
+                    color: FRColors.shadowMedium,
                     blurRadius: 28,
                     offset: Offset(0, 14),
                   ),
@@ -851,7 +831,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             product.brand.toUpperCase(),
                             style: const TextStyle(
                               fontSize: 10,
-                              color: FRColors.gold,
+                              color: FRColors.camelStrong,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -886,7 +866,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: FRColors.gold,
+                              color: FRColors.camelStrong,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -897,14 +877,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: FRColors.darkMain,
+                                    color: FRColors.espressoSoft,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 const Icon(
                                   Icons.open_in_new_rounded,
                                   size: 13,
-                                  color: FRColors.darkMain,
+                                  color: FRColors.espressoSoft,
                                 ),
                               ],
                             ),
@@ -991,8 +971,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final iconBg = verificationDelta == 0
         ? FRColors.studio
         : verificationDelta > 0
-            ? FRColors.successBg
-            : FRColors.dangerBg;
+            ? FRColors.successSurface
+            : FRColors.dangerSurface;
     final iconFg = verificationDelta == 0
         ? FRColors.textMuted
         : verificationDelta > 0
@@ -1057,7 +1037,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: FRColors.darkMain,
+                color: FRColors.espressoSoft,
               ),
             ),
             const SizedBox(height: 2),
@@ -1124,10 +1104,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       borderRadius: BorderRadius.circular(14),
                       gradient: rank == 1
                           ? const LinearGradient(
-                              colors: [FRColors.gold, Color(0xFFA67C52)],
+                              colors: [FRColors.camelStrong, FRColors.camelDeep],
                             )
                           : const LinearGradient(
-                              colors: [Color(0xFFB0BEC5), Color(0xFF78909C)],
+                              colors: [FRColors.silver, FRColors.silverDeep],
                             ),
                     ),
                     alignment: Alignment.center,
@@ -1179,7 +1159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            color: FRColors.darkMain,
+                            color: FRColors.espressoSoft,
                           ),
                         ),
                         const Text(
@@ -1215,12 +1195,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: FRColors.darkMain,
+                color: FRColors.espressoSoft,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0x33C29B78)),
+                border: Border.all(color: FRColors.borderStrong),
                 boxShadow: const [
                   BoxShadow(
-                    color: FRColors.heavyShadow,
+                    color: FRColors.shadowMedium,
                     blurRadius: 30,
                     offset: Offset(0, 14),
                   ),
@@ -1245,7 +1225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           'Topluluğa katıl ve radarın gücünü artır.',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Color(0x99FFFFFF),
+                            color: FRColors.whiteMuted,
                           ),
                         ),
                       ],
@@ -1265,12 +1245,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: FRColors.gold,
+                        color: FRColors.camelStrong,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(
                         Icons.qr_code_scanner_rounded,
-                        color: FRColors.darkMain,
+                        color: FRColors.espressoSoft,
                       ),
                     ),
                   ),
@@ -1299,7 +1279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: FRColors.textMain,
+                color: FRColors.textPrimary,
               ),
             ),
             if (badge != null) ...[
@@ -1314,7 +1294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: FRColors.gold,
+              color: FRColors.camelStrong,
             ),
           ),
       ],
@@ -1328,7 +1308,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       border: Border.all(color: FRColors.border),
       boxShadow: const [
         BoxShadow(
-          color: FRColors.cardShadow,
+          color: FRColors.shadowSoft,
           blurRadius: 15,
           offset: Offset(0, 5),
         ),
@@ -1403,7 +1383,7 @@ class _TrendBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUp = changePercent > 0;
     final color = isUp ? FRColors.danger : FRColors.success;
-    final bgColor = isUp ? FRColors.dangerBg : FRColors.successBg;
+    final bgColor = isUp ? FRColors.dangerSurface : FRColors.successSurface;
     final arrow = isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded;
 
     return Container(
@@ -1439,7 +1419,7 @@ class _PopularBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0x26C29B78),
+        color: FRColors.camelOverlay(0.15),
         borderRadius: BorderRadius.circular(6),
       ),
       child: const Row(
@@ -1447,7 +1427,7 @@ class _PopularBadge extends StatelessWidget {
           Icon(
             Icons.local_fire_department_rounded,
             size: 12,
-            color: FRColors.gold,
+            color: FRColors.camelStrong,
           ),
           SizedBox(width: 4),
           Text(
@@ -1455,7 +1435,7 @@ class _PopularBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w900,
-              color: FRColors.gold,
+              color: FRColors.camelStrong,
             ),
           ),
         ],
