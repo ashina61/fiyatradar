@@ -414,7 +414,7 @@ class FirestoreService {
         final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
         return {
           'id': doc.id,
-          'name': data['displayName'] ?? data['name'] ?? '',
+          'name': data['username'] ?? data['displayName'] ?? data['name'] ?? '',
         };
       }).toList();
       list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
@@ -1677,7 +1677,7 @@ class FirestoreService {
       final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
       final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
       return {
-        'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
+        'displayName': (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
         'trustScorePercent': trustPercent,
         'trustTotalVotes': totalVotes,
         'tierName': EliteLevelEngine.getLevelStyle(level).label,
@@ -1708,7 +1708,7 @@ class FirestoreService {
     final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
 
     return {
-      'displayName': (data['name'] ?? data['displayName'] ?? 'Kullanıcı').toString(),
+      'displayName': (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       'trustScorePercent': trustPercent,
       'trustTotalVotes': totalVotes,
       'tierName': EliteLevelEngine.getLevelStyle(level).label,

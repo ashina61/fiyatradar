@@ -1112,7 +1112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      _initials(user.name),
+                      _initials(user.displayName ?? user.username),
                       style: const TextStyle(
                         color: FRColors.surface,
                         fontWeight: FontWeight.w800,
@@ -1125,7 +1125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user.name,
+                          user.displayName ?? user.username,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

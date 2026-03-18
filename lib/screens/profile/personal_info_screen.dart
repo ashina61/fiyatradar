@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
@@ -21,7 +22,6 @@ class PersonalInfoScreen extends ConsumerStatefulWidget {
 }
 
 class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
-  final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _didInit = false;
   bool _isSaving = false;
@@ -29,7 +29,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _usernameController.dispose();
     super.dispose();
   }
@@ -67,7 +66,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
   Future<void> _saveProfile(UserModel user) async {
     final messenger = ScaffoldMessenger.of(context);
-    final username = _usernameController.text.trim();
+    final username = _usernameController.text.trim().toLowerCase();
     if (username.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(
@@ -80,23 +79,50 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
 
     setState(() => _isSaving = true);
 
-    final fullName = _nameController.text.trim();
-    final parts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList(growable: false);
-
-    final updatedUser = user.copyWith(
-      name: fullName,
-      firstName: parts.isEmpty ? user.firstName : parts.first,
-      lastName: parts.length > 1 ? parts.sublist(1).join(' ') : user.lastName,
-      username: username,
-      photoUrl: _photoUrl,
-    );
-
     try {
+      final now = DateTime.now();
+      final lastChangeDate = user.lastUsernameChange?.toDate();
+      final isUsernameChanged = username != user.username.trim().toLowerCase();
+
+      if (isUsernameChanged && lastChangeDate != null) {
+        final nextChangeDate = lastChangeDate.add(const Duration(days: 90));
+        if (now.isBefore(nextChangeDate)) {
+          final remainingDays = nextChangeDate.difference(now).inDays + 1;
+          if (!mounted) return;
+          setState(() => _isSaving = false);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'Kullanıcı adınızı 3 ayda bir değiştirebilirsiniz. Kalan süre: $remainingDays gün.',
+              ),
+              backgroundColor: FRColors.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          );
+          return;
+        }
+      }
+
       final authService = ref.read(authServiceProvider);
-      await authService.updateUsername(
-        uid: user.uid,
+      final usernameTimestamp = Timestamp.now();
+
+      if (isUsernameChanged) {
+        await authService.ensureUsernameAvailable(username);
+        await authService.updateUsername(
+          uid: user.uid,
+          username: username,
+          changedAt: usernameTimestamp,
+        );
+      }
+
+      final updatedUser = user.copyWith(
         username: username,
+        name: username,
+        lastUsernameChange: isUsernameChanged ? usernameTimestamp : user.lastUsernameChange,
+        photoUrl: _photoUrl,
       );
+
       final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
       await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
       ref.invalidate(userModelStreamProvider);
@@ -105,7 +131,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       setState(() => _isSaving = false);
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Profil güncellendi.'),
+          content: Text(success ? 'Kullanıcı adınız ve profiliniz güncellendi.' : 'Profil güncellenemedi.'),
           backgroundColor: success ? FRColors.espresso : FRColors.danger,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -168,8 +194,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
           }
 
           if (!_didInit) {
-            _nameController.text = user.name.trim();
-            _usernameController.text = user.username ?? '';
+            _usernameController.text = user.username;
             _photoUrl = user.photoUrl;
             _didInit = true;
           }
@@ -185,22 +210,10 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                     const SizedBox(height: 4),
                     _AvatarHero(
                       photoUrl: _photoUrl,
-                      fallbackName: _nameController.text,
+                      fallbackName: _usernameController.text,
                       onTap: _pickPhoto,
                     ),
                     const SizedBox(height: 18),
-                    _LuxuryField(
-                      label: 'Ad Soyad',
-                      controller: _nameController,
-                      readOnly: true,
-                      prefix: const Icon(
-                        CupertinoIcons.lock_fill,
-                        size: 14,
-                        color: FRColors.textHint,
-                      ),
-                      textColor: FRColors.textMutedSoft,
-                    ),
-                    const SizedBox(height: 14),
                     _LuxuryField(
                       label: 'Kullanıcı Adı',
                       controller: _usernameController,

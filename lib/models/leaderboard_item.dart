@@ -34,7 +34,7 @@ class UserLeaderboardItem {
     final down = (data['trustWrongTotal'] as num?)?.toInt() ?? (trustMap['downTotal'] as num?)?.toInt() ?? 0;
     return UserLeaderboardItem(
       uid: doc.id,
-      name: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+      name: (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
       photoUrl: (data['photoURL'] ?? data['photoUrl'] ?? '').toString(),
       weeklyPoints: (data['weeklyPoints'] as num?)?.toInt() ?? 0,
       monthlyPoints: (data['monthlyPoints'] as num?)?.toInt() ?? 0,

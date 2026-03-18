@@ -486,7 +486,7 @@ class PointsService {
             final weeklyPoints = weekKey == activeWeekKey ? (data['weeklyPoints'] as num?)?.toInt() ?? 0 : 0;
             return WeeklyLeaderboardEntry(
               uid: doc.id,
-              displayName: (data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+              displayName: (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
               photoUrl: (data['photoUrl'] ?? '').toString(),
               level: _standardizeTierName((data['level'] ?? data['levelName'] ?? 'Gözlemci').toString()),
               weeklyPoints: weeklyPoints,

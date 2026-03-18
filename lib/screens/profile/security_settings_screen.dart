@@ -13,6 +13,8 @@ import '../../theme/fr_colors.dart';
 class SecuritySettingsScreen extends ConsumerWidget {
   const SecuritySettingsScreen({super.key});
 
+  static const List<int> _passwordRenewalOptions = [1, 3, 6, 12];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentEmail = FirebaseAuth.instance.currentUser?.email?.trim();
@@ -179,6 +181,8 @@ class SecuritySettingsScreen extends ConsumerWidget {
   Future<void> _showPasswordSheet(BuildContext context, WidgetRef ref) async {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
+    final user = ref.read(profileProvider).valueOrNull;
+    int selectedPeriod = user?.passwordRenewalPeriod ?? 3;
     bool isSaving = false;
 
     await showModalBottomSheet<void>(
@@ -212,15 +216,22 @@ class SecuritySettingsScreen extends ConsumerWidget {
 
               setModalState(() => isSaving = true);
               try {
+                final periodSaved = await ref.read(profileProvider.notifier).updatePasswordRenewalPeriod(selectedPeriod);
+                if (!periodSaved) {
+                  throw FirebaseAuthException(code: 'password-renewal-period-save-failed', message: 'Şifre yenileme hatırlatıcısı kaydedilemedi.');
+                }
+
                 await ref.read(authServiceProvider).updatePasswordWithReauth(
                       currentPassword: currentPassword,
                       newPassword: newPassword,
                     );
+                await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
+                ref.invalidate(userModelStreamProvider);
                 if (!context.mounted) return;
                 Navigator.of(sheetContext).pop();
                 _showFeedback(
                   context,
-                  message: 'Şifreniz başarıyla güncellendi.',
+                  message: 'Şifreniz güncellendi, hatırlatıcı periyodu kaydedildi.',
                   isError: false,
                 );
               } on FirebaseAuthException catch (error) {
@@ -263,9 +274,42 @@ class SecuritySettingsScreen extends ConsumerWidget {
                     icon: CupertinoIcons.lock_shield,
                     obscureText: true,
                   ),
+                  const SizedBox(height: 18),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Şifre Yenileme Hatırlatıcısı',
+                      style: TextStyle(
+                        color: FRColors.espresso,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _passwordRenewalOptions.map((period) {
+                      final isSelected = selectedPeriod == period;
+                      return ChoiceChip(
+                        label: Text('$period Ay'),
+                        selected: isSelected,
+                        onSelected: isSaving ? null : (_) => setModalState(() => selectedPeriod = period),
+                        selectedColor: FRColors.espresso,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : FRColors.espresso,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        backgroundColor: FRColors.background,
+                        side: const BorderSide(color: FRColors.border),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      );
+                    }).toList(growable: false),
+                  ),
                   const SizedBox(height: 22),
                   _SheetActionButton(
-                    label: 'Kaydet',
+                    label: 'Şifreyi Güncelle',
                     isBusy: isSaving,
                     onTap: isSaving ? null : savePassword,
                   ),
