@@ -13,12 +13,14 @@ class FRColors {
   static const Color surfaceSoft = Color(0xFFFAFAFA);
   static const Color background = Color(0xFFF5F3F0);
   static const Color backgroundWarm = Color(0xFFEFECE6);
+  static const Color bgApp = backgroundWarm;
   static const Color textPrimary = espressoSoft;
   static const Color textMuted = Color(0xFF8E847A);
   static const Color textMutedSoft = Color(0xFF948A82);
   static const Color textHint = Color(0xFFB3ABA3);
   static const Color textSubtle = Color(0xFFAFA59D);
   static const Color border = Color(0x0D211510);
+  static const Color borderLight = border;
   static const Color borderStrong = Color(0x33C29B78);
   static const Color shadowSoft = Color(0x0A211510);
   static const Color shadowMedium = Color(0x14211510);
