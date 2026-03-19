@@ -36,7 +36,8 @@ class FRColors {
   static const Color silver = Color(0xFFB0BEC5);
   static const Color silverDeep = Color(0xFF78909C);
   static const Color ivory = Color(0xFFFFE6C9);
-  static const Color goldGlow = Color(0xFFE9C46A);
+  static const Color gold = Color(0xFFE9C46A);
+  static const Color goldGlow = gold;
   static const Color goldGlowSoft = Color(0xFFF4D06F);
 
   static Color camelOverlay(double opacity) => camelStrong.withOpacity(opacity);
