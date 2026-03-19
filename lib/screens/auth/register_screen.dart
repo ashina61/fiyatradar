@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
 import '../main_screen.dart';
-import '../../utils/cities_tr.dart';
 import 'widgets/auth_portal_widgets.dart';
 
 
@@ -27,10 +26,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  CityTR? _selectedCity;
 
   static const _legalConsentVersion = 'v1.0';
-  static final _termsUri = Uri.parse('https://fiyatradar.com/kullanim-kosullari');
+  static const _hostingBase = 'https://fiyatradar-611967.web.app';
+  static final _termsUri = Uri.parse('$_hostingBase/sozlesme.html');
+  static final _privacyUri = Uri.parse('$_hostingBase/gizlilik.html');
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
@@ -55,10 +55,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCity == null) {
-      _showError('Lütfen şehir seçin.');
-      return;
-    }
     if (!ref.read(firebaseInitializedProvider)) {
       _showError('Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.');
       return;
@@ -75,8 +71,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             name: _nameController.text.trim(),
             inviteCode: _inviteController.text.trim(),
-            cityCode: _selectedCity?.code,
-            cityName: _selectedCity?.name,
             username: _usernameController.text.trim(),
             legalConsentVersion: _legalConsentVersion,
           );
@@ -158,62 +152,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     await launchUrl(_termsUri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _openDisclosureSheet() async {
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-          decoration: BoxDecoration(
-            color: authWhite,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(color: authEspresso.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -6)),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 18),
-                  decoration: BoxDecoration(
-                    color: authEspresso.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                Text('Aydınlatma Metni', style: authText(size: 20, weight: FontWeight.w900, letterSpacing: -0.4)),
-                const SizedBox(height: 12),
-                Text(
-                  'FiyatRadar; kimlik, iletişim ve konum bilgilerini hesap oluşturma, kişiselleştirme, güvenlik ve bildirim süreçlerini yürütmek amacıyla işler. Onayınızın zamanı Firestore üzerinde kayıt altına alınır.',
-                  style: authText(size: 13, weight: FontWeight.w600, color: authMuted, height: 1.6),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () { if (Navigator.canPop(context)) Navigator.of(context).pop(); },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: authCamel.withOpacity(0.35)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: authCamel.withOpacity(0.06),
-                    ),
-                    child: Text('Tamam', style: authText(size: 14, weight: FontWeight.w800, color: authEspresso)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  Future<void> _openPrivacy() async {
+    await launchUrl(_privacyUri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -247,18 +187,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 icon: Icons.person_add_alt_rounded,
                 controller: _inviteController,
                 textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 14),
-              _DropdownField<CityTR>(
-                label: 'Şehir Seçiniz',
-                hint: 'Şehir Seçiniz',
-                icon: Icons.location_city_rounded,
-                value: _selectedCity,
-                items: kCitiesTR,
-                itemLabel: (v) => v.name,
-                onChanged: (v) => setState(() {
-                  _selectedCity = v;
-                }),
               ),
               const SizedBox(height: 14),
               AuthInputField(
@@ -337,10 +265,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 value: _legalConsentAccepted,
                 onChanged: () => setState(() => _legalConsentAccepted = !_legalConsentAccepted),
                 onTermsTap: _openTerms,
-                onDisclosureTap: _openDisclosureSheet,
+                onPrivacyTap: _openPrivacy,
               ),
               const SizedBox(height: 22),
-              MassivePrimaryButton(label: 'Kayıt Ol', onPressed: _register, loading: _isLoading),
+              MassivePrimaryButton(
+                label: 'Kayıt Ol',
+                onPressed: _legalConsentAccepted ? _register : null,
+                loading: _isLoading,
+              ),
               const SizedBox(height: 18),
               const SocialDivider(),
               const SizedBox(height: 14),
@@ -372,80 +304,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 }
 
-class _DropdownField<T> extends StatelessWidget {
-  const _DropdownField({
-    required this.label,
-    required this.hint,
-    required this.icon,
-    required this.value,
-    required this.items,
-    required this.itemLabel,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String hint;
-  final IconData icon;
-  final T? value;
-  final List<T> items;
-  final String Function(T) itemLabel;
-  final ValueChanged<T?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(label.toUpperCase(), style: authText(size: 11, weight: FontWeight.w800, letterSpacing: .5)),
-        ),
-        Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            color: authWhite,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .05), blurRadius: 18, offset: Offset(0, 6))],
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: authMuted, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<T>(
-                    value: value,
-                    isExpanded: true,
-                    hint: Text(hint, style: authText(size: 15, weight: FontWeight.w500, color: const Color(0xFFB3ABA3))),
-                    borderRadius: BorderRadius.circular(16),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: authMuted),
-                    items: items.map((item) => DropdownMenuItem(value: item, child: Text(itemLabel(item), style: authText(size: 15, weight: FontWeight.w600)))).toList(),
-                    onChanged: onChanged,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
 class _LegalConsentToggle extends StatelessWidget {
   const _LegalConsentToggle({
     required this.value,
     required this.onChanged,
     required this.onTermsTap,
-    required this.onDisclosureTap,
+    required this.onPrivacyTap,
   });
 
   final bool value;
   final VoidCallback onChanged;
   final VoidCallback onTermsTap;
-  final VoidCallback onDisclosureTap;
+  final VoidCallback onPrivacyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -503,25 +373,41 @@ class _LegalConsentToggle extends StatelessWidget {
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text("'", style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
+                  Text(
+                    ' ',
+                    style: authText(
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: authMuted,
+                      height: 1.55,
+                    ),
+                  ),
                   GestureDetector(
                     onTap: onTermsTap,
                     child: Text(
-                      'Kullanım Koşulları',
+                      'Kullanıcı Sözleşmesi',
                       style: authText(size: 12.5, weight: FontWeight.w800, color: authEspresso)
                           .copyWith(decoration: TextDecoration.underline),
                     ),
                   ),
                   Text(' ve ', style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
                   GestureDetector(
-                    onTap: onDisclosureTap,
+                    onTap: onPrivacyTap,
                     child: Text(
-                      'Aydınlatma Metni',
+                      'Gizlilik Politikası',
                       style: authText(size: 12.5, weight: FontWeight.w800, color: authEspresso)
                           .copyWith(decoration: TextDecoration.underline),
                     ),
                   ),
-                  Text("'ni okudum, onaylıyorum.", style: authText(size: 12.5, weight: FontWeight.w600, color: authMuted, height: 1.55)),
+                  Text(
+                    ' metinlerini okudum ve onaylıyorum.',
+                    style: authText(
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: authMuted,
+                      height: 1.55,
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -124,16 +124,23 @@ class HomeProductCard extends StatelessWidget {
                     ],
                   ),
                   if (showStore)
-                    Flexible(
-                      child: Text(
-                        marketName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: FRColors.textMuted,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomRight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            marketName,
+                            maxLines: 1,
+                            softWrap: false,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: FRColors.textMuted,
+                            ),
+                          ),
                         ),
                       ),
                     )

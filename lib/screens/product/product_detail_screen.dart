@@ -471,13 +471,28 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _BestPriceHero extends ConsumerWidget {
+class _BestPriceHero extends ConsumerStatefulWidget {
   const _BestPriceHero({required this.product});
 
   final ProductDetailResponse product;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BestPriceHero> createState() => _BestPriceHeroState();
+}
+
+class _BestPriceHeroState extends ConsumerState<_BestPriceHero> {
+  final TextEditingController _targetPriceController = TextEditingController();
+  bool _notifyOnEveryPrice = false;
+
+  @override
+  void dispose() {
+    _targetPriceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
     final currentUser = ref.watch(authStateProvider).valueOrNull;
     final price = product.bestPrice.price;
     final whole = price.floor();
@@ -569,11 +584,13 @@ class _BestPriceHero extends ConsumerWidget {
                             return;
                           }
                           HapticFeedback.lightImpact();
-                          await ref.read(firestoreServiceProvider).toggleAlert(
-                                productId: product.id,
-                                userId: currentUser.uid,
-                                targetPrice: product.bestPrice.price * 0.95,
-                              );
+                          await _showAlertSheet(
+                            context: context,
+                            userId: currentUser.uid,
+                            productId: product.id,
+                            defaultTargetPrice: product.bestPrice.price * 0.95,
+                            hasAlert: hasAlert,
+                          );
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -613,6 +630,301 @@ class _BestPriceHero extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showAlertSheet({
+    required BuildContext context,
+    required String userId,
+    required String productId,
+    required double defaultTargetPrice,
+    required bool hasAlert,
+  }) async {
+    _targetPriceController.text =
+        defaultTargetPrice.toStringAsFixed(2).replaceAll('.', ',');
+    _notifyOnEveryPrice = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                decoration: BoxDecoration(
+                  color: _dark,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(30)),
+                  border: Border.all(color: _tan.withOpacity(0.35)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _tan.withOpacity(0.18),
+                      blurRadius: 32,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 48,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Dinamik Fiyat Alarmı',
+                        style: _pjs(
+                          size: 19,
+                          weight: FontWeight.w900,
+                          color: _white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        hasAlert
+                            ? 'Mevcut alarmını V6 premium akış ile güncelle.'
+                            : 'Sana uygun alarm tipini seç ve piyasayı otomatik takip et.',
+                        style: _pjs(
+                          size: 12,
+                          weight: FontWeight.w500,
+                          color: _white.withOpacity(0.68),
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(22),
+                          border:
+                              Border.all(color: _white.withOpacity(0.08)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hedef Fiyata Düşünce',
+                              style: _pjs(
+                                size: 14,
+                                weight: FontWeight.w800,
+                                color: _white,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _targetPriceController,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.,]'),
+                                ),
+                              ],
+                              style: _pjs(
+                                size: 16,
+                                weight: FontWeight.w800,
+                                color: _white,
+                              ),
+                              decoration: InputDecoration(
+                                prefixText: '₺ ',
+                                prefixStyle: _pjs(
+                                  size: 16,
+                                  weight: FontWeight.w800,
+                                  color: _tanCard,
+                                ),
+                                hintText: 'Örn: 39,90',
+                                hintStyle: _pjs(
+                                  size: 14,
+                                  weight: FontWeight.w500,
+                                  color: _white.withOpacity(0.35),
+                                ),
+                                filled: true,
+                                fillColor: _white.withOpacity(0.05),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final normalized = _targetPriceController.text
+                                      .replaceAll(' ', '')
+                                      .replaceAll(',', '.');
+                                  final parsed = double.tryParse(normalized);
+                                  if (parsed == null || parsed <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Lütfen geçerli bir hedef fiyat gir.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  await ref
+                                      .read(firestoreServiceProvider)
+                                      .upsertAlert(
+                                        productId: productId,
+                                        userId: userId,
+                                        targetPrice: parsed,
+                                        notifyOnEveryPrice: false,
+                                      );
+                                  if (!mounted) return;
+                                  Navigator.of(sheetContext).pop();
+                                  ScaffoldMessenger.of(this.context)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Alarm aktif: ürün ${_fmtPrice(parsed)} altına düşünce haber vereceğiz.',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _tanCard,
+                                  foregroundColor: _white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: Text(
+                                  'Onayla',
+                                  style: _pjs(
+                                    size: 14,
+                                    weight: FontWeight.w800,
+                                    color: _white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(22),
+                          border:
+                              Border.all(color: _white.withOpacity(0.08)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Yeni Fiyat Girildiğinde',
+                                    style: _pjs(
+                                      size: 14,
+                                      weight: FontWeight.w800,
+                                      color: _white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Her yeni fiyat girişinde anında premium bildirim al.',
+                                    style: _pjs(
+                                      size: 12,
+                                      weight: FontWeight.w500,
+                                      color: _white.withOpacity(0.68),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Switch.adaptive(
+                              value: _notifyOnEveryPrice,
+                              activeColor: _tanCard,
+                              onChanged: (value) => setModalState(
+                                () => _notifyOnEveryPrice = value,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _notifyOnEveryPrice
+                              ? () async {
+                                  await ref
+                                      .read(firestoreServiceProvider)
+                                      .upsertAlert(
+                                        productId: productId,
+                                        userId: userId,
+                                        targetPrice: null,
+                                        notifyOnEveryPrice: true,
+                                      );
+                                  if (!mounted) return;
+                                  Navigator.of(sheetContext).pop();
+                                  ScaffoldMessenger.of(this.context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Her yeni fiyat girişinde bildirim alacaksın.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          icon:
+                              const Icon(Icons.notifications_active_rounded),
+                          label: Text(
+                            'Bu modu aç',
+                            style: _pjs(
+                              size: 14,
+                              weight: FontWeight.w800,
+                              color: _white,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _white,
+                            side: BorderSide(color: _tan.withOpacity(0.45)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -2321,38 +2321,66 @@ class FirestoreService {
         .map((s) => s.docs.isNotEmpty);
   }
 
+  Future<void> upsertAlert({
+    required String productId,
+    required String userId,
+    double? targetPrice,
+    required bool notifyOnEveryPrice,
+  }) async {
+    final col = _firestore.collection('priceAlerts');
+    final existing = await col.where('productId', isEqualTo: productId).where('userId', isEqualTo: userId).get();
+    final isFirstAlert = existing.docs.isEmpty;
+
+    for (final doc in existing.docs) {
+      await doc.reference.delete();
+    }
+
+    await col.add({
+      'productId': productId,
+      'userId': userId,
+      'targetPrice': targetPrice,
+      'notifyOnEveryPrice': notifyOnEveryPrice,
+      'alertType': notifyOnEveryPrice ? 'all_updates' : 'target_price',
+      'isActive': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    if (isFirstAlert) {
+      await _pointsService.awardEvent(
+        uid: userId,
+        eventType: 'alarm_set',
+        meta: {
+          'productId': productId,
+          if (targetPrice != null) 'targetPrice': targetPrice,
+          'notifyOnEveryPrice': notifyOnEveryPrice,
+        },
+        checkDailyCap: false,
+        ensureUniqueByMeta: true,
+      );
+    }
+  }
+
+  Future<void> clearAlert({
+    required String productId,
+    required String userId,
+  }) async {
+    final col = _firestore.collection('priceAlerts');
+    final existing = await col.where('productId', isEqualTo: productId).where('userId', isEqualTo: userId).get();
+    for (final doc in existing.docs) {
+      await doc.reference.delete();
+    }
+  }
+
   Future<void> toggleAlert({
     required String productId,
     required String userId,
     required double targetPrice,
-  }) async {
-    final col = _firestore.collection('priceAlerts');
-    final existing = await col.where('productId', isEqualTo: productId).where('userId', isEqualTo: userId).get();
-
-    final isFirstAlert = existing.docs.isEmpty;
-
-    if (existing.docs.isNotEmpty) {
-      for (final doc in existing.docs) {
-        await doc.reference.delete();
-      }
-    } else {
-      await col.add({
-        'productId': productId,
-        'userId': userId,
-        'targetPrice': targetPrice,
-        'isActive': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      if (isFirstAlert) {
-        await _pointsService.awardEvent(
-          uid: userId,
-          eventType: 'alarm_set',
-          meta: {'productId': productId, 'targetPrice': targetPrice},
-          checkDailyCap: false,
-          ensureUniqueByMeta: true,
-        );
-      }
-    }
+  }) {
+    return upsertAlert(
+      productId: productId,
+      userId: userId,
+      targetPrice: targetPrice,
+      notifyOnEveryPrice: false,
+    );
   }
 
   Future<void> toggleFavorite({required String uid, required String productId, Map<String, dynamic>? payload}) async {

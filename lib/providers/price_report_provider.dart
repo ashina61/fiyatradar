@@ -333,10 +333,19 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
-        final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 10);
-        _log('PRODUCT_QUERY: $normalizedInput -> ${results.length} results');
+        final results = await _firestore.searchProducts(normalizedInput);
+        final loweredInput = normalizedInput.toLowerCase();
+        final sorted = [...results]..sort((a, b) {
+          final aName = a.name.toLowerCase();
+          final bName = b.name.toLowerCase();
+          final aStarts = aName.startsWith(loweredInput) ? 0 : 1;
+          final bStarts = bName.startsWith(loweredInput) ? 0 : 1;
+          if (aStarts != bStarts) return aStarts.compareTo(bStarts);
+          return aName.compareTo(bName);
+        });
+        _log('PRODUCT_QUERY: $normalizedInput -> ${sorted.length} results');
         if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
-        state = state.copyWith(productSuggestions: results.take(5).toList(growable: false));
+        state = state.copyWith(productSuggestions: sorted.take(5).toList(growable: false));
       } catch (_) {
         _log('PRODUCT_QUERY: $normalizedInput -> 0 results');
         state = state.copyWith(productSuggestions: const []);

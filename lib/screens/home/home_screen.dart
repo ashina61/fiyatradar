@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/category_model.dart';
 import '../../models/price_model.dart';
@@ -29,6 +30,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Future<void> _launchAffiliateLink(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -766,6 +773,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildEditorChoice(BuildContext context, ProductModel? product) {
     if (product == null) return const SizedBox.shrink();
     final hasPrice = (product.lastPrice ?? 0) > 0;
+    final affiliateUrl = product.preferredAffiliateUrl;
+    final hasAffiliate = affiliateUrl != null && affiliateUrl.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
@@ -865,32 +874,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: FRColors.camelStrong,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
                                   product.lastStore ?? 'Mağaza',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: FRColors.espressoSoft,
+                                    color: FRColors.textMuted,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.open_in_new_rounded,
-                                  size: 13,
-                                  color: FRColors.espressoSoft,
+                              ),
+                              if (hasAffiliate) ...[
+                                const SizedBox(width: 10),
+                                PremiumPressable(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _launchAffiliateLink(affiliateUrl),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [FRColors.goldGlowSoft, FRColors.camelStrong],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: FRColors.shadowMedium,
+                                          blurRadius: 14,
+                                          offset: Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Satın Al',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            color: FRColors.espressoSoft,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Icon(
+                                          Icons.open_in_new_rounded,
+                                          size: 13,
+                                          color: FRColors.espressoSoft,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
                         ],
                       ),

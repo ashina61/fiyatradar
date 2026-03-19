@@ -92,21 +92,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF151515), Color(0xFF2A2A2A)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: FRColors.goldGlowSoft.withOpacity(.55)),
-                    ),
-                    child: const Icon(
-                      Icons.radar_rounded,
-                      color: FRColors.goldGlowSoft,
-                      size: 20,
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      'assets/images/app_logo.png',
+                      width: 26,
+                      height: 26,
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(width: 10),
