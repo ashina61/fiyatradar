@@ -61,8 +61,8 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 20),
           _section('YASAL'),
           _group([
-            _tile('Kullanım Koşulları', () => _openUrl(context, 'https://fiyatradar.com/kullanim-kosullari')),
-            _tile('Gizlilik Politikası', () => _openUrl(context, 'https://fiyatradar.com/gizlilik')),
+            _tile('Kullanım Koşulları', () => _openUrl(context, 'https://fiyatradar.netlify.app/sozlesme.html')),
+            _tile('Gizlilik Politikası', () => _openUrl(context, 'https://fiyatradar.netlify.app/gizlilik.html')),
           ]),
           const SizedBox(height: 28),
           const Center(
