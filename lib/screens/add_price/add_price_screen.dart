@@ -658,76 +658,81 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       decoration: const BoxDecoration(
         color: _bg,
       ),
-      child: SafeArea(
-        top: false,
-        child: IgnorePointer(
-          ignoring: !enabled,
-          child: PremiumPressable(
-            borderRadius: BorderRadius.circular(20),
-            onTap: enabled ? _submit : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              height: 58,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: enabled ? const LinearGradient(colors: [_dark, Color(0xFF2C1A0A)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                color: enabled ? null : _dark.withOpacity(.07),
-                boxShadow: enabled
-                    ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .26), blurRadius: 30, offset: Offset(0, 10))]
-                    : null,
-              ),
-              child: Center(
-                child: state.isLoading
-                    ? const CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: Colors.white,
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.check_rounded,
-                            size: 17,
-                            color: enabled ? Colors.white : _t3,
-                          ),
-                          const SizedBox(width: 9),
-                          Text(
-                            'Fiyatı Kaydet',
-                            style: _pjs(
-                              size: 16,
-                              weight: FontWeight.w900,
-                              color: enabled ? Colors.white : _t3,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: 10),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 14,
-            color: FRColors.textMuted,
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'Eklenen fiyatların doğruluğu kullanıcının sorumluluğundadır. Kasıtlı olarak yapılan yanıltıcı girişler hesabın kalıcı olarak kapatılmasına neden olur.',
-              textAlign: TextAlign.center,
-              style: _pjs(
-                size: 11.5,
-                weight: FontWeight.w500,
-                color: FRColors.textMuted,
-                height: 1.45,
+          SafeArea(
+            top: false,
+            child: IgnorePointer(
+              ignoring: !enabled,
+              child: PremiumPressable(
+                borderRadius: BorderRadius.circular(20),
+                onTap: enabled ? _submit : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  height: 58,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: enabled ? const LinearGradient(colors: [_dark, Color(0xFF2C1A0A)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                    color: enabled ? null : _dark.withOpacity(.07),
+                    boxShadow: enabled
+                        ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .26), blurRadius: 30, offset: Offset(0, 10))]
+                        : null,
+                  ),
+                  child: Center(
+                    child: state.isLoading
+                        ? const CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_rounded,
+                                size: 17,
+                                color: enabled ? Colors.white : _t3,
+                              ),
+                              const SizedBox(width: 9),
+                              Text(
+                                'Fiyatı Kaydet',
+                                style: _pjs(
+                                  size: 16,
+                                  weight: FontWeight.w900,
+                                  color: enabled ? Colors.white : _t3,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
               ),
             ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 14,
+                color: FRColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Eklenen fiyatların doğruluğu kullanıcının sorumluluğundadır. Kasıtlı olarak yapılan yanıltıcı girişler hesabın kalıcı olarak kapatılmasına neden olur.',
+                  textAlign: TextAlign.center,
+                  style: _pjs(
+                    size: 11.5,
+                    weight: FontWeight.w500,
+                    color: FRColors.textMuted,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
