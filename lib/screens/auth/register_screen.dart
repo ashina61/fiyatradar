@@ -9,7 +9,6 @@ import '../../providers/firebase_init_provider.dart';
 import '../main_screen.dart';
 import 'widgets/auth_portal_widgets.dart';
 
-
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -26,11 +25,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-
   static const _legalConsentVersion = 'v1.0';
-  static const _hostingBase = 'https://fiyatradar-611967.web.app';
-  static final _termsUri = Uri.parse('$_hostingBase/sozlesme.html');
-  static final _privacyUri = Uri.parse('$_hostingBase/gizlilik.html');
+  static const _legalBase = 'https://fiyatradar.netlify.app';
+  static final _termsUri = Uri.parse('$_legalBase/sozlesme');
+  static final _privacyUri = Uri.parse('$_legalBase/gizlilik');
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
@@ -148,13 +146,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  Future<void> _openTerms() async {
-    await launchUrl(_termsUri, mode: LaunchMode.externalApplication);
+  Future<void> _launchLegalUri(Uri uri) async {
+    final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (!launched) {
+      _showError('Yasal metin açılamadı. Lütfen daha sonra tekrar deneyin.');
+    }
   }
 
-  Future<void> _openPrivacy() async {
-    await launchUrl(_privacyUri, mode: LaunchMode.externalApplication);
-  }
+  Future<void> _openTerms() => _launchLegalUri(_termsUri);
+
+  Future<void> _openPrivacy() => _launchLegalUri(_privacyUri);
 
   @override
   Widget build(BuildContext context) {
