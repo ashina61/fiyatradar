@@ -12,7 +12,6 @@ class ChangelogScreen extends StatelessWidget {
       version: 'v1.0.0 - Sürüm Adayı',
       dateLabel: 'Mart 2026',
       title: 'V6 Executive Güncellemesi & Güvenlik Kalkanı',
-      isVip: true,
       features: <_FeatureLine>[
         _FeatureLine(description: 'Tasarım Dili Yenilendi: FiyatRadar artık çok daha premium ve lüks bir arayüze (V6) sahip.'),
         _FeatureLine(description: 'Güvenlik Duvarı: Sahte hesapları engellemek için zorunlu E-Posta doğrulama sistemi getirildi.'),
@@ -25,7 +24,6 @@ class ChangelogScreen extends StatelessWidget {
       version: 'FR 3.1',
       dateLabel: 'BUGÜN',
       title: 'Mimari Devrim & Premium UI',
-      isVip: true,
       features: <_FeatureLine>[
         _FeatureLine(
           label: 'Porsche DNA',
@@ -104,7 +102,7 @@ class ChangelogScreen extends StatelessWidget {
                   final entry = _entries[index];
                   return Padding(
                     padding: EdgeInsets.only(bottom: index == _entries.length - 1 ? 0 : 20),
-                    child: _ChangelogCard(entry: entry, isVip: entry.isVip),
+                    child: _ChangelogCard(entry: entry, isVip: index == 0),
                   );
                 },
                 childCount: _entries.length,
@@ -170,20 +168,23 @@ class _ChangelogCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                FRColors.espresso.withOpacity(0.98),
+                const Color(0xFF2A190F),
+                FRColors.camelDeep,
                 FRColors.espressoSoft,
               ],
+              stops: const [0, 0.45, 1],
             )
           : null,
       borderRadius: BorderRadius.circular(28),
       border: Border.all(
-        color: isVip ? FRColors.camel.withOpacity(0.4) : FRColors.border,
+        color: isVip ? FRColors.goldGlowSoft.withOpacity(0.75) : FRColors.border,
       ),
       boxShadow: [
         if (isVip)
           BoxShadow(
-            color: FRColors.espresso.withOpacity(0.2),
-            blurRadius: 50,
+            color: FRColors.camel.withOpacity(0.28),
+            blurRadius: 56,
+            spreadRadius: 2,
             offset: const Offset(0, 20),
           )
         else
@@ -201,27 +202,48 @@ class _ChangelogCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            if (isVip)
+            if (isVip) ...[
               Positioned(
-                top: -50,
+                top: -60,
                 right: -50,
                 child: IgnorePointer(
                   child: Container(
-                    width: 200,
-                    height: 200,
+                    width: 220,
+                    height: 220,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          FRColors.camel.withOpacity(0.25),
+                          FRColors.goldGlowSoft.withOpacity(0.34),
                           Colors.transparent,
                         ],
-                        stops: const [0, 0.7],
+                        stops: const [0, 0.72],
                       ),
                     ),
                   ),
                 ),
               ),
+              Positioned(
+                left: -40,
+                bottom: -60,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 180,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.14),
+                          Colors.transparent,
+                        ],
+                        stops: const [0, 0.78],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Column(

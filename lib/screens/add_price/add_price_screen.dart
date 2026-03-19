@@ -15,6 +15,7 @@ import '../../models/product_model.dart';
 import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
+import '../../theme/fr_colors.dart';
 import '../../ui/categories/category_theme.dart';
 import '../../utils/theme.dart';
 import '../../widgets/app_network_image.dart';
@@ -49,6 +50,23 @@ TextStyle _pjs({
     letterSpacing: letterSpacing,
     height: height,
   );
+}
+
+
+IconData _categoryMaterialIcon(CategoryModel category) {
+  final key = '${category.canonicalId} ${category.id} ${category.title}'.toLowerCase();
+  if (key.contains('gida')) return Icons.fastfood_rounded;
+  if (key.contains('kisisel') || key.contains('bakim')) return Icons.sanitizer_rounded;
+  if (key.contains('icecek')) return Icons.local_drink_rounded;
+  if (key.contains('atistirmalik')) return Icons.cookie_rounded;
+  if (key.contains('bebek')) return Icons.child_friendly_rounded;
+  if (key.contains('ev_yasam') || key.contains('ev') || key.contains('yasam')) return Icons.chair_rounded;
+  if (key.contains('elektronik')) return Icons.devices_rounded;
+  if (key.contains('kitap')) return Icons.menu_book_rounded;
+  if (key.contains('spor')) return Icons.fitness_center_rounded;
+  if (key.contains('evcil')) return Icons.pets_rounded;
+  if (key.contains('temizlik')) return Icons.cleaning_services_rounded;
+  return Icons.category_rounded;
 }
 
 class AddPriceScreen extends ConsumerStatefulWidget {
@@ -660,19 +678,58 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               ),
               child: Center(
                 child: state.isLoading
-                    ? const CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)
+                    ? const CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: Colors.white,
+                      )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.check_rounded, size: 17, color: enabled ? Colors.white : _t3),
+                          Icon(
+                            Icons.check_rounded,
+                            size: 17,
+                            color: enabled ? Colors.white : _t3,
+                          ),
                           const SizedBox(width: 9),
-                          Text('Fiyatı Kaydet', style: _pjs(size: 16, weight: FontWeight.w900, color: enabled ? Colors.white : _t3)),
+                          Text(
+                            'Fiyatı Kaydet',
+                            style: _pjs(
+                              size: 16,
+                              weight: FontWeight.w900,
+                              color: enabled ? Colors.white : _t3,
+                            ),
+                          ),
                         ],
                       ),
               ),
             ),
           ),
         ),
+      ),
+      const SizedBox(height: 10),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 14,
+            color: FRColors.textMuted,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Eklenen fiyatların doğruluğu kullanıcının sorumluluğundadır. Kasıtlı olarak yapılan yanıltıcı girişler hesabın kalıcı olarak kapatılmasına neden olur.',
+              textAlign: TextAlign.center,
+              style: _pjs(
+                size: 11.5,
+                weight: FontWeight.w500,
+                color: FRColors.textMuted,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1161,9 +1218,9 @@ class _CategoryChips extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ImageIcon(
-                      AssetImage(categoryIconAssetOrNull(cat.id) ?? cat.iconAssetPath),
-                      size: 14,
+                    Icon(
+                      _categoryMaterialIcon(cat),
+                      size: 15,
                       color: selected ? Colors.white.withOpacity(.9) : _t2,
                     ),
                     const SizedBox(width: 6),

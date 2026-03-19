@@ -24,6 +24,8 @@ class ProductModel {
   final String? lastStore;
   final bool isEditorPick;
   final int? editorPickRank;
+  final String? affiliateUrl;
+  final String? buyLink;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -51,6 +53,8 @@ class ProductModel {
     this.lastStore,
     this.isEditorPick = false,
     this.editorPickRank,
+    this.affiliateUrl,
+    this.buyLink,
     required this.createdAt,
     this.updatedAt,
   });
@@ -93,6 +97,8 @@ class ProductModel {
       editorPickRank: data['editorPickRank'] is num
           ? (data['editorPickRank'] as num).toInt()
           : int.tryParse((data['editorPickRank'] ?? '').toString()),
+      affiliateUrl: (data['affiliateUrl'] ?? '').toString().trim().isEmpty ? null : (data['affiliateUrl']).toString().trim(),
+      buyLink: (data['buyLink'] ?? '').toString().trim().isEmpty ? null : (data['buyLink']).toString().trim(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -123,6 +129,8 @@ class ProductModel {
       'lastStore': lastStore,
       'isEditorPick': isEditorPick,
       'editorPickRank': editorPickRank,
+      'affiliateUrl': affiliateUrl,
+      'buyLink': buyLink,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -152,6 +160,8 @@ class ProductModel {
     String? lastStore,
     bool? isEditorPick,
     int? editorPickRank,
+    String? affiliateUrl,
+    String? buyLink,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -179,6 +189,8 @@ class ProductModel {
       lastStore: lastStore ?? this.lastStore,
       isEditorPick: isEditorPick ?? this.isEditorPick,
       editorPickRank: editorPickRank ?? this.editorPickRank,
+      affiliateUrl: affiliateUrl ?? this.affiliateUrl,
+      buyLink: buyLink ?? this.buyLink,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -207,6 +219,14 @@ class ProductModel {
     if (imageUrl != null && imageUrl!.isNotEmpty) return imageUrl;
     if (mainImage != null && mainImage!.isNotEmpty) return mainImage;
     if (imageUrls.isNotEmpty) return imageUrls.first;
+    return null;
+  }
+
+  String? get preferredAffiliateUrl {
+    final primary = affiliateUrl?.trim();
+    if (primary != null && primary.isNotEmpty) return primary;
+    final fallback = buyLink?.trim();
+    if (fallback != null && fallback.isNotEmpty) return fallback;
     return null;
   }
 }

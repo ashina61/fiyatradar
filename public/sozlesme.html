@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FiyatRadar • Kullanıcı Sözleşmesi</title>
+  <style>
+    :root {
+      --bg: #0f0b08;
+      --panel: rgba(255,255,255,0.06);
+      --text: #f7f0e8;
+      --muted: #c8b8a8;
+      --gold: #e7c37b;
+      --line: rgba(231,195,123,0.26);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(231,195,123,0.14), transparent 30%),
+        linear-gradient(180deg, #140f0b 0%, var(--bg) 100%);
+      line-height: 1.7;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 40px 20px 80px; }
+    .hero, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.28);
+    }
+    .hero { padding: 32px; margin-bottom: 24px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: #1a120a; background: linear-gradient(135deg, #f4d79c, var(--gold));
+      border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { font-size: clamp(32px, 5vw, 50px); margin: 18px 0 12px; line-height: 1.08; }
+    h2 { font-size: 22px; margin-top: 0; color: #fbe4b0; }
+    p, li { color: var(--muted); font-size: 16px; }
+    .grid { display: grid; gap: 18px; }
+    .card { padding: 28px; }
+    ul { padding-left: 20px; }
+    .footer { margin-top: 24px; text-align: center; color: #a7927b; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">FiyatRadar • V6 Legal</div>
+      <h1>Kullanıcı Sözleşmesi</h1>
+      <p>Bu sözleşme, FiyatRadar uygulamasına üye olan veya uygulamayı kullanan herkes için bağlayıcı temel kullanım koşullarını düzenler. Uygulamaya kayıt olarak veya hizmetleri kullanarak aşağıdaki hükümleri kabul etmiş sayılırsınız.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>1. Hizmetin Kapsamı</h2>
+        <p>FiyatRadar; kullanıcıların fiyat, ürün ve market bilgilerini görüntüleyebilmesini, katkı sağlayabilmesini ve kişiselleştirilmiş bildirimler alabilmesini sağlayan dijital bir topluluk ve takip platformudur.</p>
+      </article>
+      <article class="card">
+        <h2>2. Kullanıcı Yükümlülükleri</h2>
+        <ul>
+          <li>Gerçek, güncel ve güvenli hesap bilgileriyle işlem yapmak,</li>
+          <li>Uygulamaya yüklenen fiyat, yorum ve içeriklerde dürüst davranmak,</li>
+          <li>Diğer kullanıcıların haklarına, kişilik haklarına ve yasal mevzuata uygun hareket etmek.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h2>3. Yasaklı Kullanımlar</h2>
+        <p>Sahte fiyat girişi, manipülasyon, yanıltıcı kampanya paylaşımı, spam, otomatik veri çekimi, başkalarının hesabına erişim, telif ve marka ihlali ile sistem güvenliğini zedeleyen her işlem yasaktır.</p>
+      </article>
+      <article class="card">
+        <h2>4. Hesap Askıya Alma ve Fesih</h2>
+        <p>FiyatRadar, topluluk güvenliğini tehdit eden veya bu sözleşmeye aykırı hareket eden hesapları önceden bildirimde bulunmaksızın askıya alabilir, sınırlandırabilir veya kalıcı olarak kapatabilir.</p>
+      </article>
+      <article class="card">
+        <h2>5. İçerik ve Sorumluluk</h2>
+        <p>Kullanıcı tarafından paylaşılan verilerin doğruluğu öncelikle ilgili kullanıcının sorumluluğundadır. FiyatRadar, kullanıcı katkılarını doğrulamak için makul çaba gösterse de tüm içeriklerin her an mutlak doğruluğunu garanti etmez.</p>
+      </article>
+      <article class="card">
+        <h2>6. Fikri Mülkiyet</h2>
+        <p>Uygulama arayüzü, marka unsurları, tasarımlar, yazılım akışları ve görseller FiyatRadar’a veya lisans sağlayıcılarına aittir. İzinsiz kopyalama, çoğaltma ve ticari kullanım yasaktır.</p>
+      </article>
+      <article class="card">
+        <h2>7. Uygulanacak Hukuk</h2>
+        <p>Bu sözleşme Türkiye Cumhuriyeti hukukuna tabidir. Uyuşmazlıklarda ilgili mevzuatta belirtilen yetkili mahkeme ve icra daireleri esas alınır.</p>
+      </article>
+    </section>
+
+    <p class="footer">Son güncelleme: Mart 2026 • FiyatRadar v1.0.0 RC</p>
+  </main>
+</body>
+</html>

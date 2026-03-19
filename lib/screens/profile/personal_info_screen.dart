@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -207,6 +208,31 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     return _badWords.any((keyword) => normalized.contains(keyword));
   }
 
+  String _referralCode(UserModel user) {
+    final firestoreCode = user.inviteCode?.trim() ?? '';
+    if (firestoreCode.isNotEmpty) return firestoreCode.toUpperCase();
+
+    final base = user.username.trim().isNotEmpty
+        ? user.username.trim()
+        : user.uid.substring(0, user.uid.length >= 8 ? 8 : user.uid.length);
+    final normalized = base
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    return 'FR-${normalized.isEmpty ? user.uid.substring(0, 6).toUpperCase() : normalized}';
+  }
+
+  Future<void> _copyReferralCode(UserModel user) async {
+    final code = _referralCode(user);
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      _feedbackBar(
+        'Davet kodun kopyalandı! Arkadaşlarınla paylaşarak puan kazanabilirsin.',
+        isError: false,
+      ),
+    );
+  }
+
   SnackBar _feedbackBar(String message, {required bool isError}) {
     return SnackBar(
       content: Text(message),
@@ -343,6 +369,97 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                       onTap: _isSaving ? null : () => _saveProfile(user),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SectionHeader(label: 'Büyüme Motoru'),
+              const SizedBox(height: 12),
+              _LuxuryCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                            colors: [FRColors.goldGlowSoft, FRColors.camelStrong],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: FRColors.camel.withOpacity(0.22),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.gift_fill,
+                          color: FRColors.espresso,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Davet Kodum',
+                              style: TextStyle(
+                                color: FRColors.espresso,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _referralCode(user),
+                              style: const TextStyle(
+                                color: FRColors.textMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _copyReferralCode(user),
+                        style: TextButton.styleFrom(
+                          foregroundColor: FRColors.espresso,
+                          backgroundColor: FRColors.goldGlowSoft.withOpacity(.18),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: FRColors.camelStrong.withOpacity(.35),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.copy_rounded,
+                          size: 16,
+                          color: FRColors.camelDeep,
+                        ),
+                        label: const Text(
+                          'Kopyala',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: FRColors.camelDeep,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 22),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/basket_item_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../screens/main_screen.dart';
 import '../../utils/theme.dart';
 import 'basket_view_model.dart';
 import 'widgets/basket_header_card.dart';
@@ -21,6 +22,16 @@ class BasketScreen extends ConsumerStatefulWidget {
 class _BasketScreenState extends ConsumerState<BasketScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isHeaderCompact = false;
+
+  Future<bool> _returnToHome() async {
+    if (!mounted) return false;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const MainScreen()),
+      (route) => false,
+    );
+    return false;
+  }
 
   @override
   void initState() {
@@ -79,39 +90,51 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
         final viewModel = ref.watch(basketViewModelProvider);
         final totalProducts = viewModel.items.fold<int>(0, (sum, item) => sum + item.quantity);
 
-        return Stack(
-          children: [
-            ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 108),
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: BasketHeaderCard(
-                    key: ValueKey('header-$_isHeaderCompact-$totalProducts'),
-                    itemCount: totalProducts,
-                    compact: _isHeaderCompact,
-                    onAddProduct: () => _showProductPicker(context, viewModel),
-                    onCalculate: viewModel.items.isEmpty ? null : viewModel.calculate,
-                    canCalculate: viewModel.items.isNotEmpty && !viewModel.isCalculating,
-                  ),
+        return WillPopScope(
+          onWillPop: _returnToHome,
+          child: Stack(
+            children: [
+              ListView(
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  108,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                if (viewModel.isLoadingItems)
-                  const Center(child: CircularProgressIndicator())
-                else if (viewModel.items.isEmpty)
-                  _EmptyBasketCard(onAdd: () => _showProductPicker(context, viewModel))
-                else
-                  _BasketItemsSection(viewModel: viewModel),
-              ],
-            ),
-            BasketStickyBar(
-              itemCount: totalProducts,
-              isLoading: viewModel.isCalculating,
-              isEnabled: viewModel.items.isNotEmpty,
-              onPressed: viewModel.items.isEmpty ? null : viewModel.calculate,
-            ),
-          ],
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: BasketHeaderCard(
+                      key: ValueKey('header-$_isHeaderCompact-$totalProducts'),
+                      itemCount: totalProducts,
+                      compact: _isHeaderCompact,
+                      onAddProduct: () => _showProductPicker(context, viewModel),
+                      onCalculate:
+                          viewModel.items.isEmpty ? null : viewModel.calculate,
+                      canCalculate: viewModel.items.isNotEmpty &&
+                          !viewModel.isCalculating,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (viewModel.isLoadingItems)
+                    const Center(child: CircularProgressIndicator())
+                  else if (viewModel.items.isEmpty)
+                    _EmptyBasketCard(
+                      onAdd: () => _showProductPicker(context, viewModel),
+                    )
+                  else
+                    _BasketItemsSection(viewModel: viewModel),
+                ],
+              ),
+              BasketStickyBar(
+                itemCount: totalProducts,
+                isLoading: viewModel.isCalculating,
+                isEnabled: viewModel.items.isNotEmpty,
+                onPressed: viewModel.items.isEmpty ? null : viewModel.calculate,
+              ),
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
