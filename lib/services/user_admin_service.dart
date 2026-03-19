@@ -64,6 +64,8 @@ class UserAdminService {
   }) async {
     await _usersRef.doc(userId).set({
       'isBanned': isBanned,
+      'role': isBanned ? 'banned' : 'user',
+      'isActive': !isBanned,
       'banReason': isBanned ? (reason ?? 'Admin işlemi') : FieldValue.delete(),
       'bannedAt': isBanned ? FieldValue.serverTimestamp() : FieldValue.delete(),
       'bannedByUid': isBanned ? (adminUid ?? '') : FieldValue.delete(),
@@ -71,7 +73,15 @@ class UserAdminService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> softDeleteUserByAdmin(String userId) async {
+    await _usersRef.doc(userId).set({
+      'isActive': false,
+      'deletedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> deleteUserByAdmin(String userId) async {
-    await _usersRef.doc(userId).delete();
+    await softDeleteUserByAdmin(userId);
   }
 }
