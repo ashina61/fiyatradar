@@ -211,7 +211,7 @@ class ProductDetailApiService {
       id: '',
       productId: productId,
       userId: user.uid,
-      userName: (userData['name'] ?? userData['displayName'] ?? user.displayName ?? 'Anonim').toString(),
+      userName: (userData['username'] ?? user.email?.split('@').first ?? user.uid).toString(),
       userPhotoUrl: (userData['photoUrl'] ?? user.photoURL)?.toString(),
       authorRole: (userData['role'] ?? 'member').toString(),
       text: trimmed,

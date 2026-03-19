@@ -17,6 +17,7 @@ import '../../providers/price_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
+import '../../services/product_engagement_service.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../widgets/app_network_image.dart';
 import '../add_price/add_price_screen.dart';
@@ -73,7 +74,24 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _commentController = TextEditingController();
+  final _productEngagementService = ProductEngagementService();
   bool _showAllComments = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_registerProductView());
+    });
+  }
+
+  Future<void> _registerProductView() async {
+    try {
+      await _productEngagementService.incrementViewCount(widget.productId);
+      if (!mounted) return;
+      await ref.read(productDetailProvider(widget.productId).notifier).load();
+    } catch (_) {}
+  }
 
   Future<void> _launchMap(BestPrice bestPrice) async {
     final query = bestPrice.storeLocation.trim().isNotEmpty
@@ -112,7 +130,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         onSubmit: (reason) {
           final user = ref.read(authStateProvider).valueOrNull;
           if (user == null) {
-            Navigator.pop(context);
+            if (Navigator.canPop(context)) Navigator.pop(context);
             return;
           }
           unawaited(ref.read(firestoreServiceProvider).reportPrice(
@@ -124,7 +142,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('İtirazınız incelenmek üzere gönderildi.')),
           );
-          Navigator.pop(context);
+          if (Navigator.canPop(context)) Navigator.pop(context);
         },
       ),
     );
@@ -282,7 +300,7 @@ class _Header extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _HdrBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: () => Navigator.pop(context)),
+          _HdrBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: () { if (Navigator.canPop(context)) Navigator.pop(context); }),
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 14),
@@ -423,7 +441,7 @@ class _ProductCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _statChip(Icons.receipt_long_rounded, '${product.priceEntryCount} kayıt'),
-                    _statChip(Icons.visibility_outlined, '${product.viewCount} görüntülenme'),
+                    _statChip(Icons.visibility_outlined, '${product.viewCount} kişi inceledi'),
                     _statChip(Icons.map_outlined, 'Haritada Gör', onTap: onMapTap),
                   ],
                 ),
@@ -1634,26 +1652,23 @@ class _UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmed = (imageUrl ?? '').trim();
     if (trimmed.isNotEmpty) {
-      return AppNetworkImage(
-        imageUrl: trimmed,
-        cacheKey: 'user_avatar',
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        borderRadius: BorderRadius.circular(radius),
+      return ClipOval(
+        child: AppNetworkImage(
+          imageUrl: trimmed,
+          cacheKey: 'user_avatar_$trimmed',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          borderRadius: BorderRadius.circular(size / 2),
+        ),
       );
     }
 
     final letter =
         fallbackText.trim().isNotEmpty ? fallbackText.trim()[0].toUpperCase() : 'K';
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: _tanCard,
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      alignment: Alignment.center,
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: _tanCard,
       child: Text(
         letter,
         style: _pjs(size: 12, weight: FontWeight.w800, color: _white),
@@ -1754,7 +1769,7 @@ class _RejectSheetState extends State<_RejectSheet> {
           SizedBox(
             width: double.infinity,
             child: TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () { if (Navigator.canPop(context)) Navigator.pop(context); },
               child: Text('İptal', style: _pjs(size: 13, weight: FontWeight.w700, color: _t2)),
             ),
           ),

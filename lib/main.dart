@@ -121,9 +121,7 @@ class AppStartGate extends ConsumerWidget {
 
     switch (appStartState) {
       case AppStartState.loading:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const _ExecutiveSplashScreen();
       case AppStartState.login:
         return const LoginScreen();
       case AppStartState.authenticated:
@@ -132,6 +130,74 @@ class AppStartGate extends ConsumerWidget {
   }
 }
 
+
+class _ExecutiveSplashScreen extends StatelessWidget {
+  const _ExecutiveSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FRColors.background,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [FRColors.backgroundWarm, FRColors.background],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: FRColors.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: FRColors.camel.withOpacity(0.22)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FRColors.espresso.withOpacity(0.08),
+                      blurRadius: 28,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(FRColors.gold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'FiyatRadar hazırlanıyor',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: FRColors.espresso,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Veriler yükleniyor, lütfen bekleyin.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: FRColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class FirebaseInitErrorScreen extends StatelessWidget {
   const FirebaseInitErrorScreen({super.key});

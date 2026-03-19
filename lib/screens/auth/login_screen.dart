@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
+import '../main_screen.dart';
 import 'widgets/auth_portal_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -54,7 +55,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       if (!mounted) return;
       setState(() => _showResendVerification = false);
-      context.go('/main');
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => _showResendVerification = e.code == 'email-not-verified');
@@ -76,7 +80,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final user = await ref.read(authNotifierProvider.notifier).signInWithGoogle();
       if (user != null && mounted) {
-        context.go('/main');
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+          (route) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       _showError(ref.read(authServiceProvider).getErrorMessage(e));

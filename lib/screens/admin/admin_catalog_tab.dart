@@ -439,7 +439,7 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
                     onTap: () async {
                       if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) return;
                       // Ürün kaydetme logic buraya eklenecek (senin eski kodundaki gibi)
-                      Navigator.pop(ctx);
+                      if (Navigator.canPop(ctx)) Navigator.pop(ctx);
                     },
                     child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: pBrandBrown, borderRadius: BorderRadius.circular(100)), alignment: Alignment.center, child: const Text('Kaydet', style: TextStyle(color: pSurface, fontSize: 16, fontWeight: FontWeight.w800))),
                   ),
@@ -498,7 +498,7 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
                     onTap: () async {
                       if (nameController.text.trim().isEmpty) return;
                       // Kategori kaydetme logic
-                      Navigator.pop(ctx);
+                      if (Navigator.canPop(ctx)) Navigator.pop(ctx);
                     },
                     child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: pBrandBrown, borderRadius: BorderRadius.circular(100)), alignment: Alignment.center, child: const Text('Kaydet', style: TextStyle(color: pSurface, fontSize: 16, fontWeight: FontWeight.w800))),
                   ),

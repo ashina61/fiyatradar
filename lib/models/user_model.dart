@@ -99,10 +99,6 @@ class UserModel {
   String get preferredDisplayName {
     final normalizedUsername = username.trim();
     if (normalizedUsername.isNotEmpty) return normalizedUsername;
-
-    final normalizedName = name.trim();
-    if (normalizedName.isNotEmpty) return normalizedName;
-
     return emailPrefix;
   }
 
@@ -150,8 +146,6 @@ class UserModel {
       firstName: firstName,
       lastName: lastName,
       username: _asTrimmedString(data['username'] ?? data['userName']) ??
-          _asTrimmedString(data['name']) ??
-          _asTrimmedString(data['displayName']) ??
           documentId,
       lastUsernameChange: data['lastUsernameChange'] as Timestamp?,
       passwordRenewalPeriod: (data['passwordRenewalPeriod'] as num?)?.toInt(),

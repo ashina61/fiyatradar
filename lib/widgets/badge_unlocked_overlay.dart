@@ -43,7 +43,7 @@ class _BadgeUnlockedOverlayState extends State<BadgeUnlockedOverlay> with Ticker
   Future<void> _close() async {
     await widget.onAcknowledge();
     if (!mounted) return;
-    Navigator.of(context).pop();
+    if (Navigator.canPop(context)) Navigator.of(context).pop();
   }
 
   @override

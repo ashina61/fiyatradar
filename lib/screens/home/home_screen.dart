@@ -136,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHeader(BuildContext context, UserModel? user, int unreadCount) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    final displayName = user?.preferredDisplayName ?? 'Radar Kullanıcısı';
+    final displayName = user?.username.trim().isNotEmpty == true ? user!.username.trim() : (user?.preferredDisplayName ?? 'Radar Kullanıcısı');
     final points = user?.points ?? 0;
 
     return Padding(
@@ -162,29 +162,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: FRColors.camelStrong, width: 1.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: user?.photoUrl != null
-                        ? CachedNetworkImage(imageUrl: user!.photoUrl!, fit: BoxFit.cover)
-                        : Container(
-                            color: FRColors.studio,
-                            alignment: Alignment.center,
-                            child: Text(
-                              displayName.characters.first.toUpperCase(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: FRColors.espressoSoft,
+                PremiumPressable(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => ref.read(currentTabProvider.notifier).state = 4,
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: FRColors.camelStrong, width: 1.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: user?.photoUrl != null
+                          ? CachedNetworkImage(imageUrl: user!.photoUrl!, fit: BoxFit.cover)
+                          : Container(
+                              color: FRColors.studio,
+                              alignment: Alignment.center,
+                              child: Text(
+                                displayName.characters.first.toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: FRColors.espressoSoft,
+                                ),
                               ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1111,7 +1115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      _initials(user.displayName ?? user.username),
+                      _initials(user.username.trim().isNotEmpty ? user.username : user.preferredDisplayName),
                       style: const TextStyle(
                         color: FRColors.surface,
                         fontWeight: FontWeight.w800,
@@ -1124,7 +1128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user.displayName ?? user.username,
+                          user.username.trim().isNotEmpty ? user.username : user.preferredDisplayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

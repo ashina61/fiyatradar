@@ -54,9 +54,9 @@ class _FiyatRadarSettingsScreenState extends ConsumerState<FiyatRadarSettingsScr
             title: const Text('Hesabı Sil'),
             content: const Text('Tüm verilerin kalıcı olarak silinecek. Emin misin?'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+              TextButton(onPressed: () { if (Navigator.canPop(context)) Navigator.pop(context, false); }, child: const Text('Vazgeç')),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () { if (Navigator.canPop(context)) Navigator.pop(context, true); },
                 child: const Text('Kalıcı Olarak Sil', style: TextStyle(color: Color(0xFFDC2626))),
               ),
             ],
@@ -267,7 +267,7 @@ class _ProfileEntryCard extends StatelessWidget {
       stream: uid == null ? null : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? <String, dynamic>{};
-        final name = (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString();
+        final name = (data['username'] ?? 'Kullanıcı').toString();
         final username = (data['username'] ?? '').toString();
         final city = (data['city'] ?? data['cityName'] ?? 'İstanbul').toString();
         final trust = (data['trustScorePercent'] as num?)?.toInt() ?? 86;
@@ -306,7 +306,7 @@ class _ProfileEntryCard extends StatelessWidget {
                     children: [
                       Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF2D241E))),
                       const SizedBox(height: 4),
-                      Text(username.trim().isEmpty ? city : '$city • @$username', style: const TextStyle(fontSize: 13, color: Color(0xFF8E8A86))),
+                      Text(username.trim().isEmpty ? city : '$city • $username', style: const TextStyle(fontSize: 13, color: Color(0xFF8E8A86))),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

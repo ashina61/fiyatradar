@@ -91,7 +91,7 @@ class PriceNotifier extends StateNotifier<AsyncValue<void>> {
         id: priceId,
         productId: productId,
         userId: currentUser.uid,
-        userName: userModel?.username ?? userModel?.displayName,
+        userName: userModel?.preferredDisplayName,
         price: price,
         branchStoreId: branchStoreId,
         chainId: chainId,

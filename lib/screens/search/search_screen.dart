@@ -11,6 +11,7 @@ import '../../providers/banner_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../theme/fr_colors.dart';
 import '../../utils/theme.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
@@ -148,7 +149,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             onPressed: () {
               if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
+                if (Navigator.canPop(context)) Navigator.of(context).pop();
                 return;
               }
               ref.read(currentTabProvider.notifier).state = 0;
@@ -1378,41 +1379,16 @@ class _DiscoverProductCard extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEBE5DF),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  (item.storeName.isNotEmpty ? item.storeName.characters.first : '?').toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF2D1E17),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  item.storeName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF948A82),
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            item.storeName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: FRColors.textMuted,
+                              height: 1.1,
+                            ),
                           ),
                         ),
                         if (_resolveMetaLabel(item, mode) case final metaLabel?) ...[

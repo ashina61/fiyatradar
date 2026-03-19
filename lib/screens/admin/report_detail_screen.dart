@@ -93,7 +93,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                 : _resolutionController.text.trim(),
           );
       if (mounted) {
-        Navigator.pop(context);
+        if (Navigator.canPop(context)) Navigator.pop(context);
       }
     } finally {
       if (mounted) {
@@ -206,7 +206,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () { if (Navigator.canPop(context)) Navigator.pop(context); },
             child: Container(
               width: 44, height: 44,
               decoration: BoxDecoration(color: pGold.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),

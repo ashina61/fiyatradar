@@ -149,7 +149,7 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () { if (Navigator.canPop(context)) Navigator.of(context).pop(); },
         ),
       ),
       body: PhotoViewGallery.builder(
