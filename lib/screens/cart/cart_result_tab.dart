@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -312,17 +313,44 @@ class _HeroCard extends StatelessWidget {
 
   // Haritaları Açma Fonksiyonu (En Yakın Markete Göre)
   Future<void> _openMaps(BuildContext context) async {
-    // Eğer nearest (en yakın) market varsa ona, yoksa best (en uygun) markete git
-    final targetStoreName = nearest?.storeName ?? best.storeName;
-    final query = Uri.encodeComponent(targetStoreName);
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
-    
-    if (await canLaunchUrl(url)) { 
-      await launchUrl(url, mode: LaunchMode.externalApplication); 
-    } else { 
+    final targetMarket = nearest ?? best;
+
+    try {
+      final storeDoc = await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(targetMarket.storeId)
+          .get();
+      final data = storeDoc.data() ?? const <String, dynamic>{};
+      final geoPoint = data['geoPoint'] as GeoPoint?;
+      final latitude = _toDouble(data['lat'] ?? data['latitude'] ?? geoPoint?.latitude);
+      final longitude = _toDouble(data['lng'] ?? data['longitude'] ?? geoPoint?.longitude);
+
+      if (latitude == null || longitude == null) {
+        throw Exception('Koordinat bulunamadı.');
+      }
+
+      final url = Uri.parse('https://maps.google.com/?q=$latitude,$longitude');
+      final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Harita açılamadı.')),
+        );
+      }
+    } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haritalar açılamadı. Lütfen uygulamayı kontrol edin.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mağaza konumu açılamadı.')),
+      );
     }
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '.').trim());
+    }
+    return null;
   }
 
   @override

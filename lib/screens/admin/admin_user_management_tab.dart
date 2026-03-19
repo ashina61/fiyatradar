@@ -211,8 +211,8 @@ class _PremiumUserCardState extends ConsumerState<_PremiumUserCard> {
         title: const Text('Kullanıcıyı pasifleştir'),
         content: Text('${user.username.isNotEmpty ? user.username : user.name} için hesap erişimi kapatılsın mı?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Sil')),
+          TextButton(onPressed: () => Navigator.canPop(context) ? Navigator.of(context).pop(false) : null, child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.canPop(context) ? Navigator.of(context).pop(true) : null, child: const Text('Sil')),
         ],
       ),
     );
@@ -266,7 +266,7 @@ Future<void> _showEditUserBottomSheet(BuildContext context, WidgetRef ref, UserM
                 'updatedAt': FieldValue.serverTimestamp(),
               });
               if (!context.mounted) return;
-              Navigator.of(context).pop();
+              if (Navigator.canPop(context)) Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı bilgileri güncellendi.'), behavior: SnackBarBehavior.floating));
             } catch (error) {
               if (!context.mounted) return;

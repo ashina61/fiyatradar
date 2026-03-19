@@ -222,7 +222,7 @@ class _BasketScreenState extends ConsumerState<BasketScreen> {
                           ),
                           onTap: () {
                             viewModel.addProduct(product.id);
-                            Navigator.pop(ctx);
+                            if (Navigator.canPop(ctx)) Navigator.pop(ctx);
                           },
                         );
                       },

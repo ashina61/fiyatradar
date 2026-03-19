@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/firebase_init_provider.dart';
+import '../main_screen.dart';
 import '../../utils/cities_tr.dart';
 import 'widgets/auth_portal_widgets.dart';
 
@@ -96,7 +97,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           duration: const Duration(seconds: 6),
         ),
       );
-      context.go('/login');
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
       _showError(ref.read(authServiceProvider).getErrorMessage(e));
     } catch (e) {
@@ -124,7 +128,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             legalConsentVersion: _legalConsentVersion,
           );
       if (user != null && mounted) {
-        context.go('/main');
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+          (route) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       _showError(ref.read(authServiceProvider).getErrorMessage(e));
@@ -191,7 +198,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () { if (Navigator.canPop(context)) Navigator.of(context).pop(); },
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: authCamel.withOpacity(0.35)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),

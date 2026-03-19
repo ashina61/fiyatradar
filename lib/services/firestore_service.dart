@@ -414,7 +414,7 @@ class FirestoreService {
         final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
         return {
           'id': doc.id,
-          'name': data['username'] ?? data['displayName'] ?? data['name'] ?? '',
+          'name': data['username'] ?? '',
         };
       }).toList();
       list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
@@ -1159,7 +1159,7 @@ class FirestoreService {
 
         final voterSnap = await txn.get(voterRef);
         final voterData = voterSnap.data() ?? const <String, dynamic>{};
-        final voterName = (voterData['name'] ?? voterData['displayName'] ?? '').toString();
+        final voterName = (voterData['username'] ?? '').toString();
         final voterTotalPoints = (voterData['totalPoints'] as num?)?.toInt() ?? (voterData['pointsTotal'] as num?)?.toInt() ?? (voterData['points'] as num?)?.toInt() ?? 0;
         final voterTrustPercent = ((voterData['trustScorePercent'] as num?)?.toInt() ?? (voterData['reliabilityScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
         final voterTrustVotes = (voterData['trustTotalVotes'] as num?)?.toInt() ?? 0;
@@ -1740,7 +1740,7 @@ class FirestoreService {
       final totalPoints = _toIntSafe(data['totalPoints']) ?? _toIntSafe(data['pointsTotal']) ?? _toIntSafe(data['points']) ?? 0;
       final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
       return {
-        'displayName': (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+        'displayName': (data['username'] ?? 'Kullanıcı').toString(),
         'trustScorePercent': trustPercent,
         'trustTotalVotes': totalVotes,
         'tierName': EliteLevelEngine.getLevelStyle(level).label,
@@ -1771,7 +1771,7 @@ class FirestoreService {
     final level = EliteLevelEngine.getFinalLevel(totalPoints, trustPercent, totalVotes);
 
     return {
-      'displayName': (data['username'] ?? data['displayName'] ?? data['name'] ?? 'Kullanıcı').toString(),
+      'displayName': (data['username'] ?? 'Kullanıcı').toString(),
       'trustScorePercent': trustPercent,
       'trustTotalVotes': totalVotes,
       'tierName': EliteLevelEngine.getLevelStyle(level).label,

@@ -389,7 +389,7 @@ class ActualManagementTab extends ConsumerWidget {
                     } else {
                       await ref.read(actualAdminDomainServiceProvider).updateActual(current.id, payload);
                     }
-                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (ctx.mounted && Navigator.canPop(ctx)) Navigator.pop(ctx);
                   },
                   child: Container(
                     width: double.infinity,
@@ -432,7 +432,7 @@ class ActualItemsAdminScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () { if (Navigator.canPop(context)) Navigator.pop(context); },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(color: pSurface, borderRadius: BorderRadius.circular(100), border: Border.all(color: pBorder)),
@@ -660,7 +660,7 @@ class ActualItemsAdminScreen extends ConsumerWidget {
                       } else {
                         await ref.read(actualAdminDomainServiceProvider).updateActualItem(actual.id, item.id, payload);
                       }
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted && Navigator.canPop(ctx)) Navigator.pop(ctx);
                     },
                     child: Container(
                       width: double.infinity,

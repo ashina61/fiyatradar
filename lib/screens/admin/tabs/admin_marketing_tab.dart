@@ -481,7 +481,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                           } else {
                             await ref.read(adminBannerManagementDomainServiceProvider).updateBanner(banner.id, payload);
                           }
-                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (ctx.mounted && Navigator.canPop(ctx)) Navigator.pop(ctx);
                         },
                         child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: pBrandBrown, borderRadius: BorderRadius.circular(100)), alignment: Alignment.center, child: const Text('Bannerı Kaydet', style: TextStyle(color: pSurface, fontSize: 16, fontWeight: FontWeight.w800))),
                       ),
@@ -624,7 +624,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                       } else {
                         await ref.read(adminCampaignManagementDomainServiceProvider).updateCampaign(campaign.id, data);
                       }
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted && Navigator.canPop(ctx)) Navigator.pop(ctx);
                     },
                     child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: pBrandBrown, borderRadius: BorderRadius.circular(100)), alignment: Alignment.center, child: const Text('Kampanyayı Kaydet', style: TextStyle(color: pSurface, fontSize: 16, fontWeight: FontWeight.w800))),
                   ),

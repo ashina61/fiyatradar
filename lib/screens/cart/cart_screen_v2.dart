@@ -202,7 +202,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                     SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                        child: SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () { viewModel.setSelectedStoreIds(Set<String>.from(tempSelection)); Navigator.of(ctx).pop(); }, style: FilledButton.styleFrom(backgroundColor: pxCaramel, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
+                        child: SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () { viewModel.setSelectedStoreIds(Set<String>.from(tempSelection)); if (Navigator.canPop(ctx)) Navigator.of(ctx).pop(); }, style: FilledButton.styleFrom(backgroundColor: pxCaramel, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
                       ),
                     ),
                   ],
@@ -256,7 +256,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () { HapticFeedback.selectionClick(); viewModel.addProduct(product.id); Navigator.pop(ctx); },
+                            onTap: () { HapticFeedback.selectionClick(); viewModel.addProduct(product.id); if (Navigator.canPop(ctx)) Navigator.pop(ctx); },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                               child: Row(
@@ -326,7 +326,7 @@ class _PremiumCartHeader extends StatelessWidget {
               children: [
                 // Geri Butonu
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () { if (Navigator.canPop(context)) Navigator.pop(context); },
                   child: Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(color: pxDarkBtn, borderRadius: BorderRadius.circular(14)),

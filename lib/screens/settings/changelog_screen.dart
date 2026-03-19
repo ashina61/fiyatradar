@@ -9,6 +9,19 @@ class ChangelogScreen extends StatelessWidget {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v1.0.0 - Sürüm Adayı',
+      dateLabel: 'Mart 2026',
+      title: 'V6 Executive Güncellemesi & Güvenlik Kalkanı',
+      isVip: true,
+      features: <_FeatureLine>[
+        _FeatureLine(description: 'Tasarım Dili Yenilendi: FiyatRadar artık çok daha premium ve lüks bir arayüze (V6) sahip.'),
+        _FeatureLine(description: 'Güvenlik Duvarı: Sahte hesapları engellemek için zorunlu E-Posta doğrulama sistemi getirildi.'),
+        _FeatureLine(description: 'Dinamik Puan Sistemi: Oyunlaştırma altyapısı tek bir merkeze bağlandı, puan ve seviye kazanımları kusursuzlaştırıldı.'),
+        _FeatureLine(description: 'Akıllı Arama: Fiyat ekleme ekranında sadece onaylı ürünlerde arama yapma ve yeni ürün talep etme özelliği eklendi.'),
+        _FeatureLine(description: 'Bildirim Merkezi: Rütbe atladığınızda veya fiyat alarmınız tetiklendiğinde anında haberdar olacağınız yepyeni bir bildirim merkezi kuruldu.'),
+      ],
+    ),
+    _ChangelogEntry(
       version: 'FR 3.1',
       dateLabel: 'BUGÜN',
       title: 'Mimari Devrim & Premium UI',

@@ -15,6 +15,7 @@ import '../../models/product_model.dart';
 import '../../models/store.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
+import '../../ui/categories/category_theme.dart';
 import '../../utils/theme.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
@@ -423,7 +424,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           ? Padding(
                               key: const ValueKey('request-product-cta'),
                               padding: const EdgeInsets.only(top: 10),
-                              child: _buildRequestProductButton(state, notifier),
+                              child: _buildRequestProductButton(notifier),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -788,33 +789,31 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   bool _showRequestProductCta(AddPriceState state) {
     final query = state.productName.trim();
-    return query.length >= 2 && state.productSuggestions.isEmpty && state.selectedProductId == null;
+    return query.length >= 2 && state.productSuggestions.isEmpty;
   }
 
-  Widget _buildRequestProductButton(AddPriceState state, AddPriceNotifier notifier) {
+  Widget _buildRequestProductButton(AddPriceNotifier notifier) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       onTap: () => _submitProductSuggestion(notifier),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _gold.withOpacity(0.35)),
+          color: _tan.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _gold.withOpacity(0.3)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.campaign_outlined, color: _tan, size: 18),
-            const SizedBox(width: 8),
+            Icon(Icons.add_circle_outline, color: _tan.withOpacity(0.95), size: 18),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Aradığın ürünü bulamadın mı? Ürün talebi gönder',
+                'Aradığın ürünü bulamadın mı? Hemen sisteme ekle!',
                 style: _pjs(size: 12, weight: FontWeight.w800, color: _t2),
               ),
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _tan),
           ],
         ),
       ),
@@ -1162,15 +1161,10 @@ class _CategoryChips extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset(
-                      cat.iconAssetPath,
-                      width: 14,
-                      height: 14,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Text(
-                        cat.emoji?.trim().isNotEmpty == true ? cat.emoji!.trim() : '🏷️',
-                        style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
-                      ),
+                    ImageIcon(
+                      AssetImage(categoryIconAssetOrNull(cat.id) ?? cat.iconAssetPath),
+                      size: 14,
+                      color: selected ? Colors.white.withOpacity(.9) : _t2,
                     ),
                     const SizedBox(width: 6),
                     Text(

@@ -108,7 +108,7 @@ class LeaderboardSection extends ConsumerWidget {
                         ...kCitiesTR.map(
                           (city) => ListTile(
                             title: Text(city.name),
-                            onTap: () => Navigator.pop(context, city),
+                            onTap: () { if (Navigator.canPop(context)) Navigator.pop(context, city); },
                           ),
                         ),
                       ],

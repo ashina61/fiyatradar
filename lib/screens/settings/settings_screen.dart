@@ -30,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _launchEmail(BuildContext context) async {
-    await _openUrl(context, 'mailto:destek@fiyatradar.com');
+    await _openUrl(context, 'mailto:fiyatradar.app@gmail.com');
   }
 
   Future<void> _confirmAction({

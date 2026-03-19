@@ -17,7 +17,7 @@ class BarcodeScannerSheet {
         Future<void> close([String? value]) async {
           controller.dispose();
           if (Navigator.of(ctx).canPop()) {
-            Navigator.of(ctx).pop(value);
+            if (Navigator.canPop(ctx)) Navigator.of(ctx).pop(value);
           }
         }
 

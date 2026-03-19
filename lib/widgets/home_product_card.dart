@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/product_model.dart';
+import '../../theme/fr_colors.dart';
 import '../../utils/formatters.dart';
 import 'premium_pressable.dart';
 
@@ -123,10 +124,18 @@ class HomeProductCard extends StatelessWidget {
                     ],
                   ),
                   if (showStore)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFFF3EBE4), borderRadius: BorderRadius.circular(6)),
-                      child: Text(marketName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+                    Flexible(
+                      child: Text(
+                        marketName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: FRColors.textMuted,
+                        ),
+                      ),
                     )
                 ],
               )

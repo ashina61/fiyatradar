@@ -52,7 +52,7 @@ class AboutScreen extends StatelessWidget {
               'Sıkça Sorulan Sorular (SSS)',
               () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const ProfileHelpScreen())),
             ),
-            _tile('Bize Ulaşın', () => _openUrl(context, 'mailto:destek@fiyatradar.com')),
+            _tile('Bize Ulaşın', () => _openUrl(context, 'mailto:fiyatradar.app@gmail.com')),
             _tile(
               'Güncelleme Geçmişi',
               () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const UpdateHistoryScreen())),
