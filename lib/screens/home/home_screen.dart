@@ -15,6 +15,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/banner_card.dart';
+import '../../widgets/market_badge.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
@@ -729,14 +730,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  product.lastStore ?? 'Mağaza bilgisi yok',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: FRColors.textMuted,
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: MarketBadge(
+                                    label: (product.lastStore ?? '').trim().isNotEmpty
+                                        ? product.lastStore!.trim()
+                                        : 'Mağaza bilgisi yok',
+                                    compact: true,
+                                    onTap: product.preferredAffiliateUrl == null
+                                        ? null
+                                        : () => _launchAffiliateLink(product.preferredAffiliateUrl!),
                                   ),
                                 ),
                                 const Spacer(),
@@ -874,63 +877,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  product.lastStore ?? 'Mağaza',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: FRColors.textMuted,
-                                  ),
-                                ),
-                              ),
-                              if (hasAffiliate) ...[
-                                const SizedBox(width: 10),
-                                PremiumPressable(
-                                  borderRadius: BorderRadius.circular(10),
-                                  onTap: () => _launchAffiliateLink(affiliateUrl),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [FRColors.goldGlowSoft, FRColors.camelStrong],
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: FRColors.shadowMedium,
-                                          blurRadius: 14,
-                                          offset: Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Satın Al',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w900,
-                                            color: FRColors.espressoSoft,
-                                          ),
-                                        ),
-                                        SizedBox(width: 4),
-                                        Icon(
-                                          Icons.open_in_new_rounded,
-                                          size: 13,
-                                          color: FRColors.espressoSoft,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: MarketBadge(
+                              label: (product.lastStore ?? '').trim().isNotEmpty
+                                  ? product.lastStore!.trim()
+                                  : 'Mağaza',
+                              onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
+                            ),
                           ),
                         ],
                       ),

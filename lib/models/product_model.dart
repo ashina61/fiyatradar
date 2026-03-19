@@ -107,6 +107,7 @@ class ProductModel {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
+      'name_lowercase': name.trim().toLowerCase(),
       'brand': brand,
       'categories': categories,
       'category': categories.isNotEmpty ? categories.first : null,

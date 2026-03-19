@@ -1378,8 +1378,8 @@ class _DiscoverProductCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          flex: 3,
+                        Flexible(
+                          fit: FlexFit.loose,
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: FittedBox(
@@ -1388,6 +1388,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                               child: Text(
                                 item.storeName,
                                 maxLines: 1,
+                                overflow: TextOverflow.fade,
                                 softWrap: false,
                                 style: const TextStyle(
                                   fontSize: 11,

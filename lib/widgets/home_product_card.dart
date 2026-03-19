@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/product_model.dart';
 import '../../theme/fr_colors.dart';
 import '../../utils/formatters.dart';
+import 'market_badge.dart';
 import 'premium_pressable.dart';
 
 class HomeProductCard extends StatelessWidget {
@@ -21,6 +23,14 @@ class HomeProductCard extends StatelessWidget {
     this.bottomSection,
   });
 
+  Future<void> _openAffiliateLink() async {
+    final rawUrl = product.preferredAffiliateUrl?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) return;
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Veritabanından gelen gerçek veriler
@@ -32,6 +42,7 @@ class HomeProductCard extends StatelessWidget {
     // Gerçek projede modelden hesaplanacak değerler
     final isDrop = true; 
     final marketName = (product.lastStore ?? "").trim().isNotEmpty ? product.lastStore!.trim() : "Market bilgisi yok"; 
+    final affiliateUrl = product.preferredAffiliateUrl;
 
     return PremiumPressable(
       onTap: onTap,
@@ -124,22 +135,16 @@ class HomeProductCard extends StatelessWidget {
                     ],
                   ),
                   if (showStore)
-                    Expanded(
+                    Flexible(
                       child: Align(
                         alignment: Alignment.bottomRight,
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
-                          child: Text(
-                            marketName,
-                            maxLines: 1,
-                            softWrap: false,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: FRColors.textMuted,
-                            ),
+                          child: MarketBadge(
+                            label: marketName,
+                            compact: true,
+                            onTap: affiliateUrl == null ? null : _openAffiliateLink,
                           ),
                         ),
                       ),
