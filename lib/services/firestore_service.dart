@@ -482,60 +482,58 @@ class FirestoreService {
   }
 
   Future<List<ProductModel>> searchProducts(String query) async {
-    final queryLower = query.toLowerCase();
-    final snapshot = await _productsRef.get();
-    return snapshot.docs
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return const [];
+
+    final byName = await searchProductsByPrefix(normalizedQuery, limit: 20);
+    if (byName.isNotEmpty) return byName;
+
+    final barcodeSnapshot = await _productsRef
+        .where('barcode', isEqualTo: query.trim())
+        .limit(10)
+        .get();
+
+    return barcodeSnapshot.docs
         .map((doc) => ProductModel.fromFirestore(doc))
-        .where((product) =>
-            product.name.toLowerCase().contains(queryLower) ||
-            product.brand.toLowerCase().contains(queryLower) ||
-            (product.barcode?.contains(query) ?? false))
-        .toList();
+        .toList(growable: false);
   }
 
   Future<List<ProductModel>> searchProductsByPrefix(
     String query, {
     int limit = 5,
   }) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return const [];
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return const [];
 
     try {
-      // Baş harfi büyüt (Veritabanındaki orijinal ismi yakalamak için)
-      final capitalizedQuery = trimmed.isNotEmpty 
-          ? '${trimmed[0].toUpperCase()}${trimmed.substring(1).toLowerCase()}' 
-          : trimmed;
-
-      // nameLower uydurmasını sildik, gerçek 'name' ile arıyoruz
-      var snapshot = await _productsRef
-          .orderBy('name')
-          .startAt([capitalizedQuery])
-          .endAt(['$capitalizedQuery\uf8ff'])
+      final snapshot = await _productsRef
+          .orderBy('name_lowercase')
+          .where('name_lowercase', isGreaterThanOrEqualTo: normalizedQuery)
+          .where('name_lowercase', isLessThan: '$normalizedQuery')
           .limit(limit)
           .get();
 
-      var products = snapshot.docs
+      final products = snapshot.docs
           .map((doc) => ProductModel.fromFirestore(doc))
-          .toList();
+          .toList(growable: false);
 
-      // Eğer büyük harfle bulamazsa, küçük harfle de şansını denesin
-      if (products.isEmpty) {
-        final fallbackSnapshot = await _productsRef
-            .orderBy('name')
-            .startAt([trimmed])
-            .endAt(['$trimmed\uf8ff'])
-            .limit(limit)
-            .get();
-            
-        products.addAll(fallbackSnapshot.docs
-            .map((doc) => ProductModel.fromFirestore(doc))
-            .toList());
+      if (products.isNotEmpty) {
+        return products;
       }
 
-      return products.take(limit).toList();
+      final barcodeSnapshot = await _productsRef
+          .where('barcode', isEqualTo: query.trim())
+          .limit(limit)
+          .get();
+
+      return barcodeSnapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList(growable: false);
     } catch (e) {
-      if (kDebugMode) debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
-      return const []; 
+      if (kDebugMode) {
+        debugPrint('[FirestoreService.searchProductsByPrefix] ERROR: $e');
+      }
+      return const [];
     }
   }
 

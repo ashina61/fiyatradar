@@ -169,12 +169,12 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsMenuItem(
                       icon: CupertinoIcons.doc_text,
                       title: 'Kullanım Koşulları',
-                      onTap: () => _openUrl(context, 'https://fiyatradar.com/kullanim-kosullari'),
+                      onTap: () => _openUrl(context, 'https://fiyatradar.netlify.app/sozlesme.html'),
                     ),
                     _SettingsMenuItem(
                       icon: CupertinoIcons.lock,
                       title: 'Gizlilik Politikası',
-                      onTap: () => _openUrl(context, 'https://fiyatradar.com/gizlilik'),
+                      onTap: () => _openUrl(context, 'https://fiyatradar.netlify.app/gizlilik.html'),
                     ),
                   ],
                 ),
