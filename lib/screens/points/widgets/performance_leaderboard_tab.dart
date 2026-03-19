@@ -8,8 +8,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/leaderboard_provider.dart';
 import '../../../theme/fr_colors.dart';
 
-enum _LeaderboardSegment { overview, top }
-
 class PerformanceLeaderboardTab extends ConsumerStatefulWidget {
   const PerformanceLeaderboardTab({super.key});
 
@@ -20,7 +18,6 @@ class PerformanceLeaderboardTab extends ConsumerStatefulWidget {
 class _PerformanceLeaderboardTabState extends ConsumerState<PerformanceLeaderboardTab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _shimmerController;
-  _LeaderboardSegment _selectedSegment = _LeaderboardSegment.overview;
 
   @override
   void initState() {
@@ -67,120 +64,20 @@ class _PerformanceLeaderboardTabState extends ConsumerState<PerformanceLeaderboa
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
             children: [
-              _LuxurySegmentedControl(
-                value: _selectedSegment,
-                onChanged: (segment) => setState(() => _selectedSegment = segment),
-              ),
-              const SizedBox(height: 18),
               _VipPrizeCard(controller: _shimmerController),
-              const SizedBox(height: 18),
-              _SectionIntro(segment: _selectedSegment),
               const SizedBox(height: 18),
               if (topThree.isNotEmpty) _VerticalPodium(items: topThree),
               if (others.isNotEmpty) ...[
                 const SizedBox(height: 22),
                 _StandardLeaderboardList(
-                  items: _selectedSegment == _LeaderboardSegment.overview ? others : ranked,
-                  startFromRank: _selectedSegment == _LeaderboardSegment.overview ? 4 : 1,
-                  showTopDividerInset: _selectedSegment == _LeaderboardSegment.top,
+                  items: others,
+                  startFromRank: 4,
+                  showTopDividerInset: false,
                 ),
               ],
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _LuxurySegmentedControl extends StatelessWidget {
-  const _LuxurySegmentedControl({required this.value, required this.onChanged});
-
-  final _LeaderboardSegment value;
-  final ValueChanged<_LeaderboardSegment> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: FRColors.background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: FRColors.borderStrong.withOpacity(0.18)),
-        boxShadow: const [
-          BoxShadow(
-            color: FRColors.shadowSoft,
-            blurRadius: 22,
-            spreadRadius: 2,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SegmentButton(
-              label: 'Genel Bakış',
-              selected: value == _LeaderboardSegment.overview,
-              onTap: () => onChanged(_LeaderboardSegment.overview),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _SegmentButton(
-              label: 'Zirvedekiler',
-              selected: value == _LeaderboardSegment.top,
-              onTap: () => onChanged(_LeaderboardSegment.top),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SegmentButton extends StatelessWidget {
-  const _SegmentButton({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: selected ? FRColors.surface : Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: selected
-            ? const [
-                BoxShadow(
-                  color: FRColors.shadowSoft,
-                  blurRadius: 20,
-                  spreadRadius: 1,
-                  offset: Offset(0, 6),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: _FRText.segment.copyWith(
-                color: selected ? FRColors.espresso : FRColors.textMuted,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -276,29 +173,6 @@ class _VipPrizeCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SectionIntro extends StatelessWidget {
-  const _SectionIntro({required this.segment});
-
-  final _LeaderboardSegment segment;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = segment == _LeaderboardSegment.overview ? 'Dikey Banner Podyumu' : 'Zirvedekiler';
-    final subtitle = segment == _LeaderboardSegment.overview
-        ? 'İlk üçte yer alan isimler, FiyatRadar V6 sahnesinde tam boy lüks banner kartlarla öne çıkıyor.'
-        : 'Sıralamanın tamamını hızlıca takip et; liderler üstte, kalan yarışmacılar ince çizgili listede.';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: _FRText.title),
-        const SizedBox(height: 6),
-        Text(subtitle, style: _FRText.body.copyWith(color: FRColors.textMuted, height: 1.5)),
-      ],
     );
   }
 }

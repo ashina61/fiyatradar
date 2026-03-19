@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -12,7 +12,7 @@ import '../models/store.dart';
 import '../models/store_model.dart';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
-import 'price_provider.dart'; // firestoreServiceProvider buradan geliyor olmalı
+import 'price_provider.dart';
 
 class AddPriceState {
   const AddPriceState({
@@ -22,6 +22,7 @@ class AddPriceState {
     this.selectedCategoryId,
     this.selectedCategoryName,
     this.selectedProductId,
+    this.selectedProductImageUrl,
     this.lockedCategoryByProduct = false,
     this.productSuggestions = const [],
     this.activeTab = 0,
@@ -45,6 +46,7 @@ class AddPriceState {
   final String? selectedCategoryId;
   final String? selectedCategoryName;
   final String? selectedProductId;
+  final String? selectedProductImageUrl;
   final bool lockedCategoryByProduct;
   final List<ProductModel> productSuggestions;
   final int activeTab;
@@ -70,6 +72,7 @@ class AddPriceState {
     String? selectedCategoryName,
     bool clearCategory = false,
     String? selectedProductId,
+    String? selectedProductImageUrl,
     bool clearSelectedProduct = false,
     bool? lockedCategoryByProduct,
     List<ProductModel>? productSuggestions,
@@ -101,6 +104,9 @@ class AddPriceState {
           : (selectedCategoryName ?? this.selectedCategoryName),
       selectedProductId:
           clearSelectedProduct ? null : (selectedProductId ?? this.selectedProductId),
+      selectedProductImageUrl: clearSelectedProduct
+          ? null
+          : (selectedProductImageUrl ?? this.selectedProductImageUrl),
       lockedCategoryByProduct:
           lockedCategoryByProduct ?? this.lockedCategoryByProduct,
       productSuggestions: productSuggestions ?? this.productSuggestions,
@@ -129,10 +135,11 @@ class AddPriceState {
     final source = isNearbyMode ? nearbyStores : onlineStores;
     final filtered = searchQuery.trim().isEmpty
         ? source
-        : source.where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase())).toList(growable: false);
+        : source
+            .where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase()))
+            .toList(growable: false);
 
     final ordered = List<Store>.of(filtered);
-
     if (isNearbyMode) {
       ordered.sort((a, b) {
         final ad = a.distanceMeters;
@@ -184,7 +191,6 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     try {
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
-
       _cachedLocationData ??= await _locationService.getLocationData();
       final userPosition = _cachedLocationData?.position;
 
@@ -196,7 +202,6 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
           .where((s) => s.status == StoreStatus.active && !s.isOnline)
           .map((store) => _mapStore(store, userPosition))
           .toList(growable: false);
-
       final online = stores
           .where((s) => s.status == StoreStatus.active && s.isOnline)
           .map((store) => _mapStore(store, userPosition))
@@ -240,9 +245,15 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       type: model.isOnline ? 'online' : 'nearby',
       distanceMeters: distanceMeters,
       logoUrl: model.displayName.isNotEmpty ? model.displayName[0].toUpperCase() : '?',
-      subtitle: [model.district, model.city].where((e) => e.trim().isNotEmpty).join(', ').trim().isEmpty
+      subtitle: [model.district, model.city]
+              .where((e) => e.trim().isNotEmpty)
+              .join(', ')
+              .trim()
+              .isEmpty
           ? null
-          : [model.district, model.city].where((e) => e.trim().isNotEmpty).join(', '),
+          : [model.district, model.city]
+              .where((e) => e.trim().isNotEmpty)
+              .join(', '),
     );
   }
 
@@ -268,7 +279,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
   void setPrice(String value) => state = state.copyWith(price: value);
   void setSearchQuery(String value) => state = state.copyWith(searchQuery: value);
-  void setActiveTab(int value) => state = state.copyWith(activeTab: value, clearSelectedStore: true);
+  void setActiveTab(int value) =>
+      state = state.copyWith(activeTab: value, clearSelectedStore: true);
 
   void setSelectedStore(Store store) => state = state.copyWith(
         selectedStore: store,
@@ -286,8 +298,8 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
   void onProductInputChanged(String value) {
     _productSearchDebounce?.cancel();
-    final normalizedInput = value.trim();
 
+    final normalizedInput = value.trim();
     final wasSelected = state.selectedProductId != null;
     final shouldClearSelection =
         wasSelected && normalizedInput.toLowerCase() != state.productName.trim().toLowerCase();
@@ -297,7 +309,10 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       productSuggestions: const [],
       clearBarcode: true,
       clearSelectedProduct: shouldClearSelection,
-      lockedCategoryByProduct: shouldClearSelection ? false : state.lockedCategoryByProduct,
+      selectedProductImageUrl:
+          shouldClearSelection ? null : state.selectedProductImageUrl,
+      lockedCategoryByProduct:
+          shouldClearSelection ? false : state.lockedCategoryByProduct,
     );
 
     if (normalizedInput.isEmpty) {
@@ -314,9 +329,13 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
 
     _productSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
       try {
-        final results = await _firestore.searchProducts(normalizedInput);
-        if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) return;
-        state = state.copyWith(productSuggestions: results.take(5).toList(growable: false));
+        final results = await _firestore.searchProductsByPrefix(normalizedInput, limit: 10);
+        if (state.productName.trim().toLowerCase() != normalizedInput.toLowerCase()) {
+          return;
+        }
+        state = state.copyWith(
+          productSuggestions: results.take(5).toList(growable: false),
+        );
       } catch (_) {
         state = state.copyWith(productSuggestions: const []);
       }
@@ -334,6 +353,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       productName: product.name,
       barcode: barcode ?? product.barcode,
       selectedProductId: product.id,
+      selectedProductImageUrl: product.effectiveImage,
       productSuggestions: const [],
       selectedCategoryId: resolvedCategory?.id,
       selectedCategoryName: resolvedCategory?.title,
@@ -343,47 +363,75 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   }
 
   CategoryModel? _resolveCategoryForProduct(ProductModel product) {
-    final categoryValue = product.categories.map((i) => i.trim()).firstWhere((i) => i.isNotEmpty, orElse: () => '');
+    final categoryValue = product.categories
+        .map((item) => item.trim())
+        .firstWhere((item) => item.isNotEmpty, orElse: () => '');
     if (categoryValue.isEmpty) return null;
 
     final normalized = categoryValue.toLowerCase();
     for (final category in state.categories) {
-      if (category.id.toLowerCase() == normalized || category.title.toLowerCase() == normalized) {
+      if (category.id.toLowerCase() == normalized ||
+          category.title.toLowerCase() == normalized) {
         return category;
       }
     }
     return null;
   }
 
-  Future<ProductModel?> _resolveProductByNameOrBarcode() async {
-    final selectedProductId = state.selectedProductId?.trim() ?? '';
-    if (selectedProductId.isNotEmpty) {
-      final selectedProduct = await _firestore.getProduct(selectedProductId);
-      if (selectedProduct != null) return selectedProduct;
-    }
+  Future<void> initializeForProduct(String productId) async {
+    final normalizedId = productId.trim();
+    if (normalizedId.isEmpty) return;
+    final product = await _firestore.getProduct(normalizedId);
+    if (product == null) return;
+    selectProductSuggestion(product, barcode: product.barcode);
+  }
 
-    final byBarcode = state.barcode?.trim() ?? '';
-    final query = byBarcode.isNotEmpty ? byBarcode : state.productName.trim();
-    if (query.isEmpty) return null;
+  Future<bool> applyScannedBarcode(String barcode) async {
+    final normalizedBarcode = barcode.trim();
+    if (normalizedBarcode.isEmpty) return false;
 
-    final matches = await _firestore.searchProducts(query);
-    if (matches.isEmpty) return null;
-
-    final normalizedName = state.productName.trim().toLowerCase();
+    final matches = await _firestore.searchProducts(normalizedBarcode);
     for (final product in matches) {
-      if (product.name.trim().toLowerCase() == normalizedName && normalizedName.isNotEmpty) {
-        return product;
+      if ((product.barcode?.trim() ?? '') == normalizedBarcode) {
+        selectProductSuggestion(product, barcode: normalizedBarcode);
+        return true;
       }
     }
-    return matches.first;
+
+    state = state.copyWith(
+      productName: normalizedBarcode,
+      barcode: normalizedBarcode,
+      clearSelectedProduct: true,
+      lockedCategoryByProduct: false,
+      productSuggestions: const [],
+      error: 'Bu barkoda ait katalog ürünü bulunamadı.',
+    );
+    return false;
+  }
+
+  Future<ProductModel?> _resolveProductByNameOrBarcode() async {
+    final selectedProductId = state.selectedProductId?.trim() ?? '';
+    if (selectedProductId.isEmpty) return null;
+    return _firestore.getProduct(selectedProductId);
   }
 
   Future<void> submitPrice({required String userId}) async {
     final parsedPrice = double.tryParse(state.price.replaceAll(',', '.'));
-    if (parsedPrice == null || parsedPrice <= 0) throw Exception('Lütfen geçerli bir fiyat girin.');
-    if (state.productName.trim().isEmpty) throw Exception('Lütfen ürün adını girin.');
-    if (state.selectedCategoryId == null) throw Exception('Lütfen kategori seçin.');
-    if (state.selectedStoreId == null || state.selectedStoreName == null) throw Exception('Lütfen bir mağaza seçin.');
+    if (parsedPrice == null || parsedPrice <= 0) {
+      throw Exception('Lütfen geçerli bir fiyat girin.');
+    }
+    if (state.selectedProductId == null || state.selectedProductId!.trim().isEmpty) {
+      throw Exception('Lütfen katalogdan geçerli bir ürün seçin.');
+    }
+    if (state.productName.trim().isEmpty) {
+      throw Exception('Lütfen ürün adını girin.');
+    }
+    if (state.selectedCategoryId == null) {
+      throw Exception('Lütfen kategori seçin.');
+    }
+    if (state.selectedStoreId == null || state.selectedStoreName == null) {
+      throw Exception('Lütfen bir mağaza seçin.');
+    }
 
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -394,18 +442,20 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       }
 
       final userModel = await _firestore.getUserById(userId);
-      final userName = (userModel?.username ?? userModel?.displayName ?? '').trim();
+      final reporterName = (userModel?.username ?? userModel?.displayName ?? '').trim();
+      final fallbackReporterName = reporterName.isEmpty ? 'Kullanıcı' : reporterName;
+      final reporterIsAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
 
       final payload = PriceModel(
         id: '',
         productId: product.id,
-        productName: state.productName.trim(),
-        selectedProductId: state.selectedProductId,
+        productName: product.name.trim().isNotEmpty ? product.name : state.productName.trim(),
+        selectedProductId: product.id,
         selectedCategoryId: state.selectedCategoryId,
         selectedStoreId: state.selectedStoreId,
         barcode: state.barcode,
         userId: userId,
-        userName: userName.isEmpty ? null : userName,
+        userName: fallbackReporterName,
         createdByUid: userId,
         price: parsedPrice,
         branchStoreId: state.selectedStoreId!,
@@ -415,6 +465,9 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         isPending: true,
         verificationStatus: 'unverified',
         status: 'active',
+        reporterUid: userId,
+        reporterName: fallbackReporterName,
+        reporterIsAnonymous: reporterIsAnonymous,
       );
 
       await _firestore.addPriceReport(payload);
@@ -435,5 +488,22 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
+  }
+
+  Future<void> submitProductSuggestion({required String userId}) async {
+    final name = state.productName.trim();
+    if (userId.trim().isEmpty) {
+      throw Exception('Kullanıcı kimliği bulunamadı.');
+    }
+    if (name.length < 2) {
+      throw Exception('Ürün adı en az 2 karakter olmalı.');
+    }
+
+    await _firestore.addProductSuggestion(
+      name: name,
+      barcode: state.barcode,
+      category: state.selectedCategoryName,
+      userId: userId,
+    );
   }
 }

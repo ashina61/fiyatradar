@@ -133,7 +133,8 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     try {
       final now = DateTime.now();
       final lastChangeDate = user.lastUsernameChange?.toDate();
-      final isUsernameChanged = username != user.username.trim().toLowerCase();
+      final currentUsername = user.username.trim().toLowerCase();
+      final isUsernameChanged = username != currentUsername;
 
       if (isUsernameChanged && lastChangeDate != null) {
         final nextChangeDate = lastChangeDate.add(const Duration(days: 90));
@@ -227,8 +228,10 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   }
 
   void _syncControllers(UserModel user) {
-    final nextName = user.preferredDisplayName;
-    final nextUsername = user.username;
+    final nextName = user.name.trim().isNotEmpty
+        ? user.name.trim()
+        : (user.displayName ?? '').trim();
+    final nextUsername = user.username.trim();
     final nextPhotoUrl = user.photoUrl;
     final shouldSync = _syncedUserId != user.uid || _syncedName != nextName || _syncedUsername != nextUsername || _syncedPhotoUrl != nextPhotoUrl;
     if (!shouldSync) return;

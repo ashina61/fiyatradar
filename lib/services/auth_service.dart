@@ -138,7 +138,8 @@ class AuthService {
         final normalizedInviteCode =
             inviteCode?.trim().toUpperCase().replaceAll(' ', '');
         final newInviteCode = _generateInviteCode(firebaseUser.uid);
-        await firebaseUser.updateDisplayName(name);
+        final normalizedName = name.trim();
+        await firebaseUser.updateDisplayName(normalizedName);
 
         String? inviterId;
         if (normalizedInviteCode != null && normalizedInviteCode.isNotEmpty) {
@@ -157,7 +158,7 @@ class AuthService {
         final user = UserModel(
           uid: firebaseUser.uid,
           email: email,
-          name: name,
+          name: normalizedName,
           cityCode: cityCode,
           cityName: cityName,
           city: cityName,
@@ -176,7 +177,7 @@ class AuthService {
           ...user.toFirestore(),
           'termsAcceptedAt': FieldValue.serverTimestamp(),
           'legalConsentVersion': legalConsentVersion,
-          'displayName': normalizedUsername,
+          'displayName': normalizedName,
           'photoURL': '',
           'city': cityName,
           'username': normalizedUsername,
@@ -212,6 +213,7 @@ class AuthService {
         }
 
         await batch.commit();
+        await _auth.setLanguageCode('tr');
         await firebaseUser.sendEmailVerification();
         await signOut();
         return user;
@@ -357,6 +359,7 @@ class AuthService {
         );
       }
 
+      await _auth.setLanguageCode('tr');
       await refreshedUser.sendEmailVerification();
     } finally {
       await signOut();
@@ -365,6 +368,7 @@ class AuthService {
 
   // Password Reset
   Future<void> resetPassword(String email) async {
+    await _auth.setLanguageCode('tr');
     await _auth.sendPasswordResetEmail(email: email);
   }
 
