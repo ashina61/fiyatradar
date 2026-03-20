@@ -787,23 +787,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _sectionTitle(
             title: 'Editörün Seçimi',
             badge: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: FRColors.camelStrong,
-                borderRadius: BorderRadius.circular(6),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFE2BC8A),
+                    Color(0xFFC99A63),
+                    Color(0xFFB07A46),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF1D3A7).withOpacity(0.7)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x3D8F6038),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.verified_rounded,
-                      size: 12, color: FRColors.espressoSoft),
-                  SizedBox(width: 4),
+                      size: 14, color: FRColors.espressoSoft),
+                  SizedBox(width: 6),
                   Text(
                     'ONAYLI',
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
                       color: FRColors.espressoSoft,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ],
@@ -879,11 +896,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,
-                            child: MarketBadge(
-                              label: (product.lastStore ?? '').trim().isNotEmpty
-                                  ? product.lastStore!.trim()
-                                  : 'Mağaza',
-                              onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MarketBadge(
+                                  label: (product.lastStore ?? '').trim().isNotEmpty
+                                      ? product.lastStore!.trim()
+                                      : 'Mağaza',
+                                  onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
+                                ),
+                                if (hasAffiliate) ...[
+                                  const SizedBox(height: 10),
+                                  PremiumPressable(
+                                    borderRadius: BorderRadius.circular(18),
+                                    onTap: () => _launchAffiliateLink(affiliateUrl),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFE8C18D),
+                                            Color(0xFFC9965F),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: const Color(0xFFF4D9AE).withOpacity(0.85)),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x33211510),
+                                            blurRadius: 16,
+                                            offset: Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Satın Al',
+                                            style: TextStyle(
+                                              color: FRColors.espressoSoft,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Icon(
+                                            Icons.open_in_new_rounded,
+                                            size: 15,
+                                            color: FRColors.espressoSoft,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],

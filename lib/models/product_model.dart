@@ -24,6 +24,7 @@ class ProductModel {
   final String? lastStore;
   final bool isEditorPick;
   final int? editorPickRank;
+  final String? affiliateLink;
   final String? affiliateUrl;
   final String? buyLink;
   final DateTime createdAt;
@@ -53,6 +54,7 @@ class ProductModel {
     this.lastStore,
     this.isEditorPick = false,
     this.editorPickRank,
+    this.affiliateLink,
     this.affiliateUrl,
     this.buyLink,
     required this.createdAt,
@@ -97,7 +99,8 @@ class ProductModel {
       editorPickRank: data['editorPickRank'] is num
           ? (data['editorPickRank'] as num).toInt()
           : int.tryParse((data['editorPickRank'] ?? '').toString()),
-      affiliateUrl: (data['affiliateUrl'] ?? '').toString().trim().isEmpty ? null : (data['affiliateUrl']).toString().trim(),
+      affiliateLink: _normalizedLink(data['affiliateLink']),
+      affiliateUrl: _normalizedLink(data['affiliateUrl']),
       buyLink: (data['buyLink'] ?? '').toString().trim().isEmpty ? null : (data['buyLink']).toString().trim(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -105,9 +108,16 @@ class ProductModel {
   }
 
   Map<String, dynamic> toFirestore() {
+    final normalizedName = name.trim().toLowerCase();
     return {
       'name': name,
-      'name_lowercase': name.trim().toLowerCase(),
+      'name_lowercase': normalizedName,
+      'searchKeywords': buildSearchKeywords(
+        name: name,
+        brand: brand,
+        barcode: barcode,
+        categories: categories,
+      ),
       'brand': brand,
       'categories': categories,
       'category': categories.isNotEmpty ? categories.first : null,
@@ -130,6 +140,7 @@ class ProductModel {
       'lastStore': lastStore,
       'isEditorPick': isEditorPick,
       'editorPickRank': editorPickRank,
+      'affiliateLink': affiliateLink,
       'affiliateUrl': affiliateUrl,
       'buyLink': buyLink,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -161,6 +172,7 @@ class ProductModel {
     String? lastStore,
     bool? isEditorPick,
     int? editorPickRank,
+    String? affiliateLink,
     String? affiliateUrl,
     String? buyLink,
     DateTime? createdAt,
@@ -190,6 +202,7 @@ class ProductModel {
       lastStore: lastStore ?? this.lastStore,
       isEditorPick: isEditorPick ?? this.isEditorPick,
       editorPickRank: editorPickRank ?? this.editorPickRank,
+      affiliateLink: affiliateLink ?? this.affiliateLink,
       affiliateUrl: affiliateUrl ?? this.affiliateUrl,
       buyLink: buyLink ?? this.buyLink,
       createdAt: createdAt ?? this.createdAt,
@@ -224,10 +237,67 @@ class ProductModel {
   }
 
   String? get preferredAffiliateUrl {
+    final legacy = affiliateLink?.trim();
+    if (legacy != null && legacy.isNotEmpty) return legacy;
     final primary = affiliateUrl?.trim();
     if (primary != null && primary.isNotEmpty) return primary;
     final fallback = buyLink?.trim();
     if (fallback != null && fallback.isNotEmpty) return fallback;
     return null;
+  }
+
+  static String? _normalizedLink(Object? raw) {
+    final value = (raw ?? '').toString().trim();
+    return value.isEmpty ? null : value;
+  }
+
+  static List<String> buildSearchKeywords({
+    required String name,
+    required String brand,
+    String? barcode,
+    List<String> categories = const [],
+  }) {
+    final keywords = <String>{};
+
+    void addKeyword(String raw) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized.isEmpty) return;
+      keywords.add(normalized);
+    }
+
+    void addPrefixes(String raw) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized.length < 2) return;
+      for (var i = 2; i <= normalized.length; i++) {
+        keywords.add(normalized.substring(0, i));
+      }
+    }
+
+    void addPhraseTokens(String raw) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized.isEmpty) return;
+      addKeyword(normalized);
+      addPrefixes(normalized);
+
+      final parts = normalized
+          .split(RegExp(r'[^a-z0-9çğıöşü]+'))
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty);
+      for (final part in parts) {
+        addKeyword(part);
+        addPrefixes(part);
+      }
+    }
+
+    addPhraseTokens(name);
+    addPhraseTokens(brand);
+    for (final category in categories) {
+      addPhraseTokens(category);
+    }
+    if ((barcode ?? '').trim().isNotEmpty) {
+      addKeyword(barcode!.trim());
+    }
+
+    return keywords.toList()..sort();
   }
 }

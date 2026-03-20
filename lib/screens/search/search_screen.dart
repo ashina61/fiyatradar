@@ -1335,8 +1335,8 @@ class _DiscoverProductCard extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
                         color: Color(0xFFC29B78),
                       ),
@@ -1348,7 +1348,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF211510),
                         height: 1.2,
                       ),
@@ -1392,7 +1392,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                                 softWrap: false,
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   color: FRColors.textMuted,
                                   height: 1.1,
                                 ),
@@ -1424,7 +1424,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                                       textAlign: TextAlign.end,
                                       style: const TextStyle(
                                         fontSize: 10,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                         color: Color(0xFF948A82),
                                         height: 1.1,
                                       ),
