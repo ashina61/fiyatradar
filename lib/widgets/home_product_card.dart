@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/product_model.dart';
 import '../../theme/fr_colors.dart';
 import '../../utils/formatters.dart';
-import 'market_badge.dart';
+import 'editor_choice_widgets.dart';
 import 'premium_pressable.dart';
 
 class HomeProductCard extends StatelessWidget {
@@ -141,9 +141,9 @@ class HomeProductCard extends StatelessWidget {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
-                          child: MarketBadge(
-                            label: marketName,
-                            compact: true,
+                          child: MarketActionButton(
+                            label: marketName == 'Market bilgisi yok' ? 'Trendyol Market' : marketName,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                             onTap: affiliateUrl == null ? null : _openAffiliateLink,
                           ),
                         ),

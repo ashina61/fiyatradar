@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -436,6 +437,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ],
                       ),
                     ),
+                    if (!_isProductDone(state)) ...[
+                      const SizedBox(height: 12),
+                      _buildFirestoreProductList(state, notifier),
+                    ],
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
                       child: _showRequestProductCta(state)
@@ -842,6 +847,130 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+
+  Widget _buildFirestoreProductList(
+    AddPriceState state,
+    AddPriceNotifier notifier,
+  ) {
+    final query = state.productName.trim().toLowerCase();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(28, 17, 8, .06),
+            blurRadius: 16,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('products')
+            .limit(20)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _buildProductStreamState(
+              'Ürünler yüklenemedi: ${snapshot.error}',
+              icon: Icons.error_outline_rounded,
+              iconColor: FRColors.danger,
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: CircularProgressIndicator(color: _tan),
+              ),
+            );
+          }
+
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return _buildProductStreamState('Ürün bulunamadı');
+          }
+
+          try {
+            final products = docs
+                .map(ProductModel.fromFirestore)
+                .where((product) {
+                  if (query.isEmpty) return true;
+                  final haystack = [
+                    product.name,
+                    product.brand ?? '',
+                    product.barcode ?? '',
+                  ].join(' ').toLowerCase();
+                  return haystack.contains(query);
+                })
+                .toList(growable: false);
+
+            if (products.isEmpty) {
+              return _buildProductStreamState('Ürün bulunamadı');
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                final product = products[index];
+                final subtitle = product.brand?.trim().isNotEmpty == true
+                    ? product.brand!.trim()
+                    : (product.categories.isNotEmpty ? product.categories.first : 'Ürün');
+
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.inventory_2_outlined, color: _tan),
+                  title: Text(
+                    product.name,
+                    style: _pjs(size: 14, weight: FontWeight.w800),
+                  ),
+                  subtitle: Text(
+                    subtitle,
+                    style: _pjs(size: 12, weight: FontWeight.w600, color: _t2),
+                  ),
+                  onTap: () => _onProductPicked(product, notifier),
+                );
+              },
+            );
+          } catch (error) {
+            return _buildProductStreamState(
+              'Ürünler çözümlenirken hata oluştu: $error',
+              icon: Icons.warning_amber_rounded,
+              iconColor: FRColors.danger,
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductStreamState(
+    String message, {
+    IconData icon = Icons.info_outline_rounded,
+    Color iconColor = _t2,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: _pjs(size: 13, weight: FontWeight.w700, color: _t2),
+            ),
+          ),
+        ],
       ),
     );
   }
