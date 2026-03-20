@@ -16,6 +16,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/banner_card.dart';
 import '../../widgets/editor_choice_widgets.dart';
+import '../../widgets/market_badge.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
