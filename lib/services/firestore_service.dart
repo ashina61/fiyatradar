@@ -506,6 +506,30 @@ class FirestoreService {
     if (normalizedQuery.isEmpty) return const [];
 
     try {
+      final keywordSnapshot = await _productsRef
+          .where('searchKeywords', arrayContains: normalizedQuery)
+          .limit(limit)
+          .get();
+
+      final keywordProducts = keywordSnapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList(growable: false);
+
+      if (keywordProducts.isNotEmpty) {
+        keywordProducts.sort((a, b) {
+          final aExact = a.name.trim().toLowerCase() == normalizedQuery;
+          final bExact = b.name.trim().toLowerCase() == normalizedQuery;
+          if (aExact != bExact) return aExact ? -1 : 1;
+
+          final aPrefix = a.name.trim().toLowerCase().startsWith(normalizedQuery);
+          final bPrefix = b.name.trim().toLowerCase().startsWith(normalizedQuery);
+          if (aPrefix != bPrefix) return aPrefix ? -1 : 1;
+
+          return a.name.length.compareTo(b.name.length);
+        });
+        return keywordProducts.take(limit).toList(growable: false);
+      }
+
       final snapshot = await _productsRef
           .orderBy('name_lowercase')
           .where('name_lowercase', isGreaterThanOrEqualTo: normalizedQuery)

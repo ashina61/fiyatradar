@@ -164,28 +164,28 @@ class _ChangelogCard extends StatelessWidget {
     final cardDecoration = BoxDecoration(
       color: isVip ? null : FRColors.surface,
       gradient: isVip
-          ? LinearGradient(
+          ? const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF2A190F),
-                FRColors.camelDeep,
-                FRColors.espressoSoft,
+                Color(0xFF1D120C),
+                Color(0xFF2A190F),
+                Color(0xFF24140F),
               ],
-              stops: const [0, 0.45, 1],
+              stops: [0, 0.52, 1],
             )
           : null,
       borderRadius: BorderRadius.circular(28),
       border: Border.all(
-        color: isVip ? FRColors.goldGlowSoft.withOpacity(0.75) : FRColors.border,
+        color: isVip ? const Color(0xFFD8B377).withOpacity(0.65) : FRColors.border,
       ),
       boxShadow: [
         if (isVip)
-          BoxShadow(
-            color: FRColors.camel.withOpacity(0.28),
-            blurRadius: 56,
-            spreadRadius: 2,
-            offset: const Offset(0, 20),
+          const BoxShadow(
+            color: Color(0x26150D09),
+            blurRadius: 40,
+            spreadRadius: 1,
+            offset: Offset(0, 18),
           )
         else
           BoxShadow(
@@ -214,7 +214,7 @@ class _ChangelogCard extends StatelessWidget {
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          FRColors.goldGlowSoft.withOpacity(0.34),
+                          const Color(0x80D2A25E),
                           Colors.transparent,
                         ],
                         stops: const [0, 0.72],
@@ -234,7 +234,7 @@ class _ChangelogCard extends StatelessWidget {
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          Colors.white.withOpacity(0.14),
+                          const Color(0x26E9D2A7),
                           Colors.transparent,
                         ],
                         stops: const [0, 0.78],
@@ -259,7 +259,7 @@ class _ChangelogCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isVip ? FRColors.white.withOpacity(0.6) : FRColors.textMutedSoft,
+                          color: isVip ? const Color(0xCCF1E7D7) : FRColors.textMutedSoft,
                         ),
                       ),
                     ],
@@ -312,15 +312,27 @@ class _VersionPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: isVip ? FRColors.camel : FRColors.background,
+        gradient: isVip
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFE0BE84),
+                  Color(0xFFC9995A),
+                ],
+              )
+            : null,
+        color: isVip ? null : FRColors.background,
         borderRadius: BorderRadius.circular(999),
-        border: isVip ? null : Border.all(color: FRColors.border),
+        border: isVip
+            ? Border.all(color: const Color(0xFFF0D6A5).withOpacity(0.65))
+            : Border.all(color: FRColors.border),
         boxShadow: isVip
             ? [
                 BoxShadow(
-                  color: FRColors.camel.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 4),
+                  color: const Color(0x40AE7B44),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ]
             : null,
