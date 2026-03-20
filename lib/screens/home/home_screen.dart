@@ -15,7 +15,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/banner_card.dart';
-import '../../widgets/market_badge.dart';
+import '../../widgets/editor_choice_widgets.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
@@ -786,46 +786,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           _sectionTitle(
             title: 'Editörün Seçimi',
-            badge: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFE2BC8A),
-                    Color(0xFFC99A63),
-                    Color(0xFFB07A46),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF1D3A7).withOpacity(0.7)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x3D8F6038),
-                    blurRadius: 18,
-                    offset: Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.verified_rounded,
-                      size: 14, color: FRColors.espressoSoft),
-                  SizedBox(width: 6),
-                  Text(
-                    'ONAYLI',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: FRColors.espressoSoft,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            badge: const ApprovedBadge(),
           ),
           const SizedBox(height: 16),
           PremiumPressable(
@@ -899,10 +860,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                MarketBadge(
+                                MarketActionButton(
                                   label: (product.lastStore ?? '').trim().isNotEmpty
                                       ? product.lastStore!.trim()
-                                      : 'Mağaza',
+                                      : 'Trendyol Market',
                                   onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
                                 ),
                                 if (hasAffiliate) ...[

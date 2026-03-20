@@ -34,6 +34,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _isSaving = false;
+  File? _selectedPhotoFile;
   String? _photoUrl;
   String? _syncedUserId;
   String? _syncedName;
@@ -64,9 +65,6 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   }
 
   Future<void> _pickPhoto() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
     final image = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 85,
@@ -74,30 +72,26 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     );
     if (image == null) return;
 
-    setState(() => _isSaving = true);
-    try {
-      final storageRef = FirebaseStorage.instance.ref('profile_photos/$uid.jpg');
-      await storageRef.putFile(File(image.path));
-      final downloadUrl = await storageRef.getDownloadURL();
-      if (!mounted) return;
-      setState(() => _photoUrl = downloadUrl);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil fotoğrafı güncellenemedi.'),
-          backgroundColor: FRColors.danger,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    if (!mounted) return;
+    setState(() {
+      _selectedPhotoFile = File(image.path);
+    });
+  }
+
+  Future<String?> _uploadSelectedPhoto(String uid) async {
+    if (_selectedPhotoFile == null) return null;
+
+    final storageRef = FirebaseStorage.instance.ref('profile_photos/$uid.jpg');
+    await storageRef.putFile(_selectedPhotoFile!);
+    return storageRef.getDownloadURL();
   }
 
   Future<void> _saveProfile(UserModel user) async {
     final messenger = ScaffoldMessenger.of(context);
     final username = _usernameController.text.trim().toLowerCase();
     final lockedName = _nameController.text.trim();
+    final currentUsername = user.username.trim().toLowerCase();
+    final isUsernameChanged = username != currentUsername;
 
     if (lockedName.isEmpty) {
       messenger.showSnackBar(
@@ -109,7 +103,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       return;
     }
 
-    if (username.isEmpty) {
+    if (isUsernameChanged && username.isEmpty) {
       messenger.showSnackBar(
         _feedbackBar(
           'Lütfen geçerli bir kullanıcı adı girin.',
@@ -119,7 +113,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       return;
     }
 
-    if (_containsBadWord(username)) {
+    if (isUsernameChanged && _containsBadWord(username)) {
       messenger.showSnackBar(
         _feedbackBar(
           'Yasaklı kelime içerdiği için bu kullanıcı adı kabul edilemez.',
@@ -132,59 +126,94 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final authService = ref.read(authServiceProvider);
+      final firestore = FirebaseFirestore.instance;
+      final userRef = firestore.collection('users').doc(user.uid);
+      final Map<String, dynamic> updateData = {};
       final now = DateTime.now();
       final lastChangeDate = user.lastUsernameChange?.toDate();
-      final currentUsername = user.username.trim().toLowerCase();
-      final isUsernameChanged = username != currentUsername;
+      Timestamp? usernameTimestamp;
 
-      if (isUsernameChanged && lastChangeDate != null) {
-        final nextChangeDate = lastChangeDate.add(const Duration(days: 90));
-        if (now.isBefore(nextChangeDate)) {
-          final remainingDays = nextChangeDate.difference(now).inDays + 1;
-          if (!mounted) return;
-          setState(() => _isSaving = false);
-          messenger.showSnackBar(
-            _feedbackBar(
-              'Kullanıcı adınızı 3 ayda bir değiştirebilirsiniz. Kalan süre: $remainingDays gün.',
-              isError: true,
-            ),
-          );
-          return;
+      if (_selectedPhotoFile != null) {
+        final uploadedPhotoUrl = await _uploadSelectedPhoto(user.uid);
+        if (uploadedPhotoUrl != null) {
+          updateData['photoUrl'] = uploadedPhotoUrl;
         }
       }
 
-      final authService = ref.read(authServiceProvider);
-      final usernameTimestamp = Timestamp.now();
-
-      if (isUsernameChanged) {
-        await authService.ensureUsernameAvailable(username);
-        await authService.updateUsername(
-          uid: user.uid,
-          username: username,
-          changedAt: usernameTimestamp,
-        );
+      if (lockedName != user.name.trim()) {
+        updateData['name'] = lockedName;
       }
 
-      final updatedUser = user.copyWith(
-        username: username,
-        name: lockedName,
-        lastUsernameChange: isUsernameChanged ? usernameTimestamp : user.lastUsernameChange,
-        photoUrl: _photoUrl,
-      );
+      if (isUsernameChanged) {
+        if (lastChangeDate != null) {
+          final nextChangeDate = lastChangeDate.add(const Duration(days: 90));
+          if (now.isBefore(nextChangeDate)) {
+            final remainingDays = nextChangeDate.difference(now).inDays + 1;
+            if (!mounted) return;
+            setState(() => _isSaving = false);
+            messenger.showSnackBar(
+              _feedbackBar(
+                'Kullanıcı adınızı 3 ayda bir değiştirebilirsiniz. Kalan süre: $remainingDays gün.',
+                isError: true,
+              ),
+            );
+            return;
+          }
+        }
 
-      final success = await ref.read(profileProvider.notifier).updateProfile(updatedUser);
+        await authService.ensureUsernameAvailable(username);
+        usernameTimestamp = Timestamp.now();
+        updateData['username'] = username;
+        updateData['displayName'] = username;
+        updateData['lastUsernameChange'] = usernameTimestamp;
+      }
+
+      if (updateData.isEmpty) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        messenger.showSnackBar(
+          _feedbackBar('Kaydedilecek bir değişiklik bulunamadı.', isError: false),
+        );
+        return;
+      }
+
+      if (isUsernameChanged) {
+        final batch = firestore.batch();
+        batch.update(userRef, updateData);
+        batch.set(firestore.collection('usernames').doc(username), {
+          'uid': user.uid,
+          'username': username,
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastUsernameChange': usernameTimestamp,
+        });
+
+        if (currentUsername.isNotEmpty) {
+          batch.delete(firestore.collection('usernames').doc(currentUsername));
+        }
+
+        await batch.commit();
+      } else {
+        await userRef.update(updateData);
+      }
+
+      await ref.read(profileProvider.notifier).loadProfile(uid: user.uid);
       await ref.read(authNotifierProvider.notifier).refreshCurrentUser();
       if (!mounted) return;
 
-      setState(() => _isSaving = false);
+      setState(() {
+        _isSaving = false;
+        _selectedPhotoFile = null;
+        _photoUrl = (updateData['photoUrl'] as String?) ?? _photoUrl;
+      });
       messenger.showSnackBar(
         _feedbackBar(
-          success ? 'Kullanıcı adınız ve profiliniz güncellendi.' : 'Profil güncellenemedi.',
-          isError: !success,
+          'Profiliniz güncellendi.',
+          isError: false,
         ),
       );
 
-      if (success) Navigator.of(context).maybePop();
+      Navigator.of(context).maybePop();
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -247,6 +276,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
     _syncedName = null;
     _syncedUsername = null;
     _syncedPhotoUrl = null;
+    _selectedPhotoFile = null;
     _photoUrl = null;
     _nameController.clear();
     _usernameController.clear();
@@ -277,6 +307,8 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
       selection: TextSelection.collapsed(offset: nextUsername.length),
       composing: TextRange.empty,
     );
+
+    if (_selectedPhotoFile != null) return;
 
     if (_photoUrl != nextPhotoUrl && mounted) {
       setState(() => _photoUrl = nextPhotoUrl);
@@ -326,6 +358,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
                     const SizedBox(height: 4),
                     _AvatarHero(
                       photoUrl: _photoUrl,
+                      localPhotoPath: _selectedPhotoFile?.path,
                       fallbackName: _nameController.text,
                       onTap: _pickPhoto,
                     ),
@@ -557,11 +590,13 @@ class _LuxuryCard extends StatelessWidget {
 class _AvatarHero extends StatelessWidget {
   const _AvatarHero({
     required this.photoUrl,
+    required this.localPhotoPath,
     required this.fallbackName,
     required this.onTap,
   });
 
   final String? photoUrl;
+  final String? localPhotoPath;
   final String fallbackName;
   final VoidCallback onTap;
 
@@ -599,18 +634,20 @@ class _AvatarHero extends StatelessWidget {
               ],
             ),
             child: ClipOval(
-              child: photoUrl == null || photoUrl!.isEmpty
-                  ? Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: FRColors.espresso,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    )
-                  : Image.network(photoUrl!, fit: BoxFit.cover),
+              child: localPhotoPath != null && localPhotoPath!.isNotEmpty
+                  ? Image.file(File(localPhotoPath!), fit: BoxFit.cover)
+                  : photoUrl == null || photoUrl!.isEmpty
+                      ? Center(
+                          child: Text(
+                            initials,
+                            style: const TextStyle(
+                              color: FRColors.espresso,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        )
+                      : Image.network(photoUrl!, fit: BoxFit.cover),
             ),
           ),
           Positioned(
