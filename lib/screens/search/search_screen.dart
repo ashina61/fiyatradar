@@ -14,6 +14,7 @@ import '../../providers/actual_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/fr_colors.dart';
 import '../../utils/theme.dart';
@@ -911,7 +912,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : FRColors.textSecondary,
+                      color: selected ? Colors.white : FRColors.textMuted,
                     ),
                   ),
                 ],
@@ -1733,7 +1734,7 @@ class _CategoryGrid extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: isSelected ? Colors.white : FRColors.textSecondary,
+                    color: isSelected ? Colors.white : FRColors.textMuted,
                     height: 1.2,
                   ),
                 ),
@@ -2309,7 +2310,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                             style: const TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
-                              color: FRColors.textSecondary,
+                              color: FRColors.textMuted,
                             ),
                           ),
                         ),
