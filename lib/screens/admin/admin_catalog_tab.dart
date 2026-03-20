@@ -360,6 +360,9 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
     final brandController = TextEditingController(text: product?.brand ?? '');
     final barcodeController = TextEditingController(text: product?.barcode ?? '');
     final descController = TextEditingController(text: product?.description ?? '');
+    final affiliateLinkController = TextEditingController(
+      text: product?.affiliateLink ?? product?.affiliateUrl ?? product?.buyLink ?? '',
+    );
     final Set<String> selectedCategories = {...?product?.categories};
     bool isEditorPick = product?.isEditorPick ?? false;
 
@@ -391,6 +394,13 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
                   _PremiumInput(icon: Icons.branding_watermark, hint: 'Marka', controller: brandController),
                   const SizedBox(height: 12),
                   _PremiumInput(icon: Icons.description, hint: 'Açıklama (Opsiyonel)', controller: descController, maxLines: 2),
+                  const SizedBox(height: 12),
+                  _PremiumInput(
+                    icon: Icons.open_in_new_rounded,
+                    hint: 'Affiliate Link (Opsiyonel)',
+                    controller: affiliateLinkController,
+                    maxLines: 2,
+                  ),
                   const SizedBox(height: 16),
 
                   // Kategori Seçimi (Chips)
@@ -438,7 +448,65 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
                   GestureDetector(
                     onTap: () async {
                       if (nameController.text.trim().isEmpty || selectedCategories.isEmpty) return;
-                      // Ürün kaydetme logic buraya eklenecek (senin eski kodundaki gibi)
+                      final messenger = ScaffoldMessenger.of(context);
+                      final firestore = ref.read(firestoreServiceProvider);
+                      final now = DateTime.now();
+                      final normalizedAffiliate = affiliateLinkController.text.trim();
+                      final payload = ProductModel(
+                        id: product?.id ?? '',
+                        name: nameController.text.trim(),
+                        brand: brandController.text.trim(),
+                        barcode: barcodeController.text.trim().isEmpty ? null : barcodeController.text.trim(),
+                        description: descController.text.trim().isEmpty ? null : descController.text.trim(),
+                        categories: selectedCategories.toList(growable: false),
+                        isEditorPick: isEditorPick,
+                        affiliateLink: normalizedAffiliate.isEmpty ? null : normalizedAffiliate,
+                        affiliateUrl: normalizedAffiliate.isEmpty ? null : normalizedAffiliate,
+                        mainImage: product?.mainImage,
+                        imageUrls: product?.imageUrls ?? const [],
+                        imageUrl: product?.imageUrl,
+                        imageThumbUrl: product?.imageThumbUrl,
+                        imageMediumUrl: product?.imageMediumUrl,
+                        imagePath: product?.imagePath,
+                        imageSource: product?.imageSource ?? 'admin_manual',
+                        aiGenerated: product?.aiGenerated ?? false,
+                        aiPrompt: product?.aiPrompt,
+                        imageApproved: product?.imageApproved ?? false,
+                        userId: product?.userId,
+                        viewCount: product?.viewCount ?? 0,
+                        priceEntryCount: product?.priceEntryCount ?? 0,
+                        lastPrice: product?.lastPrice,
+                        lastStore: product?.lastStore,
+                        editorPickRank: product?.editorPickRank,
+                        buyLink: product?.buyLink,
+                        createdAt: product?.createdAt ?? now,
+                        updatedAt: now,
+                      );
+                      try {
+                        if (product == null) {
+                          await firestore.addProduct(payload);
+                        } else {
+                          await firestore.updateProduct(product.id, payload.toFirestore());
+                        }
+                        if (context.mounted) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(product == null ? 'Ürün kaydedildi.' : 'Ürün güncellendi.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Ürün kaydedilemedi: $e'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                        return;
+                      }
                       if (Navigator.canPop(ctx)) Navigator.pop(ctx);
                     },
                     child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18), decoration: BoxDecoration(color: pBrandBrown, borderRadius: BorderRadius.circular(100)), alignment: Alignment.center, child: const Text('Kaydet', style: TextStyle(color: pSurface, fontSize: 16, fontWeight: FontWeight.w800))),

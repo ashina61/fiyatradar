@@ -16,6 +16,7 @@ void main() {
     expect(map['brand'], 'X');
     expect(map['category'], 'Süt Ürünleri');
     expect((map['categories'] as List).length, 2);
+    expect((map['searchKeywords'] as List).contains('süt'), isTrue);
   });
 
   test('ProductModel.copyWith preserves untouched fields', () {
@@ -32,5 +33,17 @@ void main() {
     expect(updated.name, 'Yoğurt');
     expect(updated.brand, 'X');
     expect(updated.viewCount, 1);
+  });
+
+  test('preferredAffiliateUrl falls back to affiliateLink first', () {
+    final model = ProductModel(
+      id: 'p1',
+      name: 'Süt',
+      brand: 'X',
+      affiliateLink: 'https://example.com/buy',
+      createdAt: DateTime(2024, 1, 1),
+    );
+
+    expect(model.preferredAffiliateUrl, 'https://example.com/buy');
   });
 }
