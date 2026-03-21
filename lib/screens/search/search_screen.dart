@@ -1797,6 +1797,8 @@ class _NearbyMarkets extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                      ),
                     ),
                     if (i != stores.length - 1) const SizedBox(width: 7),
                   ],
@@ -1909,7 +1911,7 @@ class _CommunityCta extends StatelessWidget {
                       Text(
                         user == null
                             ? 'Topluluğa katıl ve radarın gücünü artır.'
-                            : 'Topluluğa katkı ver, ${user.points} puanlık ivmeni büyüt.',
+                            : 'Topluluğa katkı ver, ${user!.points} puanlık ivmeni büyüt.',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: _pjs(
