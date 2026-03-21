@@ -16,9 +16,8 @@ import '../../providers/explore_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../theme/fr_colors.dart';
-import '../../utils/theme.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
 import '../actual/actuals_screen.dart';
@@ -475,7 +474,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   List<_MarketChipData> _buildMarketChips(List<ExploreFeedItem> items) {
     final unique = <String>{};
     final chips = <_MarketChipData>[
-      const _MarketChipData(label: 'Tümü', color: FRColors.camelStrong),
+      const _MarketChipData(label: 'Tümü', color: _tc),
     ];
 
     for (final item in items) {
@@ -905,11 +904,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
-                color: selected ? FRColors.espresso : FRColors.white,
+                color: selected ? _dk : _w,
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: const [
                   BoxShadow(
-                    color: FRColors.shadowSoft,
+                    color: Color(0x1418100A),
                     blurRadius: 10,
                     offset: Offset(0, 4),
                   ),
@@ -933,7 +932,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : FRColors.textMuted,
+                      color: selected ? Colors.white : _t3,
                     ),
                   ),
                 ],
@@ -1218,7 +1217,7 @@ class _TrendChip extends StatelessWidget {
             Icon(
               hot ? Icons.local_fire_department_rounded : Icons.search_rounded,
               size: 15,
-              color: hot ? const Color(0xFFEF6C00) : FRColors.textMuted,
+              color: hot ? const Color(0xFFEF6C00) : _t3,
             ),
             const SizedBox(width: 6),
             Text(
@@ -1305,7 +1304,7 @@ class _SectionHeader extends StatelessWidget {
             width: 3,
             height: 14,
             decoration: BoxDecoration(
-              color: FRColors.camelStrong,
+              color: _tc,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1317,7 +1316,7 @@ class _SectionHeader extends StatelessWidget {
                   TextSpan(
                     text: title,
                     style: const TextStyle(
-                      color: FRColors.textPrimary,
+                      color: _t1,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
@@ -1326,7 +1325,7 @@ class _SectionHeader extends StatelessWidget {
                     TextSpan(
                       text: '  $subtitle',
                       style: const TextStyle(
-                        color: FRColors.textMuted,
+                        color: _t3,
                         fontSize: 10,
                         fontStyle: FontStyle.italic,
                         fontWeight: FontWeight.w600,
@@ -1343,7 +1342,7 @@ class _SectionHeader extends StatelessWidget {
               child: Text(
                 '$actionLabel →',
                 style: const TextStyle(
-                  color: FRColors.camelStrong,
+                  color: _tc,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1376,11 +1375,11 @@ class _AlarmBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: FRColors.espresso,
+          color: _dk,
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(
-              color: FRColors.shadowStrong,
+              color: Color(0x3818100A),
               blurRadius: 20,
               offset: Offset(0, 8),
             ),
@@ -1392,12 +1391,12 @@ class _AlarmBanner extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: FRColors.camelOverlay(0.16),
+                color: _tc.withOpacity(0.16),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: FRColors.camelOverlay(0.22)),
+                border: Border.all(color: _tc.withOpacity(0.22)),
               ),
               child: const Icon(Icons.notifications_active_outlined,
-                  color: FRColors.camelStrong, size: 18),
+                  color: _tc, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1429,7 +1428,7 @@ class _AlarmBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: FRColors.camelStrong,
+                color: _tc,
                 borderRadius: BorderRadius.circular(9),
               ),
               child: const Text(
@@ -1464,8 +1463,8 @@ class _MiniInsightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = (positive ? (item.priceChangePercent ?? 0) : item.dropPercent).abs();
-    final badgeColor = positive ? FRColors.danger : FRColors.success;
-    final badgeBg = positive ? FRColors.dangerSurface : FRColors.successSurface;
+    final badgeColor = positive ? _red : _grn;
+    final badgeBg = positive ? _redSurface : _grnSurface;
 
     return PremiumPressable(
       borderRadius: BorderRadius.circular(compact ? 16 : 18),
@@ -1474,17 +1473,17 @@ class _MiniInsightCard extends StatelessWidget {
         width: compact ? 152 : 154,
         padding: EdgeInsets.all(compact ? 10 : 0),
         decoration: BoxDecoration(
-          color: FRColors.white,
+          color: _w,
           borderRadius: BorderRadius.circular(compact ? 16 : 18),
           boxShadow: const [
             BoxShadow(
-              color: FRColors.shadowSoft,
+              color: Color(0x1418100A),
               blurRadius: 12,
               offset: Offset(0, 4),
             ),
           ],
           border: compact && positive
-              ? const Border(left: BorderSide(color: FRColors.danger, width: 3))
+              ? const Border(left: BorderSide(color: _red, width: 3))
               : null,
         ),
         child: compact
@@ -1504,7 +1503,7 @@ class _MiniInsightCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: FRColors.textPrimary,
+                            color: _t1,
                             height: 1.2,
                           ),
                         ),
@@ -1549,7 +1548,7 @@ class _MiniInsightCard extends StatelessWidget {
                     height: 86,
                     width: double.infinity,
                     decoration: const BoxDecoration(
-                      color: FRColors.studio,
+                      color: _bg,
                       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
                     ),
                     child: Stack(
@@ -1561,7 +1560,7 @@ class _MiniInsightCard extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
-                              color: FRColors.espresso.withOpacity(0.78),
+                              color: _dk.withOpacity(0.78),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -1589,7 +1588,7 @@ class _MiniInsightCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: FRColors.textPrimary,
+                            color: _t1,
                             height: 1.25,
                           ),
                         ),
@@ -1602,7 +1601,7 @@ class _MiniInsightCard extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
-                                color: FRColors.textPrimary,
+                                color: _t1,
                               ),
                             ),
                             Container(
@@ -1652,10 +1651,10 @@ class _MiniProductThumb extends StatelessWidget {
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.image_not_supported_rounded,
-                  color: FRColors.textHint,
+                  color: _t3,
                 ),
               )
-            : const Icon(Icons.inventory_2_outlined, color: FRColors.textHint),
+            : const Icon(Icons.inventory_2_outlined, color: _t3),
       ),
     );
   }
@@ -1694,15 +1693,15 @@ class _CategoryGrid extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? FRColors.espresso : FRColors.white,
+              color: isSelected ? _dk : _w,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: isSelected ? FRColors.espresso : Colors.transparent,
+                color: isSelected ? _dk : Colors.transparent,
                 width: 1.5,
               ),
               boxShadow: const [
                 BoxShadow(
-                  color: FRColors.shadowSoft,
+                  color: Color(0x1418100A),
                   blurRadius: 10,
                   offset: Offset(0, 4),
                 ),
@@ -1717,7 +1716,7 @@ class _CategoryGrid extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? Colors.white.withOpacity(0.08)
-                        : (theme.bgTint ?? FRColors.camelOverlay(0.08)),
+                        : (theme.bgTint ?? _tc.withOpacity(0.08)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -1738,7 +1737,7 @@ class _CategoryGrid extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: isSelected ? Colors.white : FRColors.textMuted,
+                    color: isSelected ? Colors.white : _t3,
                     height: 1.2,
                   ),
                 ),
@@ -1767,11 +1766,11 @@ class _NearbyMarketsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: FRColors.espresso,
+        color: _dk,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
-            color: FRColors.shadowStrong,
+            color: Color(0x3818100A),
             blurRadius: 24,
             offset: Offset(0, 8),
           ),
@@ -1794,7 +1793,7 @@ class _NearbyMarketsCard extends StatelessWidget {
               const Text(
                 'Haritada gör →',
                 style: TextStyle(
-                  color: FRColors.camelStrong,
+                  color: _tc,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1853,7 +1852,7 @@ class _NearbyMarketsCard extends StatelessWidget {
                             Text(
                               item.distanceLabel,
                               style: const TextStyle(
-                                color: FRColors.camelStrong,
+                                color: _tc,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -1888,11 +1887,11 @@ class _CommunityCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: FRColors.white,
+          color: _w,
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(
-              color: FRColors.shadowSoft,
+              color: Color(0x1418100A),
               blurRadius: 12,
               offset: Offset(0, 4),
             ),
@@ -1904,10 +1903,10 @@ class _CommunityCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: FRColors.camelOverlay(0.12),
+                color: _tc.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: const Icon(Icons.groups_rounded, color: FRColors.camelStrong, size: 18),
+              child: const Icon(Icons.groups_rounded, color: _tc, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1919,7 +1918,7 @@ class _CommunityCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: FRColors.textPrimary,
+                      color: _t1,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1930,7 +1929,7 @@ class _CommunityCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: FRColors.textMuted,
+                      color: _t3,
                     ),
                   ),
                 ],
@@ -1939,7 +1938,7 @@ class _CommunityCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
               decoration: BoxDecoration(
-                color: FRColors.camelStrong,
+                color: _tc,
                 borderRadius: BorderRadius.circular(11),
                 boxShadow: const [
                   BoxShadow(
@@ -2044,13 +2043,13 @@ class _LoadingState extends StatelessWidget {
             height: 32,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              color: FRColors.camelStrong,
+              color: _tc,
             ),
           ),
           SizedBox(height: 14),
           Text(
             'Ürünler yükleniyor...',
-            style: TextStyle(color: FRColors.textMuted, fontSize: 13),
+            style: TextStyle(color: _t3, fontSize: 13),
           ),
         ],
       ),
@@ -2072,13 +2071,13 @@ class _ErrorState extends StatelessWidget {
           Icon(
             Icons.wifi_off_rounded,
             size: 48,
-            color: AppColors.textTertiary.withOpacity(0.5),
+            color: _t3.withOpacity(0.5),
           ),
           const SizedBox(height: 14),
           const Text(
             'Bağlantı hatası',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: _t2,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -2089,7 +2088,7 @@ class _ErrorState extends StatelessWidget {
             icon: const Icon(Icons.refresh_rounded, size: 18),
             label: const Text('Tekrar dene'),
             style: FilledButton.styleFrom(
-              backgroundColor: FRColors.camelDeep,
+              backgroundColor: _dk,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -2112,13 +2111,13 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.search_off_rounded,
             size: 56,
-            color: AppColors.textTertiary.withOpacity(0.4),
+            color: _t3.withOpacity(0.4),
           ),
           const SizedBox(height: 14),
           const Text(
             'Henüz bu filtrede fiyat yok',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: _t2,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -2127,7 +2126,7 @@ class _EmptyState extends StatelessWidget {
           const Text(
             'Farklı bir kategori veya market deneyin',
             style: TextStyle(
-              color: AppColors.textTertiary,
+              color: _t3,
               fontSize: 13,
             ),
           ),
@@ -2196,10 +2195,10 @@ class _DiscoverProductCard extends ConsumerWidget {
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.image_not_supported_rounded,
-                                color: FRColors.textHint,
+                                color: _t3,
                               ),
                             )
-                          : const Icon(Icons.inventory_2_outlined, color: FRColors.textHint),
+                          : const Icon(Icons.inventory_2_outlined, color: _t3),
                     ),
                   ),
                   Positioned(
@@ -2242,7 +2241,7 @@ class _DiscoverProductCard extends ConsumerWidget {
                               ? Icons.favorite_rounded
                               : Icons.favorite_border_rounded,
                           size: 16,
-                          color: isFavorite ? FRColors.danger : FRColors.textMuted,
+                          color: isFavorite ? _red : _t3,
                         ),
                       ),
                     ),
