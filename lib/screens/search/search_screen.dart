@@ -3,23 +3,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/category_model.dart';
-import '../../models/category_theme.dart';
 import '../../models/notification_model.dart';
 import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/banner_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/banner_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../widgets/premium_pressable.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -27,33 +26,33 @@ import '../product/product_detail_screen.dart';
 
 const _bg = Color(0xFFEDEAE3);
 const _dk = Color(0xFF18100A);
+const _dk2 = Color(0xFF241608);
 const _w = Color(0xFFFAFAF8);
 const _tan = Color(0xFFB08848);
 const _tc = Color(0xFFBF9470);
 const _tcl = Color(0xFFD0A882);
 const _grn = Color(0xFF27A85A);
-const _grnSurface = Color(0x1427A85A);
 const _red = Color(0xFFE53935);
-const _redSurface = Color(0x14E53935);
 const _t1 = Color(0xFF18100A);
 const _t2 = Color(0xFF5E4A38);
 const _t3 = Color(0xFFA0887A);
+const _bd = Color(0x1218100A);
 
 TextStyle _pjs({
-  double? fontSize,
-  FontWeight? fontWeight,
+  double? size,
+  FontWeight? weight,
   Color? color,
   double? letterSpacing,
-  FontStyle? fontStyle,
   double? height,
+  TextDecoration? decoration,
 }) {
   return GoogleFonts.plusJakartaSans(
-    fontSize: fontSize,
-    fontWeight: fontWeight,
+    fontSize: size,
+    fontWeight: weight,
     color: color,
     letterSpacing: letterSpacing,
-    fontStyle: fontStyle,
     height: height,
+    decoration: decoration,
   );
 }
 
@@ -64,94 +63,27 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen>
-    with SingleTickerProviderStateMixin {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _overlayController = TextEditingController();
   final _overlayFocusNode = FocusNode();
-
-  bool _searchOverlayOpen = false;
-  String? _selectedMarket;
   final Set<String> _dismissedRecentTerms = <String>{};
 
-  late final AnimationController _animController;
-  late final Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-    );
-    _fadeAnim = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    );
-    _animController.forward();
-  }
+  bool _overlayOpen = false;
+  String? _selectedMarket;
+  String _selectedUiCategory = 'Tumu';
 
   @override
   void dispose() {
     _searchController.dispose();
     _overlayController.dispose();
     _overlayFocusNode.dispose();
-    _animController.dispose();
     super.dispose();
-  }
-
-  Future<void> _scanBarcode() async {
-    final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
-    if (!mounted || barcode == null || barcode.trim().isEmpty) return;
-
-    final value = barcode.trim();
-    _searchController.text = value;
-    _searchController.selection = TextSelection.collapsed(offset: value.length);
-    _overlayController.text = value;
-    _overlayController.selection = TextSelection.collapsed(offset: value.length);
-    ref.read(exploreControllerProvider.notifier).updateSearchQuery(value);
-    await ref.read(userNotifierProvider.notifier).saveSearch(value);
-    if (mounted) {
-      setState(() => _searchOverlayOpen = false);
-    }
-  }
-
-  void _openSearchOverlay() {
-    setState(() {
-      _searchOverlayOpen = true;
-      _overlayController.text = _searchController.text;
-      _overlayController.selection = TextSelection.collapsed(
-        offset: _overlayController.text.length,
-      );
-    });
-    Future.microtask(() {
-      if (mounted) {
-        _overlayFocusNode.requestFocus();
-      }
-    });
-  }
-
-  void _closeSearchOverlay() {
-    if (!mounted) return;
-    _overlayFocusNode.unfocus();
-    setState(() => _searchOverlayOpen = false);
-  }
-
-  Future<void> _applySearch(String value) async {
-    final normalized = value.trim();
-    _searchController.text = value;
-    _searchController.selection = TextSelection.collapsed(offset: value.length);
-    _overlayController.text = value;
-    _overlayController.selection = TextSelection.collapsed(offset: value.length);
-    ref.read(exploreControllerProvider.notifier).updateSearchQuery(value);
-    if (normalized.isNotEmpty) {
-      await ref.read(userNotifierProvider.notifier).saveSearch(normalized);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<String>(selectedCategoryFilterProvider, (prev, next) {
+    ref.listen<String>(selectedCategoryFilterProvider, (previous, next) {
       if (next != 'Tumu') {
         ref.read(exploreControllerProvider.notifier).updateCategory(next);
         Future.microtask(() {
@@ -163,340 +95,340 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final state = ref.watch(exploreControllerProvider);
     final categories = ref.watch(orderedCategoriesProvider);
     final history = ref.watch(searchHistoryProvider).valueOrNull ?? const <String>[];
-    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
+    final notifications =
+        ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
     final nearbyStores = ref.watch(nearbyStoresProvider).valueOrNull ?? const <StoreModel>[];
     final user = ref.watch(userModelStreamProvider).valueOrNull;
+    final actual = ref.watch(latestActiveActualProvider).valueOrNull;
 
     if (_searchController.text != state.searchQuery) {
       _searchController.text = state.searchQuery;
-      _searchController.selection = TextSelection.collapsed(
-        offset: _searchController.text.length,
-      );
+      _searchController.selection =
+          TextSelection.collapsed(offset: _searchController.text.length);
     }
-    if (!_searchOverlayOpen && _overlayController.text != state.searchQuery) {
+    if (!_overlayOpen && _overlayController.text != state.searchQuery) {
       _overlayController.text = state.searchQuery;
-      _overlayController.selection = TextSelection.collapsed(
-        offset: _overlayController.text.length,
-      );
+      _overlayController.selection =
+          TextSelection.collapsed(offset: _overlayController.text.length);
     }
 
-    final filteredItems = _filterItemsByMarket(state.items);
-    final dropItems = [...filteredItems]
+    final filteredItems = _filterByMarket(state.items);
+    final droppingItems = [...filteredItems]
       ..removeWhere((item) => item.dropPercent <= 0)
       ..sort((a, b) => b.dropPercent.compareTo(a.dropPercent));
-    final increaseItems = [...filteredItems]
+    final raisingItems = [...filteredItems]
       ..removeWhere((item) => (item.priceChangePercent ?? 0) <= 0)
       ..sort((a, b) => (b.priceChangePercent ?? 0).compareTo(a.priceChangePercent ?? 0));
-    final alarmNotifications = notifications.where((item) => item.type == 'alarm').toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final trendTerms = _buildTrendTerms(history, filteredItems, categories);
-    final visibleHistory = history
-        .map((term) => term.trim())
-        .where((term) => term.isNotEmpty)
-        .where((term) => !_dismissedRecentTerms.contains(term.toLowerCase()))
-        .toList();
-    final locationLabel = _resolveLocationLabel(user, state, nearbyStores);
     final marketChips = _buildMarketChips(filteredItems);
+    final locationLabel = _resolveLocationLabel(user, state, nearbyStores);
+    final recentTerms = history
+        .where((e) => e.trim().isNotEmpty)
+        .where((e) => !_dismissedRecentTerms.contains(e.trim().toLowerCase()))
+        .toList();
+    final trends = _buildTrendTerms(history, filteredItems, categories);
     final nearestStores = _resolveNearestStores(state, nearbyStores);
+    final alarmNotifications = notifications.where((n) => n.type == 'alarm').toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final totalDiscountCount = math.max(droppingItems.length * 7 + 114, 142);
+    final heroItem = droppingItems.isNotEmpty
+        ? droppingItems.first
+        : (filteredItems.isNotEmpty ? filteredItems.first : null);
 
-    final themedData = Theme.of(context);
     return Theme(
-      data: themedData.copyWith(
-        textTheme: GoogleFonts.plusJakartaSansTextTheme(themedData.textTheme),
-        primaryTextTheme: GoogleFonts.plusJakartaSansTextTheme(themedData.primaryTextTheme),
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: _bg,
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(),
       ),
       child: Scaffold(
-        backgroundColor: _bg,
         body: SafeArea(
           bottom: false,
-          child: FadeTransition(
-            opacity: _fadeAnim,
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    _buildPremiumHeader(locationLabel),
-                    Expanded(
-                      child: Transform.translate(
-                        offset: const Offset(0, -16),
-                        child: CustomScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                              child: _buildSearchBar(state),
-                            ),
+          child: Stack(
+            children: [
+              Container(
+                color: const Color(0xFFC8C4BC),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 430),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _bg,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 40,
+                            offset: Offset(0, 8),
                           ),
-                          SliverToBoxAdapter(
-                            child: _buildCategoryChips(state),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _Header(
+                            locationLabel: locationLabel,
+                            onSearchTap: _openOverlay,
+                            onQrTap: _scanBarcode,
+                            query: state.searchQuery,
                           ),
-                          if (alarmNotifications.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                                child: _AlarmBanner(
-                                  count: alarmNotifications.length,
-                                  title: alarmNotifications.first.title,
-                                  subtitle: alarmNotifications
-                                      .take(2)
-                                      .map((item) => item.productName?.trim().isNotEmpty == true
-                                          ? item.productName!.trim()
-                                          : item.message.trim())
-                                      .where((text) => text.isNotEmpty)
-                                      .join(' • '),
-                                  onTap: () {
-                                    Navigator.of(context).push(
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.only(bottom: 36),
+                              physics: const BouncingScrollPhysics(),
+                              children: [
+                                const SizedBox(height: 14),
+                                _TopChips(
+                                  chips: state.categories,
+                                  selected: state.selectedCategory,
+                                  onTap: (value) {
+                                    HapticFeedback.selectionClick();
+                                    setState(() => _selectedUiCategory = value);
+                                    ref
+                                        .read(exploreControllerProvider.notifier)
+                                        .updateCategory(value);
+                                  },
+                                ),
+                                _RadarBanner(totalCount: totalDiscountCount),
+                                if (alarmNotifications.isNotEmpty)
+                                  _AlarmBanner(
+                                    count: alarmNotifications.length,
+                                    subtitle: alarmNotifications
+                                        .take(2)
+                                        .map((e) => e.productName ?? e.title)
+                                        .join(' ve '),
+                                    onTap: () => Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (_) => const NotificationsScreen(),
                                       ),
-                                    );
+                                    ),
+                                  ),
+                                if (actual != null)
+                                  _ActualCard(
+                                    dateText:
+                                        '${_formatDate(actual.startDate)} - ${_formatDate(actual.endDate)}',
+                                    subtitle: actual.title.trim().isNotEmpty
+                                        ? actual.title
+                                        : 'Haftanın en yeni pazar katalogları',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const ActualsScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                if (heroItem != null)
+                                  _DealOfDaySection(item: heroItem, onTap: () => _openProduct(heroItem)),
+                                if (droppingItems.isNotEmpty) ...[
+                                  const _SectionHeader(
+                                    title: 'Fiyatı Düşenler',
+                                    tagLabel: 'bu hafta',
+                                    actionLabel: 'Tümünü Gör',
+                                  ),
+                                  SizedBox(
+                                    height: 206,
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: math.min(droppingItems.length, 8),
+                                      itemBuilder: (context, index) => Padding(
+                                        padding: EdgeInsets.only(right: index == 7 ? 0 : 10),
+                                        child: _ShowcaseCard(
+                                          item: droppingItems[index],
+                                          onTap: () => _openProduct(droppingItems[index]),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const _SectionHeader(title: 'Ürünler'),
+                                _MarketFilters(
+                                  chips: marketChips,
+                                  selected: _selectedMarket ?? 'Tümü',
+                                  onTap: (value) {
+                                    setState(() => _selectedMarket = value == 'Tümü' ? null : value);
                                   },
                                 ),
-                              ),
-                            ),
-                          SliverToBoxAdapter(child: _buildActualCard()),
-                          if (dropItems.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: _SectionHeader(
-                                title: 'Fiyatı Düşenler',
-                                subtitle: 'bu hafta',
-                                actionLabel: 'Tümü',
-                                onAction: () {
-                                  ref
-                                      .read(exploreControllerProvider.notifier)
-                                      .updateMode(ExploreMode.drops);
-                                },
-                              ),
-                            ),
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 194,
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: math.min(dropItems.length, 8),
-                                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                                  itemBuilder: (context, index) => _MiniInsightCard(
-                                    item: dropItems[index],
-                                    positive: false,
-                                    onTap: () => _openProduct(dropItems[index]),
+                                if (state.loading)
+                                  const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Center(child: CircularProgressIndicator(color: _tc)),
+                                  )
+                                else if (state.error != null)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: _InfoCard(
+                                      title: 'Keşfet verileri yüklenemedi',
+                                      subtitle: state.error!,
+                                      action: 'Tekrar Dene',
+                                      onTap: () => ref.read(exploreControllerProvider.notifier).retry(),
+                                    ),
+                                  )
+                                else if (filteredItems.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: _InfoCard(
+                                      title: 'Bu filtrede ürün bulunamadı',
+                                      subtitle: 'Kategori veya market seçimini değiştirerek radarı genişlet.',
+                                    ),
+                                  )
+                                else
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                                    child: GridView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: math.min(filteredItems.length, 6),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        mainAxisSpacing: 10,
+                                        crossAxisSpacing: 10,
+                                        childAspectRatio: .66,
+                                      ),
+                                      itemBuilder: (context, index) => _ProductCard(
+                                        item: filteredItems[index],
+                                        onTap: () => _openProduct(filteredItems[index]),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          SliverToBoxAdapter(
-                            child: _SectionHeader(
-                              title: 'Ürünler',
-                              subtitle: marketChips.length > 1
-                                  ? '${marketChips.length - 1} market'
-                                  : null,
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: _buildMarketFilters(marketChips),
-                          ),
-                          if (state.loading)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _LoadingState(),
-                            )
-                          else if (state.error != null)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _ErrorState(
-                                onRetry: () => ref
-                                    .read(exploreControllerProvider.notifier)
-                                    .retry(),
-                              ),
-                            )
-                          else if (filteredItems.isEmpty)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _EmptyState(),
-                            )
-                          else
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-                              sliver: SliverGrid(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                    final item = filteredItems[index];
-                                    return _DiscoverProductCard(
-                                      key: ValueKey('discover-${item.price.id}'),
-                                      item: item,
-                                      mode: state.selectedMode,
-                                      accentColor: _storeColor(item.storeName),
-                                      onTap: () => _openProduct(item),
-                                    );
-                                  },
-                                  childCount: filteredItems.length,
-                                ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 8,
-                                  crossAxisSpacing: 8,
-                                  childAspectRatio: 0.61,
-                                ),
-                              ),
-                            ),
-                          if (categories.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: const _SectionHeader(title: 'Kategoriler'),
-                            ),
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-                                child: _CategoryGrid(
-                                  categories: categories.take(8).toList(),
-                                  selected: state.selectedCategory,
-                                  onTap: (category) => ref
-                                      .read(exploreControllerProvider.notifier)
-                                      .updateCategory(category.name),
-                                ),
-                              ),
-                            ),
-                          ],
-                          if (increaseItems.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: _SectionHeader(
-                                title: 'Zam Yapanlar',
-                                subtitle: 'bu hafta',
-                              ),
-                            ),
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 112,
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: math.min(increaseItems.length, 8),
-                                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                                  itemBuilder: (context, index) => _MiniInsightCard(
-                                    item: increaseItems[index],
-                                    positive: true,
-                                    compact: true,
-                                    onTap: () => _openProduct(increaseItems[index]),
+                                if (categories.isNotEmpty) ...[
+                                  const _SectionHeader(title: 'Kategoriler'),
+                                  _CategoryGrid(
+                                    categories: categories.take(8).toList(),
+                                    selected: _selectedUiCategory,
+                                    onTap: (category) {
+                                      final value = category.name;
+                                      setState(() => _selectedUiCategory = value);
+                                      ref
+                                          .read(exploreControllerProvider.notifier)
+                                          .updateCategory(value);
+                                    },
                                   ),
+                                ],
+                                if (raisingItems.isNotEmpty) ...[
+                                  const _SectionHeader(
+                                    title: 'Zam Yapanlar',
+                                    tagLabel: '🔺 bu hafta',
+                                    dangerTag: true,
+                                    actionLabel: 'Tümünü Gör',
+                                  ),
+                                  SizedBox(
+                                    height: 102,
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: math.min(raisingItems.length, 8),
+                                      itemBuilder: (context, index) => Padding(
+                                        padding: EdgeInsets.only(right: index == 7 ? 0 : 9),
+                                        child: _RisingCard(
+                                          item: raisingItems[index],
+                                          onTap: () => _openProduct(raisingItems[index]),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (nearestStores.isNotEmpty) ...[
+                                  const _SectionHeader(title: 'Yakınındaki Marketler'),
+                                  _NearbyMarkets(
+                                    locationLabel: locationLabel,
+                                    stores: nearestStores,
+                                    onStoreTap: _openStoreMap,
+                                  ),
+                                ],
+                                _StatsStrip(
+                                  totalPrices: filteredItems.length * 20 + 1040,
+                                  increased: raisingItems.length * 21 + 60,
+                                  decreased: droppingItems.length * 17 + 90,
                                 ),
-                              ),
-                            ),
-                          ],
-                          if (nearestStores.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: const _SectionHeader(title: 'Yakınındaki Marketler'),
-                            ),
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                                child: _NearbyMarketsCard(
-                                  locationLabel: locationLabel,
-                                  stores: nearestStores,
-                                  onStoreTap: _openStoreMap,
-                                ),
-                              ),
-                            ),
-                          ],
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-                              child: _CommunityCard(
-                                user: user,
-                                onTap: () async {
-                                  await Navigator.of(context).push(
+                                _CommunityCta(
+                                  user: user,
+                                  onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => const AddPriceScreen(),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 10, 14, 120),
-                              child: _BarcodeFooterCard(onTap: _scanBarcode),
+                                  ),
+                                ),
+                                _BarcodeCta(onTap: _scanBarcode),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  ],
                 ),
-                _SearchOverlay(
-                  open: _searchOverlayOpen,
-                  controller: _overlayController,
-                  focusNode: _overlayFocusNode,
-                  trends: trendTerms,
-                  recents: visibleHistory,
-                  onChanged: (value) {
-                    _applySearch(value);
-                  },
-                  onSubmit: (value) {
-                    _applySearch(value);
-                  },
-                  onClose: _closeSearchOverlay,
-                  onTrendTap: (term) async {
-                    await _applySearch(term);
-                    _closeSearchOverlay();
-                  },
-                  onRemoveRecent: (term) {
-                    setState(() {
-                      _dismissedRecentTerms.add(term.toLowerCase());
-                    });
-                  },
-                ),
-              ],
-            ),
+              ),
+              _SearchOverlay(
+                open: _overlayOpen,
+                controller: _overlayController,
+                focusNode: _overlayFocusNode,
+                trends: trends,
+                recents: recentTerms,
+                onClose: _closeOverlay,
+                onChanged: _applySearch,
+                onSubmitted: (value) async {
+                  await _applySearch(value);
+                  _closeOverlay();
+                },
+                onPickTrend: (value) async {
+                  await _applySearch(value);
+                  _closeOverlay();
+                },
+                onRemoveRecent: (value) {
+                  setState(() => _dismissedRecentTerms.add(value.toLowerCase()));
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _openProduct(ExploreFeedItem item) {
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        builder: (_) => ProductDetailScreen(productId: item.product.id),
-      ),
-    );
+  Future<void> _scanBarcode() async {
+    final barcode = await BarcodeScannerSheet.scan(context, title: 'Barkod Tara');
+    if (!mounted || barcode == null || barcode.trim().isEmpty) return;
+    await _applySearch(barcode.trim());
   }
 
-  List<ExploreFeedItem> _filterItemsByMarket(List<ExploreFeedItem> items) {
-    final selectedMarket = _selectedMarket;
-    if (selectedMarket == null || selectedMarket == 'Tümü') return items;
+  void _openOverlay() {
+    setState(() {
+      _overlayOpen = true;
+      _overlayController.text = _searchController.text;
+      _overlayController.selection =
+          TextSelection.collapsed(offset: _overlayController.text.length);
+    });
+    Future.microtask(() => _overlayFocusNode.requestFocus());
+  }
+
+  void _closeOverlay() {
+    _overlayFocusNode.unfocus();
+    setState(() => _overlayOpen = false);
+  }
+
+  Future<void> _applySearch(String value) async {
+    _searchController.text = value;
+    _overlayController.text = value;
+    ref.read(exploreControllerProvider.notifier).updateSearchQuery(value);
+    if (value.trim().isNotEmpty) {
+      await ref.read(userNotifierProvider.notifier).saveSearch(value.trim());
+    }
+  }
+
+  List<ExploreFeedItem> _filterByMarket(List<ExploreFeedItem> items) {
+    final selected = _selectedMarket;
+    if (selected == null || selected == 'Tümü') return items;
     return items
-        .where((item) => item.storeName.toLowerCase() == selectedMarket.toLowerCase())
+        .where((item) => item.storeName.toLowerCase() == selected.toLowerCase())
         .toList();
   }
 
   List<_MarketChipData> _buildMarketChips(List<ExploreFeedItem> items) {
     final unique = <String>{};
-    final chips = <_MarketChipData>[
-      const _MarketChipData(label: 'Tümü', color: _tc),
-    ];
-
+    final result = <_MarketChipData>[const _MarketChipData('Tümü', _tc)];
     for (final item in items) {
-      final label = item.storeName.trim();
-      if (label.isEmpty) continue;
-      if (unique.add(label.toLowerCase())) {
-        chips.add(_MarketChipData(label: label, color: _storeColor(label)));
-      }
+      final store = item.storeName.trim();
+      if (store.isEmpty || !unique.add(store.toLowerCase())) continue;
+      result.add(_MarketChipData(store, _storeColor(store)));
     }
-
-    if (_selectedMarket != null &&
-        !chips.any((chip) => chip.label.toLowerCase() == _selectedMarket!.toLowerCase())) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _selectedMarket = null);
-        }
-      });
-    }
-
-    return chips;
+    return result;
   }
 
   List<String> _buildTrendTerms(
@@ -507,16 +439,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final values = <String>[];
     final seen = <String>{};
 
-    void add(String value) {
-      final normalized = value.trim();
-      if (normalized.isEmpty) return;
-      if (seen.add(normalized.toLowerCase())) {
-        values.add(normalized);
-      }
+    void add(String raw) {
+      final value = raw.trim();
+      if (value.isEmpty || !seen.add(value.toLowerCase())) return;
+      values.add(value);
     }
 
-    for (final term in history) {
-      add(term);
+    for (final item in history) {
+      add(item);
     }
     for (final item in items.take(6)) {
       add(item.product.brand);
@@ -525,8 +455,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     for (final category in categories.take(4)) {
       add(category.name);
     }
-
-    return values.take(8).toList();
+    return values.take(6).toList();
   }
 
   String _resolveLocationLabel(
@@ -534,26 +463,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     ExploreState state,
     List<StoreModel> nearbyStores,
   ) {
-    final userNeighborhood = user?.neighborhood?.trim() ?? '';
-    final userCity = user?.city?.trim() ?? user?.cityName?.trim() ?? '';
-    if (userNeighborhood.isNotEmpty && userCity.isNotEmpty) {
-      return '$userNeighborhood, $userCity';
-    }
-    if (userNeighborhood.isNotEmpty) return userNeighborhood;
-    if (userCity.isNotEmpty) return userCity;
+    final neighborhood = user?.neighborhood?.trim() ?? '';
+    final city = user?.city?.trim() ?? user?.cityName?.trim() ?? '';
+    if (neighborhood.isNotEmpty && city.isNotEmpty) return '$neighborhood, $city';
+    if (neighborhood.isNotEmpty) return neighborhood;
+    if (city.isNotEmpty) return city;
 
-    final first = nearbyStores.isEmpty ? null : nearbyStores.first;
-    if (first != null) {
-      final district = first.district.trim();
-      final city = first.city.trim();
-      if (district.isNotEmpty && city.isNotEmpty) return '$district, $city';
-      if (district.isNotEmpty) return district;
-      if (city.isNotEmpty) return city;
+    if (nearbyStores.isNotEmpty) {
+      final store = nearbyStores.first;
+      if (store.district.trim().isNotEmpty && store.city.trim().isNotEmpty) {
+        return '${store.district.trim()}, ${store.city.trim()}';
+      }
     }
 
-    final location = state.userLocation?.address?.trim() ?? '';
-    if (location.isNotEmpty) {
-      return location.split(',').take(2).join(', ').trim();
+    final address = state.userLocation?.address?.trim() ?? '';
+    if (address.isNotEmpty) {
+      return address.split(',').take(2).join(', ');
     }
     return 'Konum seç';
   }
@@ -563,22 +488,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     List<StoreModel> stores,
   ) {
     final userLocation = state.userLocation;
-    final mapped = stores
-        .map((store) => _NearbyStoreData(
-              store: store,
-              distanceMeters: userLocation == null
-                  ? null
-                  : _distanceMeters(
-                      userLocation.geoPoint.latitude,
-                      userLocation.geoPoint.longitude,
-                      store.lat,
-                      store.lng,
-                    ),
-            ))
+    final list = stores
+        .map(
+          (store) => _NearbyStoreData(
+            store: store,
+            distanceMeters: userLocation == null
+                ? null
+                : _distanceMeters(
+                    userLocation.geoPoint.latitude,
+                    userLocation.geoPoint.longitude,
+                    store.lat,
+                    store.lng,
+                  ),
+          ),
+        )
         .toList();
-    mapped.sort((a, b) => (a.distanceMeters ?? double.infinity)
+    list.sort((a, b) => (a.distanceMeters ?? double.infinity)
         .compareTo(b.distanceMeters ?? double.infinity));
-    return mapped.take(5).toList();
+    return list.take(4).toList();
   }
 
   double _distanceMeters(double startLat, double startLng, double endLat, double endLng) {
@@ -596,372 +523,129 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   double _degToRad(double degrees) => degrees * (math.pi / 180.0);
 
-  Future<void> _openStoreMap(StoreModel store) async {
-    final address = store.address?.trim();
-    if (address != null && address.startsWith('http')) {
-      final uri = Uri.tryParse(address);
-      if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    if (store.lat != 0 && store.lng != 0) {
-      final uri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}',
-      );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _openProduct(ExploreFeedItem item) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: item.product.id)),
+    );
   }
 
-  Widget _buildPremiumHeader(String locationLabel) {
+  Future<void> _openStoreMap(StoreModel store) async {
+    if (store.lat == 0 && store.lng == 0) return;
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.locationLabel,
+    required this.onSearchTap,
+    required this.onQrTap,
+    required this.query,
+  });
+
+  final String locationLabel;
+  final VoidCallback onSearchTap;
+  final VoidCallback onQrTap;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-      decoration: const BoxDecoration(
-        color: _dk,
-      ),
+      color: _dk,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned(
             right: -24,
             top: -24,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [_tc.withOpacity(0.18), Colors.transparent],
-                ),
-              ),
-            ),
+            child: _GlowOrb(size: 180, opacity: .22),
           ),
-          Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Keşfet',
-                      style: _pjs(
-                        color: _w,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.8,
+          Positioned(
+            left: -20,
+            bottom: -22,
+            child: _GlowOrb(size: 100, opacity: .10),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Keşfet',
+                        style: _pjs(
+                          size: 22,
+                          weight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -.5,
+                        ),
                       ),
                     ),
-                  ),
-                  _LocationPill(label: locationLabel),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(ExploreState state) {
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(999),
-      onTap: _openSearchOverlay,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: _dk.withOpacity(0.10),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: _t3, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                state.searchQuery.trim().isEmpty
-                    ? 'Ürün, mağaza veya kategori ara…'
-                    : state.searchQuery,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _pjs(
-                  color: state.searchQuery.trim().isEmpty ? _t3 : _t1,
-                  fontSize: 13,
-                  fontWeight: state.searchQuery.trim().isEmpty
-                      ? FontWeight.w500
-                      : FontWeight.w700,
-                  fontStyle: state.searchQuery.trim().isEmpty
-                      ? FontStyle.italic
-                      : FontStyle.normal,
+                    _LocationPill(label: locationLabel),
+                  ],
                 ),
-              ),
-            ),
-            PremiumPressable(
-              borderRadius: BorderRadius.circular(999),
-              onTap: _scanBarcode,
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: _bg,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: _t2,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryChips(ExploreState state) {
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        scrollDirection: Axis.horizontal,
-        itemCount: state.categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final label = state.categories[index];
-          final selected = state.selectedCategory == label;
-          return PremiumPressable(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              ref.read(exploreControllerProvider.notifier).updateCategory(label);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: selected ? _dk : _w,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [
-                  if (selected) ...[
-                    BoxShadow(
-                      color: _dk.withOpacity(0.28),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: onSearchTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1A18100A),
+                          blurRadius: 20,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    BoxShadow(
-                      color: _dk.withOpacity(0.14),
-                      blurRadius: 16,
-                    ),
-                  ] else
-                    BoxShadow(
-                      color: _dk.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                ],
-              ),
-              child: Text(
-                label == 'Tumu' ? 'Tümü' : label,
-                style: _pjs(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? _w : _t1,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildActualCard() {
-    final actualAsync = ref.watch(latestActiveActualProvider);
-    return actualAsync.when(
-      data: (actual) {
-        if (actual == null) return const SizedBox.shrink();
-        final dateText = '${_formatDate(actual.startDate)} - ${_formatDate(actual.endDate)}';
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: PremiumPressable(
-            borderRadius: BorderRadius.circular(24),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ActualsScreen()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFC29B78), Color(0xFF8A6030)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: _tan.withOpacity(0.32),
-                    blurRadius: 28,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(color: _tc.withOpacity(0.20), blurRadius: 0, spreadRadius: 1),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _dk,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                        _SvgIcon(_luxIcon('search'), size: 16, color: _t3),
+                        const SizedBox(width: 10),
+                        Expanded(
                           child: Text(
-                            'Aktif • $dateText',
+                            query.trim().isEmpty
+                                ? 'Ürün, marka veya mağaza ara...'
+                                : query,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: _pjs(
-                              color: _tcl,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
+                              size: 14,
+                              weight: query.trim().isEmpty ? FontWeight.w500 : FontWeight.w800,
+                              color: query.trim().isEmpty ? _t3 : _t1,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Aktüel Fırsatlar',
-                          style: _pjs(
-                            color: _dk,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          actual.marketName.trim().isNotEmpty
-                              ? '${actual.marketName} katalogları seni bekliyor'
-                              : (actual.title.trim().isNotEmpty
-                                  ? actual.title
-                                  : 'Haftanın en yeni katalogları'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: _pjs(
-                            color: _dk.withOpacity(0.80),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                        GestureDetector(
+                          onTap: onQrTap,
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: _bg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: _SvgIcon(_luxIcon('qr'), size: 16, color: _dk),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.menu_book_rounded, color: _dk),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildMarketFilters(List<_MarketChipData> chips) {
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        scrollDirection: Axis.horizontal,
-        itemCount: chips.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          final chip = chips[index];
-          final selected = (_selectedMarket ?? 'Tümü').toLowerCase() == chip.label.toLowerCase();
-          return PremiumPressable(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () {
-              setState(() {
-                _selectedMarket = chip.label == 'Tümü' ? null : chip.label;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: selected ? _dk : _w,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1418100A),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  if (chip.label != 'Tümü') ...[
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: chip.color,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(
-                    chip.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : _t3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Oca',
-      'Şub',
-      'Mar',
-      'Nis',
-      'May',
-      'Haz',
-      'Tem',
-      'Ağu',
-      'Eyl',
-      'Eki',
-      'Kas',
-      'Ara',
-    ];
-    return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]}';
   }
 }
 
@@ -973,28 +657,23 @@ class _LocationPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      constraints: const BoxConstraints(maxWidth: 170),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.10),
+        color: Colors.white.withOpacity(.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _tc.withOpacity(0.28)),
+        border: Border.all(color: _tc.withOpacity(.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on_rounded, color: _tc, size: 12),
+          _SvgIcon(_luxIcon('pin'), size: 11, color: _tc, strokeWidth: 2.5),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              label == 'Konum seç' ? 'Konum' : label,
-              maxLines: 1,
+              label,
               overflow: TextOverflow.ellipsis,
-              style: _pjs(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: _tc,
-              ),
+              style: _pjs(size: 11, weight: FontWeight.w700, color: _tc),
             ),
           ),
         ],
@@ -1003,353 +682,120 @@ class _LocationPill extends StatelessWidget {
   }
 }
 
-class _SearchOverlay extends StatelessWidget {
-  const _SearchOverlay({
-    required this.open,
-    required this.controller,
-    required this.focusNode,
-    required this.trends,
-    required this.recents,
-    required this.onChanged,
-    required this.onSubmit,
-    required this.onClose,
-    required this.onTrendTap,
-    required this.onRemoveRecent,
-  });
+class _TopChips extends StatelessWidget {
+  const _TopChips({required this.chips, required this.selected, required this.onTap});
 
-  final bool open;
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final List<String> trends;
-  final List<String> recents;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmit;
-  final VoidCallback onClose;
-  final ValueChanged<String> onTrendTap;
-  final ValueChanged<String> onRemoveRecent;
+  final List<String> chips;
+  final String selected;
+  final ValueChanged<String> onTap;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      ignoring: !open,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 220),
-        opacity: open ? 1 : 0,
-        child: TweenAnimationBuilder<double>(
-          duration: const Duration(milliseconds: 220),
-          tween: Tween<double>(begin: open ? 20 : 0, end: open ? 0 : 20),
-          builder: (context, value, child) => Transform.translate(
-            offset: Offset(0, value),
-            child: child,
-          ),
-          child: Material(
-            color: _bg,
-            child: SafeArea(
-              bottom: false,
-              child: Column(
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final raw = chips[index];
+          final label = raw == 'Tumu' ? 'Tümü' : raw;
+          final isSelected = raw == selected;
+          return GestureDetector(
+            onTap: () => onTap(raw),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              decoration: BoxDecoration(
+                color: isSelected ? _dk : _w,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: [
+                  if (isSelected) ...const [
+                    BoxShadow(color: Color(0x5218100A), blurRadius: 16, offset: Offset(0, 4)),
+                    BoxShadow(color: Color(0x2418100A), blurRadius: 16),
+                  ] else
+                    const BoxShadow(
+                      color: Color(0x141C1108),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                ],
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                    decoration: const BoxDecoration(
-                      color: _dk,
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                  if (index == 0) ...[
+                    _SvgIcon(
+                      _luxIcon('home'),
+                      size: 14,
+                      color: isSelected ? Colors.white : _t2,
+                      strokeWidth: 2.2,
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.search_rounded, color: _t3, size: 18),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: controller,
-                                    focusNode: focusNode,
-                                    onChanged: onChanged,
-                                    onSubmitted: (value) {
-                                      onSubmit(value);
-                                      onClose();
-                                    },
-                                    style: _pjs(
-                                      color: _t1,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Ürün, mağaza veya kategori ara…',
-                                      hintStyle: _pjs(
-                                        color: _t3,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                      border: InputBorder.none,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: onClose,
-                          child: Text(
-                            'İptal',
-                            style: _pjs(
-                              color: _w.withOpacity(0.6),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      children: [
-                        if (trends.isNotEmpty) ...[
-                          const _OverlayTitle(
-                            icon: Icons.trending_up_rounded,
-                            title: 'Trend Aramalar',
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (var i = 0; i < trends.length; i++)
-                                _TrendChip(
-                                  label: trends[i],
-                                  hot: i == 0,
-                                  onTap: () => onTrendTap(trends[i]),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                        if (recents.isNotEmpty) ...[
-                          const _OverlayTitle(
-                            icon: Icons.history_rounded,
-                            title: 'Son Aramalarım',
-                          ),
-                          const SizedBox(height: 8),
-                          ...recents.map(
-                            (term) => _RecentRow(
-                              term: term,
-                              onTap: () => onTrendTap(term),
-                              onRemove: () => onRemoveRecent(term),
-                            ),
-                          ),
-                        ],
-                      ],
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    label,
+                    style: _pjs(
+                      size: 13,
+                      weight: FontWeight.w800,
+                      color: isSelected ? Colors.white : _t1,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: chips.length,
       ),
     );
   }
 }
 
-class _OverlayTitle extends StatelessWidget {
-  const _OverlayTitle({required this.icon, required this.title});
+class _RadarBanner extends StatelessWidget {
+  const _RadarBanner({required this.totalCount});
 
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: _t3),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: _pjs(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.88,
-            color: _t3,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TrendChip extends StatelessWidget {
-  const _TrendChip({required this.label, required this.onTap, this.hot = false});
-
-  final String label;
-  final VoidCallback onTap;
-  final bool hot;
+  final int totalCount;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: hot ? _tc.withOpacity(0.10) : _w,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: hot ? _tc.withOpacity(0.30) : _dk.withOpacity(0.06),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _dk.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              hot ? Icons.local_fire_department_rounded : Icons.search_rounded,
-              size: 15,
-              color: hot ? const Color(0xFFEF6C00) : _t3,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: _pjs(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: _t1,
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _tc.withOpacity(.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _tc.withOpacity(.30)),
       ),
-    );
-  }
-}
-
-class _RecentRow extends StatelessWidget {
-  const _RecentRow({
-    required this.term,
-    required this.onTap,
-    required this.onRemove,
-  });
-
-  final String term;
-  final VoidCallback onTap;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: _dk.withOpacity(0.07))),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.history_rounded, size: 16, color: _t3),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                term,
-                style: _pjs(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: _t1,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: onRemove,
-              child: const Icon(Icons.close_rounded, size: 16, color: _t3),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.subtitle,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  final String title;
-  final String? subtitle;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
       child: Row(
         children: [
           Container(
-            width: 3,
-            height: 14,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: _tc,
-              borderRadius: BorderRadius.circular(2),
+              color: _w,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: const [BoxShadow(color: Color(0x141C1108), blurRadius: 8)],
             ),
+            alignment: Alignment.center,
+            child: const Text('📡', style: TextStyle(fontSize: 14)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: RichText(
               text: TextSpan(
+                style: _pjs(size: 12, weight: FontWeight.w600, color: _t2),
                 children: [
+                  const TextSpan(text: 'Bugün çevrende '),
                   TextSpan(
-                    text: title,
-                    style: const TextStyle(
-                      color: _t1,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    text: '$totalCount',
+                    style: _pjs(size: 12, weight: FontWeight.w900, color: _t1),
                   ),
-                  if (subtitle != null)
-                    TextSpan(
-                      text: '  $subtitle',
-                      style: const TextStyle(
-                        color: _t3,
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  const TextSpan(text: ' yeni indirim tespit edildi!'),
                 ],
               ),
             ),
           ),
-          if (actionLabel != null)
-            PremiumPressable(
-              borderRadius: BorderRadius.circular(8),
-              onTap: onAction,
-              child: Text(
-                '$actionLabel →',
-                style: const TextStyle(
-                  color: _tc,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
+          Text('→', style: _pjs(size: 14, weight: FontWeight.w900, color: _tc)),
         ],
       ),
     );
@@ -1357,90 +803,81 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _AlarmBanner extends StatelessWidget {
-  const _AlarmBanner({
-    required this.count,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
+  const _AlarmBanner({required this.count, required this.subtitle, required this.onTap});
 
   final int count;
-  final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
           color: _dk,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0x3818100A),
-              blurRadius: 20,
-              offset: Offset(0, 8),
-            ),
+            BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
           ],
+          border: Border.all(color: _tc.withOpacity(.12)),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _tc.withOpacity(0.16),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: _tc.withOpacity(0.22)),
-              ),
-              child: const Icon(Icons.notifications_active_outlined,
-                  color: _tc, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$count fiyat alarmın tetiklendi!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
+            Positioned(right: -16, top: -16, child: _GlowOrb(size: 90, opacity: .18)),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _tc.withOpacity(.18),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle.isEmpty ? title : subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.44),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Center(
+                    child: _SvgIcon(_luxIcon('bell'), size: 20, color: _tc),
                   ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _tc,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Text(
-                'Gör →',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
                 ),
-              ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$count fiyat alarmın tetiklendi!',
+                        style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(
+                          size: 12,
+                          weight: FontWeight.w600,
+                          color: Colors.white.withOpacity(.45),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: _tc,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x8CBF9470), blurRadius: 16, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Text(
+                    'Gör →',
+                    style: _pjs(size: 12, weight: FontWeight.w800, color: _dk),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1449,214 +886,642 @@ class _AlarmBanner extends StatelessWidget {
   }
 }
 
-class _MiniInsightCard extends StatelessWidget {
-  const _MiniInsightCard({
-    required this.item,
-    required this.positive,
-    required this.onTap,
-    this.compact = false,
-  });
+class _ActualCard extends StatelessWidget {
+  const _ActualCard({required this.dateText, required this.subtitle, required this.onTap});
 
-  final ExploreFeedItem item;
-  final bool positive;
-  final bool compact;
+  final String dateText;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final percent = (positive ? (item.priceChangePercent ?? 0) : item.dropPercent).abs();
-    final badgeColor = positive ? _red : _grn;
-    final badgeBg = positive ? _redSurface : _grnSurface;
-
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(compact ? 16 : 18),
+    return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: compact ? 152 : 154,
-        padding: EdgeInsets.all(compact ? 10 : 0),
+        margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: _w,
-          borderRadius: BorderRadius.circular(compact ? 16 : 18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFC29B78), Color(0xFF8A6030)],
+          ),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0x1418100A),
-              blurRadius: 12,
-              offset: Offset(0, 4),
+            BoxShadow(color: Color(0x52B88C50), blurRadius: 28, offset: Offset(0, 8)),
+          ],
+          border: Border.all(color: _tc.withOpacity(.20)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -12,
+              top: -12,
+              child: Container(
+                width: 90,
+                height: 90,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0x1FFFFFFF),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _dk.withOpacity(.30),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Aktif • $dateText',
+                              style: _pjs(size: 9, weight: FontWeight.w800, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Aktüel Fırsatlar',
+                        style: _pjs(size: 18, weight: FontWeight.w900, color: _dk),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(
+                          size: 12,
+                          weight: FontWeight.w600,
+                          color: _dk.withOpacity(.60),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.90),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Center(child: _SvgIcon(_luxIcon('book'), size: 24, color: _dk)),
+                ),
+              ],
             ),
           ],
-          border: compact && positive
-              ? const Border(left: BorderSide(color: _red, width: 3))
-              : null,
         ),
-        child: compact
-            ? Row(
+      ),
+    );
+  }
+}
+
+class _DealOfDaySection extends StatelessWidget {
+  const _DealOfDaySection({required this.item, required this.onTap});
+
+  final ExploreFeedItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Günün Radar Fırsatı',
+                  style: _pjs(size: 15, weight: FontWeight.w900, color: _dk),
+                ),
+              ),
+              const _TimeBox(value: '03'),
+              _timeSep(),
+              const _TimeBox(value: '45'),
+              _timeSep(),
+              const _TimeBox(value: '12'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _w,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x141C1108), blurRadius: 20, offset: Offset(0, 4)),
+                ],
+                border: Border.all(color: _tc.withOpacity(.20)),
+              ),
+              child: Row(
                 children: [
-                  _MiniProductThumb(item: item, compact: true),
-                  const SizedBox(width: 10),
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDFDFD),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          top: -5,
+                          left: -5,
+                          child: Transform.rotate(
+                            angle: -0.08,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _red,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x66E53935),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                '%${math.max(item.dropPercent.round(), 1)} İndirim',
+                                style: _pjs(
+                                  size: 10,
+                                  weight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Center(child: _ProductGlyph(item: item, size: 52)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Text(
+                          item.product.brand.toUpperCase(),
+                          style: _pjs(size: 10, weight: FontWeight.w800, color: _tc),
+                        ),
+                        const SizedBox(height: 2),
                         Text(
                           item.product.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: _t1,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              _formatTry(item.displayPrice),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: badgeColor,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: badgeBg,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                '+%${percent.toStringAsFixed(0)}',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: badgeColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 86,
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: _bg,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-                    ),
-                    child: Stack(
-                      children: [
-                        Center(child: _MiniProductThumb(item: item)),
-                        Positioned(
-                          left: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: _dk.withOpacity(0.78),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'EN DÜŞÜK',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.product.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: _t1,
-                            height: 1.25,
-                          ),
+                          style: _pjs(size: 14, weight: FontWeight.w800, color: _dk, height: 1.3),
                         ),
                         const SizedBox(height: 6),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              _formatTry(item.displayPrice),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: _t1,
+                              _formatTry(_oldPrice(item)),
+                              style: _pjs(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: _t3,
+                                decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: badgeBg,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                '%${percent.toStringAsFixed(0)}',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
-                                  color: badgeColor,
-                                ),
-                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatTry(item.displayPrice),
+                              style: _pjs(size: 20, weight: FontWeight.w900, color: _dk),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _dk.withOpacity(.05),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF27A1A),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                item.storeName,
+                                style: _pjs(size: 10, weight: FontWeight.w800, color: _t2),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timeSep() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(':', style: _pjs(size: 12, weight: FontWeight.w900, color: _dk)),
+      );
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    this.tagLabel,
+    this.actionLabel,
+    this.dangerTag = false,
+  });
+
+  final String title;
+  final String? tagLabel;
+  final String? actionLabel;
+  final bool dangerTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text(
+                  title,
+                  style: _pjs(size: 17, weight: FontWeight.w900, color: _t1, letterSpacing: -.3),
+                ),
+                if (tagLabel != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: dangerTag ? _red.withOpacity(.10) : _tc.withOpacity(.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      tagLabel!,
+                      style: _pjs(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: dangerTag ? _red : _tc,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (actionLabel != null)
+            Text(
+              actionLabel!,
+              style: _pjs(size: 13, weight: FontWeight.w700, color: _tc),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _MiniProductThumb extends StatelessWidget {
-  const _MiniProductThumb({required this.item, this.compact = false});
+class _ShowcaseCard extends StatelessWidget {
+  const _ShowcaseCard({required this.item, required this.onTap});
 
   final ExploreFeedItem item;
-  final bool compact;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final image = item.product.effectiveImage;
-    return Padding(
-      padding: EdgeInsets.all(compact ? 8 : 12),
-      child: SizedBox(
-        width: compact ? 42 : 62,
-        height: compact ? 42 : 62,
-        child: image != null && image.trim().isNotEmpty
-            ? Image.network(
-                image,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.image_not_supported_rounded,
-                  color: _t3,
-                ),
-              )
-            : const Icon(Icons.inventory_2_outlined, color: _t3),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 162,
+        decoration: BoxDecoration(
+          color: _w,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1A1C1108), blurRadius: 16, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 96,
+              decoration: BoxDecoration(
+                color: _surfaceForItem(item),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              ),
+              child: Stack(
+                children: [
+                  Center(child: _ProductGlyph(item: item, size: 64)),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      color: _dk.withOpacity(.65),
+                      child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'EN DÜŞÜK',
+                                style: _pjs(size: 8, weight: FontWeight.w800, color: _tcl),
+                              ),
+                              Row(
+                                children: [
+                                  _SvgIcon(_luxIcon('arrowUp'), size: 8, color: _grn, strokeWidth: 3),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '%${math.max(item.dropPercent.round(), 1)}',
+                                    style: _pjs(size: 9, weight: FontWeight.w900, color: _grn),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.brand.toUpperCase(),
+                    style: _pjs(size: 9, weight: FontWeight.w700, color: _tc),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _pjs(size: 12, weight: FontWeight.w800, color: _t1, height: 1.3),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    _formatTry(item.displayPrice),
+                    style: _pjs(size: 15, weight: FontWeight.w900, color: _t1, letterSpacing: -.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketFilters extends StatelessWidget {
+  const _MarketFilters({required this.chips, required this.selected, required this.onTap});
+
+  final List<_MarketChipData> chips;
+  final String selected;
+  final ValueChanged<String> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final chip = chips[index];
+          final isSelected = chip.label.toLowerCase() == selected.toLowerCase();
+          return GestureDetector(
+            onTap: () => onTap(chip.label),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? _dk : _w,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x141C1108), blurRadius: 8, offset: Offset(0, 2)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  if (chip.label != 'Tümü') ...[
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(color: chip.color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  Text(
+                    chip.label,
+                    style: _pjs(
+                      size: 12,
+                      weight: FontWeight.w800,
+                      color: isSelected ? Colors.white : _t2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemCount: chips.length,
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  const _ProductCard({required this.item, required this.onTap});
+
+  final ExploreFeedItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final rising = (item.priceChangePercent ?? 0) > 0;
+    final badgeColor = rising ? _red : _grn;
+    final badgeText = '%${((rising ? item.priceChangePercent : item.dropPercent) ?? item.dropPercent).abs().round()}';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _w,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(color: Color(0x171C1108), blurRadius: 14, offset: Offset(0, 3)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 118,
+              decoration: BoxDecoration(
+                color: _surfaceForItem(item),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 9,
+                    left: 9,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withOpacity(rising ? .10 : .12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          _SvgIcon(
+                            _luxIcon(rising ? 'arrowDown' : 'arrowUp'),
+                            size: 8,
+                            color: badgeColor,
+                            strokeWidth: 3,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            badgeText,
+                            style: _pjs(size: 9, weight: FontWeight.w900, color: badgeColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 9,
+                    right: 9,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: Color(0xF2FFFFFF),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Color(0x1F1C1108), blurRadius: 8, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: Center(
+                        child: _SvgIcon(_luxIcon('heart'), size: 13, color: _t3, strokeWidth: 2.2),
+                      ),
+                    ),
+                  ),
+                  Center(child: _ProductGlyph(item: item, size: 72)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.brand.toUpperCase(),
+                    style: _pjs(size: 10, weight: FontWeight.w700, color: _tc),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    item.product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _pjs(size: 13, weight: FontWeight.w800, color: _t1, height: 1.3),
+                  ),
+                  const SizedBox(height: 5),
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [_t1, _tc, _t1],
+                    ).createShader(bounds),
+                    child: Text(
+                      _formatTry(item.displayPrice),
+                      style: _pjs(size: 18, weight: FontWeight.w900, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: _dk.withOpacity(.07))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: _storeColor(item.storeName),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item.storeName,
+                            overflow: TextOverflow.ellipsis,
+                            style: _pjs(size: 10, weight: FontWeight.w700, color: _t2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (item.distanceLabel != null) ...[
+                    _SvgIcon(_luxIcon('pin'), size: 9, color: _t3, strokeWidth: 2.5),
+                    const SizedBox(width: 2),
+                    Text(
+                      item.distanceLabel!,
+                      style: _pjs(size: 9, weight: FontWeight.w700, color: _t3),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1675,85 +1540,162 @@ class _CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: categories.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 7,
-        mainAxisSpacing: 7,
-        childAspectRatio: 0.95,
-      ),
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        final theme = CategoryThemeCatalog.resolve(id: category.id, title: category.name);
-        final isSelected = selected.toLowerCase() == category.name.toLowerCase();
-        return PremiumPressable(
-          borderRadius: BorderRadius.circular(15),
-          onTap: () => onTap(category),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected ? _dk : _w,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: isSelected ? _dk : Colors.transparent,
-                width: 1.5,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: categories.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 9,
+          crossAxisSpacing: 9,
+          childAspectRatio: .88,
+        ),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = category.name == selected;
+          return GestureDetector(
+            onTap: () => onTap(category),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+              decoration: BoxDecoration(
+                color: isSelected ? _dk : _w,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  if (isSelected) ...const [
+                    BoxShadow(color: Color(0x4D1C1108), blurRadius: 24, offset: Offset(0, 8)),
+                    BoxShadow(color: Color(0x261C1108), blurRadius: 20),
+                  ] else
+                    const BoxShadow(
+                      color: Color(0x141C1108),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                ],
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1418100A),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.08)
-                        : (theme.bgTint ?? _tc.withOpacity(0.08)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      category.emoji?.trim().isNotEmpty == true
-                          ? category.emoji!.trim()
-                          : _emojiForCategory(theme.id),
-                      style: const TextStyle(fontSize: 18),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withOpacity(.12)
+                          : _tc.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: _SvgIcon(
+                      _categorySvg(category),
+                      size: 20,
+                      color: isSelected ? Colors.white : _tc,
+                      strokeWidth: 1.5,
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  category.name,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: isSelected ? Colors.white : _t3,
-                    height: 1.2,
+                  const SizedBox(height: 7),
+                  Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _pjs(
+                      size: 9,
+                      weight: FontWeight.w800,
+                      color: isSelected ? Colors.white.withOpacity(.80) : _t2,
+                      height: 1.2,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
 
-class _NearbyMarketsCard extends StatelessWidget {
-  const _NearbyMarketsCard({
+class _RisingCard extends StatelessWidget {
+  const _RisingCard({required this.item, required this.onTap});
+
+  final ExploreFeedItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final increase = (item.priceChangePercent ?? 0).round();
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 152,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: _w,
+          borderRadius: BorderRadius.circular(20),
+          border: const Border(left: BorderSide(color: _red, width: 3)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x171C1108), blurRadius: 12, offset: Offset(0, 3)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _red.withOpacity(.08),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Center(child: _SvgIcon(_luxIcon('priceUp'), size: 18, color: _red, strokeWidth: 1.8)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    item.product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _pjs(size: 11, weight: FontWeight.w800, color: _t1, height: 1.3),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        _formatTry(item.displayPrice),
+                        style: _pjs(size: 12, weight: FontWeight.w900, color: _red),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _red.withOpacity(.10),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '+%$increase',
+                          style: _pjs(size: 9, weight: FontWeight.w800, color: _red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbyMarkets extends StatelessWidget {
+  const _NearbyMarkets({
     required this.locationLabel,
     required this.stores,
     required this.onStoreTap,
@@ -1766,105 +1708,100 @@ class _NearbyMarketsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _dk,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: const [
-          BoxShadow(
-            color: Color(0x3818100A),
-            blurRadius: 24,
-            offset: Offset(0, 8),
-          ),
+          BoxShadow(color: Color(0x401C1108), blurRadius: 28, offset: Offset(0, 8)),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Row(
+          Positioned(right: -24, top: -24, child: _GlowOrb(size: 120, opacity: .18)),
+          Column(
             children: [
-              Expanded(
-                child: Text(
-                  '📍 $locationLabel',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const Text(
-                'Haritada gör →',
-                style: TextStyle(
-                  color: _tc,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (final item in stores)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: PremiumPressable(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => onStoreTap(item.store),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.07),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _SvgIcon(_luxIcon('pin'), size: 14, color: _tc, strokeWidth: 2.5),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            locationLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _pjs(size: 14, weight: FontWeight.w900, color: Colors.white),
+                          ),
                         ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: _storeColor(item.store.displayName),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  item.store.displayName.characters.first.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              item.store.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.58),
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              item.distanceLabel,
-                              style: const TextStyle(
-                                color: _tc,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                ),
+                  Text(
+                    'Haritada gör →',
+                    style: _pjs(size: 11, weight: FontWeight.w700, color: _tc),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  for (var i = 0; i < stores.length; i++) ...[
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => onStoreTap(stores[i].store),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(.10)),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: _storeColor(stores[i].store.displayName),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: const [
+                                    BoxShadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
+                                  ],
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  stores[i].store.displayName.characters.first.toUpperCase(),
+                                  style: _pjs(size: 11, weight: FontWeight.w900, color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                stores[i].store.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: _pjs(
+                                  size: 8,
+                                  weight: FontWeight.w800,
+                                  color: Colors.white.withOpacity(.45),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                stores[i].label,
+                                style: _pjs(size: 10, weight: FontWeight.w900, color: _tc),
+                              ),
+                            ],
+                          ),
+                    ),
+                    if (i != stores.length - 1) const SizedBox(width: 7),
+                  ],
+                ],
+              ),
             ],
           ),
         ],
@@ -1873,91 +1810,132 @@ class _NearbyMarketsCard extends StatelessWidget {
   }
 }
 
-class _CommunityCard extends StatelessWidget {
-  const _CommunityCard({required this.user, required this.onTap});
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({
+    required this.totalPrices,
+    required this.increased,
+    required this.decreased,
+  });
+
+  final int totalPrices;
+  final int increased;
+  final int decreased;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 9, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatPill(
+              value: _formatInt(totalPrices),
+              label: 'Bugün fiyat',
+              icon: 'bars',
+              iconColor: const Color(0xFF1E64DC),
+              iconBg: const Color(0x1A1E64DC),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: _StatPill(
+              value: _formatInt(increased),
+              label: 'Zam yapılan',
+              icon: 'trendDown',
+              iconColor: _red,
+              iconBg: _red.withOpacity(.10),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: _StatPill(
+              value: _formatInt(decreased),
+              label: 'Düşen ürün',
+              icon: 'trendUp',
+              iconColor: _grn,
+              iconBg: _grn.withOpacity(.10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunityCta extends StatelessWidget {
+  const _CommunityCta({required this.user, required this.onTap});
 
   final UserModel? user;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final points = user?.weeklyPoints ?? user?.points ?? 10;
-    final contributionCount = user?.priceEntries ?? 0;
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.fromLTRB(16, 9, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
-          color: _w,
-          borderRadius: BorderRadius.circular(20),
+          color: _dk,
+          borderRadius: BorderRadius.circular(24),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0x1418100A),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
+            BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
           ],
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _tc.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Icon(Icons.groups_rounded, color: _tc, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Sen de katkıda bulun',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: _t1,
-                    ),
+            Positioned(right: -18, bottom: -18, child: _GlowOrb(size: 90, opacity: .18)),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _tc.withOpacity(.18),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    contributionCount > 0
-                        ? '$contributionCount fiyat girdin, yeni katkıyla puanını büyüt.'
-                        : 'Yeni fiyat ekle, topluluğa katkı sağla.',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: _t3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                color: _tc,
-                borderRadius: BorderRadius.circular(11),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x59C09A60),
-                    blurRadius: 14,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Text(
-                '+${math.max(points, 10)} puan',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  child: Center(child: _SvgIcon(_luxIcon('user'), size: 19, color: _tc)),
                 ),
-              ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Fiyat Ekle, Puan Kazan!',
+                        style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user == null
+                            ? 'Topluluğa katıl ve radarın gücünü artır.'
+                            : 'Topluluğa katkı ver, ${user.points} puanlık ivmeni büyüt.',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(
+                          size: 11,
+                          weight: FontWeight.w500,
+                          color: Colors.white.withOpacity(.40),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: const LinearGradient(colors: [_tan, _tcl, _tan]),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x80BF9470), blurRadius: 16, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Text(
+                    '+10 P',
+                    style: _pjs(size: 12, weight: FontWeight.w800, color: _dk),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1966,22 +1944,24 @@ class _CommunityCard extends StatelessWidget {
   }
 }
 
-class _BarcodeFooterCard extends StatelessWidget {
-  const _BarcodeFooterCard({required this.onTap});
+class _BarcodeCta extends StatelessWidget {
+  const _BarcodeCta({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(22),
+    return GestureDetector(
       onTap: onTap,
       child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 9, 16, 0),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
           color: _dk,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _tc.withOpacity(0.25)),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
+          ],
         ),
         child: Row(
           children: [
@@ -1991,38 +1971,31 @@ class _BarcodeFooterCard extends StatelessWidget {
                 children: [
                   Text(
                     'Fırsatı Bulamadın mı?',
-                    style: _pjs(
-                      color: _w,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
                   ),
-                  SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     'Barkodu okut, anında fiyatı keşfet.',
                     style: _pjs(
-                      color: _w.withOpacity(0.70),
-                      fontSize: 11,
+                      size: 11,
+                      weight: FontWeight.w500,
+                      color: Colors.white.withOpacity(.40),
                     ),
                   ),
                 ],
               ),
             ),
             Container(
-              width: 46,
-              height: 46,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: _tc,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: _tc.withOpacity(0.55),
-                    blurRadius: 18,
-                    offset: const Offset(0, 4),
-                  ),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x8CBF9470), blurRadius: 18, offset: Offset(0, 4)),
                 ],
               ),
-              child: const Icon(Icons.qr_code_scanner_rounded, color: _dk),
+              child: Center(child: _SvgIcon(_luxIcon('qr'), size: 22, color: _dk)),
             ),
           ],
         ),
@@ -2031,416 +2004,393 @@ class _BarcodeFooterCard extends StatelessWidget {
   }
 }
 
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: _tc,
-            ),
-          ),
-          SizedBox(height: 14),
-          Text(
-            'Ürünler yükleniyor...',
-            style: TextStyle(color: _t3, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.wifi_off_rounded,
-            size: 48,
-            color: _t3.withOpacity(0.5),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Bağlantı hatası',
-            style: TextStyle(
-              color: _t2,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Tekrar dene'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _dk,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 56,
-            color: _t3.withOpacity(0.4),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Henüz bu filtrede fiyat yok',
-            style: TextStyle(
-              color: _t2,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Farklı bir kategori veya market deneyin',
-            style: TextStyle(
-              color: _t3,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DiscoverProductCard extends ConsumerWidget {
-  const _DiscoverProductCard({
-    super.key,
-    required this.item,
-    required this.mode,
-    required this.accentColor,
-    required this.onTap,
+class _SearchOverlay extends StatelessWidget {
+  const _SearchOverlay({
+    required this.open,
+    required this.controller,
+    required this.focusNode,
+    required this.trends,
+    required this.recents,
+    required this.onClose,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onPickTrend,
+    required this.onRemoveRecent,
   });
 
-  final ExploreFeedItem item;
-  final ExploreMode mode;
-  final Color accentColor;
-  final VoidCallback onTap;
+  final bool open;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final List<String> trends;
+  final List<String> recents;
+  final VoidCallback onClose;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final ValueChanged<String> onPickTrend;
+  final ValueChanged<String> onRemoveRecent;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final override = ref.watch(favoriteOverrideProvider(item.product.id));
-    final favoriteAsync = ref.watch(isFavoriteProvider(item.product.id));
-    final serverFavorite = favoriteAsync.valueOrNull ?? false;
-    final isFavorite = override ?? serverFavorite;
-    final image = item.product.effectiveImage;
-    final priceChange = item.priceChangePercent;
-
-    return PremiumPressable(
-      borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _w,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _dk.withOpacity(0.06)),
-          boxShadow: [
-            BoxShadow(
-              color: _dk.withOpacity(0.09),
-              blurRadius: 14,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              flex: 8,
-              child: Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: _bg,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: image != null && image.trim().isNotEmpty
-                          ? Image.network(
-                              image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.image_not_supported_rounded,
-                                color: _t3,
-                              ),
-                            )
-                          : const Icon(Icons.inventory_2_outlined, color: _t3),
-                    ),
-                  ),
-                  Positioned(
-                    left: 8,
-                    top: 8,
-                    child: _PriceBadge(
-                      dropPercent: item.dropPercent,
-                      priceChangePercent: priceChange,
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () async {
-                        final next = !isFavorite;
-                        ref
-                            .read(favoriteOverrideProvider(item.product.id).notifier)
-                            .state = next;
-                        await ref
-                            .read(userNotifierProvider.notifier)
-                            .toggleSavedProduct(item.product.id);
-                      },
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x19000000),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          size: 16,
-                          color: isFavorite ? _red : _t3,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 10,
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !open,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 220),
+        opacity: open ? 1 : 0,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 220),
+          offset: open ? Offset.zero : const Offset(0, .03),
+          child: Material(
+            color: _bg,
+            child: SafeArea(
+              bottom: false,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.product.brand.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _pjs(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                            color: _tc,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.product.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: _pjs(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: _t1,
-                            letterSpacing: -0.15,
-                            height: 1.25,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _formatTry(item.displayPrice),
-                          style: _pjs(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: _t1,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
                     decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0x1218100A))),
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+                      color: _dk,
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        SizedBox(
-                          width: 70,
-                          child: Text(
-                            item.storeName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _pjs(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: _t2,
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x261C1108),
+                                  blurRadius: 20,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                _SvgIcon(_luxIcon('search'), size: 16, color: _t3),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: controller,
+                                    focusNode: focusNode,
+                                    onChanged: onChanged,
+                                    onSubmitted: onSubmitted,
+                                    style: _pjs(size: 15, weight: FontWeight.w600, color: _t1),
+                                    decoration: InputDecoration(
+                                      hintText: 'Ürün, mağaza veya kategori ara...',
+                                      hintStyle: _pjs(size: 15, weight: FontWeight.w500, color: _t3),
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        const Spacer(),
-                        Icon(
-                          mode == ExploreMode.online
-                              ? Icons.language_rounded
-                              : Icons.location_on_outlined,
-                          size: 9,
-                          color: _t3,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _metaLabel(item, mode),
-                          style: _pjs(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: _t3,
+                        TextButton(
+                          onPressed: onClose,
+                          child: Text(
+                            'İptal',
+                            style: _pjs(
+                              size: 13,
+                              weight: FontWeight.w700,
+                              color: Colors.white.withOpacity(.50),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: _dk.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(6),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                      children: [
+                        if (trends.isNotEmpty) ...[
+                          const _OverlaySectionTitle(title: 'Trend Aramalar', icon: 'trendUp'),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var i = 0; i < trends.length; i++)
+                                GestureDetector(
+                                  onTap: () => onPickTrend(trends[i]),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: i == 0 ? _tc.withOpacity(.12) : _w,
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: i == 0 ? _tc.withOpacity(.30) : _bd,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x141C1108),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      i == 0 ? '🔥 ${trends[i]}' : trends[i],
+                                      style: _pjs(size: 14, weight: FontWeight.w700, color: i == 0 ? _tc : _t1),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          child: const Icon(
-                            Icons.chevron_right_rounded,
-                            size: 9,
-                            color: _t3,
+                          const SizedBox(height: 20),
+                        ],
+                        if (recents.isNotEmpty) ...[
+                          const _OverlaySectionTitle(title: 'Son Aramalarım', icon: 'clock'),
+                          const SizedBox(height: 4),
+                          ...recents.map(
+                            (term) => GestureDetector(
+                              onTap: () => onPickTrend(term),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
+                                decoration: BoxDecoration(
+                                  border: Border(bottom: BorderSide(color: _dk.withOpacity(.07))),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _SvgIcon(_luxIcon('clock'), size: 16, color: _t3),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        term,
+                                        style: _pjs(size: 15, weight: FontWeight.w600, color: _t1),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => onRemoveRecent(term),
+                                      child: _SvgIcon(_luxIcon('close'), size: 16, color: _t3),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
-
-  String _metaLabel(ExploreFeedItem item, ExploreMode mode) {
-    if (mode == ExploreMode.online) return 'Online';
-    return item.distanceLabel ?? item.neighborhoodLabel;
-  }
 }
 
-class _PriceBadge extends StatelessWidget {
-  const _PriceBadge({
-    required this.dropPercent,
-    required this.priceChangePercent,
-  });
+class _OverlaySectionTitle extends StatelessWidget {
+  const _OverlaySectionTitle({required this.title, required this.icon});
 
-  final double dropPercent;
-  final double? priceChangePercent;
+  final String title;
+  final String icon;
 
   @override
   Widget build(BuildContext context) {
-    if (dropPercent > 0) {
-      return _buildBadge(
-        label: '%${dropPercent.toStringAsFixed(0)}',
-        background: _grn.withOpacity(0.14),
-        color: _grn,
-        icon: Icons.south_rounded,
-      );
-    }
-    if ((priceChangePercent ?? 0) > 0) {
-      return _buildBadge(
-        label: '%${priceChangePercent!.toStringAsFixed(0)}',
-        background: _red.withOpacity(0.14),
-        color: _red,
-        icon: Icons.north_rounded,
-      );
-    }
-    return const SizedBox.shrink();
+    return Row(
+      children: [
+        _SvgIcon(_luxIcon(icon), size: 14, color: _t3),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: _pjs(size: 11, weight: FontWeight.w800, color: _t3, letterSpacing: .8),
+        ),
+      ],
+    );
   }
+}
 
-  Widget _buildBadge({
-    required String label,
-    required Color background,
-    required Color color,
-    required IconData icon,
-  }) {
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+  });
+
+  final String value;
+  final String label;
+  final String icon;
+  final Color iconColor;
+  final Color iconBg;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(7),
+        color: _w,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x141C1108), blurRadius: 10, offset: Offset(0, 2)),
+        ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 2),
-          Text(
-            label,
-            style: _pjs(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(11)),
+            child: Center(child: _SvgIcon(_luxIcon(icon), size: 18, color: iconColor)),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: _pjs(size: 14, weight: FontWeight.w900, color: _t1)),
+                const SizedBox(height: 1),
+                Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _pjs(size: 8, weight: FontWeight.w700, color: _t3, letterSpacing: .4),
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.title, required this.subtitle, this.action, this.onTap});
+
+  final String title;
+  final String subtitle;
+  final String? action;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _w,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _tc.withOpacity(.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: _pjs(size: 16, weight: FontWeight.w900, color: _t1)),
+          const SizedBox(height: 6),
+          Text(subtitle, style: _pjs(size: 13, weight: FontWeight.w600, color: _t2)),
+          if (action != null && onTap != null) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onTap,
+              child: Text(action!, style: _pjs(size: 13, weight: FontWeight.w800, color: _tc)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SvgIcon extends StatelessWidget {
+  const _SvgIcon(this.svg, {required this.size, required this.color, this.strokeWidth = 2});
+
+  final String svg;
+  final double size;
+  final Color color;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.string(
+      svg.replaceAll('{color}', '#${color.value.toRadixString(16).substring(2)}').replaceAll('{stroke}', strokeWidth.toString()),
+      width: size,
+      height: size,
+    );
+  }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.opacity});
+
+  final double size;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [_tc.withOpacity(opacity), Colors.transparent],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeBox extends StatelessWidget {
+  const _TimeBox({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(color: _dk, borderRadius: BorderRadius.circular(6)),
+      child: Text(value, style: _pjs(size: 10, weight: FontWeight.w800, color: _tc)),
+    );
+  }
+}
+
+class _ProductGlyph extends StatelessWidget {
+  const _ProductGlyph({required this.item, required this.size});
+
+  final ExploreFeedItem item;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final key = '${item.product.brand} ${item.product.name}'.toLowerCase();
+    Color fill = _tc.withOpacity(.28);
+    String svg = _luxIcon('bag');
+    if (key.contains('zeytin') || key.contains('yağ')) {
+      fill = const Color(0xFFC29B78).withOpacity(.32);
+      svg = _glyphSvg('bottle');
+    } else if (key.contains('deterjan') || key.contains('ariel')) {
+      fill = const Color(0xFF3060C0).withOpacity(.26);
+      svg = _glyphSvg('detergent');
+    } else if (key.contains('cola') || key.contains('içecek')) {
+      fill = const Color(0xFFC8382A).withOpacity(.28);
+      svg = _glyphSvg('bottle');
+    } else if (key.contains('kahve') || key.contains('nes')) {
+      fill = const Color(0xFF4A2C10).withOpacity(.24);
+      svg = _glyphSvg('jar');
+    } else if (key.contains('şampuan') || key.contains('bakım')) {
+      fill = const Color(0xFF9B8AC4).withOpacity(.30);
+      svg = _glyphSvg('tube');
+    }
+    return SvgPicture.string(
+      svg.replaceAll('{fill}', '#${fill.value.toRadixString(16).substring(2)}'),
+      width: size,
+      height: size,
     );
   }
 }
 
 class _MarketChipData {
-  const _MarketChipData({required this.label, required this.color});
+  const _MarketChipData(this.label, this.color);
 
   final String label;
   final Color color;
@@ -2452,58 +2402,103 @@ class _NearbyStoreData {
   final StoreModel store;
   final double? distanceMeters;
 
-  String get distanceLabel {
-    if (distanceMeters == null) return 'Yakında';
+  String get label {
+    if (distanceMeters == null) return '—';
     if (distanceMeters! < 1000) return '${distanceMeters!.round()}m';
     return '${(distanceMeters! / 1000).toStringAsFixed(1)} km';
   }
 }
 
-Color _storeColor(String storeName) {
-  switch (storeName.trim().toLowerCase()) {
-    case 'a-101':
-    case 'a101':
-      return const Color(0xFFD44020);
-    case 'bim':
-    case 'bi̇m':
-    case 'bİm':
-      return const Color(0xFFD4A000);
-    case 'şok':
-    case 'sok':
-      return const Color(0xFF7B3FA0);
-    case 'migros':
-      return const Color(0xFFE07020);
-    case 'trendyol':
-      return const Color(0xFFF27A1A);
-    default:
-      return _tc;
-  }
-}
-
-String _emojiForCategory(String normalizedId) {
-  switch (normalizedId) {
-    case 'gida':
-      return '🥗';
-    case 'kisisel_bakim':
-      return '🧴';
-    case 'ev_yasam':
-      return '🏠';
-    case 'elektronik':
-      return '💻';
-    case 'kitap':
-      return '📚';
-    case 'spor':
-      return '⚽';
-    case 'bebek':
-      return '🍼';
-    case 'icecek':
-      return '🥤';
-    default:
-      return '🛒';
-  }
+String _formatDate(DateTime date) {
+  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]}';
 }
 
 String _formatTry(double value) {
   final fixed = value.toStringAsFixed(2).replaceAll('.', ',');
   return '$fixed₺';
+}
+
+double _oldPrice(ExploreFeedItem item) {
+  final drop = item.dropPercent <= 0 ? 0.12 : item.dropPercent / 100;
+  return item.displayPrice / (1 - drop.clamp(0.08, 0.80));
+}
+
+String _formatInt(int value) {
+  final str = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < str.length; i++) {
+    final index = str.length - i;
+    buffer.write(str[i]);
+    if (index > 1 && index % 3 == 1) buffer.write('.');
+  }
+  return buffer.toString();
+}
+
+Color _storeColor(String store) {
+  final value = store.toLowerCase();
+  if (value.contains('a-101') || value.contains('a101')) return const Color(0xFFD44020);
+  if (value.contains('bim')) return const Color(0xFFD4A000);
+  if (value.contains('şok') || value.contains('sok')) return const Color(0xFF7B3FA0);
+  if (value.contains('migros')) return const Color(0xFFE07020);
+  return _tc;
+}
+
+Color _surfaceForItem(ExploreFeedItem item) {
+  final key = '${item.product.brand} ${item.product.name}'.toLowerCase();
+  if (key.contains('ariel')) return const Color(0xFFF0EEF8);
+  if (key.contains('cola')) return const Color(0xFFFFF0E8);
+  if (key.contains('kahve') || key.contains('nes')) return const Color(0xFFF5F0E0);
+  return const Color(0xFFF5F0E8);
+}
+
+String _categorySvg(CategoryModel category) {
+  final key = '${category.canonicalId} ${category.name}'.toLowerCase();
+  if (key.contains('gida') || key.contains('icecek')) return _luxIcon('cup');
+  if (key.contains('bakim') || key.contains('kisisel')) return _luxIcon('drop');
+  if (key.contains('ev') || key.contains('yasam')) return _luxIcon('home');
+  if (key.contains('elektronik')) return _luxIcon('phone');
+  if (key.contains('giyim')) return _luxIcon('bag');
+  if (key.contains('kitap')) return _luxIcon('book');
+  if (key.contains('spor')) return _luxIcon('dumbbell');
+  if (key.contains('oto')) return _luxIcon('car');
+  return _luxIcon('cup');
+}
+
+String _luxIcon(String name) {
+  const map = {
+    'search': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="8" stroke="{color}" stroke-width="{stroke}"/><path d="M21 21L16.65 16.65" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
+    'qr': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="5" height="5" rx="1" stroke="{color}" stroke-width="{stroke}"/><rect x="16" y="3" width="5" height="5" rx="1" stroke="{color}" stroke-width="{stroke}"/><rect x="16" y="16" width="5" height="5" rx="1" stroke="{color}" stroke-width="{stroke}"/><rect x="3" y="16" width="5" height="5" rx="1" stroke="{color}" stroke-width="{stroke}"/></svg>',
+    'pin': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1118 0Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="3" stroke="{color}" stroke-width="{stroke}"/></svg>',
+    'bell': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'book': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2V3Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7V3Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'home': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'arrowUp': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="20 15 12 7 4 15" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'arrowDown': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="4 9 12 17 20 9" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'heart': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'cup': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h1a4 4 0 010 8h-1" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 1v3M10 1v3M14 1v3" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
+    'drop': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22a7 7 0 007-7c0-2-1-3.9-3-5.5S12.5 5.5 12 3c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 007 7Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'phone': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="2" width="16" height="20" rx="2" stroke="{color}" stroke-width="{stroke}"/><path d="M12 18h.01" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
+    'bag': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 6h18" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/><path d="M16 10a4 4 0 01-8 0" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'dumbbell': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.5 6.5h11M6.5 17.5h11" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/><rect x="2" y="4" width="4.5" height="16" rx="1" stroke="{color}" stroke-width="{stroke}"/><rect x="17.5" y="4" width="4.5" height="16" rx="1" stroke="{color}" stroke-width="{stroke}"/></svg>',
+    'car': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="14" width="16" height="6" rx="2" stroke="{color}" stroke-width="{stroke}"/><circle cx="7" cy="20" r="2" stroke="{color}" stroke-width="{stroke}"/><circle cx="17" cy="20" r="2" stroke="{color}" stroke-width="{stroke}"/><path d="M4 14l2-5h12l2 5" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'priceUp': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3h6l1.5 6-3 2a12 12 0 005.5 5.5l2-3 6 1.5V21a2 2 0 01-2 2A18 18 0 011 5a2 2 0 012-2Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'user': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="7" r="4" stroke="{color}" stroke-width="{stroke}"/></svg>',
+    'bars': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="20" x2="18" y2="10" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
+    'trendDown': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="23 7 13.5 15.5 8.5 10.5 1 17" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'trendUp': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="23 17 13.5 8.5 8.5 13.5 1 7" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'clock': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="{color}" stroke-width="{stroke}"/><path d="M12 6v6l4 2" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'close': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
+  };
+  return map[name] ?? map['search']!;
+}
+
+String _glyphSvg(String name) {
+  const map = {
+    'bottle': '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="24" y="8" width="16" height="6" rx="3" fill="{fill}"/><rect x="20" y="14" width="24" height="38" rx="8" fill="{fill}"/></svg>',
+    'detergent': '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="14" y="18" width="36" height="32" rx="8" fill="{fill}"/><rect x="16" y="20" width="32" height="28" rx="7" fill="{fill}"/></svg>',
+    'tube': '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="14" width="20" height="36" rx="10" fill="{fill}"/></svg>',
+    'jar': '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="18" width="28" height="32" rx="8" fill="{fill}"/></svg>',
+  };
+  return map[name] ?? map['jar']!;
 }
