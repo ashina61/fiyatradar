@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/category_model.dart';
@@ -24,6 +25,36 @@ import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
+
+const _bg = Color(0xFFEDEAE3);
+const _dk = Color(0xFF18100A);
+const _w = Color(0xFFFAFAF8);
+const _tan = Color(0xFFB08848);
+const _tc = Color(0xFFBF9470);
+const _tcl = Color(0xFFD0A882);
+const _grn = Color(0xFF27A85A);
+const _red = Color(0xFFE53935);
+const _t1 = Color(0xFF18100A);
+const _t2 = Color(0xFF5E4A38);
+const _t3 = Color(0xFFA0887A);
+
+TextStyle _pjs({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? letterSpacing,
+  FontStyle? fontStyle,
+  double? height,
+}) {
+  return GoogleFonts.plusJakartaSans(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: letterSpacing,
+    fontStyle: fontStyle,
+    height: height,
+  );
+}
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -167,21 +198,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final marketChips = _buildMarketChips(filteredItems);
     final nearestStores = _resolveNearestStores(state, nearbyStores);
 
-    return Scaffold(
-      backgroundColor: FRColors.backgroundWarm,
-      body: SafeArea(
-        bottom: false,
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  _buildPremiumHeader(locationLabel),
-                  Expanded(
-                    child: Transform.translate(
-                      offset: const Offset(0, -16),
-                      child: CustomScrollView(
+    final themedData = Theme.of(context);
+    return Theme(
+      data: themedData.copyWith(
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(themedData.textTheme),
+        primaryTextTheme: GoogleFonts.plusJakartaSansTextTheme(themedData.primaryTextTheme),
+      ),
+      child: Scaffold(
+        backgroundColor: _bg,
+        body: SafeArea(
+          bottom: false,
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    _buildPremiumHeader(locationLabel),
+                    Expanded(
+                      child: Transform.translate(
+                        offset: const Offset(0, -16),
+                        child: CustomScrollView(
                         physics: const BouncingScrollPhysics(),
                         slivers: [
                           SliverToBoxAdapter(
@@ -386,32 +423,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       ),
                     ),
                   ),
-                ],
-              ),
-              _SearchOverlay(
-                open: _searchOverlayOpen,
-                controller: _overlayController,
-                focusNode: _overlayFocusNode,
-                trends: trendTerms,
-                recents: visibleHistory,
-                onChanged: (value) {
-                  _applySearch(value);
-                },
-                onSubmit: (value) {
-                  _applySearch(value);
-                },
-                onClose: _closeSearchOverlay,
-                onTrendTap: (term) async {
-                  await _applySearch(term);
-                  _closeSearchOverlay();
-                },
-                onRemoveRecent: (term) {
-                  setState(() {
-                    _dismissedRecentTerms.add(term.toLowerCase());
-                  });
-                },
-              ),
-            ],
+                  ],
+                ),
+                _SearchOverlay(
+                  open: _searchOverlayOpen,
+                  controller: _overlayController,
+                  focusNode: _overlayFocusNode,
+                  trends: trendTerms,
+                  recents: visibleHistory,
+                  onChanged: (value) {
+                    _applySearch(value);
+                  },
+                  onSubmit: (value) {
+                    _applySearch(value);
+                  },
+                  onClose: _closeSearchOverlay,
+                  onTrendTap: (term) async {
+                    await _applySearch(term);
+                    _closeSearchOverlay();
+                  },
+                  onRemoveRecent: (term) {
+                    setState(() {
+                      _dismissedRecentTerms.add(term.toLowerCase());
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -578,39 +616,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Widget _buildPremiumHeader(String locationLabel) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
       decoration: const BoxDecoration(
-        color: FRColors.espresso,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        color: _dk,
       ),
       child: Stack(
         children: [
           Positioned(
-            right: -36,
-            top: -28,
+            right: -24,
+            top: -24,
             child: Container(
-              width: 150,
-              height: 150,
-              decoration: const BoxDecoration(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Color(0x38C09A60), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withOpacity(0.03),
-                      Colors.transparent,
-                    ],
-                  ),
+                  colors: [_tc.withOpacity(0.18), Colors.transparent],
                 ),
               ),
             ),
@@ -620,26 +641,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               Row(
                 children: [
                   Expanded(
-                    child: Row(
-                      children: const [
-                        Text(
-                          'Keşfet',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.6,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        _HeaderDot(),
-                      ],
+                    child: Text(
+                      'Keşfet',
+                      style: _pjs(
+                        color: _w,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.8,
+                      ),
                     ),
                   ),
                   _LocationPill(label: locationLabel),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
             ],
           ),
         ],
@@ -649,25 +664,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildSearchBar(ExploreState state) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(999),
       onTap: _openSearchOverlay,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: FRColors.espresso,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
-          boxShadow: const [
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
             BoxShadow(
-              color: FRColors.shadowMedium,
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              color: _dk.withOpacity(0.10),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.3), size: 18),
+            const Icon(Icons.search_rounded, color: _t3, size: 18),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -676,10 +690,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     : state.searchQuery,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: state.searchQuery.trim().isEmpty
-                      ? Colors.white.withOpacity(0.26)
-                      : Colors.white,
+                style: _pjs(
+                  color: state.searchQuery.trim().isEmpty ? _t3 : _t1,
                   fontSize: 13,
                   fontWeight: state.searchQuery.trim().isEmpty
                       ? FontWeight.w500
@@ -691,18 +703,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               ),
             ),
             PremiumPressable(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(999),
               onTap: _scanBarcode,
               child: Container(
-                width: 30,
-                height: 30,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Icon(
                   Icons.qr_code_scanner_rounded,
-                  color: Colors.white.withOpacity(0.6),
+                  color: _t2,
                   size: 18,
                 ),
               ),
@@ -734,25 +746,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: selected ? FRColors.espresso : FRColors.white,
+                color: selected ? _dk : _w,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: selected ? FRColors.espresso : FRColors.border,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: FRColors.shadowSoft,
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
+                boxShadow: [
+                  if (selected) ...[
+                    BoxShadow(
+                      color: _dk.withOpacity(0.28),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: _dk.withOpacity(0.14),
+                      blurRadius: 16,
+                    ),
+                  ] else
+                    BoxShadow(
+                      color: _dk.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
                 ],
               ),
               child: Text(
                 label == 'Tumu' ? 'Tümü' : label,
-                style: TextStyle(
+                style: _pjs(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: selected ? FRColors.camelStrong : FRColors.textPrimary,
+                  color: selected ? _w : _t1,
                 ),
               ),
             ),
@@ -771,7 +791,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         return Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
           child: PremiumPressable(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ActualsScreen()),
@@ -783,15 +803,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [FRColors.camelStrong, FRColors.camelDeep],
+                  colors: [Color(0xFFC29B78), Color(0xFF8A6030)],
                 ),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: const [
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x42C29B78),
-                    blurRadius: 20,
-                    offset: Offset(0, 8),
+                    color: _tan.withOpacity(0.32),
+                    blurRadius: 28,
+                    offset: const Offset(0, 8),
                   ),
+                  BoxShadow(color: _tc.withOpacity(0.20), blurRadius: 0, spreadRadius: 1),
                 ],
               ),
               child: Row(
@@ -803,23 +824,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: FRColors.espresso,
+                            color: _dk,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             'Aktif • $dateText',
-                            style: const TextStyle(
-                              color: FRColors.camelStrong,
+                            style: _pjs(
+                              color: _tcl,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Aktüel Fırsatlar',
-                          style: TextStyle(
-                            color: FRColors.espresso,
+                          style: _pjs(
+                            color: _dk,
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                           ),
@@ -833,8 +854,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                                   : 'Haftanın en yeni katalogları'),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xCC1C1108),
+                          style: _pjs(
+                            color: _dk.withOpacity(0.80),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -849,7 +870,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       color: Colors.white.withOpacity(0.92),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.menu_book_rounded, color: FRColors.espresso),
+                    child: const Icon(Icons.menu_book_rounded, color: _dk),
                   ),
                 ],
               ),
@@ -943,22 +964,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 }
 
-class _HeaderDot extends StatelessWidget {
-  const _HeaderDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 5,
-      height: 5,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: FRColors.camelStrong,
-      ),
-    );
-  }
-}
-
 class _LocationPill extends StatelessWidget {
   const _LocationPill({required this.label});
 
@@ -970,24 +975,24 @@ class _LocationPill extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 180),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withOpacity(0.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x33C09A60)),
+        border: Border.all(color: _tc.withOpacity(0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on_outlined, color: FRColors.camelStrong, size: 14),
+          const Icon(Icons.location_on_rounded, color: _tc, size: 12),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              label,
+              label == 'Konum seç' ? 'Konum' : label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: _pjs(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: Colors.white.withOpacity(0.72),
+                color: _tc,
               ),
             ),
           ),
@@ -1029,11 +1034,15 @@ class _SearchOverlay extends StatelessWidget {
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 220),
         opacity: open ? 1 : 0,
-        child: AnimatedSlide(
+        child: TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 220),
-          offset: open ? Offset.zero : const Offset(0, 0.02),
+          tween: Tween<double>(begin: open ? 20 : 0, end: open ? 0 : 20),
+          builder: (context, value, child) => Transform.translate(
+            offset: Offset(0, value),
+            child: child,
+          ),
           child: Material(
-            color: FRColors.backgroundWarm,
+            color: _bg,
             child: SafeArea(
               bottom: false,
               child: Column(
@@ -1041,7 +1050,7 @@ class _SearchOverlay extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
                     decoration: const BoxDecoration(
-                      color: FRColors.espresso,
+                      color: _dk,
                       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                     ),
                     child: Row(
@@ -1050,17 +1059,12 @@ class _SearchOverlay extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
                               children: [
-                                Icon(
-                                  Icons.search_rounded,
-                                  color: Colors.white.withOpacity(0.35),
-                                  size: 18,
-                                ),
+                                const Icon(Icons.search_rounded, color: _t3, size: 18),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: TextField(
@@ -1071,15 +1075,15 @@ class _SearchOverlay extends StatelessWidget {
                                       onSubmit(value);
                                       onClose();
                                     },
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: _pjs(
+                                      color: _t1,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     decoration: InputDecoration(
                                       hintText: 'Ürün, mağaza veya kategori ara…',
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withOpacity(0.26),
+                                      hintStyle: _pjs(
+                                        color: _t3,
                                         fontStyle: FontStyle.italic,
                                       ),
                                       border: InputBorder.none,
@@ -1094,8 +1098,8 @@ class _SearchOverlay extends StatelessWidget {
                           onPressed: onClose,
                           child: Text(
                             'İptal',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                            style: _pjs(
+                              color: _w.withOpacity(0.6),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -1164,15 +1168,15 @@ class _OverlayTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: FRColors.textMuted),
+        Icon(icon, size: 14, color: _t3),
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
+          style: _pjs(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            letterSpacing: 0.7,
-            color: FRColors.textMuted,
+            letterSpacing: 0.88,
+            color: _t3,
           ),
         ),
       ],
@@ -1195,16 +1199,16 @@ class _TrendChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: hot ? const Color(0xFFFFF4E8) : FRColors.white,
+          color: hot ? _tc.withOpacity(0.10) : _w,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: hot ? const Color(0x40C09A60) : FRColors.border,
+            color: hot ? _tc.withOpacity(0.30) : _dk.withOpacity(0.06),
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: FRColors.shadowSoft,
+              color: _dk.withOpacity(0.08),
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -1219,10 +1223,10 @@ class _TrendChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 13,
+              style: _pjs(
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: FRColors.textPrimary,
+                color: _t1,
               ),
             ),
           ],
@@ -1250,26 +1254,26 @@ class _RecentRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: FRColors.border)),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: _dk.withOpacity(0.07))),
         ),
         child: Row(
           children: [
-            const Icon(Icons.history_rounded, size: 16, color: FRColors.textMuted),
+            const Icon(Icons.history_rounded, size: 16, color: _t3),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 term,
-                style: const TextStyle(
+                style: _pjs(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: FRColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  color: _t1,
                 ),
               ),
             ),
             GestureDetector(
               onTap: onRemove,
-              child: const Icon(Icons.close_rounded, size: 16, color: FRColors.textMuted),
+              child: const Icon(Icons.close_rounded, size: 16, color: _t3),
             ),
           ],
         ),
@@ -1969,25 +1973,25 @@ class _BarcodeFooterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
-          color: FRColors.espresso,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: FRColors.borderStrong),
+          color: _dk,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _tc.withOpacity(0.25)),
         ),
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Fırsatı Bulamadın mı?',
-                    style: TextStyle(
-                      color: Colors.white,
+                    style: _pjs(
+                      color: _w,
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1995,8 +1999,8 @@ class _BarcodeFooterCard extends StatelessWidget {
                   SizedBox(height: 3),
                   Text(
                     'Barkodu okut, anında fiyatı keşfet.',
-                    style: TextStyle(
-                      color: FRColors.whiteMuted,
+                    style: _pjs(
+                      color: _w.withOpacity(0.70),
                       fontSize: 11,
                     ),
                   ),
@@ -2007,10 +2011,17 @@ class _BarcodeFooterCard extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: FRColors.camelStrong,
+                color: _tc,
                 borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: _tc.withOpacity(0.55),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.qr_code_scanner_rounded, color: FRColors.espresso),
+              child: const Icon(Icons.qr_code_scanner_rounded, color: _dk),
             ),
           ],
         ),
@@ -2150,31 +2161,32 @@ class _DiscoverProductCard extends ConsumerWidget {
     final priceChange = item.priceChangePercent;
 
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: FRColors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
+          color: _w,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _dk.withOpacity(0.06)),
+          boxShadow: [
             BoxShadow(
-              color: FRColors.shadowSoft,
-              blurRadius: 12,
-              offset: Offset(0, 5),
+              color: _dk.withOpacity(0.09),
+              blurRadius: 14,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
           children: [
             Expanded(
-              flex: 9,
+              flex: 8,
               child: Stack(
                 children: [
                   Container(
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F2EC),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    decoration: const BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
@@ -2252,11 +2264,11 @@ class _DiscoverProductCard extends ConsumerWidget {
                           item.product.brand.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 9,
+                          style: _pjs(
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: FRColors.camelStrong,
+                            letterSpacing: 0.4,
+                            color: _tc,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -2264,20 +2276,22 @@ class _DiscoverProductCard extends ConsumerWidget {
                           item.product.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: _pjs(
+                            fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: FRColors.textPrimary,
+                            color: _t1,
+                            letterSpacing: -0.15,
                             height: 1.25,
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           _formatTry(item.displayPrice),
-                          style: const TextStyle(
-                            fontSize: 16,
+                          style: _pjs(
+                            fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: FRColors.textPrimary,
+                            color: _t1,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ],
@@ -2287,48 +2301,48 @@ class _DiscoverProductCard extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: FRColors.border)),
-                      color: Color(0x051C1108),
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+                      border: Border(top: BorderSide(color: Color(0x1218100A))),
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 6,
-                          height: 6,
+                          width: 7,
+                          height: 7,
                           decoration: BoxDecoration(
                             color: accentColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Expanded(
+                        SizedBox(
+                          width: 70,
                           child: Text(
                             item.storeName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: FRColors.textMuted,
+                            style: _pjs(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: _t2,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const Spacer(),
                         Icon(
                           mode == ExploreMode.online
                               ? Icons.language_rounded
                               : Icons.location_on_outlined,
-                          size: 10,
-                          color: FRColors.textMuted,
+                          size: 9,
+                          color: _t3,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           _metaLabel(item, mode),
-                          style: const TextStyle(
+                          style: _pjs(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: FRColors.textMuted,
+                            color: _t3,
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -2336,13 +2350,13 @@ class _DiscoverProductCard extends ConsumerWidget {
                           width: 14,
                           height: 14,
                           decoration: BoxDecoration(
-                            color: FRColors.successSurface,
-                            borderRadius: BorderRadius.circular(999),
+                            color: _dk.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(
-                            Icons.check_rounded,
-                            size: 10,
-                            color: FRColors.success,
+                            Icons.chevron_right_rounded,
+                            size: 9,
+                            color: _t3,
                           ),
                         ),
                       ],
@@ -2377,16 +2391,16 @@ class _PriceBadge extends StatelessWidget {
     if (dropPercent > 0) {
       return _buildBadge(
         label: '%${dropPercent.toStringAsFixed(0)}',
-        background: FRColors.successSurface,
-        color: FRColors.success,
+        background: _grn.withOpacity(0.14),
+        color: _grn,
         icon: Icons.south_rounded,
       );
     }
     if ((priceChangePercent ?? 0) > 0) {
       return _buildBadge(
         label: '%${priceChangePercent!.toStringAsFixed(0)}',
-        background: FRColors.dangerSurface,
-        color: FRColors.danger,
+        background: _red.withOpacity(0.14),
+        color: _red,
         icon: Icons.north_rounded,
       );
     }
@@ -2412,7 +2426,7 @@ class _PriceBadge extends StatelessWidget {
           const SizedBox(width: 2),
           Text(
             label,
-            style: TextStyle(
+            style: _pjs(
               color: color,
               fontSize: 9,
               fontWeight: FontWeight.w900,
@@ -2445,16 +2459,24 @@ class _NearbyStoreData {
 }
 
 Color _storeColor(String storeName) {
-  const palette = <Color>[
-    Color(0xFFD44020),
-    Color(0xFFF5C518),
-    Color(0xFF8B5CF6),
-    Color(0xFFF0A030),
-    Color(0xFF2E7D32),
-    Color(0xFF1976D2),
-  ];
-  final index = storeName.trim().toLowerCase().hashCode.abs() % palette.length;
-  return palette[index];
+  switch (storeName.trim().toLowerCase()) {
+    case 'a-101':
+    case 'a101':
+      return const Color(0xFFD44020);
+    case 'bim':
+    case 'bi̇m':
+    case 'bİm':
+      return const Color(0xFFD4A000);
+    case 'şok':
+    case 'sok':
+      return const Color(0xFF7B3FA0);
+    case 'migros':
+      return const Color(0xFFE07020);
+    case 'trendyol':
+      return const Color(0xFFF27A1A);
+    default:
+      return _tc;
+  }
 }
 
 String _emojiForCategory(String normalizedId) {
