@@ -11,7 +11,7 @@ class HomeProductCard extends StatelessWidget {
     super.key,
     required this.product,
     required this.onTap,
-    this.width = 174,
+    this.width = 168,
     this.showStore = true,
     this.trendPercent,
     this.isPriceRising = false,
@@ -57,6 +57,7 @@ class HomeProductCard extends StatelessWidget {
             .withOpacity(isPriceRising ? 0.10 : 0.12),
         badgeIcon: isPriceRising ? Icons.south_east_rounded : Icons.north_east_rounded,
         isFavorite: isSaved,
+        imageHeight: 164,
         onTap: onTap,
         footerTrailing: showStore && product.preferredAffiliateUrl != null
             ? GestureDetector(
