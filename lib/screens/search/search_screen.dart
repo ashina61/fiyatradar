@@ -300,7 +300,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         crossAxisCount: 2,
                                         mainAxisSpacing: 10,
                                         crossAxisSpacing: 10,
-                                        childAspectRatio: .66,
+                                        childAspectRatio: .72,
                                       ),
                                       itemBuilder: (context, index) => _ProductCard(
                                         item: filteredItems[index],
