@@ -15,7 +15,9 @@ import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
 import '../../providers/explore_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
@@ -864,10 +866,6 @@ class _AlarmBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = user != null && user!.points >= 0
-        ? '1.240 kişi bu hafta fiyat ekledi'
-        : '1.240 kişi bu hafta fiyat ekledi';
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2221,6 +2219,10 @@ class _CommunityCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = user != null && user!.points > 0
+        ? '${_formatInt(user!.points)} puanla katkı sağlamaya devam et'
+        : 'Fiyat ekleyerek topluluğa katkı sağla ve puan kazan';
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
