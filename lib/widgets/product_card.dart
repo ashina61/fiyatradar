@@ -47,7 +47,7 @@ class ProductCard extends ConsumerWidget {
                       top: Radius.circular(AppRadius.lg),
                     ),
                   ),
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
                   child: Hero(
                     tag: 'product_${product.id}',
                     child: AppNetworkImage(

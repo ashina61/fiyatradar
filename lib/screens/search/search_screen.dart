@@ -21,6 +21,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/lux_product_card.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -606,7 +607,18 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: _dk,
+      decoration: const BoxDecoration(
+        color: _dk,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33211510),
+            blurRadius: 30,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1242,14 +1254,19 @@ class _ShowcaseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 96,
+              height: 104,
               decoration: BoxDecoration(
                 color: _surfaceForItem(item),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
               ),
               child: Stack(
                 children: [
-                  Center(child: _ProductGlyph(item: item, size: 64)),
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+                      child: _ProductGlyph(item: item, size: 88),
+                    ),
+                  ),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1380,150 +1397,36 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rising = (item.priceChangePercent ?? 0) > 0;
     final badgeColor = rising ? _red : _grn;
-    final badgeText = '%${((rising ? item.priceChangePercent : item.dropPercent) ?? item.dropPercent).abs().round()}';
+    final badgeValue = ((rising ? item.priceChangePercent : item.dropPercent) ?? item.dropPercent)
+        .abs()
+        .round();
 
-    return GestureDetector(
+    return LuxProductCard(
+      brand: item.product.brand,
+      title: item.product.name,
+      priceLabel: _formatTry(item.displayPrice),
+      imageUrl: item.product.effectiveImage,
+      storeName: item.storeName,
+      storeColor: _storeColor(item.storeName),
+      badgeLabel: '%$badgeValue',
+      badgeColor: badgeColor,
+      badgeBackgroundColor: badgeColor.withOpacity(rising ? .10 : .12),
+      badgeIcon: rising ? Icons.south_east_rounded : Icons.north_east_rounded,
+      imageBackgroundColor: _surfaceForItem(item),
+      footerTrailing: item.distanceLabel == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SvgIcon(_luxIcon('pin'), size: 9, color: _t3, strokeWidth: 2.5),
+                const SizedBox(width: 2),
+                Text(
+                  item.distanceLabel!,
+                  style: _pjs(size: 9, weight: FontWeight.w700, color: _t3),
+                ),
+              ],
+            ),
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _w,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: const [
-            BoxShadow(color: Color(0x171C1108), blurRadius: 14, offset: Offset(0, 3)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 118,
-              decoration: BoxDecoration(
-                color: _surfaceForItem(item),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 9,
-                    left: 9,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withOpacity(rising ? .10 : .12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          _SvgIcon(
-                            _luxIcon(rising ? 'arrowDown' : 'arrowUp'),
-                            size: 8,
-                            color: badgeColor,
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            badgeText,
-                            style: _pjs(size: 9, weight: FontWeight.w900, color: badgeColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 9,
-                    right: 9,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: const BoxDecoration(
-                        color: Color(0xF2FFFFFF),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Color(0x1F1C1108), blurRadius: 8, offset: Offset(0, 2)),
-                        ],
-                      ),
-                      child: Center(
-                        child: _SvgIcon(_luxIcon('heart'), size: 13, color: _t3, strokeWidth: 2.2),
-                      ),
-                    ),
-                  ),
-                  Center(child: _ProductGlyph(item: item, size: 72)),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.product.brand.toUpperCase(),
-                    style: _pjs(size: 10, weight: FontWeight.w700, color: _tc),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: _pjs(size: 13, weight: FontWeight.w800, color: _t1, height: 1.3),
-                  ),
-                  const SizedBox(height: 5),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [_t1, _tc, _t1],
-                    ).createShader(bounds),
-                    child: Text(
-                      _formatTry(item.displayPrice),
-                      style: _pjs(size: 18, weight: FontWeight.w900, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: _dk.withOpacity(.07))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: _storeColor(item.storeName),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.storeName,
-                            overflow: TextOverflow.ellipsis,
-                            style: _pjs(size: 10, weight: FontWeight.w700, color: _t2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (item.distanceLabel != null) ...[
-                    _SvgIcon(_luxIcon('pin'), size: 9, color: _t3, strokeWidth: 2.5),
-                    const SizedBox(width: 2),
-                    Text(
-                      item.distanceLabel!,
-                      style: _pjs(size: 9, weight: FontWeight.w700, color: _t3),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
