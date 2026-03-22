@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../theme/fr_colors.dart';
@@ -67,31 +69,50 @@ class LuxProductCard extends StatelessWidget {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
               child: Container(
-                height: 124,
+                height: 148,
                 decoration: BoxDecoration(
                   color: imageBackgroundColor,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                 ),
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
+                    _BlurredImageBackdrop(
+                      imageUrl: imageUrl,
+                      cacheKey: 'lux_card_backdrop_${storeName}_$title',
+                      tintColor: imageBackgroundColor,
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withOpacity(0.10),
+                            imageBackgroundColor.withOpacity(0.08),
+                            imageBackgroundColor.withOpacity(0.26),
+                          ],
+                        ),
+                      ),
+                    ),
                     Positioned.fill(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 30, right: 8, bottom: 8, left: 8),
+                        padding: const EdgeInsets.fromLTRB(14, 28, 14, 12),
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: AppNetworkImage(
                             imageUrl: imageUrl,
                             cacheKey: 'lux_card_${storeName}_$title',
                             fit: BoxFit.contain,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                       ),
                     ),
                     if (badgeLabel != null && badgeLabel!.trim().isNotEmpty)
                       Positioned(
-                        top: 9,
-                        left: 9,
+                        top: 10,
+                        left: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -118,11 +139,11 @@ class LuxProductCard extends StatelessWidget {
                         ),
                       ),
                     Positioned(
-                      top: 9,
-                      right: 9,
+                      top: 10,
+                      right: 10,
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        width: 30,
+                        height: 30,
                         decoration: const BoxDecoration(
                           color: Color(0xF2FFFFFF),
                           shape: BoxShape.circle,
@@ -136,7 +157,7 @@ class LuxProductCard extends StatelessWidget {
                         ),
                         child: Icon(
                           isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          size: 15,
+                          size: 16,
                           color: isFavorite ? FRColors.danger : FRColors.textMuted,
                         ),
                       ),
@@ -146,7 +167,7 @@ class LuxProductCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -161,7 +182,7 @@ class LuxProductCard extends StatelessWidget {
                       letterSpacing: 0.2,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     title,
                     maxLines: 2,
@@ -173,7 +194,7 @@ class LuxProductCard extends StatelessWidget {
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 8),
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [
@@ -193,12 +214,13 @@ class LuxProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: FRColors.espresso.withOpacity(0.07))),
               ),
@@ -241,6 +263,40 @@ class LuxProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BlurredImageBackdrop extends StatelessWidget {
+  const _BlurredImageBackdrop({
+    required this.imageUrl,
+    required this.cacheKey,
+    required this.tintColor,
+  });
+
+  final String? imageUrl;
+  final String cacheKey;
+  final Color tintColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Transform.scale(
+          scale: 1.45,
+          child: AppNetworkImage(
+            imageUrl: imageUrl,
+            cacheKey: cacheKey,
+            fit: BoxFit.cover,
+            borderRadius: BorderRadius.zero,
+          ),
+        ),
+        BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(color: tintColor.withOpacity(0.18)),
+        ),
+      ],
     );
   }
 }
