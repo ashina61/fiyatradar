@@ -218,6 +218,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
                                     final dailyDealItem = _resolveDailyDealItem(
                                       dailyDealProduct: dailyDealProduct,
+                                      allItems: state.items,
                                       filteredItems: filteredItems,
                                     );
 
@@ -512,6 +513,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   ExploreFeedItem? _resolveDailyDealItem({
     required ProductModel dailyDealProduct,
+    required List<ExploreFeedItem> allItems,
     required List<ExploreFeedItem> filteredItems,
   }) {
     final matches = filteredItems.where((item) => item.product.id == dailyDealProduct.id);
@@ -525,7 +527,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return sortedMatches.first;
     }
 
-    final fallbackMatches = state.items.where((item) => item.product.id == dailyDealProduct.id);
+    final fallbackMatches = allItems.where((item) => item.product.id == dailyDealProduct.id);
     if (fallbackMatches.isEmpty) return null;
 
     final sortedFallback = fallbackMatches.toList()
