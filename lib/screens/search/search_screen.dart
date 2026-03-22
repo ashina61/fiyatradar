@@ -590,7 +590,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _openProduct(ExploreFeedItem item) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ProductDetailScreen(product: item.product),
+        builder: (_) => ProductDetailScreen(productId: item.product.id),
       ),
     );
   }
