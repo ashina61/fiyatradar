@@ -16,6 +16,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/banner_card.dart';
 import '../../widgets/editor_choice_widgets.dart';
+import '../../widgets/home_product_card.dart';
 import '../../widgets/market_badge.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
@@ -617,150 +618,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final trend = trendByProduct[product.id];
                 final hasReliableTrend = trend != null && trend.isFinite && trend.abs() >= 0.1;
 
-                return PremiumPressable(
-                  borderRadius: BorderRadius.circular(22),
+                return HomeProductCard(
+                  product: product,
+                  width: 174,
+                  trendPercent: hasReliableTrend ? trend : null,
+                  isPriceRising: (trend ?? 0) > 0,
+                  isSaved: savedProducts.contains(product.id),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ProductDetailScreen(productId: product.id),
-                    ),
-                  ),
-                  child: Container(
-                    width: 174,
-                    decoration: _cardDecoration(radius: 22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          height: 136,
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                          decoration: const BoxDecoration(
-                            color: FRColors.studio,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                          ),
-                          child: Stack(
-                            children: [
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: CachedNetworkImage(
-                                    imageUrl: product.effectiveImage ?? '',
-                                    fit: BoxFit.contain,
-                                    errorWidget: (_, __, ___) => const Icon(
-                                      Icons.image_not_supported_rounded,
-                                      color: FRColors.textMuted,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (hasReliableTrend)
-                                Positioned(
-                                  left: 0,
-                                  top: 0,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: FRColors.shadowStrong,
-                                          blurRadius: 12,
-                                          offset: Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: _TrendBadge(changePercent: trend),
-                                  ),
-                                ),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    color: FRColors.surface.withOpacity(0.9),
-                                    shape: BoxShape.circle,
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: FRColors.shadowStrong,
-                                        blurRadius: 10,
-                                        offset: Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    savedProducts.contains(product.id)
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_border_rounded,
-                                    color: savedProducts.contains(product.id)
-                                        ? FRColors.danger
-                                        : FRColors.textMuted,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product.brand.isNotEmpty ? product.brand : 'Marka yok',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: FRColors.textMuted,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  product.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.25,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: MarketBadge(
-                                    label: (product.lastStore ?? '').trim().isNotEmpty
-                                        ? product.lastStore!.trim()
-                                        : 'Mağaza bilgisi yok',
-                                    compact: true,
-                                    onTap: product.preferredAffiliateUrl == null
-                                        ? null
-                                        : () => _launchAffiliateLink(product.preferredAffiliateUrl!),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  hasPrice
-                                      ? formatTRY(product.lastPrice ?? 0)
-                                      : 'Fiyat bekleniyor',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: hasPrice ? 17 : 11,
-                                    fontWeight: hasPrice ? FontWeight.w900 : FontWeight.w600,
-                                    color: hasPrice ? FRColors.espressoSoft : FRColors.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 );
