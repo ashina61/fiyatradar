@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/category_model.dart';
 import '../../models/notification_model.dart';
+import '../../models/product_model.dart';
 import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
@@ -18,6 +19,7 @@ import '../../providers/explore_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
@@ -99,6 +101,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
     final nearbyStores = ref.watch(nearbyStoresProvider).valueOrNull ?? const <StoreModel>[];
     final user = ref.watch(userModelStreamProvider).valueOrNull;
+    final dailyDealAsync = ref.watch(dailyDealProductProvider);
     final actual = ref.watch(latestActiveActualProvider).valueOrNull;
 
     if (_searchController.text != state.searchQuery) {
@@ -129,10 +132,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final nearestStores = _resolveNearestStores(state, nearbyStores);
     final alarmNotifications = notifications.where((n) => n.type == 'alarm').toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final totalDiscountCount = math.max(droppingItems.length * 7 + 114, 142);
-    final heroItem = droppingItems.isNotEmpty
-        ? droppingItems.first
-        : (filteredItems.isNotEmpty ? filteredItems.first : null);
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -170,7 +169,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                           Expanded(
                             child: ListView(
-                              padding: const EdgeInsets.only(bottom: 36),
+                              padding: const EdgeInsets.only(bottom: 120),
                               physics: const BouncingScrollPhysics(),
                               children: [
                                 const SizedBox(height: 14),
@@ -185,7 +184,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         .updateCategory(value);
                                   },
                                 ),
-                                _RadarBanner(totalCount: totalDiscountCount),
                                 if (alarmNotifications.isNotEmpty)
                                   _AlarmBanner(
                                     count: alarmNotifications.length,
@@ -212,8 +210,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     ),
                                   ),
-                                if (heroItem != null)
-                                  _DealOfDaySection(item: heroItem, onTap: () => _openProduct(heroItem)),
+                                dailyDealAsync.when(
+                                  data: (dailyDealProduct) {
+                                    if (dailyDealProduct == null) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    final dailyDealItem = _resolveDailyDealItem(
+                                      dailyDealProduct: dailyDealProduct,
+                                      filteredItems: filteredItems,
+                                    );
+
+                                    if (dailyDealItem == null) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return _DealOfDaySection(
+                                      item: dailyDealItem,
+                                      onTap: () => _openProduct(dailyDealItem),
+                                    );
+                                  },
+                                  loading: () => const SizedBox.shrink(),
+                                  error: (_, __) => const SizedBox.shrink(),
+                                ),
                                 if (droppingItems.isNotEmpty) ...[
                                   const _SectionHeader(
                                     title: 'Fiyatı Düşenler',
@@ -463,24 +482,55 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ExploreState state,
     List<StoreModel> nearbyStores,
   ) {
+    final address = state.userLocation?.address?.trim() ?? '';
+    if (address.isNotEmpty) {
+      return address
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .take(2)
+          .join(', ');
+    }
+
     final neighborhood = user?.neighborhood?.trim() ?? '';
     final city = user?.city?.trim() ?? user?.cityName?.trim() ?? '';
-    if (neighborhood.isNotEmpty && city.isNotEmpty) return '$neighborhood, $city';
-    if (neighborhood.isNotEmpty) return neighborhood;
-    if (city.isNotEmpty) return city;
+    if (state.userLocation != null && neighborhood.isNotEmpty && city.isNotEmpty) {
+      return '$neighborhood, $city';
+    }
+    if (state.userLocation != null && neighborhood.isNotEmpty) return neighborhood;
+    if (state.userLocation != null && city.isNotEmpty) return city;
 
-    if (nearbyStores.isNotEmpty) {
+    if (state.userLocation != null && nearbyStores.isNotEmpty) {
       final store = nearbyStores.first;
       if (store.district.trim().isNotEmpty && store.city.trim().isNotEmpty) {
         return '${store.district.trim()}, ${store.city.trim()}';
       }
     }
 
-    final address = state.userLocation?.address?.trim() ?? '';
-    if (address.isNotEmpty) {
-      return address.split(',').take(2).join(', ');
+    return 'Konum Aranıyor...';
+  }
+
+  ExploreFeedItem? _resolveDailyDealItem({
+    required ProductModel dailyDealProduct,
+    required List<ExploreFeedItem> filteredItems,
+  }) {
+    final matches = filteredItems.where((item) => item.product.id == dailyDealProduct.id);
+    if (matches.isNotEmpty) {
+      final sortedMatches = matches.toList()
+        ..sort((a, b) {
+          final dropCompare = b.dropPercent.compareTo(a.dropPercent);
+          if (dropCompare != 0) return dropCompare;
+          return a.displayPrice.compareTo(b.displayPrice);
+        });
+      return sortedMatches.first;
     }
-    return 'Konum seç';
+
+    final fallbackMatches = state.items.where((item) => item.product.id == dailyDealProduct.id);
+    if (fallbackMatches.isEmpty) return null;
+
+    final sortedFallback = fallbackMatches.toList()
+      ..sort((a, b) => a.displayPrice.compareTo(b.displayPrice));
+    return sortedFallback.first;
   }
 
   List<_NearbyStoreData> _resolveNearestStores(
@@ -746,57 +796,6 @@ class _TopChips extends StatelessWidget {
         },
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemCount: chips.length,
-      ),
-    );
-  }
-}
-
-class _RadarBanner extends StatelessWidget {
-  const _RadarBanner({required this.totalCount});
-
-  final int totalCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: _tc.withOpacity(.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _tc.withOpacity(.30)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: _w,
-              borderRadius: BorderRadius.circular(9),
-              boxShadow: const [BoxShadow(color: Color(0x141C1108), blurRadius: 8)],
-            ),
-            alignment: Alignment.center,
-            child: const Text('📡', style: TextStyle(fontSize: 14)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: _pjs(size: 12, weight: FontWeight.w600, color: _t2),
-                children: [
-                  const TextSpan(text: 'Bugün çevrende '),
-                  TextSpan(
-                    text: '$totalCount',
-                    style: _pjs(size: 12, weight: FontWeight.w900, color: _t1),
-                  ),
-                  const TextSpan(text: ' yeni indirim tespit edildi!'),
-                ],
-              ),
-            ),
-          ),
-          Text('→', style: _pjs(size: 14, weight: FontWeight.w900, color: _tc)),
-        ],
       ),
     );
   }
@@ -1901,23 +1900,28 @@ class _CommunityCta extends StatelessWidget {
                 const SizedBox(width: 13),
                 Expanded(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Fiyat Ekle, Puan Kazan!',
+                        softWrap: true,
                         style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        user == null
-                            ? 'Topluluğa katıl ve radarın gücünü artır.'
-                            : 'Topluluğa katkı ver, ${user!.points} puanlık ivmeni büyüt.',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _pjs(
-                          size: 11,
-                          weight: FontWeight.w500,
-                          color: Colors.white.withOpacity(.40),
+                      Flexible(
+                        child: Text(
+                          user == null
+                              ? 'Topluluğa katıl ve radarın gücünü artır.'
+                              : 'Topluluğa katkı ver, ${user!.points} puanlık ivmeni büyüt.',
+                          softWrap: true,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _pjs(
+                            size: 11,
+                            weight: FontWeight.w500,
+                            color: Colors.white.withOpacity(.40),
+                          ),
                         ),
                       ),
                     ],
@@ -2364,29 +2368,13 @@ class _ProductGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final key = '${item.product.brand} ${item.product.name}'.toLowerCase();
-    Color fill = _tc.withOpacity(.28);
-    String svg = _luxIcon('bag');
-    if (key.contains('zeytin') || key.contains('yağ')) {
-      fill = const Color(0xFFC29B78).withOpacity(.32);
-      svg = _glyphSvg('bottle');
-    } else if (key.contains('deterjan') || key.contains('ariel')) {
-      fill = const Color(0xFF3060C0).withOpacity(.26);
-      svg = _glyphSvg('detergent');
-    } else if (key.contains('cola') || key.contains('içecek')) {
-      fill = const Color(0xFFC8382A).withOpacity(.28);
-      svg = _glyphSvg('bottle');
-    } else if (key.contains('kahve') || key.contains('nes')) {
-      fill = const Color(0xFF4A2C10).withOpacity(.24);
-      svg = _glyphSvg('jar');
-    } else if (key.contains('şampuan') || key.contains('bakım')) {
-      fill = const Color(0xFF9B8AC4).withOpacity(.30);
-      svg = _glyphSvg('tube');
-    }
-    return SvgPicture.string(
-      svg.replaceAll('{fill}', '#${fill.value.toRadixString(16).substring(2)}'),
+    return AppNetworkImage(
+      imageUrl: item.product.effectiveImage,
+      cacheKey: item.product.id,
       width: size,
       height: size,
+      fit: BoxFit.contain,
+      borderRadius: BorderRadius.circular(12),
     );
   }
 }

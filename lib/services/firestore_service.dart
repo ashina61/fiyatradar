@@ -481,6 +481,83 @@ class FirestoreService {
         });
   }
 
+  Stream<ProductModel?> getDailyDealProduct() {
+    final dealDocStream = _firestore.collection('daily_deal').doc('current').snapshots();
+
+    return dealDocStream.asyncMap((doc) async {
+      if (doc.exists) {
+        final raw = doc.data();
+        final data = raw is Map<String, dynamic> ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+        final productId = (data['productId'] ?? data['id'] ?? data['product_id'] ?? '')
+            .toString()
+            .trim();
+
+        if (productId.isNotEmpty) {
+          final product = await getProduct(productId);
+          if (product != null) return product;
+        }
+
+        final embeddedName = (data['name'] ?? '').toString().trim();
+        if (embeddedName.isNotEmpty) {
+          return ProductModel(
+            id: productId.isNotEmpty ? productId : doc.id,
+            name: embeddedName,
+            brand: (data['brand'] ?? '').toString().trim(),
+            categories: _parseProductCategories(data),
+            mainImage: (data['mainImage'] ?? data['imageUrl'] ?? data['imageThumbUrl'] ?? data['imageMediumUrl'])?.toString(),
+            imageUrls: List<String>.from(data['imageUrls'] ?? const []),
+            imageUrl: data['imageUrl']?.toString(),
+            imageThumbUrl: data['imageThumbUrl']?.toString(),
+            imageMediumUrl: data['imageMediumUrl']?.toString(),
+            imagePath: data['imagePath']?.toString(),
+            imageSource: (data['imageSource'] ?? 'admin_manual').toString(),
+            aiGenerated: data['aiGenerated'] == true,
+            aiPrompt: data['aiPrompt']?.toString(),
+            imageApproved: data['imageApproved'] == true,
+            description: data['description']?.toString(),
+            barcode: data['barcode']?.toString(),
+            userId: (data['userId'] ?? data['createdByUid'])?.toString(),
+            viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
+            priceEntryCount: (data['priceEntryCount'] as num?)?.toInt() ?? 0,
+            lastPrice: (data['lastPrice'] as num?)?.toDouble(),
+            lastStore: data['lastStore']?.toString(),
+            isEditorPick: data['isEditorPick'] == true,
+            editorPickRank: (data['editorPickRank'] as num?)?.toInt(),
+            affiliateLink: data['affiliateLink']?.toString(),
+            affiliateUrl: data['affiliateUrl']?.toString(),
+            buyLink: data['buyLink']?.toString(),
+            createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+          );
+        }
+      }
+
+      final dailyProducts = await _productsRef
+          .where('isDailyDeal', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (dailyProducts.docs.isEmpty) return null;
+
+      final product = ProductModel.fromFirestore(dailyProducts.docs.first);
+      await _ensureOpenFoodFactsImage(product);
+      return product;
+    });
+  }
+
+  List<String> _parseProductCategories(Map<String, dynamic> data) {
+    final rawCategories = data['categories'];
+    if (rawCategories is List) {
+      return rawCategories
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    final legacyCategory = (data['category'] ?? '').toString().trim();
+    return legacyCategory.isEmpty ? const [] : <String>[legacyCategory];
+  }
+
   Future<List<ProductModel>> searchProducts(String query) async {
     final normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery.isEmpty) return const [];

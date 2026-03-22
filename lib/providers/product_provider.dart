@@ -96,6 +96,11 @@ final productProvider = FutureProvider.family<ProductModel?, String>((ref, produ
   return ref.watch(catalogServiceProvider).getProduct(productId);
 });
 
+final dailyDealProductProvider = StreamProvider<ProductModel?>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value(null);
+  return ref.watch(firestoreServiceProvider).getDailyDealProduct();
+});
+
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
 // Category filter for search screen (set from home screen category tap)
