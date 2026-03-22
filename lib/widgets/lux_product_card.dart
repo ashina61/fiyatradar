@@ -24,7 +24,6 @@ class LuxProductCard extends StatelessWidget {
     this.backgroundColor = Colors.white,
     this.imageBackgroundColor = const Color(0xFFF3EBE4),
     this.footerTrailing,
-    this.imageHeight = 164,
   });
 
   final String brand;
@@ -42,7 +41,6 @@ class LuxProductCard extends StatelessWidget {
   final Color backgroundColor;
   final Color imageBackgroundColor;
   final Widget? footerTrailing;
-  final double imageHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -66,13 +64,12 @@ class LuxProductCard extends StatelessWidget {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
               child: Container(
-                height: imageHeight,
+                height: 148,
                 decoration: BoxDecoration(
                   color: imageBackgroundColor,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
@@ -100,7 +97,7 @@ class LuxProductCard extends StatelessWidget {
                     ),
                     Positioned.fill(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 18, 10, 8),
+                        padding: const EdgeInsets.fromLTRB(14, 28, 14, 12),
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: AppNetworkImage(
@@ -170,7 +167,7 @@ class LuxProductCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -191,13 +188,13 @@ class LuxProductCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: FRColors.espressoSoft,
-                      height: 1.25,
+                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [
@@ -211,18 +208,19 @@ class LuxProductCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
+            const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: FRColors.espresso.withOpacity(0.07))),
               ),

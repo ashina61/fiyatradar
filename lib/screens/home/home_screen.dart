@@ -17,7 +17,6 @@ import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/banner_card.dart';
 import '../../widgets/editor_choice_widgets.dart';
 import '../../widgets/home_product_card.dart';
-import '../../widgets/lux_product_card.dart';
 import '../../widgets/market_badge.dart';
 import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
@@ -156,10 +155,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: EdgeInsets.fromLTRB(24, topPadding + 16, 24, 42),
+            padding: EdgeInsets.fromLTRB(24, topPadding + 16, 24, 50),
             decoration: const BoxDecoration(
               color: FRColors.espressoSoft,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Color(0x33211510),
@@ -488,16 +490,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           GridView.count(
             primary: false,
             padding: EdgeInsets.zero,
             crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 10,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            childAspectRatio: 1.18,
+            childAspectRatio: 1.0,
             children: [
               _insightCard(
                 icon: Icons.price_change_rounded,
@@ -531,8 +533,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String meta,
   }) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 138, maxHeight: 148),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: _cardDecoration(radius: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +544,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             label,
             maxLines: 2,
@@ -561,21 +562,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 21,
               fontWeight: FontWeight.w900,
               color: FRColors.espressoSoft,
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             meta,
-            maxLines: 2,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 10.5,
               color: FRColors.textMuted,
-              height: 1.28,
+              height: 1.32,
             ),
           ),
         ],
@@ -607,7 +608,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 286,
+            height: 258,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
@@ -619,7 +620,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 return HomeProductCard(
                   product: product,
-                  width: 168,
+                  width: 174,
                   trendPercent: hasReliableTrend ? trend : null,
                   isPriceRising: (trend ?? 0) > 0,
                   isSaved: savedProducts.contains(product.id),
@@ -654,50 +655,171 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: 'Editörün Seçimi',
             badge: const ApprovedBadge(),
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 284,
-            child: LuxProductCard(
-              brand: product.brand,
-              title: product.name,
-              priceLabel: hasPrice
-                  ? formatTRY(product.lastPrice ?? 0)
-                  : 'Fiyat bilgisi bekleniyor',
-              imageUrl: product.effectiveImage,
-              storeName: (product.lastStore ?? '').trim().isNotEmpty
-                  ? product.lastStore!.trim()
-                  : 'Fiyat Radar',
-              storeColor: _storeColor((product.lastStore ?? '').trim()),
-              imageBackgroundColor: const Color(0xFFF2E9E1),
-              imageHeight: 164,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ProductDetailScreen(productId: product.id),
-                ),
+          const SizedBox(height: 16),
+          PremiumPressable(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProductDetailScreen(productId: product.id),
               ),
-              footerTrailing: hasAffiliate
-                  ? GestureDetector(
-                      onTap: () => _launchAffiliateLink(affiliateUrl),
-                      child: const Icon(
-                        Icons.open_in_new_rounded,
-                        size: 14,
-                        color: FRColors.textMuted,
+            ),
+            child: Container(
+              height: 160,
+              decoration: BoxDecoration(
+                color: FRColors.espressoSoft,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: FRColors.borderStrong),
+                boxShadow: const [
+                  BoxShadow(
+                    color: FRColors.shadowMedium,
+                    blurRadius: 28,
+                    offset: Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            product.brand.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: FRColors.camelStrong,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            product.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: FRColors.surface,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            hasPrice
+                                ? formatTRY(product.lastPrice ?? 0)
+                                : 'Fiyat bilgisi bekleniyor',
+                            style: TextStyle(
+                              color: hasPrice
+                                  ? FRColors.surface
+                                  : Colors.white.withOpacity(0.7),
+                              fontSize: hasPrice ? 22 : 13,
+                              fontWeight:
+                                  hasPrice ? FontWeight.w900 : FontWeight.w600,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MarketActionButton(
+                                  label: (product.lastStore ?? '').trim().isNotEmpty
+                                      ? product.lastStore!.trim()
+                                      : 'Trendyol Market',
+                                  onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
+                                ),
+                                if (hasAffiliate) ...[
+                                  const SizedBox(height: 10),
+                                  PremiumPressable(
+                                    borderRadius: BorderRadius.circular(18),
+                                    onTap: () => _launchAffiliateLink(affiliateUrl),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFE8C18D),
+                                            Color(0xFFC9965F),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: const Color(0xFFF4D9AE).withOpacity(0.85)),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x33211510),
+                                            blurRadius: 16,
+                                            offset: Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Satın Al',
+                                            style: TextStyle(
+                                              color: FRColors.espressoSoft,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Icon(
+                                            Icons.open_in_new_rounded,
+                                            size: 15,
+                                            color: FRColors.espressoSoft,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  : null,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.03),
+                        border: Border(
+                          left:
+                              BorderSide(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(24),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: CachedNetworkImage(
+                            imageUrl: product.effectiveImage ?? '',
+                            fit: BoxFit.contain,
+                            errorWidget: (_, __, ___) => const Icon(
+                              Icons.image_not_supported_rounded,
+                              color: FRColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          if (hasAffiliate) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: MarketActionButton(
-                label: 'Teklifi Markette Aç',
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                onTap: () => _launchAffiliateLink(affiliateUrl),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1215,15 +1337,4 @@ class _PopularBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-Color _storeColor(String storeName) {
-  final normalized = storeName.trim().toLowerCase();
-  if (normalized.contains('migros')) return const Color(0xFFFF8A00);
-  if (normalized.contains('a101')) return const Color(0xFF1565C0);
-  if (normalized.contains('bim')) return const Color(0xFFE53935);
-  if (normalized.contains('şok') || normalized.contains('sok')) return const Color(0xFF7B1FA2);
-  if (normalized.contains('carrefour')) return const Color(0xFF0097A7);
-  if (normalized.contains('trendyol')) return const Color(0xFFF57C00);
-  return FRColors.camelStrong;
 }
