@@ -64,79 +64,85 @@ class LuxProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 124,
-              decoration: BoxDecoration(
-                color: imageBackgroundColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: Stack(
-                children: [
-                  if (badgeLabel != null && badgeLabel!.trim().isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              child: Container(
+                height: 124,
+                decoration: BoxDecoration(
+                  color: imageBackgroundColor,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 30, right: 8, bottom: 8, left: 8),
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: AppNetworkImage(
+                            imageUrl: imageUrl,
+                            cacheKey: 'lux_card_${storeName}_$title',
+                            fit: BoxFit.contain,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (badgeLabel != null && badgeLabel!.trim().isNotEmpty)
+                      Positioned(
+                        top: 9,
+                        left: 9,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: resolvedBadgeBackgroundColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (badgeIcon != null) ...[
+                                Icon(badgeIcon, size: 11, color: resolvedBadgeColor),
+                                const SizedBox(width: 3),
+                              ],
+                              Text(
+                                badgeLabel!,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: resolvedBadgeColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 9,
-                      left: 9,
+                      right: 9,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: resolvedBadgeBackgroundColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (badgeIcon != null) ...[
-                              Icon(badgeIcon, size: 11, color: resolvedBadgeColor),
-                              const SizedBox(width: 3),
-                            ],
-                            Text(
-                              badgeLabel!,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                color: resolvedBadgeColor,
-                              ),
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(
+                          color: Color(0xF2FFFFFF),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x1F1C1108),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
                             ),
                           ],
                         ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          size: 15,
+                          color: isFavorite ? FRColors.danger : FRColors.textMuted,
+                        ),
                       ),
                     ),
-                  Positioned(
-                    top: 9,
-                    right: 9,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: const BoxDecoration(
-                        color: Color(0xF2FFFFFF),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x1F1C1108),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        size: 15,
-                        color: isFavorite ? FRColors.danger : FRColors.textMuted,
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-                      child: AppNetworkImage(
-                        imageUrl: imageUrl,
-                        cacheKey: 'lux_card_${storeName}_$title',
-                        fit: BoxFit.contain,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Padding(
