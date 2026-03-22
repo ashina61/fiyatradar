@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,15 +14,11 @@ import '../../models/product_model.dart';
 import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/banner_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../widgets/lux_product_card.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -75,9 +72,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _overlayOpen = false;
   String? _selectedMarket;
   String _selectedUiCategory = 'Tumu';
+  late final Timer _campaignTimer;
+  Duration _campaignRemaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _campaignRemaining = _nextSundayCountdown();
+    _campaignTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_campaignRemaining > Duration.zero) {
+          _campaignRemaining -= const Duration(seconds: 1);
+        } else {
+          _campaignRemaining = Duration.zero;
+        }
+      });
+    });
+  }
 
   @override
   void dispose() {
+    _campaignTimer.cancel();
     _searchController.dispose();
     _overlayController.dispose();
     _overlayFocusNode.dispose();
@@ -211,6 +227,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     ),
                                   ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                                  child: _CampaignCountdownCard(
+                                    remaining: _campaignRemaining,
+                                    onTap: () {
+                                      _applySearch('kampanya');
+                                    },
+                                  ),
+                                ),
                                 dailyDealAsync.when(
                                   data: (dailyDealProduct) {
                                     if (dailyDealProduct == null) {
@@ -244,7 +269,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   SizedBox(
                                     height: 206,
                                     child: ListView.builder(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
                                       scrollDirection: Axis.horizontal,
                                       itemCount: math.min(droppingItems.length, 8),
                                       itemBuilder: (context, index) => Padding(
@@ -300,7 +325,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         crossAxisCount: 2,
                                         mainAxisSpacing: 10,
                                         crossAxisSpacing: 10,
-                                        childAspectRatio: .66,
+                                        childAspectRatio: .72,
                                       ),
                                       itemBuilder: (context, index) => _ProductCard(
                                         item: filteredItems[index],
@@ -576,6 +601,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   double _degToRad(double degrees) => degrees * (math.pi / 180.0);
 
+  Duration _nextSundayCountdown() {
+    final now = DateTime.now();
+    final daysUntilSunday = ((7 - now.weekday) % 7 == 0) ? 7 : (7 - now.weekday) % 7;
+    final target = DateTime(
+      now.year,
+      now.month,
+      now.day + daysUntilSunday,
+      23,
+      59,
+      59,
+    );
+    final diff = target.difference(now);
+    return diff.isNegative ? Duration.zero : diff;
+  }
+
   void _openProduct(ExploreFeedItem item) {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: item.product.id)),
@@ -609,7 +649,7 @@ class _Header extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: _dk,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        borderRadius: BorderRadius.zero,
         boxShadow: [
           BoxShadow(
             color: Color(0x33211510),
@@ -633,7 +673,7 @@ class _Header extends StatelessWidget {
             child: _GlowOrb(size: 100, opacity: .10),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
             child: Column(
               children: [
                 Row(
@@ -656,10 +696,10 @@ class _Header extends StatelessWidget {
                 GestureDetector(
                   onTap: onSearchTap,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x1A18100A),
@@ -689,11 +729,11 @@ class _Header extends StatelessWidget {
                         GestureDetector(
                           onTap: onQrTap,
                           child: Container(
-                            width: 34,
-                            height: 34,
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
                               color: _bg,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Center(
                               child: _SvgIcon(_luxIcon('qr'), size: 16, color: _dk),
@@ -756,7 +796,7 @@ class _TopChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 42,
+      height: 38,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -768,7 +808,7 @@ class _TopChips extends StatelessWidget {
             onTap: () => onTap(raw),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? _dk : _w,
                 borderRadius: BorderRadius.circular(999),
@@ -789,7 +829,7 @@ class _TopChips extends StatelessWidget {
                   if (index == 0) ...[
                     _SvgIcon(
                       _luxIcon('home'),
-                      size: 14,
+                      size: 13,
                       color: isSelected ? Colors.white : _t2,
                       strokeWidth: 2.2,
                     ),
@@ -798,7 +838,7 @@ class _TopChips extends StatelessWidget {
                   Text(
                     label,
                     style: _pjs(
-                      size: 13,
+                      size: 12,
                       weight: FontWeight.w800,
                       color: isSelected ? Colors.white : _t1,
                     ),
@@ -824,14 +864,18 @@ class _AlarmBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = user != null && user!.points >= 0
+        ? '1.240 kişi bu hafta fiyat ekledi'
+        : '1.240 kişi bu hafta fiyat ekledi';
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: _dk,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
           ],
@@ -843,11 +887,11 @@ class _AlarmBanner extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: _tc.withOpacity(.18),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   child: Center(
                     child: _SvgIcon(_luxIcon('bell'), size: 20, color: _tc),
@@ -887,7 +931,7 @@ class _AlarmBanner extends StatelessWidget {
                   ),
                   child: Text(
                     'Gör →',
-                    style: _pjs(size: 12, weight: FontWeight.w800, color: _dk),
+                    style: _pjs(size: 11, weight: FontWeight.w800, color: _dk),
                   ),
                 ),
               ],
@@ -912,14 +956,14 @@ class _ActualCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [Color(0xFFC29B78), Color(0xFF8A6030)],
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(color: Color(0x52B88C50), blurRadius: 28, offset: Offset(0, 8)),
           ],
@@ -990,11 +1034,11 @@ class _ActualCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  width: 48,
-                  height: 48,
+                width: 46,
+                height: 46,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(.90),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(child: _SvgIcon(_luxIcon('book'), size: 24, color: _dk)),
                 ),
@@ -1006,6 +1050,206 @@ class _ActualCard extends StatelessWidget {
     );
   }
 }
+
+
+class _CampaignCountdownCard extends StatelessWidget {
+  const _CampaignCountdownCard({required this.remaining, required this.onTap});
+
+  final Duration remaining;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = remaining.inDays.clamp(0, 99).toString().padLeft(2, '0');
+    final hours = (remaining.inHours % 24).clamp(0, 23).toString().padLeft(2, '0');
+    final minutes = (remaining.inMinutes % 60).clamp(0, 59).toString().padLeft(2, '0');
+    final seconds = (remaining.inSeconds % 60).clamp(0, 59).toString().padLeft(2, '0');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        decoration: BoxDecoration(
+          color: _dk,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(color: Color(0x3318100A), blurRadius: 22, offset: Offset(0, 6)),
+          ],
+          border: Border.all(color: const Color(0x1ABF9470)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: -20,
+              bottom: -20,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0x24BF9470), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _tc.withOpacity(.18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: const BoxDecoration(
+                                    color: _tc,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'BİM Aktüeli',
+                                  style: _pjs(
+                                    size: 9,
+                                    weight: FontWeight.w800,
+                                    color: _tcl,
+                                    letterSpacing: .6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Haftalık Fırsatlar\nBitiyor!',
+                            style: _pjs(
+                              size: 16,
+                              weight: FontWeight.w900,
+                              color: Colors.white,
+                              height: 1.15,
+                              letterSpacing: -.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Bu haftaki kampanyalar sona eriyor',
+                            style: _pjs(
+                              size: 11,
+                              weight: FontWeight.w500,
+                              color: Colors.white.withOpacity(.42),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _tc,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x66BF9470),
+                            blurRadius: 10,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'Fırsatları Gör',
+                        style: _pjs(size: 11, weight: FontWeight.w800, color: _dk),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      'Kalan',
+                      style: _pjs(
+                        size: 9,
+                        weight: FontWeight.w700,
+                        color: Colors.white.withOpacity(.35),
+                        letterSpacing: .4,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _CampaignTimeBlock(label: 'Gün', value: days),
+                    _campaignSep(),
+                    _CampaignTimeBlock(label: 'Saat', value: hours),
+                    _campaignSep(),
+                    _CampaignTimeBlock(label: 'Dak', value: minutes),
+                    _campaignSep(),
+                    _CampaignTimeBlock(label: 'Sn', value: seconds),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CampaignTimeBlock extends StatelessWidget {
+  const _CampaignTimeBlock({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(.06)),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: _pjs(size: 16, weight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(
+            label.toUpperCase(),
+            style: _pjs(
+              size: 7,
+              weight: FontWeight.w700,
+              color: Colors.white.withOpacity(.35),
+              letterSpacing: .5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _campaignSep() => Padding(
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+      child: Text(
+        ':',
+        style: _pjs(size: 14, weight: FontWeight.w900, color: Colors.white.withOpacity(.20)),
+      ),
+    );
 
 class _DealOfDaySection extends StatelessWidget {
   const _DealOfDaySection({required this.item, required this.onTap});
@@ -1189,41 +1433,57 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
+            child: Row(
               children: [
-                Text(
-                  title,
-                  style: _pjs(size: 17, weight: FontWeight.w900, color: _t1, letterSpacing: -.3),
-                ),
-                if (tagLabel != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: dangerTag ? _red.withOpacity(.10) : _tc.withOpacity(.15),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      tagLabel!,
-                      style: _pjs(
-                        size: 11,
-                        weight: FontWeight.w700,
-                        color: dangerTag ? _red : _tc,
-                      ),
-                    ),
+                Container(
+                  width: 3,
+                  height: 15,
+                  decoration: BoxDecoration(
+                    color: dangerTag ? _red : _tc,
+                    borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: [
+                      Text(
+                        title,
+                        style: _pjs(
+                          size: 16,
+                          weight: FontWeight.w900,
+                          color: _t1,
+                          letterSpacing: -.3,
+                        ),
+                      ),
+                      if (tagLabel != null)
+                        Text(
+                          tagLabel!,
+                          style: _pjs(
+                            size: 10,
+                            weight: FontWeight.w600,
+                            color: dangerTag ? _red : _t3,
+                            height: 1,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           if (actionLabel != null)
             Text(
               actionLabel!,
-              style: _pjs(size: 13, weight: FontWeight.w700, color: _tc),
+              style: _pjs(size: 12, weight: FontWeight.w700, color: _tc),
             ),
         ],
       ),
@@ -1242,28 +1502,28 @@ class _ShowcaseCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 162,
+        width: 158,
         decoration: BoxDecoration(
           color: _w,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: const [
-            BoxShadow(color: Color(0x1A1C1108), blurRadius: 16, offset: Offset(0, 4)),
+            BoxShadow(color: Color(0x1718100A), blurRadius: 14, offset: Offset(0, 3)),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 104,
+              height: 94,
               decoration: BoxDecoration(
                 color: _surfaceForItem(item),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               ),
               child: Stack(
                 children: [
                   Positioned.fill(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                       child: _ProductGlyph(item: item, size: 88),
                     ),
                   ),
@@ -1272,34 +1532,28 @@ class _ShowcaseCard extends StatelessWidget {
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                       color: _dk.withOpacity(.65),
                       child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'EN DÜŞÜK',
-                                style: _pjs(size: 8, weight: FontWeight.w800, color: _tcl),
-                              ),
-                              Row(
-                                children: [
-                                  _SvgIcon(_luxIcon('arrowUp'), size: 8, color: _grn, strokeWidth: 3),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    '%${math.max(item.dropPercent.round(), 1)}',
-                                    style: _pjs(size: 9, weight: FontWeight.w900, color: _grn),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'EN DÜŞÜK',
+                            style: _pjs(size: 8, weight: FontWeight.w800, color: _tcl),
                           ),
+                          Text(
+                            '▼%${math.max(item.dropPercent.round(), 1)}',
+                            style: _pjs(size: 9, weight: FontWeight.w900, color: _grn),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              padding: const EdgeInsets.fromLTRB(11, 8, 11, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1312,12 +1566,29 @@ class _ShowcaseCard extends StatelessWidget {
                     item.product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: _pjs(size: 12, weight: FontWeight.w800, color: _t1, height: 1.3),
+                    style: _pjs(size: 11.5, weight: FontWeight.w800, color: _t1, height: 1.3),
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    _formatTry(item.displayPrice),
-                    style: _pjs(size: 15, weight: FontWeight.w900, color: _t1, letterSpacing: -.4),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatTry(item.displayPrice),
+                        style:
+                            _pjs(size: 13, weight: FontWeight.w900, color: _t1, letterSpacing: -.3),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _grn.withOpacity(.12),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          '%${math.max(item.dropPercent.round(), 1)}',
+                          style: _pjs(size: 9, weight: FontWeight.w800, color: _grn),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1400,33 +1671,207 @@ class _ProductCard extends StatelessWidget {
     final badgeValue = ((rising ? item.priceChangePercent : item.dropPercent) ?? item.dropPercent)
         .abs()
         .round();
+    final distance = item.distanceLabel?.trim().isNotEmpty == true ? item.distanceLabel! : 'Online';
 
-    return LuxProductCard(
-      brand: item.product.brand,
-      title: item.product.name,
-      priceLabel: _formatTry(item.displayPrice),
-      imageUrl: item.product.effectiveImage,
-      storeName: item.storeName,
-      storeColor: _storeColor(item.storeName),
-      badgeLabel: '%$badgeValue',
-      badgeColor: badgeColor,
-      badgeBackgroundColor: badgeColor.withOpacity(rising ? .10 : .12),
-      badgeIcon: rising ? Icons.south_east_rounded : Icons.north_east_rounded,
-      imageBackgroundColor: _surfaceForItem(item),
-      footerTrailing: item.distanceLabel == null
-          ? null
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SvgIcon(_luxIcon('pin'), size: 9, color: _t3, strokeWidth: 2.5),
-                const SizedBox(width: 2),
-                Text(
-                  item.distanceLabel!,
-                  style: _pjs(size: 9, weight: FontWeight.w700, color: _t3),
-                ),
-              ],
-            ),
+    return GestureDetector(
       onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _w,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1418100A), blurRadius: 10, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 118,
+              decoration: BoxDecoration(
+                color: _surfaceForItem(item),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 7,
+                    top: 7,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xEAFBF8F4),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _SvgIcon(
+                            _luxIcon(rising ? 'arrowDown' : 'arrowUp'),
+                            size: 7,
+                            color: badgeColor,
+                            strokeWidth: 3,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '%$badgeValue',
+                            style: _pjs(size: 9, weight: FontWeight.w900, color: badgeColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 7,
+                    top: 7,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xEBFAF8F4),
+                        shape: BoxShape.circle,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1F18100A),
+                            blurRadius: 5,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: Center(
+                          child: _SvgIcon(
+                            _luxIcon('heart'),
+                            size: 12,
+                            color: const Color(0x4818100A),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.all(1),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        child: Center(
+                          child: _ProductGlyph(item: item, size: 116),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(11, 10, 11, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.product.brand,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _pjs(
+                        size: 9,
+                        weight: FontWeight.w700,
+                        color: _tc,
+                        letterSpacing: .45,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Text(
+                        item.product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(size: 12, weight: FontWeight.w800, color: _t1, height: 1.3),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      _formatTry(item.displayPrice),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _pjs(size: 17, weight: FontWeight.w900, color: _t1, letterSpacing: -.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.fromLTRB(11, 8, 11, 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: _dk.withOpacity(.06)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: _storeColor(item.storeName),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            item.storeName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _pjs(size: 10, weight: FontWeight.w700, color: _t2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SvgIcon(_luxIcon('pin'), size: 8, color: _t3, strokeWidth: 2),
+                      const SizedBox(width: 2),
+                      Text(
+                        distance,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(size: 9, weight: FontWeight.w700, color: _t3),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 3),
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Center(
+                      child: _SvgIcon(
+                        _luxIcon('chevronRight'),
+                        size: 8,
+                        color: _t3,
+                        strokeWidth: 2.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1780,29 +2225,29 @@ class _CommunityCta extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 9, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
           color: _dk,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: const [
-            BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
+            BoxShadow(color: Color(0x3318100A), blurRadius: 22, offset: Offset(0, 6)),
           ],
         ),
         child: Stack(
           children: [
-            Positioned(right: -18, bottom: -18, child: _GlowOrb(size: 90, opacity: .18)),
+            Positioned(right: -14, bottom: -14, child: _GlowOrb(size: 80, opacity: .16)),
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: _tc.withOpacity(.18),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   child: Center(child: _SvgIcon(_luxIcon('user'), size: 19, color: _tc)),
                 ),
-                const SizedBox(width: 13),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1811,39 +2256,35 @@ class _CommunityCta extends StatelessWidget {
                       Text(
                         'Fiyat Ekle, Puan Kazan!',
                         softWrap: true,
-                        style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
+                        style: _pjs(size: 13, weight: FontWeight.w800, color: Colors.white),
                       ),
-                      const SizedBox(height: 2),
-                      Flexible(
-                        child: Text(
-                          user == null
-                              ? 'Topluluğa katıl ve radarın gücünü artır.'
-                              : 'Topluluğa katkı ver, ${user!.points} puanlık ivmeni büyüt.',
-                          softWrap: true,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: _pjs(
-                            size: 11,
-                            weight: FontWeight.w500,
-                            color: Colors.white.withOpacity(.40),
-                          ),
+                      const SizedBox(height: 1),
+                      Text(
+                        subtitle,
+                        softWrap: true,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _pjs(
+                          size: 11,
+                          weight: FontWeight.w500,
+                          color: Colors.white.withOpacity(.38),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    gradient: const LinearGradient(colors: [_tan, _tcl, _tan]),
+                    color: _tc,
                     boxShadow: const [
-                      BoxShadow(color: Color(0x80BF9470), blurRadius: 16, offset: Offset(0, 4)),
+                      BoxShadow(color: Color(0x66BF9470), blurRadius: 12, offset: Offset(0, 3)),
                     ],
                   ),
                   child: Text(
                     '+10 P',
-                    style: _pjs(size: 12, weight: FontWeight.w800, color: _dk),
+                    style: _pjs(size: 11, weight: FontWeight.w800, color: _dk),
                   ),
                 ),
               ],
@@ -1866,13 +2307,11 @@ class _BarcodeCta extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 9, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
           color: _dk,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
-            BoxShadow(color: Color(0x381C1108), blurRadius: 24, offset: Offset(0, 6)),
-          ],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _tc.withOpacity(.18)),
         ),
         child: Row(
           children: [
@@ -1882,11 +2321,11 @@ class _BarcodeCta extends StatelessWidget {
                 children: [
                   Text(
                     'Fırsatı Bulamadın mı?',
-                    style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white),
+                    style: _pjs(size: 14, weight: FontWeight.w800, color: Colors.white, letterSpacing: -.2),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Barkodu okut, anında fiyatı keşfet.',
+                    'Barkodu okut, anında keşfet.',
                     style: _pjs(
                       size: 11,
                       weight: FontWeight.w500,
@@ -1897,16 +2336,16 @@ class _BarcodeCta extends StatelessWidget {
               ),
             ),
             Container(
-              width: 48,
-              height: 48,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: _tc,
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
-                  BoxShadow(color: Color(0x8CBF9470), blurRadius: 18, offset: Offset(0, 4)),
+                  BoxShadow(color: Color(0x73BF9470), blurRadius: 14, offset: Offset(0, 4)),
                 ],
               ),
-              child: Center(child: _SvgIcon(_luxIcon('qr'), size: 22, color: _dk)),
+              child: Center(child: _SvgIcon(_luxIcon('qr'), size: 20, color: _dk)),
             ),
           ],
         ),
@@ -1960,58 +2399,58 @@ class _SearchOverlay extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
                     decoration: const BoxDecoration(
                       color: _dk,
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(999),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x261C1108),
-                                  blurRadius: 20,
-                                  offset: Offset(0, 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x261C1108),
+                            blurRadius: 18,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          _SvgIcon(_luxIcon('search'), size: 15, color: _t3),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              onChanged: onChanged,
+                              onSubmitted: onSubmitted,
+                              style: _pjs(size: 14, weight: FontWeight.w500, color: _t1),
+                              decoration: InputDecoration(
+                                hintText: 'Ürün, mağaza veya kategori ara...',
+                                hintStyle: _pjs(
+                                  size: 14,
+                                  weight: FontWeight.w500,
+                                  color: _t3,
+                                  decoration: TextDecoration.none,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                _SvgIcon(_luxIcon('search'), size: 16, color: _t3),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: controller,
-                                    focusNode: focusNode,
-                                    onChanged: onChanged,
-                                    onSubmitted: onSubmitted,
-                                    style: _pjs(size: 15, weight: FontWeight.w600, color: _t1),
-                                    decoration: InputDecoration(
-                                      hintText: 'Ürün, mağaza veya kategori ara...',
-                                      hintStyle: _pjs(size: 15, weight: FontWeight.w500, color: _t3),
-                                      border: InputBorder.none,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                border: InputBorder.none,
+                              ),
                             ),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: onClose,
-                          child: Text(
-                            'İptal',
-                            style: _pjs(
-                              size: 13,
-                              weight: FontWeight.w700,
-                              color: Colors.white.withOpacity(.50),
+                          TextButton(
+                            onPressed: onClose,
+                            style: TextButton.styleFrom(padding: const EdgeInsets.only(left: 8)),
+                            child: Text(
+                              'İptal',
+                              style: _pjs(
+                                size: 13,
+                                weight: FontWeight.w700,
+                                color: _t3.withOpacity(.8),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   Expanded(
@@ -2029,7 +2468,7 @@ class _SearchOverlay extends StatelessWidget {
                                 GestureDetector(
                                   onTap: () => onPickTrend(trends[i]),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                                     decoration: BoxDecoration(
                                       color: i == 0 ? _tc.withOpacity(.12) : _w,
                                       borderRadius: BorderRadius.circular(999),
@@ -2046,7 +2485,11 @@ class _SearchOverlay extends StatelessWidget {
                                     ),
                                     child: Text(
                                       i == 0 ? '🔥 ${trends[i]}' : trends[i],
-                                      style: _pjs(size: 14, weight: FontWeight.w700, color: i == 0 ? _tc : _t1),
+                                      style: _pjs(
+                                        size: 13,
+                                        weight: FontWeight.w700,
+                                        color: i == 0 ? _tc : _t1,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -2061,9 +2504,10 @@ class _SearchOverlay extends StatelessWidget {
                             (term) => GestureDetector(
                               onTap: () => onPickTrend(term),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
+                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 12),
                                 decoration: BoxDecoration(
                                   border: Border(bottom: BorderSide(color: _dk.withOpacity(.07))),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   children: [
@@ -2108,7 +2552,7 @@ class _OverlaySectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _SvgIcon(_luxIcon(icon), size: 14, color: _t3),
+        _SvgIcon(_luxIcon(icon), size: 12, color: _tc),
         const SizedBox(width: 7),
         Text(
           title,
@@ -2370,6 +2814,8 @@ String _luxIcon(String name) {
     'home': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'arrowUp': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="20 15 12 7 4 15" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'arrowDown': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="4 9 12 17 20 9" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'arrowRight': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12h14" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/><path d="M13 6l6 6-6 6" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'chevronRight': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="9 18 15 12 9 6" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'heart': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'cup': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h1a4 4 0 010 8h-1" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 1v3M10 1v3M14 1v3" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round"/></svg>',
     'drop': '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22a7 7 0 007-7c0-2-1-3.9-3-5.5S12.5 5.5 12 3c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 007 7Z" stroke="{color}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/></svg>',
