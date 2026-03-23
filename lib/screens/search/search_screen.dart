@@ -12,6 +12,7 @@ import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
