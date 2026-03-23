@@ -663,45 +663,10 @@ class _RadarHero extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned(
+          const Positioned(
             right: -10,
             top: 10,
-            child: SizedBox(
-              width: 110,
-              height: 110,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  for (final scale in [1.0, 0.72, 0.44])
-                    Container(
-                      width: 110 * scale,
-                      height: 110 * scale,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _tc.withOpacity(0.18 + (0.1 * (1 - scale)))),
-                      ),
-                    ),
-                  Transform.rotate(
-                    angle: .5,
-                    child: Container(
-                      width: 52,
-                      height: 1,
-                      color: _tc.withOpacity(0.6),
-                    ),
-                  ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [_tc.withOpacity(0.3), _tc.withOpacity(0.08)]),
-                      border: Border.all(color: _tc.withOpacity(0.4)),
-                    ),
-                    child: const Icon(Icons.radar_rounded, color: _tc, size: 14),
-                  ),
-                ],
-              ),
-            ),
+            child: AnimatedRadarViz(),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -746,6 +711,129 @@ class _RadarHero extends StatelessWidget {
     if (text.length <= 3) return text;
     return '${text.substring(0, text.length - 3)}.${text.substring(text.length - 3)}';
   }
+}
+
+
+class AnimatedRadarViz extends StatefulWidget {
+  const AnimatedRadarViz({super.key});
+
+  @override
+  State<AnimatedRadarViz> createState() => _AnimatedRadarVizState();
+}
+
+class _AnimatedRadarVizState extends State<AnimatedRadarViz> with TickerProviderStateMixin {
+  late final AnimationController _sweepController;
+  late final AnimationController _pingController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sweepController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat();
+    _pingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _sweepController.dispose();
+    _pingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 110,
+      height: 110,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final delay in [0.0, 0.22, 0.44]) _buildPingRing(delay),
+          RotationTransition(
+            turns: _sweepController,
+            child: SizedBox(
+              width: 110,
+              height: 110,
+              child: CustomPaint(
+                painter: _RadarSweepPainter(),
+              ),
+            ),
+          ),
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _dk,
+              border: Border.all(color: _tc.withOpacity(0.95), width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: _tc.withOpacity(0.28),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPingRing(double delay) {
+    final curved = CurvedAnimation(
+      parent: _pingController,
+      curve: Interval(delay, math.min(delay + 0.56, 1.0), curve: Curves.easeOut),
+    );
+
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.55, end: 0.0).animate(curved),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.35, end: 1.0).animate(curved),
+        child: Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: _tc.withOpacity(0.85), width: 1.1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RadarSweepPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const sweepLength = 46.0;
+    final rect = Rect.fromCircle(center: center, radius: sweepLength);
+    final paint = Paint()
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Color(0x00BF9470),
+          Color(0x66BF9470),
+          Color(0xFFBF9470),
+        ],
+        stops: [0.0, 0.72, 1.0],
+      ).createShader(rect)
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(center, Offset(center.dx + sweepLength, center.dy), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _StatPill extends StatelessWidget {
