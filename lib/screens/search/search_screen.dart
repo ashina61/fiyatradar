@@ -724,6 +724,7 @@ class AnimatedRadarViz extends StatefulWidget {
 class _AnimatedRadarVizState extends State<AnimatedRadarViz> with TickerProviderStateMixin {
   late final AnimationController _sweepController;
   late final AnimationController _pingController;
+  late final Animation<double> _sweepTurns;
 
   @override
   void initState() {
@@ -731,7 +732,9 @@ class _AnimatedRadarVizState extends State<AnimatedRadarViz> with TickerProvider
     _sweepController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3200),
-    )..repeat();
+    );
+    _sweepTurns = Tween<double>(begin: 0, end: 1).animate(_sweepController);
+    _sweepController.repeat();
     _pingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
@@ -748,17 +751,17 @@ class _AnimatedRadarVizState extends State<AnimatedRadarViz> with TickerProvider
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 110,
-      height: 110,
+      width: 148,
+      height: 148,
       child: Stack(
         alignment: Alignment.center,
         children: [
           for (final delay in [0.0, 0.22, 0.44]) _buildPingRing(delay),
           RotationTransition(
-            turns: _sweepController,
+            turns: _sweepTurns,
             child: SizedBox(
-              width: 110,
-              height: 110,
+              width: 148,
+              height: 148,
               child: CustomPaint(
                 painter: _RadarSweepPainter(),
               ),
@@ -794,10 +797,10 @@ class _AnimatedRadarVizState extends State<AnimatedRadarViz> with TickerProvider
     return FadeTransition(
       opacity: Tween<double>(begin: 0.55, end: 0.0).animate(curved),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.35, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.28, end: 1.58).animate(curved),
         child: Container(
-          width: 88,
-          height: 88,
+          width: 78,
+          height: 78,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: _tc.withOpacity(0.85), width: 1.1),
@@ -812,7 +815,7 @@ class _RadarSweepPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    const sweepLength = 46.0;
+    const sweepLength = 64.0;
     final rect = Rect.fromCircle(center: center, radius: sweepLength);
     final paint = Paint()
       ..strokeWidth = 2.2
