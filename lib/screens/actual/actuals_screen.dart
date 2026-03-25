@@ -43,7 +43,7 @@ class _ActualsScreenState extends State<ActualsScreen> {
       oldPrice: '145,00₺',
       imageUrl: 'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_fr.276.400.jpg',
       branches: [
-        _BranchData(name: 'Gülnar Sokak BİM', distance: 'Buradasın • 1 dk önce', status: _BranchStatus.var, isCurrent: true),
+        _BranchData(name: 'Gülnar Sokak BİM', distance: 'Buradasın • 1 dk önce', status: _BranchStatus.bol, isCurrent: true),
       ],
       reportTitle: 'Şu an buradasın, durumu bildir:',
     ),
@@ -486,7 +486,7 @@ class _ProductCard extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: const [
-                        _StockButton(label: '🟢 Bol', type: _BranchStatus.var),
+                        _StockButton(label: '🟢 Bol', type: _BranchStatus.bol),
                         SizedBox(width: 8),
                         _StockButton(label: '🟡 Az', type: _BranchStatus.az),
                         SizedBox(width: 8),
@@ -613,7 +613,7 @@ class _BranchRowState extends State<_BranchRow> with SingleTickerProviderStateMi
 
   Widget _statusPill(_BranchStatus status) {
     final (text, bg, fg, dot) = switch (status) {
-      _BranchStatus.var => ('Bol Var', const Color(0x2627A85A), const Color(0xFFA7F3D0), const Color(0xFFA7F3D0)),
+      _BranchStatus.bol => ('Bol Var', const Color(0x2627A85A), const Color(0xFFA7F3D0), const Color(0xFFA7F3D0)),
       _BranchStatus.az => ('Az Kaldı', const Color(0x33BF9470), const Color(0xFFD0A882), const Color(0xFFD0A882)),
       _BranchStatus.yok => ('Tükendi', const Color(0x26E53935), const Color(0xFFFCA5A5), const Color(0xFFFCA5A5)),
     };
@@ -678,7 +678,7 @@ class _StockButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (colors, text, border) = switch (type) {
-      _BranchStatus.var => ([const Color(0x3327A85A), const Color(0x0D27A85A)], const Color(0xFFA7F3D0), const Color(0x4D27A85A)),
+      _BranchStatus.bol => ([const Color(0x3327A85A), const Color(0x0D27A85A)], const Color(0xFFA7F3D0), const Color(0x4D27A85A)),
       _BranchStatus.az => ([const Color(0x4DBF9470), const Color(0x1ABF9470)], const Color(0xFFD0A882), const Color(0x80BF9470)),
       _BranchStatus.yok => ([const Color(0x33E53935), const Color(0x0DE53935)], const Color(0xFFFCA5A5), const Color(0x4DE53935)),
     };
@@ -718,7 +718,7 @@ class _AnimatedEntry extends StatelessWidget {
   }
 }
 
-enum _BranchStatus { var, az, yok }
+enum _BranchStatus { bol, az, yok }
 
 class _BranchData {
   const _BranchData({required this.name, required this.distance, required this.status, this.isCurrent = false});
