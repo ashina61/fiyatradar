@@ -625,8 +625,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   String _resolveLocation(UserModel? user, List<StoreModel> stores, LocationData? location) {
     if (location != null) {
-      final lat = location.latitude;
-      final lng = location.longitude;
+      final lat = location.position.latitude;
+      final lng = location.position.longitude;
       if (lat is double && lng is double) {
         return '${lat.toStringAsFixed(2)}, ${lng.toStringAsFixed(2)}';
       }
