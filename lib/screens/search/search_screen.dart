@@ -10,13 +10,17 @@ import '../../models/store_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/actual_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/location_service.dart';
 import '../actual/actuals_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../product/product_detail_screen.dart';
+import '../../features/cart_analysis/views/cart_analysis_screen.dart';
+import '../../theme/fr_colors.dart';
 
 const _bg = Color(0xFFEDEAE3);
 const _dk = Color(0xFF18100A);
@@ -108,6 +112,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final nearbyStores = ref.watch(nearbyStoresProvider).valueOrNull ?? const <StoreModel>[];
     final user = ref.watch(userModelStreamProvider).valueOrNull;
     final activeActual = ref.watch(latestActiveActualProvider).valueOrNull;
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
     ref.watch(authStateProvider);
 
     _syncCountdown(activeActual?.endDate);
@@ -115,30 +120,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final locationLabel = _resolveLocation(user, nearbyStores, exploreState.userLocation);
     final visibleProducts = _visibleItems(exploreState.items);
     final prioritizedProducts = _prioritizeByFeedMode(visibleProducts, _feedMode);
-    final categoryTabs = _categoryTabs(exploreState);
-    final marketFilters = _marketFilters(exploreState.items);
     final categoryTiles = _categoryTiles(categories);
-    final featuredProducts = _featuredProducts(visibleProducts, exploreState.items);
     final personalProducts = _personalizedProducts(visibleProducts, user);
-    final nearbyTiles = _nearbyTiles(nearbyStores, visibleProducts.isNotEmpty ? visibleProducts : exploreState.items);
     final trendingSearches = _trendingSearches(exploreState.items);
-    final stats = _heroStats(exploreState.items);
-    final alertItems = _trackedAlerts(visibleProducts, user);
+    final radarCards = _radarCards(visibleProducts.isNotEmpty ? visibleProducts : exploreState.items);
+    final liveFeedItems = _liveFeedItems(visibleProducts.isNotEmpty ? visibleProducts : exploreState.items);
 
     return Scaffold(
-      backgroundColor: _bg,
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _dk,
-        foregroundColor: _w,
-        elevation: 4,
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
-          );
-        },
-        icon: const Icon(Icons.add_rounded),
-        label: Text('Fiyat Ekle', style: _txt(size: 13, weight: FontWeight.w800, color: _w)),
-      ),
+      backgroundColor: FRColors.backgroundWarm,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -146,23 +135,58 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                SliverToBoxAdapter(child: _buildHeader(locationLabel)),
-                SliverToBoxAdapter(child: _RadarHero(stats: stats)),
-                SliverToBoxAdapter(child: _buildCategoryTabs(categoryTabs)),
+                SliverToBoxAdapter(child: _buildHeader(locationLabel, unreadCount)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _RadarHeatSection(cards: radarCards),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _ActualDealsLinkCard(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const ActualsScreen()),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _buildMarketTabs(const ['Tümü', 'A-101', 'BİM', 'Trendyol', 'ŞOK']),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: _QuickFeedRow(
+                      selectedKey: _feedMode,
+                      onChanged: (value) {
+                        setState(() => _feedMode = value);
+                        final mode = switch (value) {
+                          'movement' => ExploreMode.drops,
+                          'personal' => ExploreMode.online,
+                          _ => ExploreMode.nearby,
+                        };
+                        ref.read(exploreControllerProvider.notifier).updateMode(mode);
+                      },
+                    ),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: _SectionHeader(
-                    title: 'Ürünler',
-                    tag: '${marketFilters.length - 1} market',
+                    title: 'En Güçlü Sinyaller',
                     actionLabel: 'Tümünü Gör',
                     onActionTap: () => setState(() => _showAllProducts = true),
                   ),
                 ),
-                SliverToBoxAdapter(child: _buildMarketTabs(marketFilters)),
                 if (exploreState.loading)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator(color: _tc)),
+                      child: Center(child: CircularProgressIndicator(color: FRColors.camel)),
                     ),
                   )
                 else if (exploreState.error != null)
@@ -178,7 +202,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     sliver: SliverGrid(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -206,121 +230,69 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.54,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.56,
                       ),
                     ),
                   ),
-                SliverToBoxAdapter(child: const _SectionHeader(title: 'Kampanya Sayacı')),
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _CampaignCard(
-                      remaining: _campaignRemaining,
-                      onTap: activeActual == null
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(builder: (_) => const ActualsScreen()),
-                              );
-                            },
-                    ),
-                  ),
-                ),
-                if (featuredProducts.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: _SectionHeader(
-                      title: 'Fiyatı Düşenler',
-                      tag: 'bu hafta',
-                      actionLabel: 'Tümü',
-                      onActionTap: () => setState(() => _showAllDrops = true),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 238,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) => _FeaturedCard(item: featuredProducts[index]),
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: _showAllDrops ? featuredProducts.length : math.min(featuredProducts.length, 4),
-                      ),
-                    ),
-                  ),
-                ],
-                if (personalProducts.isNotEmpty) ...[
-                  const SliverToBoxAdapter(
-                    child: _SectionHeader(title: 'Sana Özel Seçimler', tag: 'kişisel'),
-                  ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 238,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) => _FeaturedCard(item: personalProducts[index], personalized: true),
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: math.min(personalProducts.length, 8),
-                      ),
-                    ),
-                  ),
-                ],
-                SliverToBoxAdapter(
-                  child: _SectionHeader(
-                    title: 'Kategoriler',
-                    actionLabel: 'Tümü',
-                    onActionTap: () => setState(() => _showAllCategories = true),
-                  ),
+                  child: _SectionHeader(title: 'Sana Özel Listeler', actionLabel: 'Tümü'),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _PersonalListsCard(items: personalProducts),
+                  ),
+                ),
+                SliverToBoxAdapter(child: const _SectionHeader(title: 'Kategoriler')),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                     child: _CategoryGrid(items: _showAllCategories ? categoryTiles : categoryTiles.take(8).toList()),
                   ),
                 ),
+                SliverToBoxAdapter(child: const _SectionHeader(title: 'Canlı Radar Akışı')),
                 SliverToBoxAdapter(
-                  child: const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Bildirimler', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: _t1)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _LiveRadarSection(items: liveFeedItems),
+                  ),
+                ),
+                SliverToBoxAdapter(child: const _SectionHeader(title: 'Hızlı Araçlar')),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: Column(
+                      children: [
+                        _QuickToolCard(
+                          title: 'Sepet Kıyasla',
+                          subtitle: 'Marketleri karşılaştır',
+                          icon: Icons.shopping_cart_checkout_rounded,
+                          dark: true,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const CartAnalysisScreen(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _QuickToolCard(
+                          title: 'Fiyat Alarmı Kur',
+                          subtitle: 'Düşünce bildirim al',
+                          icon: Icons.notifications_active_outlined,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _AlertCard(
-                      alertItems: alertItems,
-                      onTap: () {
-                        if (alertItems.isNotEmpty) {
-                          _applySearch(alertItems.first.product.name);
-                          return;
-                        }
-                        _openOverlay();
-                      },
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(child: const _SectionHeader(title: 'Yakın Marketler')),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _NearbyMarkets(locationLabel: locationLabel, stores: nearbyTiles),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: _BarcodeCard(onTap: _openOverlay),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _AddPriceBanner(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                    child: _FooterCtaCard(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
@@ -329,7 +301,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
             _SearchOverlay(
@@ -350,59 +321,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildHeader(String locationLabel) {
+  Widget _buildHeader(String locationLabel, int unreadCount) {
     return Container(
       decoration: const BoxDecoration(
-        color: _dk,
-        borderRadius: BorderRadius.vertical(bottom: Radius.elliptical(240, 42)),
+        color: FRColors.espresso,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
         child: Column(
           children: [
             Row(
               children: [
-                Expanded(child: Text('Keşfet', style: _txt(size: 24, weight: FontWeight.w800, color: _w))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _tc.withOpacity(0.20)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.location_on_outlined, size: 10, color: _tc),
-                      const SizedBox(width: 4),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 90),
-                        child: Text(locationLabel, overflow: TextOverflow.ellipsis, style: _txt(size: 11, weight: FontWeight.w700, color: _tcl)),
-                      ),
-                    ],
-                  ),
+                Expanded(child: Text('Keşfet.', style: _serif(size: 34, color: FRColors.surface, letterSpacing: -0.5))),
+                _HeaderActionButton(
+                  icon: Icons.location_on_outlined,
+                  onTap: () {},
+                ),
+                const SizedBox(width: 8),
+                _HeaderActionButton(
+                  icon: Icons.notifications_none_rounded,
+                  badgeText: unreadCount > 0 ? unreadCount.toString() : null,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                    );
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             GestureDetector(
               onTap: _openOverlay,
               child: AbsorbPointer(
                 child: Container(
-                  decoration: BoxDecoration(color: _w, borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(
+                    color: FRColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: FRColors.shadowMedium, blurRadius: 16, offset: Offset(0, 5)),
+                    ],
+                  ),
                   child: TextField(
                     controller: _searchController,
-                    style: _txt(size: 13, weight: FontWeight.w600, color: _t1),
+                    style: _txt(size: 13, weight: FontWeight.w600, color: FRColors.textPrimary),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Ürün, marka veya mağaza ara...',
-                      hintStyle: _txt(size: 13, color: _t3, fontStyle: FontStyle.italic),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 16, color: _t3),
+                      hintText: 'Ürün, marka veya barkod ara...',
+                      hintStyle: _txt(size: 13, color: FRColors.textMuted, fontStyle: FontStyle.italic),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18, color: FRColors.textMuted),
                       suffixIcon: Padding(
                         padding: const EdgeInsets.all(8),
                         child: Container(
-                          decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(9)),
-                          child: const Icon(Icons.qr_code_2_rounded, size: 16, color: _dk),
+                          decoration: BoxDecoration(color: FRColors.backgroundWarm, borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: FRColors.espresso),
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -411,10 +383,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            _QuickFeedRow(
-              selectedKey: _feedMode,
-              onChanged: (value) => setState(() => _feedMode = value),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: FRColors.camelOverlay(0.22)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.place_outlined, size: 12, color: FRColors.camelStrong),
+                    const SizedBox(width: 4),
+                    Text(locationLabel, style: _txt(size: 11, weight: FontWeight.w700, color: FRColors.camelStrong)),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -463,43 +450,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildMarketTabs(List<_MarketFilterData> filters) {
+  Widget _buildMarketTabs(List<String> markets) {
     return SizedBox(
       height: 38,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.zero,
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final filter = filters[index];
-          final selected = filter.label == _selectedMarket;
+          final label = markets[index];
+          final selected = label == _selectedMarket;
           return GestureDetector(
-            onTap: () => setState(() => _selectedMarket = filter.label),
+            onTap: () => setState(() => _selectedMarket = label),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                 color: selected ? _dk : _w,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: selected ? _dk : _dk.withOpacity(0.10)),
                 boxShadow: selected
                     ? const [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.15), blurRadius: 12, offset: Offset(0, 4))]
-                    : null,
+                    : const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 8, offset: Offset(0, 2))],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (filter.color != null) ...[
-                    Container(width: 6, height: 6, decoration: BoxDecoration(color: filter.color, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(filter.label, style: _txt(size: 11, weight: FontWeight.w700, color: selected ? _w : _t2)),
+                  Container(width: 7, height: 7, decoration: BoxDecoration(color: _marketColor(label) ?? _t3, shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                  Text(label, style: _txt(size: 11, weight: FontWeight.w800, color: selected ? _w : _t2)),
                 ],
               ),
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 7),
-        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: markets.length,
       ),
     );
   }
@@ -597,6 +582,52 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _CategoryTileData(label: 'Spor', icon: Icons.sports_basketball_outlined),
       _CategoryTileData(label: 'Otomotiv', icon: Icons.local_shipping_outlined),
     ];
+  }
+
+  List<_RadarHeatData> _radarCards(List<ExploreFeedItem> items) {
+    if (items.isEmpty) {
+      return const [
+        _RadarHeatData(label: 'Süt & Kahvaltı', percent: -12, count: 18, hot: true),
+        _RadarHeatData(label: 'Temizlik', percent: -7, count: 8),
+        _RadarHeatData(label: 'Atıştırmalık', percent: -5, count: 5),
+      ];
+    }
+
+    final byCategory = <String, List<ExploreFeedItem>>{};
+    for (final item in items) {
+      final key = item.product.categories.isNotEmpty ? item.product.categories.first : 'Diğer';
+      byCategory.putIfAbsent(key, () => <ExploreFeedItem>[]).add(item);
+    }
+
+    final ranked = byCategory.entries.map((entry) {
+      final values = entry.value;
+      final avg = values
+              .map((e) => (e.priceChangePercent ?? -e.dropPercent))
+              .fold<double>(0, (sum, value) => sum + value) /
+          values.length;
+      return _RadarHeatData(
+        label: entry.key,
+        percent: avg,
+        count: values.length,
+      );
+    }).toList()
+      ..sort((a, b) => a.percent.compareTo(b.percent));
+
+    if (ranked.isEmpty) return const [];
+    return ranked.take(3).toList().asMap().entries.map((entry) {
+      final item = entry.value;
+      return _RadarHeatData(
+        label: item.label,
+        percent: item.percent,
+        count: item.count,
+        hot: entry.key == 0,
+      );
+    }).toList();
+  }
+
+  List<ExploreFeedItem> _liveFeedItems(List<ExploreFeedItem> items) {
+    final sorted = [...items]..sort((a, b) => b.price.reportedAt.compareTo(a.price.reportedAt));
+    return sorted.take(3).toList();
   }
 
   List<_NearbyTileData> _nearbyTiles(List<StoreModel> stores, List<ExploreFeedItem> items) {
@@ -989,6 +1020,159 @@ class _StatPill extends StatelessWidget {
             Text(value, style: _txt(size: 11, weight: FontWeight.w800, color: _w)),
             const SizedBox(width: 4),
             Text(label, style: _txt(size: 9, weight: FontWeight.w600, color: Colors.white.withOpacity(0.6))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({required this.icon, required this.onTap, this.badgeText});
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? badgeText;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: FRColors.camelOverlay(0.2)),
+        ),
+        child: Stack(
+          children: [
+            Center(child: Icon(icon, size: 18, color: FRColors.camelStrong)),
+            if (badgeText != null)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: const BoxDecoration(color: FRColors.danger, shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: Text(badgeText!, style: _txt(size: 8, weight: FontWeight.w900, color: FRColors.surface)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RadarHeatData {
+  const _RadarHeatData({required this.label, required this.percent, required this.count, this.hot = false});
+
+  final String label;
+  final double percent;
+  final int count;
+  final bool hot;
+}
+
+class _RadarHeatSection extends StatelessWidget {
+  const _RadarHeatSection({required this.cards});
+
+  final List<_RadarHeatData> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: FRColors.border),
+        boxShadow: const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 20, offset: Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Radar Sıcaklığı', style: _serif(size: 22)),
+              Text('Tümünü Gör', style: _txt(size: 12, weight: FontWeight.w800, color: FRColors.camelStrong)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: cards.map((item) {
+              final tone = item.hot ? FRColors.camelStrong : FRColors.success;
+              return Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: item.hot ? FRColors.camelOverlay(0.12) : FRColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: item.hot ? FRColors.camelOverlay(0.28) : FRColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Text('${item.percent > 0 ? '+' : ''}${item.percent.toStringAsFixed(0)}%', style: _serif(size: 21, color: tone)),
+                      const SizedBox(height: 2),
+                      Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _txt(size: 10, weight: FontWeight.w800)),
+                      Text('${item.count} ürün', style: _txt(size: 10, weight: FontWeight.w600, color: FRColors.textMuted)),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActualDealsLinkCard extends StatelessWidget {
+  const _ActualDealsLinkCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [FRColors.espresso, Color(0xFF2A1A0B)]),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [BoxShadow(color: FRColors.shadowMedium, blurRadius: 24, offset: Offset(0, 10))],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Aktüel Fırsatlar', style: _serif(size: 23, color: FRColors.surface)),
+                  const SizedBox(height: 3),
+                  Text('BİM, A-101 canlı katalog takibi', style: _txt(size: 12, color: FRColors.whiteMuted)),
+                ],
+              ),
+            ),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: FRColors.camelOverlay(0.16),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: FRColors.camelOverlay(0.24)),
+              ),
+              child: const Icon(Icons.chevron_right_rounded, color: FRColors.camelStrong),
+            ),
           ],
         ),
       ),
@@ -1692,6 +1876,217 @@ class _BarcodeCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PersonalListsCard extends StatelessWidget {
+  const _PersonalListsCard({required this.items});
+
+  final List<ExploreFeedItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final previews = items.take(3).toList();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: FRColors.camelOverlay(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: FRColors.camelOverlay(0.22)),
+                ),
+                child: const Icon(Icons.list_alt_rounded, color: FRColors.camelStrong),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Haftalık Favoriler', style: _txt(size: 15, weight: FontWeight.w800)),
+                    Text('Kaydettiğin ürünlerden otomatik', style: _txt(size: 11, color: FRColors.textMuted, weight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (previews.isEmpty)
+            Text('Henüz kayıtlı ürün yok. Favoriye ekleyerek listeni büyütebilirsin.', style: _txt(size: 11, color: FRColors.textMuted))
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: previews
+                  .map((e) => Chip(
+                        label: Text(e.product.name, overflow: TextOverflow.ellipsis),
+                        labelStyle: _txt(size: 10, weight: FontWeight.w700, color: FRColors.textPrimary),
+                        backgroundColor: FRColors.background,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          side: const BorderSide(color: FRColors.border),
+                        ),
+                      ))
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveRadarSection extends StatelessWidget {
+  const _LiveRadarSection({required this.items});
+
+  final List<ExploreFeedItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const _StatusCard(title: 'Radar akışı boş', subtitle: 'Yeni fiyat katkıları geldikçe burada listelenir.');
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: FRColors.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: FRColors.border)),
+      child: Column(
+        children: items.map((item) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: FRColors.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: FRColors.border)),
+                  alignment: Alignment.center,
+                  child: Text(item.storeName.characters.take(2).toString().toUpperCase(), style: _txt(size: 12, weight: FontWeight.w800, color: FRColors.camelStrong)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _txt(size: 13, weight: FontWeight.w800)),
+                    Text('${item.storeName} • ${_timeAgo(item.price.reportedAt)}', style: _txt(size: 11, color: FRColors.textMuted, weight: FontWeight.w600)),
+                  ]),
+                ),
+                Text('${item.displayPrice.toStringAsFixed(0)}₺', style: _serif(size: 20)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'şimdi';
+    if (diff.inHours < 1) return '${diff.inMinutes} dk önce';
+    if (diff.inDays < 1) return '${diff.inHours} sa önce';
+    return '${diff.inDays} gün önce';
+  }
+}
+
+class _QuickToolCard extends StatelessWidget {
+  const _QuickToolCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.dark = false});
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: dark ? FRColors.espresso : FRColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: dark ? FRColors.camelOverlay(0.25) : FRColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: dark ? FRColors.camelOverlay(0.2) : FRColors.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: FRColors.camelStrong),
+            ),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: _txt(size: 15, weight: FontWeight.w800, color: dark ? FRColors.surface : FRColors.textPrimary)),
+              Text(subtitle, style: _txt(size: 11, weight: FontWeight.w600, color: dark ? FRColors.whiteMuted : FRColors.textMuted)),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterCtaCard extends StatelessWidget {
+  const _FooterCtaCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [FRColors.espresso, Color(0xFF261808)]),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: FRColors.camelOverlay(0.30)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: FRColors.camelOverlay(0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: FRColors.camelOverlay(0.25)),
+            ),
+            child: const Icon(Icons.add_circle_outline_rounded, color: FRColors.camelStrong),
+          ),
+          const SizedBox(height: 12),
+          Text('Fiyat Ekle, Puan Kazan', style: _txt(size: 21, weight: FontWeight.w800, color: FRColors.surface)),
+          const SizedBox(height: 6),
+          Text('Raflardaki güncel fiyatları okut, Radar puanlarını toplayarak ödülleri aç.', textAlign: TextAlign.center, style: _txt(size: 11, color: FRColors.whiteMuted)),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FRColors.camelStrong,
+                foregroundColor: FRColors.espresso,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text('Hemen Başla', style: _txt(size: 14, weight: FontWeight.w800, color: FRColors.espresso)),
+            ),
+          ),
+        ],
       ),
     );
   }
