@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/category_model.dart';
 import '../../models/product_model.dart';
@@ -14,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/location_service.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -39,7 +39,8 @@ TextStyle _txt({
   FontStyle? fontStyle,
   double? letterSpacing,
 }) {
-  return GoogleFonts.plusJakartaSans(
+  return TextStyle(
+    fontFamily: 'Outfit',
     fontSize: size,
     fontWeight: weight,
     color: color,
@@ -57,7 +58,8 @@ TextStyle _serif({
   FontStyle? fontStyle,
   double? letterSpacing,
 }) {
-  return GoogleFonts.dmSerifDisplay(
+  return TextStyle(
+    fontFamily: 'Outfit',
     fontSize: size,
     fontWeight: weight,
     color: color,
@@ -83,6 +85,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _overlayOpen = false;
   String _selectedCategory = 'Tumu';
   String _selectedMarket = 'Tümü';
+  bool _showAllProducts = false;
+  bool _showAllDrops = false;
+  bool _showAllCategories = false;
+  String _feedMode = 'drops';
   Timer? _countdownTimer;
   Duration _campaignRemaining = Duration.zero;
 
@@ -106,15 +112,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     _syncCountdown(activeActual?.endDate);
 
-    final locationLabel = _resolveLocation(user, nearbyStores);
+    final locationLabel = _resolveLocation(user, nearbyStores, exploreState.userLocation);
     final visibleProducts = _visibleItems(exploreState.items);
+    final prioritizedProducts = _prioritizeByFeedMode(visibleProducts, _feedMode);
     final categoryTabs = _categoryTabs(exploreState);
     final marketFilters = _marketFilters(exploreState.items);
     final categoryTiles = _categoryTiles(categories);
     final featuredProducts = _featuredProducts(visibleProducts, exploreState.items);
+    final personalProducts = _personalizedProducts(visibleProducts, user);
     final nearbyTiles = _nearbyTiles(nearbyStores, visibleProducts.isNotEmpty ? visibleProducts : exploreState.items);
     final trendingSearches = _trendingSearches(exploreState.items);
     final stats = _heroStats(exploreState.items);
+    final alertItems = _trackedAlerts(visibleProducts, user);
 
     return Scaffold(
       backgroundColor: _bg,
@@ -145,6 +154,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     title: 'Ürünler',
                     tag: '${marketFilters.length - 1} market',
                     actionLabel: 'Tümünü Gör',
+                    onActionTap: () => setState(() => _showAllProducts = true),
                   ),
                 ),
                 SliverToBoxAdapter(child: _buildMarketTabs(marketFilters)),
@@ -159,7 +169,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   SliverToBoxAdapter(
                     child: _StatusCard(title: 'Keşfet yüklenemedi', subtitle: exploreState.error!),
                   )
-                else if (visibleProducts.isEmpty)
+                else if (prioritizedProducts.isEmpty)
                   const SliverToBoxAdapter(
                     child: _StatusCard(
                       title: 'Ürün bulunamadı',
@@ -172,7 +182,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     sliver: SliverGrid(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final item = visibleProducts[index];
+                          final item = prioritizedProducts[index];
                           return _ProductCard(
                             item: item,
                             isFavorite: _favoriteIds.contains(item.product.id),
@@ -192,7 +202,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             },
                           );
                         },
-                        childCount: math.min(visibleProducts.length, 6),
+                        childCount: _showAllProducts ? prioritizedProducts.length : math.min(prioritizedProducts.length, 6),
                       ),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
@@ -220,10 +230,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 if (featuredProducts.isNotEmpty) ...[
                   SliverToBoxAdapter(
-                    child: const _SectionHeader(
+                    child: _SectionHeader(
                       title: 'Fiyatı Düşenler',
                       tag: 'bu hafta',
                       actionLabel: 'Tümü',
+                      onActionTap: () => setState(() => _showAllDrops = true),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -234,16 +245,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         scrollDirection: Axis.horizontal,
                         itemBuilder: (context, index) => _FeaturedCard(item: featuredProducts[index]),
                         separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: featuredProducts.length,
+                        itemCount: _showAllDrops ? featuredProducts.length : math.min(featuredProducts.length, 4),
                       ),
                     ),
                   ),
                 ],
-                SliverToBoxAdapter(child: const _SectionHeader(title: 'Kategoriler')),
+                if (personalProducts.isNotEmpty) ...[
+                  const SliverToBoxAdapter(
+                    child: _SectionHeader(title: 'Sana Özel Seçimler', tag: 'kişisel'),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 238,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) => _FeaturedCard(item: personalProducts[index], personalized: true),
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemCount: math.min(personalProducts.length, 8),
+                      ),
+                    ),
+                  ),
+                ],
+                SliverToBoxAdapter(
+                  child: _SectionHeader(
+                    title: 'Kategoriler',
+                    actionLabel: 'Tümü',
+                    onActionTap: () => setState(() => _showAllCategories = true),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _CategoryGrid(items: categoryTiles),
+                    child: _CategoryGrid(items: _showAllCategories ? categoryTiles : categoryTiles.take(8).toList()),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -258,7 +292,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _AlertCard(onTap: _openOverlay),
+                    child: _AlertCard(
+                      alertItems: alertItems,
+                      onTap: () {
+                        if (alertItems.isNotEmpty) {
+                          _applySearch(alertItems.first.product.name);
+                          return;
+                        }
+                        _openOverlay();
+                      },
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(child: const _SectionHeader(title: 'Yakın Marketler')),
@@ -272,6 +315,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: _BarcodeCard(onTap: _openOverlay),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: _AddPriceBanner(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -297,56 +352,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildHeader(String locationLabel) {
     return Container(
-      decoration: const BoxDecoration(color: _dk),
+      decoration: const BoxDecoration(
+        color: _dk,
+        borderRadius: BorderRadius.vertical(bottom: Radius.elliptical(240, 42)),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
         child: Column(
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [_t2, _tan],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _tc.withOpacity(0.30),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.radar_rounded, color: _w, size: 18),
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('FiyatRadar', style: _txt(size: 10, weight: FontWeight.w600, color: Colors.white.withOpacity(0.60), letterSpacing: 0.8)),
-                          RichText(
-                            text: TextSpan(
-                              style: _serif(size: 22, color: _w, height: 1),
-                              children: [
-                                const TextSpan(text: 'Keşfet '),
-                                TextSpan(text: '&', style: _serif(size: 22, color: _tc, fontStyle: FontStyle.italic)),
-                                const TextSpan(text: ' Karşılaştır'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                Expanded(child: Text('Keşfet', style: _txt(size: 24, weight: FontWeight.w800, color: _w))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                   decoration: BoxDecoration(
@@ -394,6 +410,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            _QuickFeedRow(
+              selectedKey: _feedMode,
+              onChanged: (value) => setState(() => _feedMode = value),
             ),
           ],
         ),
@@ -602,7 +623,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return list;
   }
 
-  String _resolveLocation(UserModel? user, List<StoreModel> stores) {
+  String _resolveLocation(UserModel? user, List<StoreModel> stores, LocationData? location) {
+    if (location != null) {
+      final lat = location.latitude;
+      final lng = location.longitude;
+      if (lat is double && lng is double) {
+        return '${lat.toStringAsFixed(2)}, ${lng.toStringAsFixed(2)}';
+      }
+    }
     final hood = user?.neighborhood?.trim();
     if (hood != null && hood.isNotEmpty) return hood;
     final city = user?.city?.trim();
@@ -611,10 +639,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return 'Çekmeköy';
   }
 
+  List<ExploreFeedItem> _prioritizeByFeedMode(List<ExploreFeedItem> items, String mode) {
+    final sorted = [...items];
+    if (mode == 'movement') {
+      sorted.sort((a, b) => (b.priceChangePercent ?? 0).abs().compareTo((a.priceChangePercent ?? 0).abs()));
+    } else if (mode == 'personal') {
+      sorted.sort((a, b) => (b.product.viewCount + b.product.priceEntryCount).compareTo(a.product.viewCount + a.product.priceEntryCount));
+    } else {
+      sorted.sort((a, b) => b.dropPercent.abs().compareTo(a.dropPercent.abs()));
+    }
+    return sorted;
+  }
+
+  List<ExploreFeedItem> _personalizedProducts(List<ExploreFeedItem> items, UserModel? user) {
+    final saved = user?.savedProducts.toSet() ?? const <String>{};
+    final preferred = items
+        .where((e) => saved.contains(e.product.id) || _favoriteIds.contains(e.product.id))
+        .toList();
+    if (preferred.isNotEmpty) return preferred;
+    final sorted = [...items]..sort((a, b) => b.product.viewCount.compareTo(a.product.viewCount));
+    return sorted.take(6).toList();
+  }
+
+  List<ExploreFeedItem> _trackedAlerts(List<ExploreFeedItem> items, UserModel? user) {
+    final saved = user?.savedProducts.toSet() ?? const <String>{};
+    return items
+        .where((e) => saved.contains(e.product.id))
+        .where((e) => (e.priceChangePercent ?? -e.dropPercent).abs() > 0)
+        .take(2)
+        .toList();
+  }
+
   List<ExploreFeedItem> _featuredProducts(List<ExploreFeedItem> visible, List<ExploreFeedItem> all) {
     final source = (visible.isNotEmpty ? visible : all).toList()
       ..sort((a, b) => (b.dropPercent.abs()).compareTo(a.dropPercent.abs()));
-    return source.take(4).toList();
+    return source;
   }
 
   List<String> _trendingSearches(List<ExploreFeedItem> items) {
@@ -938,11 +997,12 @@ class _StatPill extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.tag, this.actionLabel});
+  const _SectionHeader({required this.title, this.tag, this.actionLabel, this.onActionTap});
 
   final String title;
   final String? tag;
   final String? actionLabel;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -966,14 +1026,93 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
           if (actionLabel != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(actionLabel!, style: _txt(size: 12, weight: FontWeight.w700, color: _t3)),
-                const Icon(Icons.chevron_right_rounded, size: 14, color: _t3),
-              ],
+            InkWell(
+              onTap: onActionTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(actionLabel!, style: _txt(size: 12, weight: FontWeight.w700, color: _t3)),
+                  const Icon(Icons.chevron_right_rounded, size: 14, color: _t3),
+                ],
+              ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickFeedRow extends StatelessWidget {
+  const _QuickFeedRow({required this.selectedKey, required this.onChanged});
+
+  final String selectedKey;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = <(String, String)>[
+      ('drops', 'En Çok Düşenler'),
+      ('movement', '24 Saatte Hareket'),
+      ('personal', 'Sana Özel Seçimler'),
+    ];
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final selected = selectedKey == item.$1;
+          return InkWell(
+            onTap: () => onChanged(item.$1),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected ? _tc.withOpacity(0.2) : Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: selected ? _tc : _tc.withOpacity(0.25)),
+              ),
+              child: Center(
+                child: Text(
+                  item.$2,
+                  style: _txt(size: 11, weight: FontWeight.w800, color: _w),
+                ),
+              ),
+            ),
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: items.length,
+      ),
+    );
+  }
+}
+
+class _AddPriceBanner extends StatelessWidget {
+  const _AddPriceBanner({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [_dk, _t2]),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.add_chart_rounded, color: _w),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Fiyat ekle, puan kazan', style: _txt(size: 14, weight: FontWeight.w800, color: _w))),
+            Text('Hemen git →', style: _txt(size: 11, weight: FontWeight.w700, color: _tcl)),
+          ],
+        ),
       ),
     );
   }
@@ -1035,7 +1174,7 @@ class _ProductCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(isUp ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 8, color: isUp ? _red : _grn),
+                            Icon(isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, size: 8, color: isUp ? _red : _grn),
                             const SizedBox(width: 3),
                             Text('%$percent', style: _txt(size: 9, weight: FontWeight.w900, color: isUp ? _red : _grn)),
                           ],
@@ -1097,7 +1236,10 @@ class _ProductCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     const Icon(Icons.location_on_outlined, size: 8, color: _t3),
                     const SizedBox(width: 2),
-                    Text(item.distanceLabel ?? item.locationLabel, style: _txt(size: 9, weight: FontWeight.w700, color: _t3)),
+                    Text(
+                      item.isLocalStore ? (item.distanceLabel ?? item.locationLabel) : 'Online',
+                      style: _txt(size: 9, weight: FontWeight.w700, color: _t3),
+                    ),
                     const SizedBox(width: 3),
                     Container(
                       width: 18,
@@ -1262,13 +1404,15 @@ class _CountdownBlock extends StatelessWidget {
 }
 
 class _FeaturedCard extends StatelessWidget {
-  const _FeaturedCard({required this.item});
+  const _FeaturedCard({required this.item, this.personalized = false});
 
   final ExploreFeedItem item;
+  final bool personalized;
 
   @override
   Widget build(BuildContext context) {
     final change = (item.priceChangePercent ?? -item.dropPercent).abs().round();
+    final tag = _resolveTag();
     return Container(
       width: 150,
       decoration: BoxDecoration(
@@ -1304,7 +1448,7 @@ class _FeaturedCard extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('TREND', style: _txt(size: 8, weight: FontWeight.w800, color: _tcl, letterSpacing: 0.5)),
+                        Text(tag, style: _txt(size: 8, weight: FontWeight.w800, color: _tcl, letterSpacing: 0.5)),
                         Text('▼%$change', style: _txt(size: 9, weight: FontWeight.w900, color: _grn)),
                       ],
                     ),
@@ -1329,6 +1473,14 @@ class _FeaturedCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _resolveTag() {
+    if (personalized) return 'SANA ÖZEL';
+    if (item.dropPercent >= 20) return 'EN DÜŞÜK';
+    if (item.product.isTrending) return 'POPÜLER';
+    if ((item.priceChangePercent ?? 0).abs() >= 8) return 'TREND';
+    return 'KAMPANYA';
   }
 }
 
@@ -1378,9 +1530,10 @@ class _CategoryGrid extends StatelessWidget {
 }
 
 class _AlertCard extends StatelessWidget {
-  const _AlertCard({required this.onTap});
+  const _AlertCard({required this.onTap, required this.alertItems});
 
   final VoidCallback onTap;
+  final List<ExploreFeedItem> alertItems;
 
   @override
   Widget build(BuildContext context) {
@@ -1389,34 +1542,48 @@ class _AlertCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-        decoration: BoxDecoration(color: _dk, borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(
+          color: _w,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _tc.withOpacity(0.25)),
+        ),
         child: Row(
           children: [
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: _grn.withOpacity(0.15), borderRadius: BorderRadius.circular(11)),
-              child: const Icon(Icons.notifications_none_rounded, size: 17, color: _grn),
+              decoration: BoxDecoration(color: _tc.withOpacity(0.15), borderRadius: BorderRadius.circular(11)),
+              child: const Icon(Icons.notifications_none_rounded, size: 17, color: _dk),
             ),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('2 fiyat alarmın tetiklendi!', style: _txt(size: 13, weight: FontWeight.w800, color: _w)),
+                  Text(
+                    alertItems.isEmpty ? 'Takipte alarm yok' : '${alertItems.length} takip ürününde hareket var',
+                    style: _txt(size: 13, weight: FontWeight.w800, color: _dk),
+                  ),
                   const SizedBox(height: 2),
-                  Text('Nutella ve Ariel yeni fiyatlandı', style: _txt(size: 11, weight: FontWeight.w500, color: Colors.white.withOpacity(0.60))),
+                  Text(
+                    alertItems.isEmpty
+                        ? 'Fiyatı değişen ürün olunca burada göreceksin.'
+                        : '${alertItems.map((e) => e.product.name).join(', ')}',
+                    style: _txt(size: 11, weight: FontWeight.w500, color: _t2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _grn.withOpacity(0.15),
+                color: _tc.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: _grn.withOpacity(0.3)),
+                border: Border.all(color: _tc.withOpacity(0.3)),
               ),
-              child: Text('Gör →', style: _txt(size: 11, weight: FontWeight.w800, color: _grn)),
+              child: Text('Gör →', style: _txt(size: 11, weight: FontWeight.w800, color: _dk)),
             ),
           ],
         ),
@@ -1445,7 +1612,7 @@ class _NearbyMarkets extends StatelessWidget {
                   children: [
                     const Icon(Icons.location_on_outlined, size: 11, color: _tc),
                     const SizedBox(width: 5),
-                    Expanded(child: Text('$locationLabel, İstanbul', style: _txt(size: 13, weight: FontWeight.w800, color: _w))),
+                    Expanded(child: Text(locationLabel, style: _txt(size: 13, weight: FontWeight.w800, color: _w))),
                   ],
                 ),
               ),
