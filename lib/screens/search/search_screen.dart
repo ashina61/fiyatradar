@@ -229,7 +229,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 if (featuredProducts.isNotEmpty) ...[
                   SliverToBoxAdapter(
-                    child: const _SectionHeader(
+                    child: _SectionHeader(
                       title: 'Fiyatı Düşenler',
                       tag: 'bu hafta',
                       actionLabel: 'Tümü',
@@ -652,7 +652,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   List<ExploreFeedItem> _personalizedProducts(List<ExploreFeedItem> items, UserModel? user) {
     final saved = user?.savedProducts.toSet() ?? const <String>{};
-    final preferred = items.where((e) => saved.contains(e.product.id)).toList();
+    final preferred = items
+        .where((e) => saved.contains(e.product.id) || _favoriteIds.contains(e.product.id))
+        .toList();
     if (preferred.isNotEmpty) return preferred;
     final sorted = [...items]..sort((a, b) => b.product.viewCount.compareTo(a.product.viewCount));
     return sorted.take(6).toList();
@@ -670,7 +672,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<ExploreFeedItem> _featuredProducts(List<ExploreFeedItem> visible, List<ExploreFeedItem> all) {
     final source = (visible.isNotEmpty ? visible : all).toList()
       ..sort((a, b) => (b.dropPercent.abs()).compareTo(a.dropPercent.abs()));
-    return source.take(4).toList();
+    return source;
   }
 
   List<String> _trendingSearches(List<ExploreFeedItem> items) {
@@ -1409,8 +1411,7 @@ class _FeaturedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final change = (item.priceChangePercent ?? -item.dropPercent).abs().round();
-    final labels = const ['KAMPANYA', 'TREND', 'POPÜLER', 'EN DÜŞÜK'];
-    final tag = personalized ? 'SANA ÖZEL' : labels[item.product.name.length % labels.length];
+    final tag = _resolveTag();
     return Container(
       width: 150,
       decoration: BoxDecoration(
@@ -1471,6 +1472,14 @@ class _FeaturedCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _resolveTag() {
+    if (personalized) return 'SANA ÖZEL';
+    if (item.dropPercent >= 20) return 'EN DÜŞÜK';
+    if (item.product.isTrending) return 'POPÜLER';
+    if ((item.priceChangePercent ?? 0).abs() >= 8) return 'TREND';
+    return 'KAMPANYA';
   }
 }
 
