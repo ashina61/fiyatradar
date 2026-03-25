@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product_model.dart';
 import '../theme/fr_colors.dart';
@@ -23,6 +24,14 @@ class HomeProductCard extends StatelessWidget {
   final double? trendPercent;
   final bool isPriceRising;
   final bool isSaved;
+
+  Future<void> _openAffiliateLink() async {
+    final rawUrl = product.preferredAffiliateUrl?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) return;
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +67,11 @@ class HomeProductCard extends StatelessWidget {
                         padding: const EdgeInsets.all(14),
                         child: imageUrl == null || imageUrl.isEmpty
                             ? const Icon(Icons.inventory_2_rounded, color: FRColors.textMuted, size: 54)
-                            : Image.network(imageUrl, fit: BoxFit.contain),
+                            : Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: FRColors.textMuted, size: 42),
+                              ),
                       ),
                     ),
                     Positioned(
@@ -122,7 +135,21 @@ class HomeProductCard extends StatelessWidget {
               if (showStore)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                  child: Text(marketName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.textMuted)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(marketName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.textMuted)),
+                      ),
+                      if (product.preferredAffiliateUrl != null)
+                        InkWell(
+                          onTap: _openAffiliateLink,
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(Icons.open_in_new_rounded, size: 13, color: FRColors.textMuted),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
             ],
           ),

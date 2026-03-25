@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/location_service.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -622,7 +623,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return list;
   }
 
-  String _resolveLocation(UserModel? user, List<StoreModel> stores, dynamic location) {
+  String _resolveLocation(UserModel? user, List<StoreModel> stores, LocationData? location) {
     if (location != null) {
       final lat = location.latitude;
       final lng = location.longitude;
