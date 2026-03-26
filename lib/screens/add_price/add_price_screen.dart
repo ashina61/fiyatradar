@@ -122,8 +122,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     super.dispose();
   }
 
+  bool _hasSelectedProduct(AddPriceState state) =>
+      (state.selectedProductId?.trim().isNotEmpty ?? false);
+
   bool _isProductDone(AddPriceState state) =>
-      state.productName.trim().isNotEmpty && state.selectedCategoryId != null;
+      _hasSelectedProduct(state) && state.selectedCategoryId != null;
+
+  bool _shouldShowFirestoreProductList(AddPriceState state) {
+    final query = state.productName.trim();
+    return query.length >= 2 && !_hasSelectedProduct(state);
+  }
   bool _isStoreDone(AddPriceState state) => state.selectedStoreId != null;
   bool _isPriceDone(AddPriceState state) => _parsePriceInput(state.price) != null;
 
@@ -437,7 +445,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         ],
                       ),
                     ),
-                    if (!_isProductDone(state)) ...[
+                    if (_shouldShowFirestoreProductList(state)) ...[
                       const SizedBox(height: 12),
                       _buildFirestoreProductList(state, notifier),
                     ],
@@ -871,10 +879,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ],
       ),
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('products')
-            .limit(20)
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('products').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _buildProductStreamState(
@@ -903,10 +908,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 .map(ProductModel.fromFirestore)
                 .where((product) {
                   if (query.isEmpty) return true;
+                  final categoriesText = product.categories
+                      .map((category) => category.trim().toLowerCase())
+                      .where((category) => category.isNotEmpty)
+                      .join(' ');
                   final haystack = [
                     product.name,
                     product.brand ?? '',
                     product.barcode ?? '',
+                    categoriesText,
                   ].join(' ').toLowerCase();
                   return haystack.contains(query);
                 })
@@ -980,7 +990,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   bool _showRequestProductCta(AddPriceState state) {
     final query = state.productName.trim();
-    return query.length >= 2 && state.productSuggestions.isEmpty;
+    return query.length >= 2 &&
+        !_hasSelectedProduct(state) &&
+        state.productSuggestions.isEmpty;
   }
 
   Widget _buildRequestProductButton(AddPriceNotifier notifier) {

@@ -302,9 +302,11 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     _productSearchDebounce?.cancel();
 
     final normalizedInput = value.trim();
-    final wasSelected = state.selectedProductId != null;
+    final wasSelected = (state.selectedProductId?.trim().isNotEmpty ?? false);
     final shouldClearSelection =
         wasSelected && normalizedInput.toLowerCase() != state.productName.trim().toLowerCase();
+    final shouldClearLockedCategory =
+        shouldClearSelection && state.lockedCategoryByProduct;
 
     if (shouldClearSelection) {
       _log('CATEGORY_LOCKED: false');
@@ -314,8 +316,10 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       productSuggestions: const [],
       clearBarcode: true,
       clearSelectedProduct: shouldClearSelection,
+      selectedProductId: shouldClearSelection ? null : state.selectedProductId,
       selectedProductImageUrl: shouldClearSelection ? null : state.selectedProductImageUrl,
       lockedCategoryByProduct: shouldClearSelection ? false : state.lockedCategoryByProduct,
+      clearCategory: shouldClearLockedCategory,
     );
 
     if (normalizedInput.isEmpty) {
