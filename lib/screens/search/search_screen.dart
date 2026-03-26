@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/explore_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -62,6 +61,28 @@ TextStyle _serif({
   );
 }
 
+String? _extractLocationLabel(String? address) {
+  if (address == null || address.trim().isEmpty) return null;
+  final parts = address
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return null;
+
+  final neighborhood = parts.first;
+  final normalized = neighborhood.toLowerCase();
+  if (normalized.endsWith('mah.') || normalized.endsWith('mah')) {
+    return neighborhood;
+  }
+
+  if (normalized.contains('mah')) {
+    return neighborhood;
+  }
+
+  return '$neighborhood Mah.';
+}
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -72,7 +93,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final Set<String> _favorites = <String>{};
-  bool _isLocationExpanded = false;
   final _marketFilters = const ['Tümü', 'A-101', 'BİM', 'Trendyol', 'ŞOK'];
   final _signalFilters = const ['Gerçek Düşüş', '24 Saatte', 'En Yakın'];
 
@@ -88,14 +108,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(exploreControllerProvider);
-    final unreadCount = ref.watch(unreadNotificationCountProvider);
     final allProducts = state.items;
     final categoryFiltered = _matchesCategory(state.selectedCategory, allProducts);
     final products = _selectedMarket == 'Tümü'
         ? categoryFiltered
         : categoryFiltered.where((e) => e.storeName.toLowerCase() == _selectedMarket.toLowerCase()).toList();
-
-    final locationLabel = (products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null)?.locationLabel;
+    final primaryItem = products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null;
+    final fallbackLocation = primaryItem == null
+        ? null
+        : primaryItem.neighborhoodLabel != '—'
+        ? primaryItem.neighborhoodLabel
+        : primaryItem.locationLabel;
+    final locationLabel = _extractLocationLabel(state.userLocation?.address) ?? fallbackLocation;
 
     return Scaffold(
       backgroundColor: const Color(0xFFC8C4BC),
@@ -107,14 +131,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             children: [
               _Header(
                 controller: _searchController,
-                unreadCount: unreadCount,
                 locationLabel: locationLabel,
-                locationExpanded: _isLocationExpanded,
                 onSearchTap: () => _openSearchExperience(context),
-                onLocationTap: () => setState(() => _isLocationExpanded = !_isLocationExpanded),
-                onNotifications: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
-                ),
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -293,20 +311,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 class _Header extends StatelessWidget {
   const _Header({
     required this.controller,
-    required this.unreadCount,
-    required this.onNotifications,
-    required this.onLocationTap,
     required this.onSearchTap,
-    required this.locationExpanded,
     required this.locationLabel,
   });
 
   final TextEditingController controller;
-  final int unreadCount;
-  final VoidCallback onNotifications;
-  final VoidCallback onLocationTap;
   final VoidCallback onSearchTap;
-  final bool locationExpanded;
   final String? locationLabel;
 
   @override
@@ -323,13 +333,21 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text('Keşfet.', style: _serif(size: 32, color: Colors.white, height: 1, letterSpacing: -0.5))),
-              _LocationReveal(
-                expanded: locationExpanded,
-                label: locationLabel,
-                onTap: onLocationTap,
+              Container(
+                constraints: const BoxConstraints(maxWidth: 168),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(255, 255, 255, 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
+                ),
+                child: Text(
+                  (locationLabel == null || locationLabel!.trim().isEmpty) ? 'Konum bulunamadı' : locationLabel!.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _jakarta(size: 11, weight: FontWeight.w700, color: Colors.white),
+                ),
               ),
-              const SizedBox(width: 8),
-              _HeaderButton(icon: Icons.notifications_none_rounded, badge: unreadCount > 0 ? '$unreadCount' : null, onTap: onNotifications),
             ],
           ),
           const SizedBox(height: 20),
@@ -364,52 +382,6 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderButton extends StatelessWidget {
-  const _HeaderButton({required this.icon, required this.onTap, this.badge});
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? badge;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(255, 255, 255, 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
-            ),
-            child: Icon(icon, size: 18, color: _tc),
-          ),
-          if (badge != null)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _red,
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: _dk, width: 2),
-                ),
-                child: Text(badge!, style: _jakarta(size: 10, weight: FontWeight.w900, color: Colors.white)),
-              ),
-            ),
         ],
       ),
     );
@@ -626,7 +598,7 @@ class _ProductCard extends StatelessWidget {
                       errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3),
                     ),
                   ),
-                  Positioned(top: 4, left: 4, child: _badge(item)),
+                  Positioned(top: 4, left: 4, child: _PriceChangeIndicator(item: item)),
                   Positioned(
                     top: 4,
                     right: 4,
@@ -656,8 +628,6 @@ class _ProductCard extends StatelessWidget {
                     Text(item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: _tc, letterSpacing: 0.6)),
                     const SizedBox(height: 4),
                     Text(item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
-                    const SizedBox(height: 6),
-                    _PriceChangeIndicator(item: item),
                     const Spacer(),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -696,22 +666,6 @@ class _ProductCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _badge(ExploreFeedItem item) {
-    final dip = item.dropPercent <= -18;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: dip ? const Color.fromRGBO(191, 148, 112, 0.15) : const Color.fromRGBO(39, 168, 90, 0.15),
-        border: Border.all(color: dip ? const Color.fromRGBO(191, 148, 112, 0.3) : const Color.fromRGBO(39, 168, 90, 0.2)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        dip ? 'DİP FİYAT' : '%${item.dropPercent.abs().round()}',
-        style: _jakarta(size: 9, weight: FontWeight.w900, color: dip ? _dk : _grn, letterSpacing: 0.5),
       ),
     );
   }
@@ -1190,40 +1144,6 @@ class _SectionHead extends StatelessWidget {
   }
 }
 
-class _LocationReveal extends StatelessWidget {
-  const _LocationReveal({required this.expanded, required this.label, required this.onTap});
-
-  final bool expanded;
-  final String? label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = (label == null || label!.trim().isEmpty) ? 'Konum bulunamadı' : label!.trim();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-          width: expanded ? 128 : 0,
-          margin: EdgeInsets.only(right: expanded ? 8 : 0),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(255, 255, 255, 0.08),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
-          ),
-          child: expanded
-              ? Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 11, weight: FontWeight.w700, color: Colors.white))
-              : null,
-        ),
-        _HeaderButton(icon: Icons.location_on_outlined, onTap: onTap),
-      ],
-    );
-  }
-}
-
 class _LiveStatusDot extends StatefulWidget {
   const _LiveStatusDot();
 
@@ -1284,15 +1204,26 @@ class _PriceChangeIndicator extends StatelessWidget {
     final isDrop = raw < 0;
     final color = isDrop ? _grn : _red;
     final icon = isDrop ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 3),
-        Text(
-          '%${raw.abs().toStringAsFixed(1)}',
-          style: _jakarta(size: 11, weight: FontWeight.w800, color: color),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDrop ? const Color.fromRGBO(39, 168, 90, 0.12) : const Color.fromRGBO(229, 57, 53, 0.12),
+        border: Border.all(
+          color: isDrop ? const Color.fromRGBO(39, 168, 90, 0.25) : const Color.fromRGBO(229, 57, 53, 0.25),
         ),
-      ],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(
+            '%${raw.abs().toStringAsFixed(1)}',
+            style: _jakarta(size: 10, weight: FontWeight.w800, color: color),
+          ),
+        ],
+      ),
     );
   }
 }

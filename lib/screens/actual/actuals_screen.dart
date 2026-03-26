@@ -1,17 +1,23 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
-class ActualsScreen extends StatefulWidget {
+import '../../models/actual_item_model.dart';
+import '../../models/actual_model.dart';
+import '../../providers/actual_provider.dart';
+
+class ActualsScreen extends ConsumerStatefulWidget {
   const ActualsScreen({super.key});
 
   @override
-  State<ActualsScreen> createState() => _ActualsScreenState();
+  ConsumerState<ActualsScreen> createState() => _ActualsScreenState();
 }
 
-class _ActualsScreenState extends State<ActualsScreen> {
-  int _selectedMarket = 0;
-  int _selectedDate = 1;
+class _ActualsScreenState extends ConsumerState<ActualsScreen> {
+  String? _selectedMarketId;
+  String? _selectedActualId;
 
   static const _bg = Color(0xFFEDEAE3);
   static const _dk = Color(0xFF18100A);
@@ -23,78 +29,9 @@ class _ActualsScreenState extends State<ActualsScreen> {
   static const _t2 = Color(0xFF5E4A38);
   static const _t3 = Color(0xFFA0887A);
 
-  final _markets = const [
-    _MarketTabData(name: 'BİM', color: Color(0xFFD4A000)),
-    _MarketTabData(name: 'A-101', color: Color(0xFFD44020)),
-    _MarketTabData(name: 'ŞOK', color: Color(0xFF7B3FA0)),
-  ];
-
-  final _dates = const [
-    _DateTabData(label: 'Geçen Cuma', isFuture: false),
-    _DateTabData(label: 'Bu Cuma (27 Mart)', isFuture: false),
-    _DateTabData(label: 'Gelecek Salı (31 Mart)', isFuture: true),
-  ];
-
-  final _activeProducts = const [
-    _ProductData(
-      brand: 'FERRERO',
-      name: 'Nutella 750g Avantaj Paketi',
-      newPrice: '99,50₺',
-      oldPrice: '145,00₺',
-      imageUrl: 'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_fr.276.400.jpg',
-      branches: [
-        _BranchData(name: 'Gülnar Sokak BİM', distance: 'Buradasın • 1 dk önce', status: _BranchStatus.bol, isCurrent: true),
-      ],
-      reportTitle: 'Şu an buradasın, durumu bildir:',
-    ),
-    _ProductData(
-      brand: 'PHILIPS',
-      name: 'Essential Airfryer HD9252',
-      newPrice: '1.999₺',
-      oldPrice: '2.899₺',
-      imageUrl: 'https://m.media-amazon.com/images/I/61Nl0bW7-4L._AC_SL1500_.jpg',
-      reportTitle: 'Bu şubede değilsin',
-      reportDisabled: true,
-      branches: [
-        _BranchData(name: 'Çamlık Merkez BİM', distance: '450m • 15 dk önce', status: _BranchStatus.az),
-        _BranchData(name: 'Cumhuriyet Cad. BİM', distance: '820m • 2 saat önce', status: _BranchStatus.yok),
-      ],
-    ),
-    _ProductData(
-      brand: 'SEK',
-      name: 'Tam Yağlı Süt 1 Lt (6\'lı Koli)',
-      newPrice: '110,00₺',
-      oldPrice: '150,00₺',
-      imageUrl: 'https://images.openfoodfacts.org/images/products/869/039/703/0064/front_tr.21.400.jpg',
-      outOfStock: true,
-      branches: [
-        _BranchData(name: 'Gülnar Sokak BİM', distance: 'Buradasın • 2 dk önce', status: _BranchStatus.yok, isCurrent: true),
-      ],
-    ),
-  ];
-
-  final _upcomingProducts = const [
-    _ProductData(
-      brand: 'DOVE',
-      name: 'Şampuan 500ml + Duş Jeli',
-      newPrice: '125,00₺',
-      oldPrice: '180,00₺',
-      imageUrl: 'https://images.openfoodfacts.org/images/products/871/090/815/9966/front_fr.50.400.jpg',
-    ),
-    _ProductData(
-      brand: 'NESCAFÉ',
-      name: 'Classic 200g + Kupa Hediye',
-      newPrice: '189,90₺',
-      oldPrice: '240,00₺',
-      imageUrl: 'https://images.openfoodfacts.org/images/products/761/303/524/2993/front_fr.8.400.jpg',
-    ),
-  ];
-
-  bool get _isUpcoming => _dates[_selectedDate].isFuture;
-
   @override
   Widget build(BuildContext context) {
-    final products = _isUpcoming ? _upcomingProducts : _activeProducts;
+    final actualsAsync = ref.watch(adminActualsProvider);
 
     return Scaffold(
       backgroundColor: _bg,
@@ -102,52 +39,124 @@ class _ActualsScreenState extends State<ActualsScreen> {
         child: Column(
           children: [
             _buildAppBar(),
-            _buildMarketTabs(),
-            _buildDateTabs(),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 40),
-                children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: _isUpcoming ? _upcomingBanner() : _activeBanner(),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Column(
-                        key: ValueKey(_selectedDate),
-                        children: [
-                          for (int i = 0; i < products.length; i++)
-                            _AnimatedEntry(
-                              delay: i * 90,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: _ProductCard(
-                                  data: products[i],
-                                  isUpcoming: _isUpcoming,
-                                  dk: _dk,
-                                  gold: _gold,
-                                  goldLight: _goldLight,
-                                  whiteCard: _whiteCard,
-                                  green: _green,
-                                  red: _red,
-                                  t2: _t2,
-                                  t3: _t3,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+              child: actualsAsync.when(
+                data: (actuals) => _buildFirestoreContent(actuals),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'Aktüel kataloglar yüklenemedi.\n$error',
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            )
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFirestoreContent(List<ActualModel> allActuals) {
+    final actuals = allActuals.where((actual) => actual.isActive).toList()
+      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    if (actuals.isEmpty) {
+      return const Center(child: Text('Yayınlanmış aktüel katalog bulunamadı.'));
+    }
+
+    final markets = <_MarketTabData>[];
+    for (final actual in actuals) {
+      if (markets.any((market) => market.id == actual.marketId)) continue;
+      markets.add(
+        _MarketTabData(
+          id: actual.marketId,
+          name: actual.marketName.isEmpty ? 'Market' : actual.marketName,
+          color: _marketColor(actual.marketName),
+        ),
+      );
+    }
+
+    final selectedMarketId = markets.any((market) => market.id == _selectedMarketId) ? _selectedMarketId : markets.first.id;
+    final marketActuals = actuals.where((actual) => actual.marketId == selectedMarketId).toList()
+      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    final selectedActualId = marketActuals.any((actual) => actual.id == _selectedActualId) ? _selectedActualId : marketActuals.first.id;
+    final selectedActual = marketActuals.firstWhere((actual) => actual.id == selectedActualId);
+    final isUpcoming = selectedActual.startDate.isAfter(DateTime.now());
+    final dateTabs = marketActuals
+        .map(
+          (actual) => _DateTabData(
+            id: actual.id,
+            label: DateFormat('d MMMM', 'tr_TR').format(actual.startDate),
+          ),
+        )
+        .toList();
+
+    final itemsAsync = ref.watch(actualItemsProvider(selectedActual.id));
+
+    return Column(
+      children: [
+        _buildMarketTabs(markets, selectedMarketId),
+        _buildDateTabs(dateTabs, selectedActual.id),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 40),
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isUpcoming ? _upcomingBanner() : _activeBanner(),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: itemsAsync.when(
+                  data: (items) {
+                    if (items.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 24),
+                        child: Text('Bu katalog için ürün bulunamadı.'),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (int i = 0; i < items.length; i++)
+                          _AnimatedEntry(
+                            delay: i * 90,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 20),
+                              child: _ProductCard(
+                                data: _ProductData.fromActualItem(items[i]),
+                                marketName: selectedActual.marketName,
+                                isUpcoming: isUpcoming,
+                                dk: _dk,
+                                gold: _gold,
+                                goldLight: _goldLight,
+                                whiteCard: _whiteCard,
+                                green: _green,
+                                red: _red,
+                                t2: _t2,
+                                t3: _t3,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                  loading: () => const Padding(
+                    padding: EdgeInsets.only(top: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Text('Ürünler yüklenemedi: $error'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -177,20 +186,20 @@ class _ActualsScreenState extends State<ActualsScreen> {
     );
   }
 
-  Widget _buildMarketTabs() {
+  Widget _buildMarketTabs(List<_MarketTabData> markets, String? selectedMarketId) {
     return SizedBox(
-      height: 64,
+      height: 78,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
         scrollDirection: Axis.horizontal,
         itemBuilder: (_, index) {
-          final selected = _selectedMarket == index;
-          final market = _markets[index];
+          final market = markets[index];
+          final selected = selectedMarketId == market.id;
           return GestureDetector(
-            onTap: () => setState(() => _selectedMarket = index),
+            onTap: () => setState(() => _selectedMarketId = market.id),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 260),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: selected ? _dk : _whiteCard,
                 borderRadius: BorderRadius.circular(16),
@@ -215,12 +224,16 @@ class _ActualsScreenState extends State<ActualsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    market.name,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : _t2,
+                  Flexible(
+                    child: Text(
+                      market.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? Colors.white : _t2,
+                      ),
                     ),
                   ),
                 ],
@@ -229,12 +242,12 @@ class _ActualsScreenState extends State<ActualsScreen> {
           );
         },
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemCount: _markets.length,
+        itemCount: markets.length,
       ),
     );
   }
 
-  Widget _buildDateTabs() {
+  Widget _buildDateTabs(List<_DateTabData> dates, String selectedActualId) {
     return Container(
       padding: const EdgeInsets.only(bottom: 16),
       margin: const EdgeInsets.only(bottom: 20),
@@ -247,9 +260,9 @@ class _ActualsScreenState extends State<ActualsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           scrollDirection: Axis.horizontal,
           itemBuilder: (_, index) {
-            final selected = _selectedDate == index;
+            final selected = selectedActualId == dates[index].id;
             return GestureDetector(
-              onTap: () => setState(() => _selectedDate = index),
+              onTap: () => setState(() => _selectedActualId = dates[index].id),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -259,7 +272,7 @@ class _ActualsScreenState extends State<ActualsScreen> {
                   border: Border.all(color: selected ? _gold : const Color(0x4DBF9470)),
                 ),
                 child: Text(
-                  _dates[index].label,
+                  dates[index].label,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -270,7 +283,7 @@ class _ActualsScreenState extends State<ActualsScreen> {
             );
           },
           separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemCount: _dates.length,
+          itemCount: dates.length,
         ),
       ),
     );
@@ -349,11 +362,23 @@ class _ActualsScreenState extends State<ActualsScreen> {
       ),
     );
   }
+
+  Color _marketColor(String rawName) {
+    final name = rawName.toLowerCase();
+    if (name.contains('bim') || name.contains('bi̇m')) return const Color(0xFFD4A000);
+    if (name.contains('a101') || name.contains('a-101')) return const Color(0xFFD44020);
+    if (name.contains('şok') || name.contains('sok')) return const Color(0xFF7B3FA0);
+    if (name.contains('migros')) return const Color(0xFFE07020);
+    return _gold;
+  }
 }
+
+String _formatPrice(double value) => '${value.toStringAsFixed(2).replaceAll('.', ',')}₺';
 
 class _ProductCard extends StatelessWidget {
   const _ProductCard({
     required this.data,
+    required this.marketName,
     required this.isUpcoming,
     required this.dk,
     required this.gold,
@@ -366,6 +391,7 @@ class _ProductCard extends StatelessWidget {
   });
 
   final _ProductData data;
+  final String marketName;
   final bool isUpcoming;
   final Color dk;
   final Color gold;
@@ -439,11 +465,13 @@ class _ProductCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(data.newPrice, style: GoogleFonts.dmSerifDisplay(fontSize: 30, color: dk, height: 1)),
-                        const SizedBox(width: 10),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(data.oldPrice, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: t3, decoration: TextDecoration.lineThrough)),
-                        ),
+                        if (data.oldPrice != null) ...[
+                          const SizedBox(width: 10),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(data.oldPrice!, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: t3, decoration: TextDecoration.lineThrough)),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -467,6 +495,7 @@ class _ProductCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             margin: const EdgeInsets.only(bottom: 18),
@@ -498,18 +527,15 @@ class _ProductCard extends StatelessWidget {
               ),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('📍 Çevrendeki BİM Şubeleri', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
-              Text('Anlık', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(.4))),
-            ],
+          Text(
+            '📍 Çevrendeki $marketName Şubeleri',
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
           ),
-          const SizedBox(height: 14),
-          ...data.branches.map((branch) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _BranchRow(branch: branch, gold: gold),
-              )),
+          const SizedBox(height: 8),
+          Text(
+            data.note.isEmpty ? 'Bu ürün için henüz şube bildirimi yok.' : data.note,
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withOpacity(.7), height: 1.4),
+          ),
         ],
       ),
     );
@@ -536,134 +562,6 @@ class _ProductCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(fontSize: 12, color: t2, height: 1.4),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BranchRow extends StatefulWidget {
-  const _BranchRow({required this.branch, required this.gold});
-
-  final _BranchData branch;
-  final Color gold;
-
-  @override
-  State<_BranchRow> createState() => _BranchRowState();
-}
-
-class _BranchRowState extends State<_BranchRow> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) {
-        final pulse = widget.branch.isCurrent ? Curves.easeInOut.transform(_controller.value) : 0.0;
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: widget.branch.isCurrent ? const Color(0x1ABF9470) : Colors.white.withOpacity(.03),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: widget.branch.isCurrent ? widget.gold : const Color(0x1ABF9470)),
-            boxShadow: widget.branch.isCurrent
-                ? [BoxShadow(color: widget.gold.withOpacity(.35 * (1 - pulse)), blurRadius: 16 + (10 * pulse), spreadRadius: pulse * 2)]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(color: const Color(0x26BF9470), borderRadius: BorderRadius.circular(7)),
-                    child: Icon(Icons.location_on_outlined, color: widget.gold, size: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.branch.name, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
-                      Text(widget.branch.distance, style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(.5))),
-                    ],
-                  ),
-                ],
-              ),
-              _statusPill(widget.branch.status),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statusPill(_BranchStatus status) {
-    final (text, bg, fg, dot) = switch (status) {
-      _BranchStatus.bol => ('Bol Var', const Color(0x2627A85A), const Color(0xFFA7F3D0), const Color(0xFFA7F3D0)),
-      _BranchStatus.az => ('Az Kaldı', const Color(0x33BF9470), const Color(0xFFD0A882), const Color(0xFFD0A882)),
-      _BranchStatus.yok => ('Tükendi', const Color(0x26E53935), const Color(0xFFFCA5A5), const Color(0xFFFCA5A5)),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PulsingDot(color: dot),
-          const SizedBox(width: 4),
-          Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: fg)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({required this.color});
-
-  final Color color;
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: .5, end: 1).animate(_controller),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 1, end: 1.1).animate(_controller),
-        child: Container(width: 6, height: 6, decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle)),
       ),
     );
   }
@@ -720,49 +618,55 @@ class _AnimatedEntry extends StatelessWidget {
 
 enum _BranchStatus { bol, az, yok }
 
-class _BranchData {
-  const _BranchData({required this.name, required this.distance, required this.status, this.isCurrent = false});
-
-  final String name;
-  final String distance;
-  final _BranchStatus status;
-  final bool isCurrent;
-}
-
 class _ProductData {
   const _ProductData({
     required this.brand,
     required this.name,
     required this.newPrice,
-    required this.oldPrice,
+    this.oldPrice,
     required this.imageUrl,
+    required this.note,
     this.reportTitle,
     this.reportDisabled = false,
     this.outOfStock = false,
-    this.branches = const [],
   });
+
+  factory _ProductData.fromActualItem(ActualItemModel item) {
+    final brand = item.category.trim().isEmpty ? 'AKTÜEL ÜRÜN' : item.category.trim().toUpperCase();
+    return _ProductData(
+      brand: brand,
+      name: item.name,
+      newPrice: _formatPrice(item.price),
+      oldPrice: item.oldPrice == null ? null : _formatPrice(item.oldPrice!),
+      imageUrl: item.imageUrl,
+      note: item.note,
+      reportTitle: item.type.trim().isEmpty ? null : item.type.trim(),
+      outOfStock: item.isActive == false,
+    );
+  }
 
   final String brand;
   final String name;
   final String newPrice;
-  final String oldPrice;
+  final String? oldPrice;
   final String imageUrl;
+  final String note;
   final String? reportTitle;
   final bool reportDisabled;
   final bool outOfStock;
-  final List<_BranchData> branches;
 }
 
 class _DateTabData {
-  const _DateTabData({required this.label, required this.isFuture});
+  const _DateTabData({required this.id, required this.label});
 
+  final String id;
   final String label;
-  final bool isFuture;
 }
 
 class _MarketTabData {
-  const _MarketTabData({required this.name, required this.color});
+  const _MarketTabData({required this.id, required this.name, required this.color});
 
+  final String id;
   final String name;
   final Color color;
 }
