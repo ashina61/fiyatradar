@@ -72,6 +72,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final Set<String> _favorites = <String>{};
+  bool _isLocationExpanded = false;
   final _marketFilters = const ['Tümü', 'A-101', 'BİM', 'Trendyol', 'ŞOK'];
   final _signalFilters = const ['Gerçek Düşüş', '24 Saatte', 'En Yakın'];
 
@@ -89,9 +90,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final state = ref.watch(exploreControllerProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final allProducts = state.items;
+    final categoryFiltered = _matchesCategory(state.selectedCategory, allProducts);
     final products = _selectedMarket == 'Tümü'
-        ? allProducts
-        : allProducts.where((e) => e.storeName.toLowerCase() == _selectedMarket.toLowerCase()).toList();
+        ? categoryFiltered
+        : categoryFiltered.where((e) => e.storeName.toLowerCase() == _selectedMarket.toLowerCase()).toList();
 
     final locationLabel = (products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null)?.locationLabel;
 
@@ -106,7 +108,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               _Header(
                 controller: _searchController,
                 unreadCount: unreadCount,
-                onLocationTap: () => _showLocationPeek(context, locationLabel),
+                locationLabel: locationLabel,
+                locationExpanded: _isLocationExpanded,
+                onSearchTap: () => _openSearchExperience(context),
+                onLocationTap: () => setState(() => _isLocationExpanded = !_isLocationExpanded),
                 onNotifications: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
                 ),
@@ -184,7 +189,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         const SizedBox(height: 16),
                         const _PersonalListsSection(),
                         const SizedBox(height: 16),
-                        _CategorySection(items: allProducts),
+                        _CategorySection(
+                          categories: state.categories,
+                          selected: state.selectedCategory,
+                          onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateCategory(value),
+                        ),
                         const SizedBox(height: 16),
                         _LiveRadarSection(items: allProducts),
                         const SizedBox(height: 16),
@@ -215,32 +224,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  void _showLocationPeek(BuildContext context, String? label) {
-    final location = (label == null || label.trim().isEmpty) ? 'Konum bulunamadı' : label;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        backgroundColor: _dk,
-        margin: const EdgeInsets.fromLTRB(16, 0, 120, 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Row(
-          children: [
-            const Icon(Icons.location_on_rounded, color: _tc, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                location,
-                overflow: TextOverflow.ellipsis,
-                style: _jakarta(size: 12, weight: FontWeight.w700, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
+
+  void _openSearchExperience(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ExploreSearchRoute(initialQuery: _searchController.text),
       ),
     );
+  }
+
+  List<ExploreFeedItem> _matchesCategory(String selectedCategory, List<ExploreFeedItem> source) {
+    if (selectedCategory.trim().toLowerCase() == 'tumu' || selectedCategory.trim().toLowerCase() == 'tümü') {
+      return source;
+    }
+    final normalized = selectedCategory.trim().toLowerCase();
+    return source.where((item) {
+      final categories = item.product.categories.map((e) => e.trim().toLowerCase());
+      return categories.contains(normalized);
+    }).toList();
   }
 
   Widget _emptySignals() {
@@ -290,12 +291,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.controller, required this.unreadCount, required this.onNotifications, required this.onLocationTap});
+  const _Header({
+    required this.controller,
+    required this.unreadCount,
+    required this.onNotifications,
+    required this.onLocationTap,
+    required this.onSearchTap,
+    required this.locationExpanded,
+    required this.locationLabel,
+  });
 
   final TextEditingController controller;
   final int unreadCount;
   final VoidCallback onNotifications;
   final VoidCallback onLocationTap;
+  final VoidCallback onSearchTap;
+  final bool locationExpanded;
+  final String? locationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +323,11 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text('Keşfet.', style: _serif(size: 32, color: Colors.white, height: 1, letterSpacing: -0.5))),
-              _HeaderButton(icon: Icons.location_on_outlined, onTap: onLocationTap),
+              _LocationReveal(
+                expanded: locationExpanded,
+                label: locationLabel,
+                onTap: onLocationTap,
+              ),
               const SizedBox(width: 8),
               _HeaderButton(icon: Icons.notifications_none_rounded, badge: unreadCount > 0 ? '$unreadCount' : null, onTap: onNotifications),
             ],
@@ -319,26 +335,32 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 20),
           SizedBox(
             height: 48,
-            child: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                hintText: 'Ürün, marka veya barkod ara...',
-                hintStyle: _jakarta(size: 14, weight: FontWeight.w400, color: _t3, style: FontStyle.italic),
-                prefixIcon: const Icon(Icons.search, size: 18, color: _t3),
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Container(
-                    decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.qr_code_2_rounded, size: 16, color: _dk),
+            child: GestureDetector(
+              onTap: onSearchTap,
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: controller,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    hintText: 'Ürün, marka veya barkod ara...',
+                    hintStyle: _jakarta(size: 14, weight: FontWeight.w400, color: _t3, style: FontStyle.italic),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: _t3),
+                    suffixIcon: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Container(
+                        decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.qr_code_2_rounded, size: 16, color: _dk),
+                      ),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
@@ -634,6 +656,8 @@ class _ProductCard extends StatelessWidget {
                     Text(item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: _tc, letterSpacing: 0.6)),
                     const SizedBox(height: 4),
                     Text(item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
+                    const SizedBox(height: 6),
+                    _PriceChangeIndicator(item: item),
                     const Spacer(),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -816,25 +840,15 @@ class _PersonalListsSection extends StatelessWidget {
 }
 
 class _CategorySection extends StatelessWidget {
-  const _CategorySection({required this.items});
+  const _CategorySection({required this.categories, required this.selected, required this.onChanged});
 
-  final List<ExploreFeedItem> items;
+  final List<String> categories;
+  final String selected;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final categoryCounts = <String, int>{};
-    for (final item in items) {
-      final category = item.product.categories.isNotEmpty ? item.product.categories.first.trim() : 'Diğer';
-      if (category.isEmpty) continue;
-      categoryCounts.update(category, (value) => value + 1, ifAbsent: () => 1);
-    }
-
-    final sorted = categoryCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final labels = sorted.take(8).map((e) => e.key).toList();
-
-    if (labels.isEmpty) {
-      labels.addAll(const ['Diğer']);
-    }
+    final labels = categories.toList();
 
     return _SectionBox(
       child: Column(
@@ -850,23 +864,36 @@ class _CategorySection extends StatelessWidget {
               childAspectRatio: 0.75,
             ),
             itemCount: labels.length,
-            itemBuilder: (context, i) => Column(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: _surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _line),
-                    boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 12, offset: Offset(0, 4))],
-                  ),
-                  child: Icon(_iconForCategory(labels[i]), color: _tc, size: 22),
+            itemBuilder: (context, i) {
+              final label = labels[i];
+              final isSelected = label.toLowerCase() == selected.toLowerCase();
+              return GestureDetector(
+                onTap: () => onChanged(label),
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: isSelected ? _dk : _surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isSelected ? _dk : _line),
+                        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 12, offset: Offset(0, 4))],
+                      ),
+                      child: Icon(_iconForCategory(label), color: isSelected ? Colors.white : _tc, size: 22),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label == 'Tumu' ? 'Tümü' : label,
+                      style: _jakarta(size: 11, weight: FontWeight.w800, color: isSelected ? _dk : _t2),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(labels[i], style: _jakarta(size: 11, weight: FontWeight.w800, color: _t2), textAlign: TextAlign.center),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -899,7 +926,8 @@ class _LiveRadarSection extends StatelessWidget {
       child: Column(
         children: [
           const _SectionHead(
-            title: 'Canlı Radar Akışı 🔴',
+            title: 'Canlı Radar Akışı',
+            leading: _LiveStatusDot(),
           ),
           if (top.isEmpty)
             Padding(
@@ -1136,11 +1164,12 @@ class _SectionBox extends StatelessWidget {
 }
 
 class _SectionHead extends StatelessWidget {
-  const _SectionHead({required this.title, this.action, this.onActionTap});
+  const _SectionHead({required this.title, this.action, this.onActionTap, this.leading});
 
   final String title;
   final String? action;
   final VoidCallback? onActionTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -1148,6 +1177,7 @@ class _SectionHead extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 8)],
           Expanded(child: Text(title, style: _serif(size: 20, letterSpacing: -0.3))),
           if (action != null)
             GestureDetector(
@@ -1155,6 +1185,188 @@ class _SectionHead extends StatelessWidget {
               child: Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: _tc)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _LocationReveal extends StatelessWidget {
+  const _LocationReveal({required this.expanded, required this.label, required this.onTap});
+
+  final bool expanded;
+  final String? label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = (label == null || label!.trim().isEmpty) ? 'Konum bulunamadı' : label!.trim();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          width: expanded ? 128 : 0,
+          margin: EdgeInsets.only(right: expanded ? 8 : 0),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color.fromRGBO(255, 255, 255, 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
+          ),
+          child: expanded
+              ? Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 11, weight: FontWeight.w700, color: Colors.white))
+              : null,
+        ),
+        _HeaderButton(icon: Icons.location_on_outlined, onTap: onTap),
+      ],
+    );
+  }
+}
+
+class _LiveStatusDot extends StatefulWidget {
+  const _LiveStatusDot();
+
+  @override
+  State<_LiveStatusDot> createState() => _LiveStatusDotState();
+}
+
+class _LiveStatusDotState extends State<_LiveStatusDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final pulse = 1 + (_controller.value * 0.8);
+        final opacity = 0.26 * (1 - _controller.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 7 * pulse,
+              height: 7 * pulse,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF2BAE66).withOpacity(opacity),
+              ),
+            ),
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF27A85A)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PriceChangeIndicator extends StatelessWidget {
+  const _PriceChangeIndicator({required this.item});
+
+  final ExploreFeedItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final raw = item.priceChangePercent ?? -item.dropPercent;
+    final isDrop = raw < 0;
+    final color = isDrop ? _grn : _red;
+    final icon = isDrop ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 3),
+        Text(
+          '%${raw.abs().toStringAsFixed(1)}',
+          style: _jakarta(size: 11, weight: FontWeight.w800, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExploreSearchRoute extends ConsumerStatefulWidget {
+  const _ExploreSearchRoute({required this.initialQuery});
+
+  final String initialQuery;
+
+  @override
+  ConsumerState<_ExploreSearchRoute> createState() => _ExploreSearchRouteState();
+}
+
+class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initialQuery);
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(exploreControllerProvider.notifier).updateSearchQuery(widget.initialQuery));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    ref.read(exploreControllerProvider.notifier).updateSearchQuery('');
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(exploreControllerProvider);
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: TextField(
+            controller: _controller,
+            autofocus: true,
+            onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateSearchQuery(value),
+            decoration: InputDecoration(
+              hintText: 'Ürün, marka veya barkod ara...',
+              prefixIcon: const Icon(Icons.search, size: 18, color: _t3),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: state.items.length,
+        itemBuilder: (context, index) {
+          final item = state.items[index];
+          return ListTile(
+            tileColor: _surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            title: Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
+            subtitle: Text(item.storeName, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+            trailing: Text('${item.displayPrice.toStringAsFixed(2)}₺', style: _serif(size: 16)),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => ProductDetailScreen(productId: item.product.id)),
+            ),
+          );
+        },
       ),
     );
   }
