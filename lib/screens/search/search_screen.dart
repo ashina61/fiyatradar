@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +12,7 @@ import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../features/cart_analysis/views/cart_analysis_screen.dart';
+import 'personal_lists_screen.dart';
 
 const _bg = Color(0xFFEDEAE3);
 const _surface = Color(0xFFFAFAF8);
@@ -91,6 +93,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ? allProducts
         : allProducts.where((e) => e.storeName.toLowerCase() == _selectedMarket.toLowerCase()).toList();
 
+    final locationLabel = (products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null)?.locationLabel;
+
     return Scaffold(
       backgroundColor: const Color(0xFFC8C4BC),
       body: SafeArea(
@@ -102,6 +106,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               _Header(
                 controller: _searchController,
                 unreadCount: unreadCount,
+                onLocationTap: () => _showLocationPeek(context, locationLabel),
                 onNotifications: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
                 ),
@@ -179,9 +184,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         const SizedBox(height: 16),
                         const _PersonalListsSection(),
                         const SizedBox(height: 16),
-                        const _CategorySection(),
+                        _CategorySection(items: allProducts),
                         const SizedBox(height: 16),
-                        const _LiveRadarSection(),
+                        _LiveRadarSection(items: allProducts),
                         const SizedBox(height: 16),
                         _QuickTools(
                           onCartCompare: () => Navigator.of(context).push(
@@ -210,6 +215,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  void _showLocationPeek(BuildContext context, String? label) {
+    final location = (label == null || label.trim().isEmpty) ? 'Konum bulunamadı' : label;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        backgroundColor: _dk,
+        margin: const EdgeInsets.fromLTRB(16, 0, 120, 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Row(
+          children: [
+            const Icon(Icons.location_on_rounded, color: _tc, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                location,
+                overflow: TextOverflow.ellipsis,
+                style: _jakarta(size: 12, weight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _emptySignals() {
     return Container(
       decoration: BoxDecoration(
@@ -227,11 +260,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   List<_RadarData> _buildRadarCards(List<ExploreFeedItem> items) {
     if (items.isEmpty) {
-      return const [
-        _RadarData(percent: -12, label: 'Süt & Kahvaltı', count: 18, hot: true),
-        _RadarData(percent: -7, label: 'Temizlik', count: 8),
-        _RadarData(percent: -5, label: 'Atıştırmalık', count: 5),
-      ];
+      return const [_RadarData(percent: 0, label: 'Veri bekleniyor', count: 0, hot: true)];
     }
     final grouped = <String, List<ExploreFeedItem>>{};
     for (final item in items) {
@@ -261,11 +290,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.controller, required this.unreadCount, required this.onNotifications});
+  const _Header({required this.controller, required this.unreadCount, required this.onNotifications, required this.onLocationTap});
 
   final TextEditingController controller;
   final int unreadCount;
   final VoidCallback onNotifications;
+  final VoidCallback onLocationTap;
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +311,7 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text('Keşfet.', style: _serif(size: 32, color: Colors.white, height: 1, letterSpacing: -0.5))),
-              _HeaderButton(icon: Icons.location_on_outlined, onTap: () {}),
+              _HeaderButton(icon: Icons.location_on_outlined, onTap: onLocationTap),
               const SizedBox(width: 8),
               _HeaderButton(icon: Icons.notifications_none_rounded, badge: unreadCount > 0 ? '$unreadCount' : null, onTap: onNotifications),
             ],
@@ -561,7 +591,7 @@ class _ProductCard extends StatelessWidget {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 border: Border(bottom: BorderSide(color: _line)),
               ),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(8),
               child: Stack(
                 children: [
                   Align(
@@ -574,15 +604,15 @@ class _ProductCard extends StatelessWidget {
                       errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3),
                     ),
                   ),
-                  Positioned(top: 10, left: 10, child: _badge(item)),
+                  Positioned(top: 4, left: 4, child: _badge(item)),
                   Positioned(
-                    top: 10,
-                    right: 10,
+                    top: 4,
+                    right: 4,
                     child: GestureDetector(
                       onTap: onFavorite,
                       child: Container(
-                        width: 30,
-                        height: 30,
+                        width: 28,
+                        height: 28,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white,
@@ -671,77 +701,114 @@ class _PersonalListsSection extends StatelessWidget {
     return _SectionBox(
       child: Column(
         children: [
-          _SectionHead(title: 'Sana Özel Listeler', action: 'Tümü'),
-          Container(
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: _line),
-              boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.03), blurRadius: 16, offset: Offset(0, 4))],
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color.fromRGBO(191, 148, 112, 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
-                      ),
-                      child: const Icon(Icons.description_outlined, color: _tc, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Haftalık Kahvaltı', style: _jakarta(size: 15, weight: FontWeight.w800)),
-                        Text('Market sepetlerini karşılaştır', style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Divider(height: 1, color: Color.fromRGBO(24, 16, 10, 0.08)),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    ...List.generate(
-                      3,
-                      (i) => Container(
-                        margin: EdgeInsets.only(right: i == 2 ? 0 : -12),
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8F4EE),
-                          borderRadius: BorderRadius.circular(17),
-                          border: Border.all(color: _surface, width: 2),
-                        ),
-                        child: const Icon(Icons.fastfood_rounded, size: 14, color: _tc),
-                      ),
-                    ),
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(color: _dk, borderRadius: BorderRadius.circular(17), border: Border.all(color: _dk, width: 2)),
-                      alignment: Alignment.center,
-                      child: Text('+4', style: _jakarta(size: 10, weight: FontWeight.w800, color: _tc)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Süzme Bal, Kaşar Peynir, Nutella ve 4 ürün daha bu listede...',
-                        style: _jakarta(size: 10, weight: FontWeight.w600, color: _t2, height: 1.3),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          _SectionHead(
+            title: 'Sana Özel Listeler',
+            action: 'Tümü',
+            onActionTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
             ),
           ),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('curated_lists')
+                .orderBy('order')
+                .limit(1)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return _listCard(title: 'Liste yüklenemedi', subtitle: 'Lütfen daha sonra tekrar dene.', products: const []);
+              }
+
+              final docs = snapshot.data?.docs.where((doc) => doc.data()['isActive'] == true).toList() ?? const [];
+              if (docs.isEmpty) {
+                return _listCard(
+                  title: 'Henüz özel liste yok',
+                  subtitle: 'Admin panelinden yeni liste ekleyebilirsin.',
+                  products: const [],
+                );
+              }
+
+              final data = docs.first.data();
+              final products = (data['products'] as List<dynamic>? ?? const <dynamic>[]).map((e) => e.toString()).toList();
+              return GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
+                ),
+                child: _listCard(
+                  title: (data['title'] as String? ?? 'Özel Liste').trim(),
+                  subtitle: (data['subtitle'] as String? ?? 'Senin için hazırlandı').trim(),
+                  products: products,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _listCard({required String title, required String subtitle, required List<String> products}) {
+    final limited = products.take(5).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _line),
+        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.03), blurRadius: 16, offset: Offset(0, 4))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(191, 148, 112, 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
+                ),
+                child: const Icon(Icons.description_outlined, color: _tc, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: _jakarta(size: 15, weight: FontWeight.w800)),
+                    Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color.fromRGBO(24, 16, 10, 0.08)),
+          const SizedBox(height: 14),
+          if (limited.isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Bu liste henüz ürün içermiyor.', style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: limited
+                  .map(
+                    (product) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _surface2,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _line),
+                      ),
+                      child: Text(product, style: _jakarta(size: 10, weight: FontWeight.w700, color: _t2)),
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );
@@ -749,21 +816,25 @@ class _PersonalListsSection extends StatelessWidget {
 }
 
 class _CategorySection extends StatelessWidget {
-  const _CategorySection();
+  const _CategorySection({required this.items});
+
+  final List<ExploreFeedItem> items;
 
   @override
   Widget build(BuildContext context) {
-    final labels = const ['Gıda', 'Bakım', 'Ev', 'Teknoloji', 'Giyim', 'Kitap', 'Spor', 'Otomotiv'];
-    final icons = const [
-      Icons.menu,
-      Icons.favorite_border,
-      Icons.home_outlined,
-      Icons.desktop_windows_outlined,
-      Icons.checkroom_outlined,
-      Icons.book_outlined,
-      Icons.sports_baseball_outlined,
-      Icons.local_shipping_outlined,
-    ];
+    final categoryCounts = <String, int>{};
+    for (final item in items) {
+      final category = item.product.categories.isNotEmpty ? item.product.categories.first.trim() : 'Diğer';
+      if (category.isEmpty) continue;
+      categoryCounts.update(category, (value) => value + 1, ifAbsent: () => 1);
+    }
+
+    final sorted = categoryCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final labels = sorted.take(8).map((e) => e.key).toList();
+
+    if (labels.isEmpty) {
+      labels.addAll(const ['Diğer']);
+    }
 
     return _SectionBox(
       child: Column(
@@ -790,7 +861,7 @@ class _CategorySection extends StatelessWidget {
                     border: Border.all(color: _line),
                     boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 12, offset: Offset(0, 4))],
                   ),
-                  child: Icon(icons[i], color: _tc, size: 22),
+                  child: Icon(_iconForCategory(labels[i]), color: _tc, size: 22),
                 ),
                 const SizedBox(height: 8),
                 Text(labels[i], style: _jakarta(size: 11, weight: FontWeight.w800, color: _t2), textAlign: TextAlign.center),
@@ -801,28 +872,82 @@ class _CategorySection extends StatelessWidget {
       ),
     );
   }
+
+  IconData _iconForCategory(String category) {
+    final key = category.toLowerCase();
+    if (key.contains('gıda') || key.contains('yiyecek')) return Icons.restaurant_menu;
+    if (key.contains('içecek')) return Icons.local_drink_outlined;
+    if (key.contains('temizlik') || key.contains('ev')) return Icons.cleaning_services_outlined;
+    if (key.contains('bakım') || key.contains('kozmetik')) return Icons.spa_outlined;
+    if (key.contains('teknoloji')) return Icons.devices_outlined;
+    if (key.contains('giyim')) return Icons.checkroom_outlined;
+    return Icons.category_outlined;
+  }
 }
 
 class _LiveRadarSection extends StatelessWidget {
-  const _LiveRadarSection();
+  const _LiveRadarSection({required this.items});
+
+  final List<ExploreFeedItem> items;
 
   @override
   Widget build(BuildContext context) {
+    final latest = [...items]..sort((a, b) => b.price.createdAt.compareTo(a.price.createdAt));
+    final top = latest.take(4).toList();
+
     return _SectionBox(
       child: Column(
         children: [
-          const _SectionHead(title: 'Canlı Radar Akışı'),
-          _contrib('AS', 'Komili Sızma 1L', 'Carrefour • 3 dk önce', '129₺'),
-          _contrib('ME', 'Nescafé Gold', 'Migros • 12 dk önce', '174₺', inverse: true),
+          const _SectionHead(
+            title: 'Canlı Radar Akışı 🔴',
+          ),
+          if (top.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('Henüz canlı fiyat akışı yok.', style: _jakarta(size: 12, weight: FontWeight.w700, color: _t3)),
+            )
+          else
+            ...top.asMap().entries.map(
+              (entry) {
+                final item = entry.value;
+                final showDivider = entry.key != top.length - 1;
+                final subtitle = '${item.storeName} • ${_timeAgo(item.price.createdAt)}';
+                return _contrib(
+                  _avatarFromName(item.product.name),
+                  item.product.name,
+                  subtitle,
+                  '${item.displayPrice.toStringAsFixed(0)}₺',
+                  inverse: entry.key.isOdd,
+                  showDivider: showDivider,
+                );
+              },
+            ),
         ],
       ),
     );
   }
 
-  Widget _contrib(String avatar, String title, String subtitle, String price, {bool inverse = false}) {
+  String _avatarFromName(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.isEmpty) return 'FR';
+    if (parts.length == 1) return parts.first.substring(0, math.min(2, parts.first.length)).toUpperCase();
+    return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'şimdi';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} sa önce';
+    return '${diff.inDays} gün önce';
+  }
+
+  Widget _contrib(String avatar, String title, String subtitle, String price, {bool inverse = false, bool showDivider = true}) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color.fromRGBO(24, 16, 10, 0.08), style: BorderStyle.solid))),
+      decoration: BoxDecoration(
+        border: showDivider ? const Border(bottom: BorderSide(color: Color.fromRGBO(24, 16, 10, 0.08), style: BorderStyle.solid)) : null,
+      ),
       child: Row(
         children: [
           Container(
@@ -837,14 +962,16 @@ class _LiveRadarSection extends StatelessWidget {
             child: Text(avatar, style: _jakarta(size: 14, weight: FontWeight.w800, color: inverse ? _dk : _tc)),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: _jakarta(size: 13, weight: FontWeight.w800)),
-              Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: _jakarta(size: 13, weight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           Text(price, style: _serif(size: 20)),
         ],
       ),
@@ -1009,10 +1136,11 @@ class _SectionBox extends StatelessWidget {
 }
 
 class _SectionHead extends StatelessWidget {
-  const _SectionHead({required this.title, this.action});
+  const _SectionHead({required this.title, this.action, this.onActionTap});
 
   final String title;
   final String? action;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1022,7 +1150,10 @@ class _SectionHead extends StatelessWidget {
         children: [
           Expanded(child: Text(title, style: _serif(size: 20, letterSpacing: -0.3))),
           if (action != null)
-            Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: _tc)),
+            GestureDetector(
+              onTap: onActionTap,
+              child: Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: _tc)),
+            ),
         ],
       ),
     );
