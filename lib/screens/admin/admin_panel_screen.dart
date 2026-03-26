@@ -17,6 +17,7 @@ import 'admin_user_management_tab.dart';
 import 'admin_product_suggestions_tab.dart';
 import 'admin_reports_management_tab.dart';
 import 'admin_badge_achievements_tab.dart';
+import 'admin_curated_lists_tab.dart';
 
 // --- PREMIUM RENK PALETİ ---
 const Color pBrandBrown = Color(0xFF6A442A);
@@ -41,7 +42,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> with Single
   void initState() {
     super.initState();
     // Sekmeleri birleştirdiğimiz için sayı düştü (Örn: 9 Ana Sekme)
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
   }
 
   @override
@@ -119,6 +120,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> with Single
                   Tab(icon: Icon(Icons.playlist_add_check, size: 20), text: 'Öneriler'),
                   Tab(icon: Icon(Icons.flag, size: 20), text: 'Raporlar'),
                   Tab(icon: Icon(Icons.military_tech, size: 20), text: 'Rozetler'),
+                  Tab(icon: Icon(Icons.featured_play_list, size: 20), text: 'Özel Listeler'),
                 ],
               ),
             ),
@@ -137,6 +139,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> with Single
                   AdminProductSuggestionsTab(),
                   AdminReportsManagementTab(),
                   AdminBadgeAchievementsTab(),
+                  AdminCuratedListsTab(),
                 ],
               ),
             ),
