@@ -535,7 +535,10 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final old = item.price.originalPrice;
+    final changePercent = item.priceChangePercent;
+    final old = (changePercent != null && changePercent < 0 && (100 + changePercent) > 0)
+        ? item.displayPrice / (1 + (changePercent / 100))
+        : null;
     final hasOld = old != null && old > item.displayPrice;
     final showOnline = item.isPrimaryOnlineCheapest;
     final distance = item.distanceLabel ?? '${100 + math.Random(item.product.id.hashCode).nextInt(500)}m';
@@ -564,7 +567,7 @@ class _ProductCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.center,
                     child: Image.network(
-                      item.product.imageUrl,
+                      item.product.effectiveImage ?? '',
                       fit: BoxFit.contain,
                       width: 100,
                       height: 100,
