@@ -5,14 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/explore_provider.dart';
-import '../../providers/special_list_provider.dart';
 import '../actual/actuals_screen.dart';
-import '../cart/cart_list_detail_screen.dart';
 import '../add_price/add_price_screen.dart';
-import '../notifications/notifications_screen.dart';
 import '../product/product_detail_screen.dart';
-import '../../features/cart_analysis/views/cart_analysis_screen.dart';
-import 'personal_lists_screen.dart';
 
 const _bg = Color(0xFFEDEAE3);
 const _surface = Color(0xFFFAFAF8);
@@ -94,11 +89,9 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final Set<String> _favorites = <String>{};
-  final _marketFilters = const ['Tümü', 'A-101', 'BİM', 'Trendyol', 'ŞOK'];
-  final _signalFilters = const ['Gerçek Düşüş', '24 Saatte', 'En Yakın'];
+  final _marketFilters = const ['Tümü', 'A101', 'ŞOK', 'BİM'];
 
   String _selectedMarket = 'Tümü';
-  String _selectedSignal = 'Gerçek Düşüş';
 
   @override
   void dispose() {
@@ -111,9 +104,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final state = ref.watch(exploreControllerProvider);
     final allProducts = state.items;
     final categoryFiltered = _matchesCategory(state.selectedCategory, allProducts);
-    final products = _selectedMarket == 'Tümü'
-        ? categoryFiltered
-        : categoryFiltered.where((e) => e.storeName.toLowerCase() == _selectedMarket.toLowerCase()).toList();
+    final products = _selectedMarket == 'Tümü' ? categoryFiltered : categoryFiltered.where((e) => _matchesMarket(e.storeName)).toList();
     final primaryItem = products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null;
     final fallbackLocation = primaryItem == null
         ? null
@@ -143,7 +134,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _RadarSection(cards: _buildRadarCards(products.isNotEmpty ? products : allProducts)),
+                        _CategoryCapsuleChips(
+                          categories: state.categories,
+                          selected: state.selectedCategory,
+                          onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateCategory(value),
+                        ),
                         const SizedBox(height: 16),
                         _ActualLinkCard(
                           onTap: () => Navigator.of(context).push(
@@ -157,15 +152,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           marketDots: true,
                           onChanged: (v) => setState(() => _selectedMarket = v),
                         ),
-                        const SizedBox(height: 16),
-                        _FilterChips(
-                          items: _signalFilters,
-                          selected: _selectedSignal,
-                          compact: true,
-                          onChanged: (v) => setState(() => _selectedSignal = v),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('En Güçlü Sinyaller', style: _serif(size: 20, letterSpacing: -0.3)),
+                        const SizedBox(height: 12),
+                        Text('Ürünler', style: _serif(size: 20, letterSpacing: -0.3)),
                         const SizedBox(height: 12),
                         if (state.loading)
                           const Padding(
@@ -206,22 +194,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             },
                           ),
                         const SizedBox(height: 16),
-                        const _PersonalListsSection(),
-                        const SizedBox(height: 16),
-                        _CategorySection(
-                          categories: state.categories,
-                          selected: state.selectedCategory,
-                          onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateCategory(value),
-                        ),
-                        const SizedBox(height: 16),
                         _LiveRadarSection(items: allProducts),
                         const SizedBox(height: 16),
-                        _QuickTools(
-                          onCartCompare: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => const CartAnalysisScreen()),
-                          ),
-                          onAlarm: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                        _FollowedProductsSection(
+                          items: allProducts.where((item) => _favorites.contains(item.product.id)).toList(),
+                          onTapItem: (item) => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ProductDetailScreen(productId: item.product.id),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -278,34 +258,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  List<_RadarData> _buildRadarCards(List<ExploreFeedItem> items) {
-    if (items.isEmpty) {
-      return const [_RadarData(percent: 0, label: 'Veri bekleniyor', count: 0, hot: true)];
+  bool _matchesMarket(String storeName) {
+    final normalizedStore = storeName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9çğıöşü]'), '');
+    final normalizedSelected = _selectedMarket.toLowerCase().replaceAll(RegExp(r'[^a-z0-9çğıöşü]'), '');
+    if (normalizedSelected == 'a101') {
+      return normalizedStore.contains('a101');
     }
-    final grouped = <String, List<ExploreFeedItem>>{};
-    for (final item in items) {
-      final key = item.product.categories.isEmpty ? 'Diğer' : item.product.categories.first;
-      grouped.putIfAbsent(key, () => <ExploreFeedItem>[]).add(item);
-    }
-
-    final list = grouped.entries
-        .map(
-          (entry) => _RadarData(
-            percent: entry.value
-                    .map((e) => e.priceChangePercent ?? -e.dropPercent)
-                    .fold<double>(0, (a, b) => a + b) /
-                entry.value.length,
-            label: entry.key,
-            count: entry.value.length,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.percent.compareTo(b.percent));
-
-    return list.take(3).toList().asMap().entries.map((e) {
-      final v = e.value;
-      return _RadarData(percent: v.percent, label: v.label, count: v.count, hot: e.key == 0);
-    }).toList();
+    return normalizedStore.contains(normalizedSelected);
   }
 }
 
@@ -389,60 +348,45 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _RadarSection extends StatelessWidget {
-  const _RadarSection({required this.cards});
+class _CategoryCapsuleChips extends StatelessWidget {
+  const _CategoryCapsuleChips({required this.categories, required this.selected, required this.onChanged});
 
-  final List<_RadarData> cards;
+  final List<String> categories;
+  final String selected;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return _SectionBox(
-      child: Column(
-        children: [
-          _SectionHead(title: 'Radar Sıcaklığı', action: 'Tümünü Gör'),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.88,
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final label = categories[index] == 'Tumu' ? 'Tümü' : categories[index];
+          final isSelected = categories[index].toLowerCase() == selected.toLowerCase();
+          return GestureDetector(
+            onTap: () => onChanged(categories[index]),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? _dk : _surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: isSelected ? _dk : _line),
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected ? const Color.fromRGBO(24, 16, 10, 0.15) : const Color.fromRGBO(0, 0, 0, 0.02),
+                    blurRadius: isSelected ? 14 : 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(label, style: _jakarta(size: 12, weight: FontWeight.w800, color: isSelected ? Colors.white : _t2)),
             ),
-            itemCount: cards.length,
-            itemBuilder: (context, i) {
-              final card = cards[i];
-              return Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: card.hot ? const Color.fromRGBO(191, 148, 112, 0.3) : _line),
-                  gradient: card.hot
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color.fromRGBO(191, 148, 112, 0.15), Color.fromRGBO(191, 148, 112, 0.05)],
-                        )
-                      : null,
-                  color: card.hot ? null : _surface2,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${card.percent > 0 ? '+' : ''}${card.percent.round()}%',
-                      style: _serif(size: 22, color: card.hot ? _tc : _grn, height: 1),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(card.label, style: _jakarta(size: 11, weight: FontWeight.w800), textAlign: TextAlign.center),
-                    const SizedBox(height: 2),
-                    Text('${card.count} ürün', style: _jakarta(size: 10, weight: FontWeight.w600, color: _t3)),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -672,109 +616,34 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _PersonalListsSection extends ConsumerWidget {
-  const _PersonalListsSection();
+class _FollowedProductsSection extends StatelessWidget {
+  const _FollowedProductsSection({required this.items, required this.onTapItem});
+
+  final List<ExploreFeedItem> items;
+  final ValueChanged<ExploreFeedItem> onTapItem;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final specialListsAsync = ref.watch(specialListsProvider);
+  Widget build(BuildContext context) {
     return _SectionBox(
       child: Column(
         children: [
-          _SectionHead(
-            title: 'Sana Özel Listeler',
-            action: 'Tümü',
-            onActionTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
-            ),
-          ),
-          specialListsAsync.when(
-            loading: () => _listCard(title: 'Özel listeler yükleniyor', subtitle: 'Lütfen bekleyin.', products: const []),
-            error: (_, __) => _listCard(title: 'Liste yüklenemedi', subtitle: 'Lütfen daha sonra tekrar dene.', products: const []),
-            data: (lists) {
-              if (lists.isEmpty) {
-                return _listCard(
-                  title: 'Henüz özel liste yok',
-                  subtitle: 'Admin panelinden yeni liste ekleyebilirsin.',
-                  products: const [],
-                );
-              }
-              final list = lists.first;
-              return GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => PersonalListsScreen(listId: list.id)),
-                ),
-                child: _listCard(
-                  title: list.title.trim().isEmpty ? 'Özel Liste' : list.title.trim(),
-                  subtitle: list.subtitle.trim().isEmpty ? 'Senin için hazırlandı' : list.subtitle.trim(),
-                  products: const [],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _listCard({required String title, required String subtitle, required List<String> products}) {
-    final limited = products.take(5).toList();
-    return Container(
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _line),
-        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.03), blurRadius: 16, offset: Offset(0, 4))],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color.fromRGBO(191, 148, 112, 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
-                ),
-                child: const Icon(Icons.description_outlined, color: _tc, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _jakarta(size: 15, weight: FontWeight.w800)),
-                    Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: Color.fromRGBO(24, 16, 10, 0.08)),
-          const SizedBox(height: 14),
-          if (limited.isEmpty)
+          const _SectionHead(title: 'Takip Ettiğim Ürünler'),
+          if (items.isEmpty)
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('Bu liste henüz ürün içermiyor.', style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+              child: Text(
+                'Henüz favori ürün eklemedin. Ürün kartındaki kalp ikonuyla takip etmeye başlayabilirsin.',
+                style: _jakarta(size: 12, weight: FontWeight.w600, color: _t3),
+              ),
             )
           else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: limited
+            Column(
+              children: items
+                  .take(6)
                   .map(
-                    (product) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _surface2,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _line),
-                      ),
-                      child: Text(product, style: _jakarta(size: 10, weight: FontWeight.w700, color: _t2)),
+                    (item) => _FollowedProductRow(
+                      item: item,
+                      onTap: () => onTapItem(item),
                     ),
                   )
                   .toList(),
@@ -782,79 +651,6 @@ class _PersonalListsSection extends ConsumerWidget {
         ],
       ),
     );
-  }
-}
-
-class _CategorySection extends StatelessWidget {
-  const _CategorySection({required this.categories, required this.selected, required this.onChanged});
-
-  final List<String> categories;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = categories.toList();
-
-    return _SectionBox(
-      child: Column(
-        children: [
-          const _SectionHead(title: 'Kategoriler'),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.75,
-            ),
-            itemCount: labels.length,
-            itemBuilder: (context, i) {
-              final label = labels[i];
-              final isSelected = label.toLowerCase() == selected.toLowerCase();
-              return GestureDetector(
-                onTap: () => onChanged(label),
-                child: Column(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: isSelected ? _dk : _surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isSelected ? _dk : _line),
-                        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 12, offset: Offset(0, 4))],
-                      ),
-                      child: Icon(_iconForCategory(label), color: isSelected ? Colors.white : _tc, size: 22),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      label == 'Tumu' ? 'Tümü' : label,
-                      style: _jakarta(size: 11, weight: FontWeight.w800, color: isSelected ? _dk : _t2),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _iconForCategory(String category) {
-    final key = category.toLowerCase();
-    if (key.contains('gıda') || key.contains('yiyecek')) return Icons.restaurant_menu;
-    if (key.contains('içecek')) return Icons.local_drink_outlined;
-    if (key.contains('temizlik') || key.contains('ev')) return Icons.cleaning_services_outlined;
-    if (key.contains('bakım') || key.contains('kozmetik')) return Icons.spa_outlined;
-    if (key.contains('teknoloji')) return Icons.devices_outlined;
-    if (key.contains('giyim')) return Icons.checkroom_outlined;
-    return Icons.category_outlined;
   }
 }
 
@@ -959,79 +755,50 @@ class _LiveRadarSection extends StatelessWidget {
   }
 }
 
-class _QuickTools extends StatelessWidget {
-  const _QuickTools({required this.onCartCompare, required this.onAlarm});
+class _FollowedProductRow extends StatelessWidget {
+  const _FollowedProductRow({required this.item, required this.onTap});
 
-  final VoidCallback onCartCompare;
-  final VoidCallback onAlarm;
+  final ExploreFeedItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text('Hızlı Araçlar', style: _serif(size: 20, letterSpacing: -0.3)),
-        ),
-        _tool(
-          dark: true,
-          title: 'Sepet Kıyasla',
-          subtitle: 'Marketleri karşılaştır',
-          icon: Icons.shopping_cart_outlined,
-          onTap: onCartCompare,
-        ),
-        const SizedBox(height: 12),
-        _tool(
-          title: 'Fiyat Alarmı Kur',
-          subtitle: 'Düşünce bildirim al',
-          icon: Icons.notifications_none_rounded,
-          onTap: onAlarm,
-        ),
-      ],
-    );
-  }
-
-  Widget _tool({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    bool dark = false,
-  }) {
+    final image = item.product.effectiveImage ?? '';
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: dark ? _dk : _surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: dark ? const Color.fromRGBO(191, 148, 112, 0.2) : _line),
-          boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 16, offset: Offset(0, 4))],
+          color: _surface2,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _line),
         ),
-        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: dark ? const Color.fromRGBO(191, 148, 112, 0.15) : _surface2,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: dark ? const Color.fromRGBO(191, 148, 112, 0.2) : _line),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 44,
+                height: 44,
+                color: const Color(0xFFF8F4EE),
+                child: image.isEmpty
+                    ? const Icon(Icons.image_not_supported_outlined, color: _t3, size: 18)
+                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3, size: 18)),
               ),
-              child: Icon(icon, size: 22, color: _tc),
             ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: _jakarta(size: 15, weight: FontWeight.w800, color: dark ? Colors.white : _t1)),
-                Text(
-                  subtitle,
-                  style: _jakarta(size: 11, weight: FontWeight.w600, color: dark ? const Color.fromRGBO(255, 255, 255, 0.6) : _t3),
-                ),
-              ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
+                  Text(item.storeName, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
+            Text('${item.displayPrice.toStringAsFixed(2).replaceAll('.', ',')}₺', style: _jakarta(size: 13, weight: FontWeight.w800)),
           ],
         ),
       ),
@@ -1309,18 +1076,10 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
   }
 }
 
-class _RadarData {
-  const _RadarData({required this.percent, required this.label, required this.count, this.hot = false});
-
-  final double percent;
-  final String label;
-  final int count;
-  final bool hot;
-}
-
 Color _marketColor(String market) {
   switch (market.toLowerCase()) {
     case 'a-101':
+    case 'a101':
       return const Color(0xFFD44020);
     case 'bi̇m':
     case 'bim':
