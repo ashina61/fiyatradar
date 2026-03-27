@@ -65,6 +65,8 @@ class ExploreFeedItem {
   double get displayPrice => price.price;
 
   bool get isLocalStore => !_isOnlineStore;
+  bool get isNeighborhoodMarket => store?.isNeighborhoodMarket == true;
+  bool get isNeighborhoodMarketOpenToday => store?.isOpenToday == true;
 
   bool get _isOnlineStore {
     if (store == null) return false;
@@ -118,6 +120,40 @@ class ExploreFeedItem {
     }
 
     return '';
+  }
+
+  String? get neighborhoodMarketScheduleLabel {
+    if (!isNeighborhoodMarket) return null;
+    final days = store?.activeDays ?? const [];
+    if (days.isEmpty) return null;
+    final day = _weekdayTr(days.first);
+    final start = store?.startHour?.trim();
+    final end = store?.endHour?.trim();
+    if (start != null && start.isNotEmpty && end != null && end.isNotEmpty) {
+      return '$day • $start–$end';
+    }
+    return day;
+  }
+
+  static String _weekdayTr(String key) {
+    switch (key) {
+      case 'monday':
+        return 'Pazartesi';
+      case 'tuesday':
+        return 'Salı';
+      case 'wednesday':
+        return 'Çarşamba';
+      case 'thursday':
+        return 'Perşembe';
+      case 'friday':
+        return 'Cuma';
+      case 'saturday':
+        return 'Cumartesi';
+      case 'sunday':
+        return 'Pazar';
+      default:
+        return key;
+    }
   }
 
   String get neighborhoodLabel {
@@ -380,6 +416,9 @@ class ExploreController extends StateNotifier<ExploreState> {
             product.brand,
             price.storeName ?? '',
             store?.displayName ?? '',
+            store?.neighborhood ?? '',
+            store?.district ?? '',
+            ...(store?.searchKeywords ?? const <String>[]),
           ].join(' ').toLowerCase();
 
           if (query.isNotEmpty && !searchable.contains(query)) {
@@ -397,6 +436,8 @@ class ExploreController extends StateNotifier<ExploreState> {
           final dropScore = _clamp01(dropPercent / 30);
           final recencyScore = _clamp01(1 - (recencyMinutes / 1440));
           final heatScore = (0.55 * distScore) + (0.30 * dropScore) + (0.15 * recencyScore);
+          final isOpenTodayMarket = store?.isOpenToday == true;
+          final adjustedHeatScore = isOpenTodayMarket ? heatScore + 0.25 : heatScore;
 
           final onlineCheapest3 = cheapestCache[price.productId] ?? const [];
           return ExploreFeedItem(
@@ -415,7 +456,7 @@ class ExploreController extends StateNotifier<ExploreState> {
             distScore: distScore,
             dropScore: dropScore,
             recencyScore: recencyScore,
-            heatScore: heatScore,
+            heatScore: adjustedHeatScore,
           );
         })
         .whereType<ExploreFeedItem>()
@@ -486,14 +527,14 @@ class ExploreController extends StateNotifier<ExploreState> {
   }
 
   bool _isLocalStore(StoreModel? store, PriceModel price) {
-    if (store != null) return !_isOnlineStore(store);
+    if (store != null) return !store.isOnline;
     final point = price.geoPoint;
     return point != null && point.latitude != 0 && point.longitude != 0;
   }
 
   bool _isOnlineStore(StoreModel? store) {
     if (store == null) return false;
-    return store.lat == 0 && store.lng == 0;
+    return store.isOnline;
   }
 
   String? _onlineStoreUrl(StoreModel? store) {

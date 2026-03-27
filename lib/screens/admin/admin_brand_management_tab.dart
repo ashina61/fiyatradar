@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Kendi projendeki yolları kontrol et
 import '../../models/brand_model.dart';
@@ -174,7 +172,11 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final store = filtered[index];
-              return _PremiumStoreCard(store: store, allStores: stores);
+              return _PremiumStoreCard(
+                store: store,
+                allStores: stores,
+                onEdit: () => _showStoreEditor(context, ref, store: store),
+              );
             },
           );
         },
@@ -184,8 +186,203 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
 
   // --- BOTTOM SHEETLER (Kısa versiyonlar) ---
   void _showBrandBottomSheet(BuildContext context, WidgetRef ref, {BrandModel? brand}) { /* Daha önceki lüks marka bottom sheet kodun */ }
-  void _showStoreEditor(BuildContext context, WidgetRef ref, {StoreModel? store}) { /* Lüks şube editörü kodun */ }
+  void _showStoreEditor(BuildContext context, WidgetRef ref, {StoreModel? store}) {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: store?.displayName ?? '');
+    final cityController = TextEditingController(text: store?.city ?? '');
+    final districtController = TextEditingController(text: store?.district ?? '');
+    final neighborhoodController = TextEditingController(text: store?.neighborhood ?? '');
+    final addressController = TextEditingController(text: store?.addressText ?? store?.address ?? '');
+    final latController = TextEditingController(text: store != null ? store.lat.toString() : '');
+    final lngController = TextEditingController(text: store != null ? store.lng.toString() : '');
+    final startHourController = TextEditingController(text: store?.startHour ?? '');
+    final endHourController = TextEditingController(text: store?.endHour ?? '');
+    final marketKindController = TextEditingController(text: store?.marketKind ?? '');
+    final keywordController = TextEditingController(text: store?.searchKeywords.join(', ') ?? '');
+
+    var selectedType = store?.storeType ?? (store?.isOnline == true ? 'online_store' : 'store');
+    var selectedStatus = store?.status.name ?? StoreStatus.active.name;
+    final selectedDays = {...store?.activeDays ?? const <String>[]};
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: pSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isNeighborhood = selectedType == 'neighborhood_market';
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(store == null ? 'Şube Ekle' : 'Şube Düzenle', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 12),
+                      _field(nameController, label: 'Ad', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: selectedType,
+                        decoration: const InputDecoration(labelText: 'Store Type'),
+                        items: const [
+                          DropdownMenuItem(value: 'store', child: Text('store')),
+                          DropdownMenuItem(value: 'online_store', child: Text('online_store')),
+                          DropdownMenuItem(value: 'neighborhood_market', child: Text('neighborhood_market')),
+                        ],
+                        onChanged: (value) => setModalState(() => selectedType = value ?? 'store'),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: selectedStatus,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: const [
+                          DropdownMenuItem(value: 'active', child: Text('active')),
+                          DropdownMenuItem(value: 'pending', child: Text('pending')),
+                          DropdownMenuItem(value: 'hidden', child: Text('hidden')),
+                        ],
+                        onChanged: (value) => setModalState(() => selectedStatus = value ?? 'active'),
+                      ),
+                      const SizedBox(height: 10),
+                      if (isNeighborhood) ...[
+                        _field(cityController, label: 'city', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
+                        const SizedBox(height: 10),
+                        _field(districtController, label: 'district', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
+                        const SizedBox(height: 10),
+                        _field(neighborhoodController, label: 'neighborhood', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
+                        const SizedBox(height: 10),
+                        _field(addressController, label: 'addressText'),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(child: _field(latController, label: 'lat')),
+                            const SizedBox(width: 10),
+                            Expanded(child: _field(lngController, label: 'lng')),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _weekdays
+                              .map((day) => FilterChip(
+                                    label: Text(day),
+                                    selected: selectedDays.contains(day),
+                                    onSelected: (on) => setModalState(() {
+                                      if (on) {
+                                        selectedDays.add(day);
+                                      } else {
+                                        selectedDays.remove(day);
+                                      }
+                                    }),
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(child: _field(startHourController, label: 'startHour', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null)),
+                            const SizedBox(width: 10),
+                            Expanded(child: _field(endHourController, label: 'endHour', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _field(marketKindController, label: 'marketKind'),
+                      ] else ...[
+                        _field(cityController, label: 'Şehir'),
+                        const SizedBox(height: 10),
+                        _field(districtController, label: 'İlçe'),
+                        const SizedBox(height: 10),
+                        _field(neighborhoodController, label: 'Mahalle'),
+                      ],
+                      const SizedBox(height: 10),
+                      _field(keywordController, label: 'searchKeywords (virgül ile)'),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (!(formKey.currentState?.validate() ?? false)) return;
+                            if (isNeighborhood && selectedDays.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('activeDays zorunludur.')));
+                              return;
+                            }
+                            final payload = <String, dynamic>{
+                              'displayName': nameController.text.trim(),
+                              'name': nameController.text.trim(),
+                              'storeType': selectedType,
+                              'type': selectedType == 'online_store' ? 'online' : 'local',
+                              'isOnline': selectedType == 'online_store',
+                              'status': selectedStatus,
+                              'city': cityController.text.trim(),
+                              'district': districtController.text.trim(),
+                              'neighborhood': neighborhoodController.text.trim(),
+                              'address': addressController.text.trim(),
+                              'addressText': addressController.text.trim(),
+                              'lat': double.tryParse(latController.text.replaceAll(',', '.').trim()) ?? 0,
+                              'lng': double.tryParse(lngController.text.replaceAll(',', '.').trim()) ?? 0,
+                              'isTemporary': isNeighborhood,
+                              'isRecurring': isNeighborhood,
+                              'activeDays': selectedDays.toList()..sort(),
+                              'startHour': startHourController.text.trim(),
+                              'endHour': endHourController.text.trim(),
+                              'marketKind': marketKindController.text.trim(),
+                              'searchKeywords': keywordController.text
+                                  .split(',')
+                                  .map((e) => e.trim().toLowerCase())
+                                  .where((e) => e.isNotEmpty)
+                                  .toList(),
+                              'updatedAt': FieldValue.serverTimestamp(),
+                            };
+
+                            if (store == null) {
+                              payload['createdAt'] = FieldValue.serverTimestamp();
+                              final model = StoreModel.fromMap(payload);
+                              await ref.read(adminBrandManagementDomainServiceProvider).addStore(model);
+                            } else {
+                              await ref.read(adminBrandManagementDomainServiceProvider).updateStore(store.id, payload);
+                            }
+                            if (context.mounted) Navigator.of(context).pop();
+                          },
+                          child: const Text('Kaydet'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller, {
+    required String label,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
 }
+
+const List<String> _weekdays = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
 
 // ---------------------------------------------------------------------------
 // KART WIDGETLARI
@@ -222,7 +419,8 @@ class _PremiumBrandCard extends ConsumerWidget {
 class _PremiumStoreCard extends ConsumerWidget {
   final StoreModel store;
   final List<StoreModel> allStores;
-  const _PremiumStoreCard({required this.store, required this.allStores});
+  final VoidCallback onEdit;
+  const _PremiumStoreCard({required this.store, required this.allStores, required this.onEdit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -246,7 +444,7 @@ class _PremiumStoreCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton.icon(onPressed: () {}, icon: const Icon(Icons.edit, size: 16), label: const Text('Düzenle', style: TextStyle(fontSize: 12)), style: TextButton.styleFrom(foregroundColor: pBrandBrown)),
+              TextButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit, size: 16), label: const Text('Düzenle', style: TextStyle(fontSize: 12)), style: TextButton.styleFrom(foregroundColor: pBrandBrown)),
               TextButton.icon(onPressed: () {}, icon: const Icon(Icons.merge_type, size: 16), label: const Text('Birleştir', style: TextStyle(fontSize: 12)), style: TextButton.styleFrom(foregroundColor: pBrandBrown)),
               IconButton(onPressed: () {}, icon: const Icon(Icons.delete_outline, color: pAlert, size: 20)),
             ],

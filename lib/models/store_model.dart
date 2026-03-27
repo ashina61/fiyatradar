@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum StoreStatus { active, hidden, pending }
-enum StoreType { local, online }
+enum StoreType { store, onlineStore, neighborhoodMarket }
 
 class StoreModel {
   final String id;
@@ -15,8 +15,18 @@ class StoreModel {
   final double lng;
   final StoreStatus status;
   final StoreType type;
+  final String storeType;
   final bool? legacyIsOnline;
+  final bool isTemporary;
+  final bool isRecurring;
+  final String? addressText;
+  final List<String> activeDays;
+  final String? startHour;
+  final String? endHour;
+  final String? marketKind;
+  final List<String> searchKeywords;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   StoreModel({
     required this.id,
@@ -29,14 +39,26 @@ class StoreModel {
     required this.lat,
     required this.lng,
     this.status = StoreStatus.active,
-    this.type = StoreType.local,
+    this.type = StoreType.store,
+    this.storeType = 'store',
     this.legacyIsOnline,
+    this.isTemporary = false,
+    this.isRecurring = false,
+    this.addressText,
+    this.activeDays = const [],
+    this.startHour,
+    this.endHour,
+    this.marketKind,
+    this.searchKeywords = const [],
     required this.createdAt,
+    this.updatedAt,
   });
 
   GeoPoint get geoPoint => GeoPoint(lat, lng);
   String get name => displayName;
-  bool get isOnline => type == StoreType.online || legacyIsOnline == true;
+  bool get isOnline => type == StoreType.onlineStore || legacyIsOnline == true;
+  bool get isNeighborhoodMarket => type == StoreType.neighborhoodMarket || storeType == 'neighborhood_market';
+  bool get isOpenToday => isNeighborhoodMarket && status == StoreStatus.active && activeDays.contains(todayWeekdayKey());
 
   factory StoreModel.fromFirestore(DocumentSnapshot doc) {
     final raw = doc.data();
@@ -55,12 +77,22 @@ class StoreModel {
       district: data['district']?.toString() ?? '',
       neighborhood: data['neighborhood']?.toString() ?? '',
       address: data['address']?.toString(),
+      addressText: data['addressText']?.toString(),
       lat: coordinates.$1,
       lng: coordinates.$2,
       status: _parseStatus(data['status']?.toString()),
-      type: _parseType(data['type']),
+      type: _parseType(data),
+      storeType: _normalizeStoreType(data),
       legacyIsOnline: data['isOnline'] as bool?,
+      isTemporary: data['isTemporary'] as bool? ?? false,
+      isRecurring: data['isRecurring'] as bool? ?? false,
+      activeDays: _parseActiveDays(data['activeDays']),
+      startHour: data['startHour']?.toString(),
+      endHour: data['endHour']?.toString(),
+      marketKind: data['marketKind']?.toString(),
+      searchKeywords: _parseStringList(data['searchKeywords']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -73,12 +105,22 @@ class StoreModel {
       'district': district,
       'neighborhood': neighborhood,
       'address': address,
+      'addressText': addressText ?? address,
       'lat': lat,
       'lng': lng,
       'status': status.name,
-      'type': type.name,
+      'type': _legacyTypeName(type),
+      'storeType': storeType,
       'isOnline': isOnline,
+      'isTemporary': isTemporary,
+      'isRecurring': isRecurring,
+      'activeDays': activeDays,
+      'startHour': startHour,
+      'endHour': endHour,
+      'marketKind': marketKind,
+      'searchKeywords': searchKeywords,
       'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
     };
   }
 
@@ -87,15 +129,46 @@ class StoreModel {
         ...toFirestore(),
       };
 
-  static StoreType _parseType(dynamic value) {
-    final normalized = value?.toString();
+  static StoreType _parseType(Map<String, dynamic> data) {
+    final storeType = _normalizeStoreType(data);
+    switch (storeType) {
+      case 'online_store':
+        return StoreType.onlineStore;
+      case 'neighborhood_market':
+        return StoreType.neighborhoodMarket;
+      case 'store':
+      default:
+        break;
+    }
+    final normalized = data['type']?.toString();
     switch (normalized) {
       case 'online':
-        return StoreType.online;
+        return StoreType.onlineStore;
       case 'local':
+      case 'store':
       default:
-        return StoreType.local;
+        return StoreType.store;
     }
+  }
+
+  static String _legacyTypeName(StoreType type) {
+    switch (type) {
+      case StoreType.onlineStore:
+        return 'online';
+      case StoreType.neighborhoodMarket:
+      case StoreType.store:
+        return 'local';
+    }
+  }
+
+  static String _normalizeStoreType(Map<String, dynamic> data) {
+    final raw = data['storeType']?.toString().trim();
+    if (raw == 'store' || raw == 'online_store' || raw == 'neighborhood_market') {
+      return raw!;
+    }
+    final legacyType = data['type']?.toString().trim();
+    if (legacyType == 'online' || data['isOnline'] == true) return 'online_store';
+    return 'store';
   }
 
   static StoreStatus _parseStatus(String? value) {
@@ -134,8 +207,18 @@ class StoreModel {
     double? lng,
     StoreStatus? status,
     StoreType? type,
+    String? storeType,
     bool? legacyIsOnline,
+    bool? isTemporary,
+    bool? isRecurring,
+    String? addressText,
+    List<String>? activeDays,
+    String? startHour,
+    String? endHour,
+    String? marketKind,
+    List<String>? searchKeywords,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return StoreModel(
       id: id ?? this.id,
@@ -149,9 +232,47 @@ class StoreModel {
       lng: lng ?? this.lng,
       status: status ?? this.status,
       type: type ?? this.type,
+      storeType: storeType ?? this.storeType,
       legacyIsOnline: legacyIsOnline ?? this.legacyIsOnline,
+      isTemporary: isTemporary ?? this.isTemporary,
+      isRecurring: isRecurring ?? this.isRecurring,
+      addressText: addressText ?? this.addressText,
+      activeDays: activeDays ?? this.activeDays,
+      startHour: startHour ?? this.startHour,
+      endHour: endHour ?? this.endHour,
+      marketKind: marketKind ?? this.marketKind,
+      searchKeywords: searchKeywords ?? this.searchKeywords,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((e) => e.toString().trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+    }
+    return const [];
+  }
+
+  static List<String> _parseActiveDays(dynamic value) {
+    const allowed = {
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    };
+    return _parseStringList(value).where(allowed.contains).toList(growable: false);
+  }
+
+  static String todayWeekdayKey([DateTime? now]) {
+    const keys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    return keys[(now ?? DateTime.now()).weekday - 1];
   }
 
   static String _parseDisplayName(Map<String, dynamic> data) {
