@@ -130,9 +130,14 @@ class AddPriceState {
   }
 
   bool get isNearbyMode => activeTab == 0;
+  bool get isNeighborhoodMode => activeTab == 2;
 
   List<Store> get visibleStores {
-    final source = isNearbyMode ? nearbyStores : onlineStores;
+    final source = isNearbyMode
+        ? nearbyStores
+        : isNeighborhoodMode
+        ? nearbyStores.where((store) => store.isNeighborhoodMarket).toList(growable: false)
+        : onlineStores;
     final q = searchQuery.trim().toLowerCase();
     final filtered = searchQuery.trim().isEmpty
         ? source

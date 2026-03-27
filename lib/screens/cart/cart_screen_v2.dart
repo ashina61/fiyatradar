@@ -326,7 +326,9 @@ class _PremiumCartHeader extends StatelessWidget {
               children: [
                 // Geri Butonu
                 GestureDetector(
-                  onTap: () { if (Navigator.canPop(context)) Navigator.pop(context); },
+                  onTap: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
                   child: Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(color: pxDarkBtn, borderRadius: BorderRadius.circular(14)),

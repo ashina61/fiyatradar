@@ -526,7 +526,34 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             onTap: () => notifier.setActiveTab(1),
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _StoreModeButton(
+                            icon: Icons.storefront_outlined,
+                            text: 'Mahalle Pazarı',
+                            on: state.activeTab == 2,
+                            onTap: () => notifier.setActiveTab(2),
+                          ),
+                        ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color.fromRGBO(24, 16, 10, 0.08)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: TextField(
+                        onChanged: notifier.setSearchQuery,
+                        decoration: InputDecoration(
+                          icon: const Icon(Icons.search, size: 18, color: _t3),
+                          hintText: 'Mağaza ara...',
+                          hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: _t3),
+                          border: InputBorder.none,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Container(
