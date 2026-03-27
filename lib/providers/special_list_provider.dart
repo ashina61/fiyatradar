@@ -14,6 +14,11 @@ final specialListsProvider = StreamProvider<List<SpecialListModel>>((ref) {
   return ref.watch(specialListServiceProvider).streamSpecialLists(activeOnly: true);
 });
 
+final adminSpecialListsProvider = StreamProvider<List<SpecialListModel>>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value(const []);
+  return ref.watch(specialListServiceProvider).streamSpecialLists(activeOnly: false);
+});
+
 final specialListByIdProvider = StreamProvider.family<SpecialListModel?, String>((ref, listId) {
   if (!ref.watch(firebaseInitializedProvider) || listId.isEmpty) {
     return Stream.value(null);
@@ -26,6 +31,13 @@ final specialListItemsProvider = StreamProvider.family<List<SpecialListItemModel
     return Stream.value(const []);
   }
   return ref.watch(specialListServiceProvider).streamSpecialListItems(listId, activeOnly: true);
+});
+
+final adminSpecialListItemsProvider = StreamProvider.family<List<SpecialListItemModel>, String>((ref, listId) {
+  if (!ref.watch(firebaseInitializedProvider) || listId.isEmpty) {
+    return Stream.value(const []);
+  }
+  return ref.watch(specialListServiceProvider).streamSpecialListItems(listId, activeOnly: false);
 });
 
 class SpecialListDetailState {
