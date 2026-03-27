@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import '../../models/category_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store.dart';
+import '../../models/store_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../theme/fr_colors.dart';
@@ -1460,6 +1461,18 @@ class _StoreRow extends StatelessWidget {
                   Text(store.name, style: _pjs(size: 14, weight: FontWeight.w900)),
                   const SizedBox(height: 1),
                   Text(_subText(store), style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                  if (store.isNeighborhoodMarket) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _badge('Semt Pazarı', const Color(0xFFEAF7EF), const Color(0xFF1F8F4A)),
+                        if (_isOpenToday(store))
+                          _badge('Bugün Açık', const Color(0xFFFFF4E5), const Color(0xFFB66A00)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1487,10 +1500,26 @@ class _StoreRow extends StatelessWidget {
   }
 
   String _subText(Store store) {
+    if (store.isNeighborhoodMarket) {
+      return store.subtitle ?? [store.district, store.neighborhood].where((e) => e.trim().isNotEmpty).join(' / ');
+    }
     if (store.distanceMeters != null) {
       return '${store.distanceMeters}m${store.subtitle != null ? ' · ${store.subtitle}' : ''}';
     }
     return store.subtitle ?? 'Online';
+  }
+
+  bool _isOpenToday(Store store) {
+    final today = StoreModel.todayWeekdayKey();
+    return store.activeDays.contains(today) && store.status == StoreStatus.active;
+  }
+
+  Widget _badge(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(text, style: _pjs(size: 9, weight: FontWeight.w800, color: fg)),
+    );
   }
 
   Color _avatarColor(String text) {

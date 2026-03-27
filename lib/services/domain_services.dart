@@ -131,6 +131,11 @@ class AdminBrandManagementDomainService {
 
   Future<void> updateBrand(String brandId, Map<String, dynamic> data) =>
       _firestoreService.updateBrand(brandId, data);
+
+  Future<String> addStore(StoreModel store) => _firestoreService.addStore(store);
+
+  Future<void> updateStore(String storeId, Map<String, dynamic> data) =>
+      _firestoreService.updateStore(storeId, data);
 }
 
 
