@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/explore_provider.dart';
+import '../../providers/special_list_provider.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -671,11 +671,12 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _PersonalListsSection extends StatelessWidget {
+class _PersonalListsSection extends ConsumerWidget {
   const _PersonalListsSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final specialListsAsync = ref.watch(specialListsProvider);
     return _SectionBox(
       child: Column(
         children: [
@@ -686,36 +687,26 @@ class _PersonalListsSection extends StatelessWidget {
               MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
             ),
           ),
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('curated_lists')
-                .orderBy('order')
-                .limit(1)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return _listCard(title: 'Liste yüklenemedi', subtitle: 'Lütfen daha sonra tekrar dene.', products: const []);
-              }
-
-              final docs = snapshot.data?.docs.where((doc) => doc.data()['isActive'] == true).toList() ?? const [];
-              if (docs.isEmpty) {
+          specialListsAsync.when(
+            loading: () => _listCard(title: 'Özel listeler yükleniyor', subtitle: 'Lütfen bekleyin.', products: const []),
+            error: (_, __) => _listCard(title: 'Liste yüklenemedi', subtitle: 'Lütfen daha sonra tekrar dene.', products: const []),
+            data: (lists) {
+              if (lists.isEmpty) {
                 return _listCard(
                   title: 'Henüz özel liste yok',
                   subtitle: 'Admin panelinden yeni liste ekleyebilirsin.',
                   products: const [],
                 );
               }
-
-              final data = docs.first.data();
-              final products = (data['products'] as List<dynamic>? ?? const <dynamic>[]).map((e) => e.toString()).toList();
+              final list = lists.first;
               return GestureDetector(
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
+                  MaterialPageRoute<void>(builder: (_) => PersonalListsScreen(listId: list.id)),
                 ),
                 child: _listCard(
-                  title: (data['title'] as String? ?? 'Özel Liste').trim(),
-                  subtitle: (data['subtitle'] as String? ?? 'Senin için hazırlandı').trim(),
-                  products: products,
+                  title: list.title.trim().isEmpty ? 'Özel Liste' : list.title.trim(),
+                  subtitle: list.subtitle.trim().isEmpty ? 'Senin için hazırlandı' : list.subtitle.trim(),
+                  products: const [],
                 ),
               );
             },
