@@ -263,6 +263,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+
+    match /special_lists/{listId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /items/{itemId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

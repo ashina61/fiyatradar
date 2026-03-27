@@ -1,81 +1,161 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/special_list_item_model.dart';
+import '../../models/special_list_model.dart';
+import '../../providers/special_list_provider.dart';
 import '../../theme/fr_colors.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/staggered_fade_slide.dart';
 
-class CartListDetailScreen extends StatelessWidget {
+class CartListDetailScreen extends ConsumerWidget {
   const CartListDetailScreen({
     super.key,
-    this.data = const SmartBasketDetailData.mock(),
+    required this.listId,
     this.onBack,
     this.onShare,
-    this.onCompare,
   });
 
-  final SmartBasketDetailData data;
+  final String listId;
   final VoidCallback? onBack;
   final VoidCallback? onShare;
-  final VoidCallback? onCompare;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detailState = ref.watch(specialListDetailProvider(listId));
+
     return Scaffold(
       backgroundColor: const Color(0xFFEDEAE3),
       body: SafeArea(
         bottom: false,
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _TopBar(
-                    onBack: onBack ?? () => Navigator.of(context).maybePop(),
-                    onShare: onShare,
-                  ),
-                  const SizedBox(height: 10),
-                  StaggeredFadeSlide(index: 0, offsetY: 14, child: _SummaryCard(data: data)),
-                  const SizedBox(height: 24),
-                  _ListHeader(itemCount: data.items.length),
-                  const SizedBox(height: 12),
-                  for (var i = 0; i < data.items.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: StaggeredFadeSlide(
-                        index: i + 1,
-                        offsetY: 12,
-                        baseDelayMs: 80,
-                        stepDelayMs: 80,
-                        child: _BasketItemRow(item: data.items[i]),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 24,
-              child: SafeArea(
-                top: false,
-                child: _BottomCompareButton(
-                  text: 'Sepeti Kıyasla (${data.items.length} Ürün)',
-                  onTap: onCompare,
-                ),
-              ),
-            ),
-          ],
+        child: detailState.list.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => _StatusState(
+            title: 'Bir hata oluştu',
+            subtitle: 'Liste verisi yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+          ),
+          data: (list) {
+            if (list == null || !list.isActive) {
+              return const _StatusState(
+                title: 'Liste bulunamadı',
+                subtitle: 'Bu liste kaldırılmış olabilir veya artık aktif değil.',
+              );
+            }
+            return _Content(
+              list: list,
+              itemsAsync: detailState.items,
+              onBack: onBack ?? () => Navigator.of(context).maybePop(),
+              onShare: onShare,
+              onCtaTap: () => _handleCtaAction(context, list),
+            );
+          },
         ),
       ),
+    );
+  }
+
+  void _handleCtaAction(BuildContext context, SpecialListModel list) {
+    switch (list.ctaActionType) {
+      case SpecialListCtaActionType.compareCart:
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sepet kıyaslama yakında açılıyor.')));
+        break;
+      case SpecialListCtaActionType.none:
+        break;
+      case SpecialListCtaActionType.openProductList:
+      case SpecialListCtaActionType.openCampaign:
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu aksiyon henüz desteklenmiyor.')));
+        break;
+    }
+  }
+}
+
+class _Content extends StatelessWidget {
+  const _Content({
+    required this.list,
+    required this.itemsAsync,
+    required this.onBack,
+    this.onShare,
+    required this.onCtaTap,
+  });
+
+  final SpecialListModel list;
+  final AsyncValue<List<SpecialListItemModel>> itemsAsync;
+  final VoidCallback onBack;
+  final VoidCallback? onShare;
+  final VoidCallback onCtaTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TopBar(title: list.title, onBack: onBack, onShare: onShare),
+              const SizedBox(height: 10),
+              StaggeredFadeSlide(index: 0, offsetY: 14, child: _SummaryCard(data: list)),
+              const SizedBox(height: 24),
+              itemsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => const _StatusState(
+                  title: 'Ürünler yüklenemedi',
+                  subtitle: 'Lütfen daha sonra tekrar deneyin.',
+                ),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return const _StatusState(
+                      title: 'Bu listede ürün yok',
+                      subtitle: 'Admin panelinden ürün eklenince burada görünecek.',
+                    );
+                  }
+                  return Column(
+                    children: [
+                      _ListHeader(itemCount: items.length),
+                      const SizedBox(height: 12),
+                      for (var i = 0; i < items.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: StaggeredFadeSlide(
+                            index: i + 1,
+                            offsetY: 12,
+                            baseDelayMs: 80,
+                            stepDelayMs: 80,
+                            child: _BasketItemRow(item: items[i]),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: 24,
+          child: SafeArea(
+            top: false,
+            child: _BottomCompareButton(
+              text: list.ctaText.trim().isEmpty ? 'Devam Et' : list.ctaText,
+              onTap: itemsAsync.valueOrNull?.isEmpty == true || list.ctaActionType == SpecialListCtaActionType.none
+                  ? null
+                  : onCtaTap,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack, this.onShare});
+  const _TopBar({required this.title, required this.onBack, this.onShare});
 
+  final String title;
   final VoidCallback onBack;
   final VoidCallback? onShare;
 
@@ -88,7 +168,7 @@ class _TopBar extends StatelessWidget {
           _IconButtonShell(icon: Icons.chevron_left_rounded, onTap: onBack, iconSize: 24),
           Expanded(
             child: Text(
-              'Liste Detayı',
+              title.trim().isEmpty ? 'Liste Detayı' : title,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
@@ -107,7 +187,7 @@ class _TopBar extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.data});
 
-  final SmartBasketDetailData data;
+  final SpecialListModel data;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +238,7 @@ class _SummaryCard extends StatelessWidget {
                       border: Border.all(color: FRColors.camel.withOpacity(0.30)),
                     ),
                     child: Text(
-                      data.badge,
+                      data.badgeText,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 10,
                         color: FRColors.camel,
@@ -169,7 +249,7 @@ class _SummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    data.title,
+                    data.heroTitle,
                     style: GoogleFonts.dmSerifDisplay(
                       fontSize: 24,
                       height: 1.1,
@@ -201,7 +281,7 @@ class _SummaryCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                data.totalLabel,
+                                'En İyi Eşleşme (Toplam)',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -210,7 +290,7 @@ class _SummaryCard extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                data.totalPriceText,
+                                formatTRY(data.totalPrice, keepTrailingZeros: true),
                                 style: GoogleFonts.dmSerifDisplay(
                                   fontSize: 32,
                                   height: 1,
@@ -230,7 +310,7 @@ class _SummaryCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                data.savingText,
+                                '${formatTRY(data.savingsAmount, keepTrailingZeros: false)} ${data.savingsLabel}'.trim(),
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -240,7 +320,7 @@ class _SummaryCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              data.marketInsight,
+                              '${data.bestMarketName} Sepeti ile',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -296,10 +376,12 @@ class _ListHeader extends StatelessWidget {
 class _BasketItemRow extends StatelessWidget {
   const _BasketItemRow({required this.item});
 
-  final SmartBasketItem item;
+  final SpecialListItemModel item;
 
   @override
   Widget build(BuildContext context) {
+    final tags = [if (item.quantityLabel.trim().isNotEmpty) item.quantityLabel, if (item.tagLabel.trim().isNotEmpty) item.tagLabel];
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -324,11 +406,14 @@ class _BasketItemRow extends StatelessWidget {
               color: const Color(0xFFF8F4EE),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Image.network(
-              item.imageUrl,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-            ),
+            child: item.productImageUrlSnapshot?.isNotEmpty == true
+                ? Image.network(
+                    item.productImageUrlSnapshot!,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                  )
+                : const Icon(Icons.inventory_2_outlined),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -336,7 +421,7 @@ class _BasketItemRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.brand,
+                  item.productBrandSnapshot,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 9,
                     height: 1,
@@ -347,7 +432,7 @@ class _BasketItemRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  item.name,
+                  item.productNameSnapshot,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
@@ -362,7 +447,7 @@ class _BasketItemRow extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    for (final tag in item.tags)
+                    for (final tag in tags)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -389,7 +474,7 @@ class _BasketItemRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                item.priceText,
+                formatTRY(item.selectedPrice, keepTrailingZeros: true),
                 style: GoogleFonts.dmSerifDisplay(
                   fontSize: 18,
                   height: 1,
@@ -413,7 +498,7 @@ class _BasketItemRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      item.market,
+                      item.selectedStoreNameSnapshot,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -439,41 +524,76 @@ class _BottomCompareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          height: 58,
-          decoration: BoxDecoration(
-            color: FRColors.camel,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: FRColors.camel.withOpacity(0.4),
-                blurRadius: 32,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.shopping_cart_outlined, color: Color(0xFF18100A), size: 22),
-                const SizedBox(width: 10),
-                Text(
-                  text,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF18100A),
-                  ),
+    return Opacity(
+      opacity: onTap == null ? 0.55 : 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            height: 58,
+            decoration: BoxDecoration(
+              color: FRColors.camel,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: FRColors.camel.withOpacity(0.4),
+                  blurRadius: 32,
+                  offset: const Offset(0, 16),
                 ),
               ],
             ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shopping_cart_outlined, color: Color(0xFF18100A), size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    text,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF18100A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusState extends StatelessWidget {
+  const _StatusState({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF6E5A49)),
+            ),
+          ],
         ),
       ),
     );
@@ -515,102 +635,4 @@ class _IconButtonShell extends StatelessWidget {
       ),
     );
   }
-}
-
-class SmartBasketDetailData {
-  const SmartBasketDetailData({
-    required this.badge,
-    required this.title,
-    required this.description,
-    required this.totalLabel,
-    required this.totalPriceText,
-    required this.savingText,
-    required this.marketInsight,
-    required this.items,
-  });
-
-  const SmartBasketDetailData.mock()
-      : badge = 'Akıllı Kombin',
-        title = 'Haftalık Kahvaltı',
-        description = 'Bu sepet temel ihtiyaçlarınıza göre FiyatRadar AI tarafından oluşturulmuştur.',
-        totalLabel = 'En İyi Eşleşme (Toplam)',
-        totalPriceText = '425,10₺',
-        savingText = '65₺ Daha Ucuz',
-        marketInsight = 'A-101 Sepeti ile',
-        items = const [
-          SmartBasketItem(
-            imageUrl: 'https://images.openfoodfacts.org/images/products/869/064/403/1202/front_tr.22.400.jpg',
-            brand: 'DOĞADAN',
-            name: 'Çiçek Balı 460g Kavanoz',
-            tags: ['460g', 'Kahvaltılık'],
-            priceText: '119,90₺',
-            market: 'A-101',
-            marketColor: Color(0xFFD44020),
-          ),
-          SmartBasketItem(
-            imageUrl: 'https://images.openfoodfacts.org/images/products/869/081/400/3142/front_tr.26.400.jpg',
-            brand: 'SÜTAŞ',
-            name: 'Kaşar Peynir 400g Tam Yağlı',
-            tags: ['400g'],
-            priceText: '74,90₺',
-            market: 'BİM',
-            marketColor: Color(0xFFD4A000),
-          ),
-          SmartBasketItem(
-            imageUrl: 'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_fr.276.400.jpg',
-            brand: 'FERRERO',
-            name: 'Nutella 400g Fındık Kreması',
-            tags: ['400g', 'Tatlı'],
-            priceText: '64,90₺',
-            market: 'A-101',
-            marketColor: Color(0xFFD44020),
-          ),
-          SmartBasketItem(
-            imageUrl: 'https://images.openfoodfacts.org/images/products/800/184/104/5536/front_fr.23.400.jpg',
-            brand: 'MARMARABİRLİK',
-            name: 'Siyah Zeytin 500g XS',
-            tags: ['500g'],
-            priceText: '75,40₺',
-            market: 'ŞOK',
-            marketColor: Color(0xFF7B3FA0),
-          ),
-          SmartBasketItem(
-            imageUrl: 'https://images.openfoodfacts.org/images/products/761/303/524/2993/front_fr.8.400.jpg',
-            brand: 'LİPTON',
-            name: 'Sarı Etiket Dökme Çay 500g',
-            tags: ['500g'],
-            priceText: '90,00₺',
-            market: 'Migros',
-            marketColor: Color(0xFFE07020),
-          ),
-        ];
-
-  final String badge;
-  final String title;
-  final String description;
-  final String totalLabel;
-  final String totalPriceText;
-  final String savingText;
-  final String marketInsight;
-  final List<SmartBasketItem> items;
-}
-
-class SmartBasketItem {
-  const SmartBasketItem({
-    required this.imageUrl,
-    required this.brand,
-    required this.name,
-    required this.tags,
-    required this.priceText,
-    required this.market,
-    required this.marketColor,
-  });
-
-  final String imageUrl;
-  final String brand;
-  final String name;
-  final List<String> tags;
-  final String priceText;
-  final String market;
-  final Color marketColor;
 }
