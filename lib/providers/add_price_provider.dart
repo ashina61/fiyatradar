@@ -133,15 +133,27 @@ class AddPriceState {
 
   List<Store> get visibleStores {
     final source = isNearbyMode ? nearbyStores : onlineStores;
+    final q = searchQuery.trim().toLowerCase();
     final filtered = searchQuery.trim().isEmpty
         ? source
         : source
-            .where((s) => s.name.toLowerCase().contains(searchQuery.toLowerCase()))
+            .where(
+              (s) =>
+                  s.name.toLowerCase().contains(q) ||
+                  s.district.toLowerCase().contains(q) ||
+                  s.neighborhood.toLowerCase().contains(q) ||
+                  s.searchKeywords.any((k) => k.toLowerCase().contains(q)),
+            )
             .toList(growable: false);
 
     final ordered = List<Store>.of(filtered);
     if (isNearbyMode) {
       ordered.sort((a, b) {
+        final today = StoreModel.todayWeekdayKey();
+        final aTodayOpen = a.isNeighborhoodMarket && a.activeDays.contains(today);
+        final bTodayOpen = b.isNeighborhoodMarket && b.activeDays.contains(today);
+        if (aTodayOpen != bTodayOpen) return aTodayOpen ? -1 : 1;
+
         final ad = a.distanceMeters;
         final bd = b.distanceMeters;
         if (ad != null && bd != null) return ad.compareTo(bd);
@@ -243,18 +255,62 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       id: model.id,
       name: model.displayName,
       type: model.isOnline ? 'online' : 'nearby',
+      storeType: model.storeType,
       distanceMeters: distanceMeters,
       logoUrl: model.displayName.isNotEmpty ? model.displayName[0].toUpperCase() : '?',
-      subtitle: [model.district, model.city]
-              .where((e) => e.trim().isNotEmpty)
-              .join(', ')
-              .trim()
-              .isEmpty
-          ? null
-          : [model.district, model.city]
-              .where((e) => e.trim().isNotEmpty)
-              .join(', '),
+      subtitle: _buildStoreSubtitle(model),
+      city: model.city,
+      district: model.district,
+      neighborhood: model.neighborhood,
+      address: model.address,
+      lat: model.lat,
+      lng: model.lng,
+      status: model.status,
+      legacyIsOnline: model.legacyIsOnline,
+      isTemporary: model.isTemporary,
+      isRecurring: model.isRecurring,
+      addressText: model.addressText,
+      activeDays: model.activeDays,
+      startHour: model.startHour,
+      endHour: model.endHour,
+      marketKind: model.marketKind,
+      searchKeywords: model.searchKeywords,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
     );
+  }
+
+  String? _buildStoreSubtitle(StoreModel model) {
+    if (model.isNeighborhoodMarket) {
+      final day = model.activeDays.isNotEmpty ? _weekdayTr(model.activeDays.first) : 'Semt Pazarı';
+      final schedule = (model.startHour != null && model.endHour != null) ? '$day • ${model.startHour}–${model.endHour}' : day;
+      final location = [model.district, model.neighborhood].where((e) => e.trim().isNotEmpty).join(' / ');
+      if (location.isEmpty) return schedule;
+      return '$schedule • $location';
+    }
+    final loc = [model.district, model.city].where((e) => e.trim().isNotEmpty).join(', ');
+    return loc.trim().isEmpty ? null : loc;
+  }
+
+  String _weekdayTr(String key) {
+    switch (key) {
+      case 'monday':
+        return 'Pazartesi';
+      case 'tuesday':
+        return 'Salı';
+      case 'wednesday':
+        return 'Çarşamba';
+      case 'thursday':
+        return 'Perşembe';
+      case 'friday':
+        return 'Cuma';
+      case 'saturday':
+        return 'Cumartesi';
+      case 'sunday':
+        return 'Pazar';
+      default:
+        return key;
+    }
   }
 
   double _haversineMeters(

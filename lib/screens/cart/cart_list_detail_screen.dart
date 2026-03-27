@@ -15,13 +15,11 @@ class CartListDetailScreen extends ConsumerWidget {
     required this.listId,
     this.onBack,
     this.onShare,
-    this.onCompare,
   });
 
   final String listId;
   final VoidCallback? onBack;
   final VoidCallback? onShare;
-  final VoidCallback? onCompare;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -406,7 +404,56 @@ class _BottomCompareButton extends StatelessWidget {
                 ],
               ),
             ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shopping_cart_outlined, color: Color(0xFF18100A), size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    text,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF18100A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusState extends StatelessWidget {
+  const _StatusState({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF6E5A49)),
+            ),
+          ],
         ),
       ),
     );

@@ -335,7 +335,8 @@ class FirestoreService {
       'lat': suggestion.lat,
       'lng': suggestion.lng,
       'status': 'active',
-      'type': StoreType.local.name,
+      'type': 'local',
+      'storeType': 'store',
       'isOnline': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
