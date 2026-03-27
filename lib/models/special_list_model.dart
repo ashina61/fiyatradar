@@ -9,11 +9,11 @@ enum SpecialListCtaActionType {
   const SpecialListCtaActionType(this.value);
   final String value;
 
-  static SpecialListCtaActionType fromValue(String? value) {
-    return SpecialListCtaActionType.values.firstWhere(
-      (type) => type.value == value,
-      orElse: () => SpecialListCtaActionType.none,
-    );
+  static SpecialListCtaActionType fromString(String? value) {
+    for (final type in values) {
+      if (type.value == value) return type;
+    }
+    return SpecialListCtaActionType.none;
   }
 }
 
@@ -60,19 +60,19 @@ class SpecialListModel {
     final data = doc.data() ?? const <String, dynamic>{};
     return SpecialListModel(
       id: doc.id,
-      title: (data['title'] ?? '').toString(),
-      subtitle: (data['subtitle'] ?? '').toString(),
-      badgeText: (data['badgeText'] ?? '').toString(),
-      description: (data['description'] ?? '').toString(),
-      coverType: (data['coverType'] ?? 'default').toString(),
+      title: data['title']?.toString() ?? '',
+      subtitle: data['subtitle']?.toString() ?? '',
+      badgeText: data['badgeText']?.toString() ?? '',
+      description: data['description']?.toString() ?? '',
+      coverType: data['coverType']?.toString() ?? 'gradient',
       coverImageUrl: data['coverImageUrl']?.toString(),
       totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0,
       savingsAmount: (data['savingsAmount'] as num?)?.toDouble() ?? 0,
-      savingsLabel: (data['savingsLabel'] ?? '').toString(),
-      bestMarketName: (data['bestMarketName'] ?? '').toString(),
-      ctaText: (data['ctaText'] ?? 'Sepeti Kıyasla').toString(),
-      ctaActionType: SpecialListCtaActionType.fromValue(data['ctaActionType']?.toString()),
-      isActive: data['isActive'] != false,
+      savingsLabel: data['savingsLabel']?.toString() ?? '',
+      bestMarketName: data['bestMarketName']?.toString() ?? '',
+      ctaText: data['ctaText']?.toString() ?? 'Sepeti Kıyasla',
+      ctaActionType: SpecialListCtaActionType.fromString(data['ctaActionType']?.toString()),
+      isActive: data['isActive'] == true,
       sortOrder: (data['sortOrder'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -101,5 +101,43 @@ class SpecialListModel {
     };
   }
 
-  String get heroTitle => subtitle.trim().isNotEmpty ? subtitle.trim() : title;
+  SpecialListModel copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    String? badgeText,
+    String? description,
+    String? coverType,
+    String? coverImageUrl,
+    double? totalPrice,
+    double? savingsAmount,
+    String? savingsLabel,
+    String? bestMarketName,
+    String? ctaText,
+    SpecialListCtaActionType? ctaActionType,
+    bool? isActive,
+    int? sortOrder,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return SpecialListModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      badgeText: badgeText ?? this.badgeText,
+      description: description ?? this.description,
+      coverType: coverType ?? this.coverType,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      totalPrice: totalPrice ?? this.totalPrice,
+      savingsAmount: savingsAmount ?? this.savingsAmount,
+      savingsLabel: savingsLabel ?? this.savingsLabel,
+      bestMarketName: bestMarketName ?? this.bestMarketName,
+      ctaText: ctaText ?? this.ctaText,
+      ctaActionType: ctaActionType ?? this.ctaActionType,
+      isActive: isActive ?? this.isActive,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

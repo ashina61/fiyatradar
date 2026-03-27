@@ -5,43 +5,26 @@ import '../../providers/special_list_provider.dart';
 import '../cart/cart_list_detail_screen.dart';
 
 class PersonalListsScreen extends ConsumerWidget {
-  const PersonalListsScreen({super.key});
+  const PersonalListsScreen({super.key, this.listId});
+
+  final String? listId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listsAsync = ref.watch(activeSpecialListsProvider);
+    if (listId != null && listId!.isNotEmpty) {
+      return CartListDetailScreen(listId: listId!);
+    }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Özel Listeler')),
-      body: listsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Listeler yüklenemedi.')),
-        data: (lists) {
-          if (lists.isEmpty) {
-            return const Center(child: Text('Aktif özel liste bulunamadı.'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) {
-              final list = lists[index];
-              return ListTile(
-                tileColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                title: Text(list.title),
-                subtitle: Text(list.subtitle),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => CartListDetailScreen(listId: list.id)),
-                  );
-                },
-              );
-            },
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemCount: lists.length,
-          );
-        },
-      ),
+    final listsAsync = ref.watch(specialListsProvider);
+    return listsAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const Scaffold(body: Center(child: Text('Özel listeler yüklenemedi.'))),
+      data: (lists) {
+        if (lists.isEmpty) {
+          return const Scaffold(body: Center(child: Text('Henüz özel liste yok.')));
+        }
+        return CartListDetailScreen(listId: lists.first.id);
+      },
     );
   }
 }

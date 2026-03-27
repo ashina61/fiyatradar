@@ -29,64 +29,32 @@ class CartListDetailScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFFEDEAE3),
       body: SafeArea(
         bottom: false,
-        child: detailState.list.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _StatusState(
-            title: 'Bir hata oluştu',
-            subtitle: 'Liste verisi yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
-          ),
-          data: (list) {
-            if (list == null || !list.isActive) {
-              return const _StatusState(
-                title: 'Liste bulunamadı',
-                subtitle: 'Bu liste kaldırılmış olabilir veya artık aktif değil.',
-              );
-            }
-            return _Content(
-              list: list,
-              itemsAsync: detailState.items,
-              onBack: onBack ?? () => Navigator.of(context).maybePop(),
-              onShare: onShare,
-              onCtaTap: () => _handleCtaAction(context, list),
-            );
-          },
-        ),
+        child: detailState.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : detailState.error != null
+                ? _StatusState(
+                    icon: Icons.cloud_off,
+                    message: 'Liste verisi alınamadı. Lütfen tekrar deneyin.',
+                    onBack: onBack ?? () => Navigator.of(context).maybePop(),
+                  )
+                : _buildContent(context, detailState),
       ),
     );
   }
 
-  void _handleCtaAction(BuildContext context, SpecialListModel list) {
-    switch (list.ctaActionType) {
-      case SpecialListCtaActionType.compareCart:
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sepet kıyaslama yakında açılıyor.')));
-        break;
-      case SpecialListCtaActionType.none:
-        break;
-      case SpecialListCtaActionType.openProductList:
-      case SpecialListCtaActionType.openCampaign:
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu aksiyon henüz desteklenmiyor.')));
-        break;
+  Widget _buildContent(BuildContext context, SpecialListDetailState detailState) {
+    final list = detailState.list.valueOrNull;
+    final items = detailState.items.valueOrNull ?? const <SpecialListItemModel>[];
+
+    if (list == null || !list.isActive) {
+      return _StatusState(
+        icon: Icons.inbox_outlined,
+        message: 'Liste bulunamadı',
+        onBack: onBack ?? () => Navigator.of(context).maybePop(),
+      );
     }
-  }
-}
 
-class _Content extends StatelessWidget {
-  const _Content({
-    required this.list,
-    required this.itemsAsync,
-    required this.onBack,
-    this.onShare,
-    required this.onCtaTap,
-  });
-
-  final SpecialListModel list;
-  final AsyncValue<List<SpecialListItemModel>> itemsAsync;
-  final VoidCallback onBack;
-  final VoidCallback? onShare;
-  final VoidCallback onCtaTap;
-
-  @override
-  Widget build(BuildContext context) {
+    final ctaEnabled = items.isNotEmpty && list.ctaActionType != SpecialListCtaActionType.none;
     return Stack(
       children: [
         SingleChildScrollView(
@@ -94,42 +62,30 @@ class _Content extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TopBar(title: list.title, onBack: onBack, onShare: onShare),
-              const SizedBox(height: 10),
-              StaggeredFadeSlide(index: 0, offsetY: 14, child: _SummaryCard(data: list)),
-              const SizedBox(height: 24),
-              itemsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => const _StatusState(
-                  title: 'Ürünler yüklenemedi',
-                  subtitle: 'Lütfen daha sonra tekrar deneyin.',
-                ),
-                data: (items) {
-                  if (items.isEmpty) {
-                    return const _StatusState(
-                      title: 'Bu listede ürün yok',
-                      subtitle: 'Admin panelinden ürün eklenince burada görünecek.',
-                    );
-                  }
-                  return Column(
-                    children: [
-                      _ListHeader(itemCount: items.length),
-                      const SizedBox(height: 12),
-                      for (var i = 0; i < items.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: StaggeredFadeSlide(
-                            index: i + 1,
-                            offsetY: 12,
-                            baseDelayMs: 80,
-                            stepDelayMs: 80,
-                            child: _BasketItemRow(item: items[i]),
-                          ),
-                        ),
-                    ],
-                  );
-                },
+              _TopBar(
+                title: list.subtitle.isNotEmpty ? list.subtitle : 'Liste Detayı',
+                onBack: onBack ?? () => Navigator.of(context).maybePop(),
+                onShare: onShare,
               ),
+              const SizedBox(height: 10),
+              StaggeredFadeSlide(index: 0, offsetY: 14, child: _SummaryCard(list: list, itemCount: items.length)),
+              const SizedBox(height: 24),
+              _ListHeader(itemCount: items.length),
+              const SizedBox(height: 12),
+              if (items.isEmpty)
+                const _EmptyItemsState()
+              else
+                for (var i = 0; i < items.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: StaggeredFadeSlide(
+                      index: i + 1,
+                      offsetY: 12,
+                      baseDelayMs: 80,
+                      stepDelayMs: 80,
+                      child: _BasketItemRow(item: items[i]),
+                    ),
+                  ),
             ],
           ),
         ),
@@ -140,15 +96,30 @@ class _Content extends StatelessWidget {
           child: SafeArea(
             top: false,
             child: _BottomCompareButton(
-              text: list.ctaText.trim().isEmpty ? 'Devam Et' : list.ctaText,
-              onTap: itemsAsync.valueOrNull?.isEmpty == true || list.ctaActionType == SpecialListCtaActionType.none
-                  ? null
-                  : onCtaTap,
+              text: list.ctaText.isEmpty ? 'Devam Et' : list.ctaText,
+              enabled: ctaEnabled,
+              onTap: () => _handleCta(context, list),
             ),
           ),
         ),
       ],
     );
+  }
+
+  void _handleCta(BuildContext context, SpecialListModel list) {
+    switch (list.ctaActionType) {
+      case SpecialListCtaActionType.compareCart:
+        if (onCompare != null) {
+          onCompare!.call();
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sepet kıyaslama yakında.')));
+      case SpecialListCtaActionType.none:
+        return;
+      case SpecialListCtaActionType.openProductList:
+      case SpecialListCtaActionType.openCampaign:
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu aksiyon henüz aktif değil.')));
+    }
   }
 }
 
@@ -168,13 +139,9 @@ class _TopBar extends StatelessWidget {
           _IconButtonShell(icon: Icons.chevron_left_rounded, onTap: onBack, iconSize: 24),
           Expanded(
             child: Text(
-              title.trim().isEmpty ? 'Liste Detayı' : title,
+              title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF18100A),
-              ),
+              style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF18100A)),
             ),
           ),
           _IconButtonShell(icon: Icons.share_outlined, onTap: onShare, iconSize: 18),
@@ -185,27 +152,23 @@ class _TopBar extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.data});
+  const _SummaryCard({required this.list, required this.itemCount});
 
-  final SpecialListModel data;
+  final SpecialListModel list;
+  final int itemCount;
 
   @override
   Widget build(BuildContext context) {
+    final savingText = list.savingsAmount > 0
+        ? '${formatTRY(list.savingsAmount, withDecimals: false)} ${list.savingsLabel.isEmpty ? 'Daha Ucuz' : list.savingsLabel}'
+        : list.savingsLabel;
+    final totalLabel = list.title.isEmpty ? 'En İyi Eşleşme (Toplam)' : '${list.title} (Toplam)';
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF18100A), Color(0xFF2A1A0B)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: FRColors.espresso.withOpacity(0.20),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF18100A), Color(0xFF2A1A0B)]),
+        boxShadow: [BoxShadow(color: FRColors.espresso.withOpacity(0.20), blurRadius: 30, offset: const Offset(0, 12))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -219,9 +182,7 @@ class _SummaryCard extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [FRColors.camel.withOpacity(0.2), Colors.transparent],
-                  ),
+                  gradient: RadialGradient(colors: [FRColors.camel.withOpacity(0.2), Colors.transparent]),
                 ),
               ),
             ),
@@ -238,33 +199,16 @@ class _SummaryCard extends StatelessWidget {
                       border: Border.all(color: FRColors.camel.withOpacity(0.30)),
                     ),
                     child: Text(
-                      data.badgeText,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        color: FRColors.camel,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: .5,
-                      ),
+                      list.badgeText,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10, color: FRColors.camel, fontWeight: FontWeight.w800, letterSpacing: .5),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    data.heroTitle,
-                    style: GoogleFonts.dmSerifDisplay(
-                      fontSize: 24,
-                      height: 1.1,
-                      color: FRColors.white,
-                      letterSpacing: -.5,
-                    ),
-                  ),
+                  Text(list.title, style: GoogleFonts.dmSerifDisplay(fontSize: 24, height: 1.1, color: FRColors.white, letterSpacing: -.5)),
                   const SizedBox(height: 6),
                   Text(
-                    data.description,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: FRColors.white.withOpacity(0.6),
-                    ),
+                    list.description,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: FRColors.white.withOpacity(0.6)),
                   ),
                   const SizedBox(height: 20),
                   Container(
@@ -280,23 +224,9 @@ class _SummaryCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'En İyi Eşleşme (Toplam)',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: FRColors.white.withOpacity(0.60),
-                                ),
-                              ),
+                              Text(totalLabel, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: FRColors.white.withOpacity(0.60))),
                               const SizedBox(height: 2),
-                              Text(
-                                formatTRY(data.totalPrice, keepTrailingZeros: true),
-                                style: GoogleFonts.dmSerifDisplay(
-                                  fontSize: 32,
-                                  height: 1,
-                                  color: FRColors.white,
-                                ),
-                              ),
+                              Text(formatTRY(list.totalPrice), style: GoogleFonts.dmSerifDisplay(fontSize: 32, height: 1, color: FRColors.white)),
                             ],
                           ),
                         ),
@@ -305,27 +235,16 @@ class _SummaryCard extends StatelessWidget {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF27A85A).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              decoration: BoxDecoration(color: const Color(0xFF27A85A).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
                               child: Text(
-                                '${formatTRY(data.savingsAmount, keepTrailingZeros: false)} ${data.savingsLabel}'.trim(),
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1E8E3E),
-                                ),
+                                savingText,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF1E8E3E)),
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${data.bestMarketName} Sepeti ile',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: FRColors.white.withOpacity(0.5),
-                              ),
+                              '${list.bestMarketName}${itemCount > 0 ? ' • $itemCount Ürün' : ''}',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.white.withOpacity(0.5)),
                             ),
                           ],
                         ),
@@ -351,23 +270,9 @@ class _ListHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(
-          'Sepet İçeriği',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF18100A),
-          ),
-        ),
+        Text('Sepet İçeriği', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF18100A))),
         const Spacer(),
-        Text(
-          '$itemCount Ürün',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: FRColors.camel,
-          ),
-        ),
+        Text('$itemCount Ürün', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: FRColors.camel)),
       ],
     );
   }
@@ -380,7 +285,7 @@ class _BasketItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tags = [if (item.quantityLabel.trim().isNotEmpty) item.quantityLabel, if (item.tagLabel.trim().isNotEmpty) item.tagLabel];
+    final tags = [if (item.quantityLabel.isNotEmpty) item.quantityLabel, if (item.tagLabel.isNotEmpty) item.tagLabel];
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -388,13 +293,7 @@ class _BasketItemRow extends StatelessWidget {
         color: const Color(0xFFFAFAF8),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0x1418100A)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x05000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
+        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 12, offset: Offset(0, 4))],
       ),
       child: Row(
         children: [
@@ -402,18 +301,10 @@ class _BasketItemRow extends StatelessWidget {
             width: 56,
             height: 56,
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F4EE),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: item.productImageUrlSnapshot?.isNotEmpty == true
-                ? Image.network(
-                    item.productImageUrlSnapshot!,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
-                  )
-                : const Icon(Icons.inventory_2_outlined),
+            decoration: BoxDecoration(color: const Color(0xFFF8F4EE), borderRadius: BorderRadius.circular(12)),
+            child: item.productImageUrlSnapshot.isNotEmpty
+                ? Image.network(item.productImageUrlSnapshot, fit: BoxFit.contain, filterQuality: FilterQuality.medium)
+                : const Icon(Icons.image_not_supported_outlined),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -421,26 +312,15 @@ class _BasketItemRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.productBrandSnapshot,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
-                    height: 1,
-                    color: FRColors.camel,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .5,
-                  ),
+                  item.productBrandSnapshot.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9, height: 1, color: FRColors.camel, fontWeight: FontWeight.w900, letterSpacing: .5),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   item.productNameSnapshot,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF18100A),
-                    height: 1.2,
-                  ),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF18100A), height: 1.2),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -457,11 +337,7 @@ class _BasketItemRow extends StatelessWidget {
                         ),
                         child: Text(
                           tag,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF5E4A38),
-                          ),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF5E4A38)),
                         ),
                       ),
                   ],
@@ -473,38 +349,17 @@ class _BasketItemRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                formatTRY(item.selectedPrice, keepTrailingZeros: true),
-                style: GoogleFonts.dmSerifDisplay(
-                  fontSize: 18,
-                  height: 1,
-                  color: const Color(0xFF18100A),
-                ),
-              ),
+              Text(formatTRY(item.selectedPrice), style: GoogleFonts.dmSerifDisplay(fontSize: 18, height: 1, color: const Color(0xFF18100A))),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0x0D18100A),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+                decoration: BoxDecoration(color: const Color(0x0D18100A), borderRadius: BorderRadius.circular(6)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(color: item.marketColor, shape: BoxShape.circle),
-                    ),
+                    Container(width: 6, height: 6, decoration: BoxDecoration(color: item.marketColor, shape: BoxShape.circle)),
                     const SizedBox(width: 4),
-                    Text(
-                      item.selectedStoreNameSnapshot,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF18100A),
-                      ),
-                    ),
+                    Text(item.selectedStoreNameSnapshot, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF18100A))),
                   ],
                 ),
               ),
@@ -517,32 +372,37 @@ class _BasketItemRow extends StatelessWidget {
 }
 
 class _BottomCompareButton extends StatelessWidget {
-  const _BottomCompareButton({required this.text, this.onTap});
+  const _BottomCompareButton({required this.text, required this.enabled, this.onTap});
 
   final String text;
+  final bool enabled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Opacity(
-      opacity: onTap == null ? 0.55 : 1,
+      opacity: enabled ? 1 : 0.5,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(18),
           child: Ink(
             height: 58,
             decoration: BoxDecoration(
               color: FRColors.camel,
               borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: FRColors.camel.withOpacity(0.4),
-                  blurRadius: 32,
-                  offset: const Offset(0, 16),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: FRColors.camel.withOpacity(0.4), blurRadius: 32, offset: const Offset(0, 16))],
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shopping_cart_outlined, color: Color(0xFF18100A), size: 22),
+                  const SizedBox(width: 10),
+                  Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF18100A))),
+                ],
+              ),
             ),
             child: Center(
               child: Row(
@@ -601,11 +461,7 @@ class _StatusState extends StatelessWidget {
 }
 
 class _IconButtonShell extends StatelessWidget {
-  const _IconButtonShell({
-    required this.icon,
-    required this.onTap,
-    this.iconSize = 20,
-  });
+  const _IconButtonShell({required this.icon, required this.onTap, this.iconSize = 20});
 
   final IconData icon;
   final VoidCallback? onTap;
@@ -623,16 +479,51 @@ class _IconButtonShell extends StatelessWidget {
           color: const Color(0xFFFAFAF8),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0x1418100A)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
+          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 10, offset: Offset(0, 4))],
         ),
         child: Icon(icon, size: iconSize, color: const Color(0xFF18100A)),
       ),
+    );
+  }
+}
+
+class _StatusState extends StatelessWidget {
+  const _StatusState({required this.icon, required this.message, required this.onBack});
+
+  final IconData icon;
+  final String message;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 42, color: const Color(0xFF6A4B35)),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: onBack, child: const Text('Geri Dön')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyItemsState extends StatelessWidget {
+  const _EmptyItemsState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: const Color(0xFFFAFAF8), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x1418100A))),
+      child: Text('Bu listede henüz ürün yok.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF5E4A38))),
     );
   }
 }

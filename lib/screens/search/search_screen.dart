@@ -677,8 +677,7 @@ class _PersonalListsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listsAsync = ref.watch(activeSpecialListsProvider);
-
+    final specialListsAsync = ref.watch(specialListsProvider);
     return _SectionBox(
       child: Column(
         children: [
@@ -689,8 +688,8 @@ class _PersonalListsSection extends ConsumerWidget {
               MaterialPageRoute<void>(builder: (_) => const PersonalListsScreen()),
             ),
           ),
-          listsAsync.when(
-            loading: () => _listCard(title: 'Yükleniyor', subtitle: 'Özel liste hazırlanıyor...', products: const []),
+          specialListsAsync.when(
+            loading: () => _listCard(title: 'Özel listeler yükleniyor', subtitle: 'Lütfen bekleyin.', products: const []),
             error: (_, __) => _listCard(title: 'Liste yüklenemedi', subtitle: 'Lütfen daha sonra tekrar dene.', products: const []),
             data: (lists) {
               if (lists.isEmpty) {
@@ -700,16 +699,15 @@ class _PersonalListsSection extends ConsumerWidget {
                   products: const [],
                 );
               }
-
               final list = lists.first;
               return GestureDetector(
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => CartListDetailScreen(listId: list.id)),
+                  MaterialPageRoute<void>(builder: (_) => PersonalListsScreen(listId: list.id)),
                 ),
                 child: _listCard(
-                  title: list.title.trim().isEmpty ? 'Özel Liste' : list.title,
-                  subtitle: list.subtitle.trim().isEmpty ? 'Senin için hazırlandı' : list.subtitle,
-                  products: [list.badgeText, list.description].where((value) => value.trim().isNotEmpty).toList(),
+                  title: list.title.trim().isEmpty ? 'Özel Liste' : list.title.trim(),
+                  subtitle: list.subtitle.trim().isEmpty ? 'Senin için hazırlandı' : list.subtitle.trim(),
+                  products: const [],
                 ),
               );
             },
