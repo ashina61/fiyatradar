@@ -8,6 +8,7 @@ import '../../models/store_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/special_list_provider.dart';
 import '../../services/special_list_service.dart';
+import '../../theme/fr_colors.dart';
 
 class AdminCuratedListsTab extends ConsumerStatefulWidget {
   const AdminCuratedListsTab({super.key});
@@ -26,16 +27,12 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   final _savingsLabel = TextEditingController(text: 'Daha Ucuz');
   final _bestMarket = TextEditingController();
   final _ctaText = TextEditingController(text: 'Sepeti Kıyasla');
-  final _sortOrder = TextEditingController(text: '0');
 
+  final _productSearch = TextEditingController();
+  final _storeSearch = TextEditingController();
   final _quantity = TextEditingController();
   final _tag = TextEditingController();
   final _itemPrice = TextEditingController(text: '0');
-  final _itemSortOrder = TextEditingController(text: '0');
-  final _itemNameOverride = TextEditingController();
-  final _itemBrandOverride = TextEditingController();
-  final _itemImageOverride = TextEditingController();
-  final _itemColor = TextEditingController(text: '#D0A278');
 
   String? _selectedListId;
   String? _selectedProductId;
@@ -43,6 +40,8 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   bool _listActive = true;
   bool _itemActive = true;
   SpecialListCtaActionType _ctaActionType = SpecialListCtaActionType.compareCart;
+  List<SpecialListModel> _listsCache = const [];
+  List<SpecialListItemModel> _itemsCache = const [];
 
   @override
   void dispose() {
@@ -56,15 +55,11 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
       _savingsLabel,
       _bestMarket,
       _ctaText,
-      _sortOrder,
+      _productSearch,
+      _storeSearch,
       _quantity,
       _tag,
       _itemPrice,
-      _itemSortOrder,
-      _itemNameOverride,
-      _itemBrandOverride,
-      _itemImageOverride,
-      _itemColor,
     ]) {
       controller.dispose();
     }
@@ -74,122 +69,175 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   @override
   Widget build(BuildContext context) {
     final service = ref.watch(specialListServiceProvider);
-    final listsAsync = ref.watch(specialListsProvider);
+    final listsAsync = ref.watch(adminSpecialListsProvider);
     final productsAsync = ref.watch(allProductsProvider);
     final storesAsync = ref.watch(allStoresStreamProvider);
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 4,
-          child: Column(
-            children: [
-              _listFormCard(service),
-              Expanded(
-                child: listsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Center(child: Text('Özel listeler yüklenemedi.')),
-                  data: (lists) {
-                    if (lists.isEmpty) return const Center(child: Text('Henüz özel liste yok.'));
-                    return ListView.builder(
-                      itemCount: lists.length,
-                      itemBuilder: (context, index) {
-                        final list = lists[index];
-                        return Card(
-                          child: ListTile(
-                            selected: list.id == _selectedListId,
-                            title: Text(list.title),
-                            subtitle: Text('${list.subtitle} • ${list.sortOrder}'),
-                            onTap: () => _fillListForm(list),
-                            trailing: Wrap(
-                              spacing: 8,
-                              children: [
-                                Switch(
-                                  value: list.isActive,
-                                  onChanged: (v) => service.updateSpecialList(list.id, {'isActive': v}),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: () => service.deleteSpecialList(list.id),
-                                ),
-                              ],
+    return Container(
+      color: FRColors.backgroundWarm,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Column(
+              children: [
+                _listFormCard(service),
+                Expanded(
+                  child: listsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => const Center(child: Text('Özel listeler yüklenemedi.')),
+                    data: (lists) {
+                      _listsCache = lists;
+                      if (lists.isEmpty) return const Center(child: Text('Henüz özel liste yok.'));
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        itemCount: lists.length,
+                        itemBuilder: (context, index) {
+                          final list = lists[index];
+                          return Card(
+                            color: FRColors.surface,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: FRColors.camelOverlay(0.2)),
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const VerticalDivider(width: 1),
-        Expanded(
-          flex: 5,
-          child: _selectedListId == null
-              ? const Center(child: Text('Ürün yönetimi için soldan bir liste seçin.'))
-              : Column(
-                  children: [
-                    _itemFormCard(service, productsAsync.valueOrNull ?? const [], storesAsync.valueOrNull ?? const []),
-                    Expanded(
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final itemsAsync = ref.watch(specialListItemsProvider(_selectedListId!));
-                          return itemsAsync.when(
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (_, __) => const Center(child: Text('Liste ürünleri yüklenemedi.')),
-                            data: (items) {
-                              if (items.isEmpty) return const Center(child: Text('Bu listede ürün yok.'));
-                              return ReorderableListView.builder(
-                                itemCount: items.length,
-                                onReorder: (oldIndex, newIndex) async {
-                                  final sorted = [...items];
-                                  final item = sorted.removeAt(oldIndex);
-                                  sorted.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
-                                  for (var i = 0; i < sorted.length; i++) {
-                                    await service.upsertSpecialListItem(
-                                      listId: _selectedListId!,
-                                      itemId: sorted[i].id,
-                                      item: sorted[i].copyWith(sortOrder: i),
-                                    );
-                                  }
-                                },
-                                itemBuilder: (context, index) {
-                                  final item = items[index];
-                                  return ListTile(
-                                    key: ValueKey(item.id),
-                                    title: Text(item.productNameSnapshot),
-                                    subtitle: Text('${item.selectedStoreNameSnapshot} • ${item.selectedPrice.toStringAsFixed(2)}₺'),
-                                    trailing: Wrap(
-                                      spacing: 8,
-                                      children: [
-                                        Switch(
-                                          value: item.isActive,
-                                          onChanged: (v) => service.upsertSpecialListItem(
-                                            listId: _selectedListId!,
-                                            itemId: item.id,
-                                            item: item.copyWith(isActive: v),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline),
-                                          onPressed: () => service.deleteSpecialListItem(listId: _selectedListId!, itemId: item.id),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                            child: ListTile(
+                              selected: list.id == _selectedListId,
+                              title: Text(list.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: Text(list.subtitle),
+                              onTap: () => _fillListForm(list),
+                              trailing: Wrap(
+                                spacing: 2,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Yukarı taşı',
+                                    icon: const Icon(Icons.arrow_upward_rounded),
+                                    onPressed: index == 0 ? null : () => _moveList(service, lists, index, index - 1),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Aşağı taşı',
+                                    icon: const Icon(Icons.arrow_downward_rounded),
+                                    onPressed: index == lists.length - 1 ? null : () => _moveList(service, lists, index, index + 1),
+                                  ),
+                                  Switch(
+                                    value: list.isActive,
+                                    onChanged: (v) => service.updateSpecialList(list.id, {'isActive': v}),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: () => service.deleteSpecialList(list.id),
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         },
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
-        ),
-      ],
+              ],
+            ),
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(
+            flex: 5,
+            child: _selectedListId == null
+                ? const Center(child: Text('Ürün yönetimi için soldan bir liste seçin.'))
+                : Column(
+                    children: [
+                      _itemFormCard(service, productsAsync.valueOrNull ?? const [], storesAsync.valueOrNull ?? const []),
+                      Expanded(
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final itemsAsync = ref.watch(adminSpecialListItemsProvider(_selectedListId!));
+                            return itemsAsync.when(
+                              loading: () => const Center(child: CircularProgressIndicator()),
+                              error: (_, __) => const Center(child: Text('Liste ürünleri yüklenemedi.')),
+                              data: (items) {
+                                _itemsCache = items;
+                                if (items.isEmpty) return const Center(child: Text('Bu listede ürün yok.'));
+                                return ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                  itemCount: items.length,
+                                  itemBuilder: (context, index) {
+                                    final item = items[index];
+                                    return Card(
+                                      key: ValueKey(item.id),
+                                      color: FRColors.surface,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        side: BorderSide(color: FRColors.camelOverlay(0.2)),
+                                      ),
+                                      child: ListTile(
+                                        leading: ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: SizedBox(
+                                            width: 46,
+                                            height: 46,
+                                            child: item.productImageUrlSnapshot.isNotEmpty
+                                                ? Image.network(
+                                                    item.productImageUrlSnapshot,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                                                  )
+                                                : const Icon(Icons.shopping_bag_outlined),
+                                          ),
+                                        ),
+                                        title: Text(item.productNameSnapshot, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                        subtitle: Text(
+                                          '${item.productBrandSnapshot} • ${item.selectedStoreNameSnapshot}\n'
+                                          '${item.selectedPrice.toStringAsFixed(2)}₺'
+                                          '${item.quantityLabel.isNotEmpty ? ' • ${item.quantityLabel}' : ''}'
+                                          '${item.tagLabel.isNotEmpty ? ' • ${item.tagLabel}' : ''}',
+                                        ),
+                                        isThreeLine: true,
+                                        trailing: Wrap(
+                                          spacing: 2,
+                                          children: [
+                                            IconButton(
+                                              tooltip: 'Yukarı taşı',
+                                              icon: const Icon(Icons.arrow_upward_rounded),
+                                              onPressed: index == 0
+                                                  ? null
+                                                  : () => _moveItem(service, _selectedListId!, items, index, index - 1),
+                                            ),
+                                            IconButton(
+                                              tooltip: 'Aşağı taşı',
+                                              icon: const Icon(Icons.arrow_downward_rounded),
+                                              onPressed: index == items.length - 1
+                                                  ? null
+                                                  : () => _moveItem(service, _selectedListId!, items, index, index + 1),
+                                            ),
+                                            Switch(
+                                              value: item.isActive,
+                                              onChanged: (v) => service.upsertSpecialListItem(
+                                                listId: _selectedListId!,
+                                                itemId: item.id,
+                                                item: item.copyWith(isActive: v),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline),
+                                              onPressed: () => service.deleteSpecialListItem(listId: _selectedListId!, itemId: item.id),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -228,7 +276,7 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                 ctaText: 'Sepeti Kıyasla',
                 ctaActionType: SpecialListCtaActionType.compareCart,
                 isActive: true,
-                sortOrder: DateTime.now().millisecondsSinceEpoch,
+                sortOrder: _nextListSortOrder(),
               );
               if (!mounted) return;
               setState(() => _selectedListId = id);
@@ -248,8 +296,11 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   Widget _listFormCard(SpecialListService service) {
     return Card(
       margin: const EdgeInsets.all(12),
+      color: FRColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: FRColors.camelOverlay(0.2))),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Row(
@@ -271,17 +322,10 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
             TextField(controller: _subtitle, decoration: const InputDecoration(labelText: 'subtitle')),
             TextField(controller: _badge, decoration: const InputDecoration(labelText: 'badgeText')),
             TextField(controller: _description, decoration: const InputDecoration(labelText: 'description')),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                SizedBox(width: 130, child: TextField(controller: _totalPrice, decoration: const InputDecoration(labelText: 'totalPrice'))),
-                SizedBox(width: 130, child: TextField(controller: _savingsAmount, decoration: const InputDecoration(labelText: 'savingsAmount'))),
-                SizedBox(width: 150, child: TextField(controller: _savingsLabel, decoration: const InputDecoration(labelText: 'savingsLabel'))),
-                SizedBox(width: 150, child: TextField(controller: _bestMarket, decoration: const InputDecoration(labelText: 'bestMarketName'))),
-                SizedBox(width: 130, child: TextField(controller: _sortOrder, decoration: const InputDecoration(labelText: 'sortOrder'))),
-              ],
-            ),
+            TextField(controller: _totalPrice, decoration: const InputDecoration(labelText: 'totalPrice')),
+            TextField(controller: _savingsAmount, decoration: const InputDecoration(labelText: 'savingsAmount')),
+            TextField(controller: _savingsLabel, decoration: const InputDecoration(labelText: 'savingsLabel')),
+            TextField(controller: _bestMarket, decoration: const InputDecoration(labelText: 'bestMarketName')),
             TextField(controller: _ctaText, decoration: const InputDecoration(labelText: 'ctaText')),
             DropdownButtonFormField<SpecialListCtaActionType>(
               value: _ctaActionType,
@@ -314,7 +358,6 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                       'ctaText': _ctaText.text.trim(),
                       'ctaActionType': _ctaActionType.value,
                       'isActive': _listActive,
-                      'sortOrder': int.tryParse(_sortOrder.text) ?? 0,
                       'coverType': 'gradient',
                     };
 
@@ -332,7 +375,7 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                         ctaText: payload['ctaText'] as String,
                         ctaActionType: _ctaActionType,
                         isActive: payload['isActive'] as bool,
-                        sortOrder: payload['sortOrder'] as int,
+                        sortOrder: _nextListSortOrder(),
                       );
                       setState(() => _selectedListId = id);
                     } else {
@@ -352,37 +395,27 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   Widget _itemFormCard(SpecialListService service, List<ProductModel> products, List<StoreModel> stores) {
     return Card(
       margin: const EdgeInsets.all(12),
+      color: FRColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: FRColors.camelOverlay(0.2))),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Align(alignment: Alignment.centerLeft, child: Text('Liste Ürün Yönetimi', style: TextStyle(fontWeight: FontWeight.w800))),
-            DropdownButtonFormField<String>(
-              value: _selectedProductId,
-              decoration: const InputDecoration(labelText: 'Ürün seç'),
-              items: products.map<DropdownMenuItem<String>>((p) => DropdownMenuItem(value: p.id, child: Text('${p.brand} - ${p.name}'))).toList(),
-              onChanged: (value) => setState(() => _selectedProductId = value),
-            ),
-            DropdownButtonFormField<String>(
-              value: _selectedStoreId,
-              decoration: const InputDecoration(labelText: 'Market seç'),
-              items: stores.map<DropdownMenuItem<String>>((s) => DropdownMenuItem(value: s.id, child: Text(s.displayName))).toList(),
-              onChanged: (value) => setState(() => _selectedStoreId = value),
-            ),
+            const Align(alignment: Alignment.centerLeft, child: Text('Liste Ürün Ekleme', style: TextStyle(fontWeight: FontWeight.w800))),
+            _searchableProductField(products),
+            const SizedBox(height: 8),
+            _searchableStoreField(stores),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                SizedBox(width: 110, child: TextField(controller: _itemPrice, decoration: const InputDecoration(labelText: 'selectedPrice'))),
-                SizedBox(width: 140, child: TextField(controller: _quantity, decoration: const InputDecoration(labelText: 'quantityLabel'))),
-                SizedBox(width: 140, child: TextField(controller: _tag, decoration: const InputDecoration(labelText: 'tagLabel'))),
-                SizedBox(width: 110, child: TextField(controller: _itemSortOrder, decoration: const InputDecoration(labelText: 'sortOrder'))),
-                SizedBox(width: 120, child: TextField(controller: _itemColor, decoration: const InputDecoration(labelText: 'storeColor'))),
+                SizedBox(width: 130, child: TextField(controller: _itemPrice, decoration: const InputDecoration(labelText: 'selectedPrice'))),
+                SizedBox(width: 160, child: TextField(controller: _quantity, decoration: const InputDecoration(labelText: 'quantityLabel'))),
+                SizedBox(width: 160, child: TextField(controller: _tag, decoration: const InputDecoration(labelText: 'tagLabel'))),
               ],
             ),
-            TextField(controller: _itemNameOverride, decoration: const InputDecoration(labelText: 'productNameSnapshot override (opsiyonel)')),
-            TextField(controller: _itemBrandOverride, decoration: const InputDecoration(labelText: 'productBrandSnapshot override (opsiyonel)')),
-            TextField(controller: _itemImageOverride, decoration: const InputDecoration(labelText: 'productImageUrlSnapshot override (opsiyonel)')),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('isActive'),
@@ -402,18 +435,16 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                     item: SpecialListItemModel(
                       id: '',
                       productId: _selectedProductId!,
-                      productNameSnapshot: _itemNameOverride.text.trim().isEmpty ? product.name : _itemNameOverride.text.trim(),
-                      productBrandSnapshot: _itemBrandOverride.text.trim().isEmpty ? product.brand : _itemBrandOverride.text.trim(),
-                      productImageUrlSnapshot: _itemImageOverride.text.trim().isEmpty
-                          ? (product.mainImage ?? product.imageUrl ?? '')
-                          : _itemImageOverride.text.trim(),
+                      productNameSnapshot: product.name,
+                      productBrandSnapshot: product.brand,
+                      productImageUrlSnapshot: product.mainImage ?? product.imageUrl ?? '',
                       quantityLabel: _quantity.text.trim(),
                       tagLabel: _tag.text.trim(),
                       selectedStoreId: _selectedStoreId!,
                       selectedStoreNameSnapshot: store.displayName,
-                      selectedStoreColor: _itemColor.text.trim().isEmpty ? '#D0A278' : _itemColor.text.trim(),
+                      selectedStoreColor: _storeColorHex(store.displayName),
                       selectedPrice: double.tryParse(_itemPrice.text.replaceAll(',', '.')) ?? 0,
-                      sortOrder: int.tryParse(_itemSortOrder.text) ?? 0,
+                      sortOrder: _nextItemSortOrder(),
                       isActive: _itemActive,
                     ),
                   );
@@ -422,12 +453,86 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                   _itemPrice.text = '0';
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('Ürünü Listeye Ekle'),
+                label: const Text('Listeye Ekle'),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _searchableProductField(List<ProductModel> products) {
+    return Autocomplete<ProductModel>(
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return products.take(30);
+        return products.where((product) {
+          final label = '${product.brand} ${product.name}'.toLowerCase();
+          return label.contains(query);
+        }).take(30);
+      },
+      displayStringForOption: (option) => '${option.brand} - ${option.name}',
+      onSelected: (product) {
+        setState(() {
+          _selectedProductId = product.id;
+          _productSearch.text = '${product.brand} - ${product.name}';
+          if ((_itemPrice.text.trim().isEmpty || _itemPrice.text.trim() == '0') && product.lastPrice != null) {
+            _itemPrice.text = product.lastPrice!.toStringAsFixed(2);
+          }
+        });
+      },
+      fieldViewBuilder: (context, textEditingController, focusNode, _) {
+        textEditingController
+          ..text = _productSearch.text
+          ..selection = TextSelection.collapsed(offset: _productSearch.text.length);
+        return TextField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          onChanged: (value) {
+            _productSearch.text = value;
+            _selectedProductId = null;
+          },
+          decoration: const InputDecoration(
+            labelText: 'Ürün ara / ürün seç',
+            prefixIcon: Icon(Icons.search),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _searchableStoreField(List<StoreModel> stores) {
+    return Autocomplete<StoreModel>(
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return stores.take(30);
+        return stores.where((store) => store.displayName.toLowerCase().contains(query)).take(30);
+      },
+      displayStringForOption: (option) => option.displayName,
+      onSelected: (store) {
+        setState(() {
+          _selectedStoreId = store.id;
+          _storeSearch.text = store.displayName;
+        });
+      },
+      fieldViewBuilder: (context, textEditingController, focusNode, _) {
+        textEditingController
+          ..text = _storeSearch.text
+          ..selection = TextSelection.collapsed(offset: _storeSearch.text.length);
+        return TextField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          onChanged: (value) {
+            _storeSearch.text = value;
+            _selectedStoreId = null;
+          },
+          decoration: const InputDecoration(
+            labelText: 'Market ara / market seç',
+            prefixIcon: Icon(Icons.storefront_outlined),
+          ),
+        );
+      },
     );
   }
 
@@ -443,7 +548,6 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
       _savingsLabel.text = list.savingsLabel;
       _bestMarket.text = list.bestMarketName;
       _ctaText.text = list.ctaText;
-      _sortOrder.text = list.sortOrder.toString();
       _listActive = list.isActive;
       _ctaActionType = list.ctaActionType;
     });
@@ -461,9 +565,61 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
       _savingsAmount.text = '0';
       _savingsLabel.text = 'Daha Ucuz';
       _ctaText.text = 'Sepeti Kıyasla';
-      _sortOrder.text = '0';
       _listActive = true;
       _ctaActionType = SpecialListCtaActionType.compareCart;
+      _selectedProductId = null;
+      _selectedStoreId = null;
+      _productSearch.clear();
+      _storeSearch.clear();
     });
+  }
+
+  int _nextListSortOrder() {
+    if (_listsCache.isEmpty) return 0;
+    final maxSortOrder = _listsCache.map((e) => e.sortOrder).reduce((a, b) => a > b ? a : b);
+    return maxSortOrder + 1;
+  }
+
+  int _nextItemSortOrder() {
+    if (_itemsCache.isEmpty) return 0;
+    final maxSortOrder = _itemsCache.map((e) => e.sortOrder).reduce((a, b) => a > b ? a : b);
+    return maxSortOrder + 1;
+  }
+
+  Future<void> _moveList(SpecialListService service, List<SpecialListModel> lists, int oldIndex, int newIndex) async {
+    final reordered = [...lists];
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+    for (var i = 0; i < reordered.length; i++) {
+      await service.updateSpecialList(reordered[i].id, {'sortOrder': i});
+    }
+  }
+
+  Future<void> _moveItem(
+    SpecialListService service,
+    String listId,
+    List<SpecialListItemModel> items,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final reordered = [...items];
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+    for (var i = 0; i < reordered.length; i++) {
+      await service.upsertSpecialListItem(
+        listId: listId,
+        itemId: reordered[i].id,
+        item: reordered[i].copyWith(sortOrder: i),
+      );
+    }
+  }
+
+  String _storeColorHex(String storeName) {
+    final normalized = storeName.toLowerCase();
+    if (normalized.contains('bim')) return '#F5C518';
+    if (normalized.contains('a101')) return '#E8502A';
+    if (normalized.contains('şok') || normalized.contains('sok')) return '#8B5CF6';
+    if (normalized.contains('migros')) return '#F0A030';
+    return '#D0A278';
   }
 }
