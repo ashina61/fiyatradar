@@ -10,7 +10,6 @@ import '../../providers/product_provider.dart';
 import '../../services/firestore_service.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
-import '../cart/cart_screen_v2.dart';
 import '../product/product_detail_screen.dart';
 
 const _bg = Color(0xFFEDEAE3);
@@ -149,14 +148,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        Text('Ürünler', style: _serif(size: 20, letterSpacing: -0.3)),
+                        const SizedBox(height: 12),
                         _FilterChips(
                           items: _marketFilters,
                           selected: _selectedMarket,
                           marketDots: true,
                           onChanged: (v) => setState(() => _selectedMarket = v),
                         ),
-                        const SizedBox(height: 12),
-                        Text('Ürünler', style: _serif(size: 20, letterSpacing: -0.3)),
                         const SizedBox(height: 12),
                         if (state.loading)
                           const Padding(
@@ -166,7 +165,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         else if (products.isEmpty)
                           _emptySignals()
                         else
-                          _GroupedStoreProductList(
+                          _ProductGrid(
                             products: products,
                             onTapItem: (item) => Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -255,45 +254,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class _GroupedStoreProductList extends StatelessWidget {
-  const _GroupedStoreProductList({required this.products, required this.onTapItem});
+class _ProductGrid extends StatelessWidget {
+  const _ProductGrid({required this.products, required this.onTapItem});
 
   final List<ExploreFeedItem> products;
   final ValueChanged<ExploreFeedItem> onTapItem;
 
   @override
   Widget build(BuildContext context) {
-    final grouped = <String, List<ExploreFeedItem>>{};
-    for (final product in products) {
-      grouped.putIfAbsent(product.storeName, () => <ExploreFeedItem>[]).add(product);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: grouped.entries.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(entry.key, style: _jakarta(size: 13, weight: FontWeight.w800, color: _t2)),
-              const SizedBox(height: 10),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.58,
-                ),
-                itemCount: entry.value.length,
-                itemBuilder: (context, i) => _ProductCard(item: entry.value[i], onTap: () => onTapItem(entry.value[i])),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.58,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, i) => _ProductCard(item: products[i], onTap: () => onTapItem(products[i])),
     );
   }
 }
@@ -524,27 +503,35 @@ class _FilterChips extends StatelessWidget {
   }
 }
 
-class _ProductCard extends ConsumerWidget {
+class _ProductCard extends ConsumerStatefulWidget {
   const _ProductCard({required this.item, required this.onTap});
 
   final ExploreFeedItem item;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends ConsumerState<_ProductCard> {
+  bool _justAddedToCart = false;
+  bool _isAddingToCart = false;
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).valueOrNull;
-    final override = ref.watch(favoriteOverrideProvider(item.product.id));
-    final isFavorite = override ?? (ref.watch(isFavoriteProvider(item.product.id)).valueOrNull ?? false);
-    final changePercent = item.priceChangePercent;
+    final override = ref.watch(favoriteOverrideProvider(widget.item.product.id));
+    final isFavorite = override ?? (ref.watch(isFavoriteProvider(widget.item.product.id)).valueOrNull ?? false);
+    final changePercent = widget.item.priceChangePercent;
     final old = (changePercent != null && changePercent < 0 && (100 + changePercent) > 0)
-        ? item.displayPrice / (1 + (changePercent / 100))
+        ? widget.item.displayPrice / (1 + (changePercent / 100))
         : null;
-    final hasOld = old != null && old > item.displayPrice;
-    final showOnline = item.isPrimaryOnlineCheapest;
-    final distance = item.distanceLabel ?? '${100 + math.Random(item.product.id.hashCode).nextInt(500)}m';
+    final hasOld = old != null && old > widget.item.displayPrice;
+    final showOnline = widget.item.isPrimaryOnlineCheapest;
+    final distance = widget.item.distanceLabel ?? '${100 + math.Random(widget.item.product.id.hashCode).nextInt(500)}m';
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
           color: _surface,
@@ -567,14 +554,14 @@ class _ProductCard extends ConsumerWidget {
                   Align(
                     alignment: Alignment.center,
                     child: Image.network(
-                      item.product.effectiveImage ?? '',
+                      widget.item.product.effectiveImage ?? '',
                       fit: BoxFit.contain,
                       width: 100,
                       height: 100,
                       errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3),
                     ),
                   ),
-                  Positioned(top: 4, left: 4, child: _PriceChangeIndicator(item: item)),
+                  Positioned(top: 4, left: 4, child: _PriceChangeIndicator(item: widget.item)),
                   Positioned(
                     top: 4,
                     right: 4,
@@ -589,11 +576,11 @@ class _ProductCard extends ConsumerWidget {
                               return;
                             }
                             final next = !isFavorite;
-                            ref.read(favoriteOverrideProvider(item.product.id).notifier).state = next;
+                            ref.read(favoriteOverrideProvider(widget.item.product.id).notifier).state = next;
                             await ref.read(firestoreServiceProvider).toggleFavorite(
                               uid: user.uid,
-                              productId: item.product.id,
-                              payload: {'productName': item.product.name, 'imageUrl': item.product.effectiveImage},
+                              productId: widget.item.product.id,
+                              payload: {'productName': widget.item.product.name, 'imageUrl': widget.item.product.effectiveImage},
                             );
                           },
                           child: Container(
@@ -616,17 +603,24 @@ class _ProductCard extends ConsumerWidget {
                               );
                               return;
                             }
+                            if (_isAddingToCart) return;
+                            setState(() => _isAddingToCart = true);
                             await ref.read(firestoreServiceProvider).upsertBasketItem(
                               userId: user.uid,
-                              productId: item.product.id,
+                              productId: widget.item.product.id,
                               quantity: 1,
-                              lastKnownPrice: item.displayPrice,
+                              lastKnownPrice: widget.item.displayPrice,
                               includeLastKnownPrice: true,
                             );
                             if (!context.mounted) return;
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(builder: (_) => const CartScreenV2()),
-                            );
+                            setState(() {
+                              _isAddingToCart = false;
+                              _justAddedToCart = true;
+                            });
+                            Future<void>.delayed(const Duration(milliseconds: 1200), () {
+                              if (!mounted) return;
+                              setState(() => _justAddedToCart = false);
+                            });
                           },
                           child: Container(
                             width: 28,
@@ -636,7 +630,24 @@ class _ProductCard extends ConsumerWidget {
                               color: Colors.white,
                               boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
                             ),
-                            child: const Icon(Icons.add, size: 16, color: _t2),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: _justAddedToCart
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      key: ValueKey('added'),
+                                      size: 16,
+                                      color: _grn,
+                                    )
+                                  : Icon(
+                                      _isAddingToCart ? Icons.more_horiz_rounded : Icons.add,
+                                      key: const ValueKey('add'),
+                                      size: 16,
+                                      color: _t2,
+                                    ),
+                            ),
                           ),
                         ),
                       ],
@@ -651,14 +662,14 @@ class _ProductCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: _tc, letterSpacing: 0.6)),
+                    Text(widget.item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: _tc, letterSpacing: 0.6)),
                     const SizedBox(height: 4),
-                    Text(item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
+                    Text(widget.item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
                     const Spacer(),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('${item.displayPrice.toStringAsFixed(2).replaceAll('.', ',')}₺', style: _serif(size: 22, height: 1)),
+                        Text('${widget.item.displayPrice.toStringAsFixed(2).replaceAll('.', ',')}₺', style: _serif(size: 22, height: 1)),
                         const SizedBox(width: 6),
                         if (hasOld)
                           Text(
@@ -680,9 +691,9 @@ class _ProductCard extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _marketColor(item.storeName))),
+                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _marketColor(widget.item.storeName))),
                   const SizedBox(width: 4),
-                  Expanded(child: Text(item.storeName, style: _jakarta(size: 10, weight: FontWeight.w800, color: _t2))),
+                  Expanded(child: Text(widget.item.storeName, style: _jakarta(size: 10, weight: FontWeight.w800, color: _t2))),
                   const SizedBox(width: 4),
                   Icon(showOnline ? Icons.public : Icons.location_on_outlined, size: 10, color: _t3),
                   const SizedBox(width: 3),
