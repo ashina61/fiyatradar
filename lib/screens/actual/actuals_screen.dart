@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/actual_item_model.dart';
 import '../../models/actual_model.dart';
@@ -178,7 +179,9 @@ class _ActualsScreenState extends ConsumerState<ActualsScreen> {
           ),
           Text('Aktüel Kataloglar', style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: Colors.white)),
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              Share.share('FiyatRadar Aktüel Kataloglar ekranını incele: En yeni fırsatları keşfet.');
+            },
             icon: const Icon(Icons.share_outlined, color: _gold),
           ),
         ],
@@ -514,12 +517,24 @@ class _ProductCard extends StatelessWidget {
                     Text(data.reportTitle ?? 'Şu an buradasın, durumu bildir:', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: .4)),
                     const SizedBox(height: 10),
                     Row(
-                      children: const [
-                        _StockButton(label: '🟢 Bol', type: _BranchStatus.bol),
-                        SizedBox(width: 8),
-                        _StockButton(label: '🟡 Az', type: _BranchStatus.az),
-                        SizedBox(width: 8),
-                        _StockButton(label: '🔴 Bitti', type: _BranchStatus.yok),
+                      children: [
+                        _StockButton(
+                          label: '🟢 Bol',
+                          type: _BranchStatus.bol,
+                          onTap: () => _showStockFeedback(context, 'Bol'),
+                        ),
+                        const SizedBox(width: 8),
+                        _StockButton(
+                          label: '🟡 Az',
+                          type: _BranchStatus.az,
+                          onTap: () => _showStockFeedback(context, 'Az'),
+                        ),
+                        const SizedBox(width: 8),
+                        _StockButton(
+                          label: '🔴 Bitti',
+                          type: _BranchStatus.yok,
+                          onTap: () => _showStockFeedback(context, 'Bitti'),
+                        ),
                       ],
                     ),
                   ],
@@ -565,13 +580,20 @@ class _ProductCard extends StatelessWidget {
       ),
     );
   }
+
+  void _showStockFeedback(BuildContext context, String statusLabel) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Stok bildirimi gönderildi: $statusLabel')),
+    );
+  }
 }
 
 class _StockButton extends StatelessWidget {
-  const _StockButton({required this.label, required this.type});
+  const _StockButton({required this.label, required this.type, required this.onTap});
 
   final String label;
   final _BranchStatus type;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -582,14 +604,18 @@ class _StockButton extends StatelessWidget {
     };
 
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: border),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: border),
+          ),
+          child: Center(child: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: text))),
         ),
-        child: Center(child: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: text))),
       ),
     );
   }

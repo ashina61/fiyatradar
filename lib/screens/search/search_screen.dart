@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../services/firestore_service.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
+import '../cart/cart_screen_v2.dart';
 import '../product/product_detail_screen.dart';
 
 const _bg = Color(0xFFEDEAE3);
@@ -88,7 +92,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
-  final Set<String> _favorites = <String>{};
   final _marketFilters = const ['Tümü', 'A101', 'ŞOK', 'BİM'];
 
   String _selectedMarket = 'Tümü';
@@ -163,41 +166,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         else if (products.isEmpty)
                           _emptySignals()
                         else
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.58,
+                          _GroupedStoreProductList(
+                            products: products,
+                            onTapItem: (item) => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ProductDetailScreen(productId: item.product.id),
+                              ),
                             ),
-                            itemCount: products.length,
-                            itemBuilder: (context, i) {
-                              final item = products[i];
-                              return _ProductCard(
-                                item: item,
-                                isFavorite: _favorites.contains(item.product.id),
-                                onFavorite: () {
-                                  setState(() {
-                                    if (!_favorites.add(item.product.id)) {
-                                      _favorites.remove(item.product.id);
-                                    }
-                                  });
-                                },
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => ProductDetailScreen(productId: item.product.id),
-                                  ),
-                                ),
-                              );
-                            },
                           ),
                         const SizedBox(height: 16),
                         _LiveRadarSection(items: allProducts),
                         const SizedBox(height: 16),
                         _FollowedProductsSection(
-                          items: allProducts.where((item) => _favorites.contains(item.product.id)).toList(),
+                          items: allProducts.where((item) => _isFavorite(ref, item.product.id)).toList(),
                           onTapItem: (item) => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => ProductDetailScreen(productId: item.product.id),
@@ -265,6 +246,55 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return normalizedStore.contains('a101');
     }
     return normalizedStore.contains(normalizedSelected);
+  }
+
+  bool _isFavorite(WidgetRef ref, String productId) {
+    final override = ref.watch(favoriteOverrideProvider(productId));
+    final fromStream = ref.watch(isFavoriteProvider(productId)).valueOrNull ?? false;
+    return override ?? fromStream;
+  }
+}
+
+class _GroupedStoreProductList extends StatelessWidget {
+  const _GroupedStoreProductList({required this.products, required this.onTapItem});
+
+  final List<ExploreFeedItem> products;
+  final ValueChanged<ExploreFeedItem> onTapItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = <String, List<ExploreFeedItem>>{};
+    for (final product in products) {
+      grouped.putIfAbsent(product.storeName, () => <ExploreFeedItem>[]).add(product);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: grouped.entries.map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(entry.key, style: _jakarta(size: 13, weight: FontWeight.w800, color: _t2)),
+              const SizedBox(height: 10),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.58,
+                ),
+                itemCount: entry.value.length,
+                itemBuilder: (context, i) => _ProductCard(item: entry.value[i], onTap: () => onTapItem(entry.value[i])),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
@@ -494,16 +524,17 @@ class _FilterChips extends StatelessWidget {
   }
 }
 
-class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.item, required this.isFavorite, required this.onFavorite, required this.onTap});
+class _ProductCard extends ConsumerWidget {
+  const _ProductCard({required this.item, required this.onTap});
 
   final ExploreFeedItem item;
-  final bool isFavorite;
-  final VoidCallback onFavorite;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final override = ref.watch(favoriteOverrideProvider(item.product.id));
+    final isFavorite = override ?? (ref.watch(isFavoriteProvider(item.product.id)).valueOrNull ?? false);
     final changePercent = item.priceChangePercent;
     final old = (changePercent != null && changePercent < 0 && (100 + changePercent) > 0)
         ? item.displayPrice / (1 + (changePercent / 100))
@@ -547,18 +578,68 @@ class _ProductCard extends StatelessWidget {
                   Positioned(
                     top: 4,
                     right: 4,
-                    child: GestureDetector(
-                      onTap: onFavorite,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            if (user == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Favorilere eklemek için giriş yapmalısın.')),
+                              );
+                              return;
+                            }
+                            final next = !isFavorite;
+                            ref.read(favoriteOverrideProvider(item.product.id).notifier).state = next;
+                            await ref.read(firestoreServiceProvider).toggleFavorite(
+                              uid: user.uid,
+                              productId: item.product.id,
+                              payload: {'productName': item.product.name, 'imageUrl': item.product.effectiveImage},
+                            );
+                          },
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
+                            ),
+                            child: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, size: 14, color: isFavorite ? _red : _t3),
+                          ),
                         ),
-                        child: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, size: 14, color: isFavorite ? _red : _t3),
-                      ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            if (user == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Sepete eklemek için giriş yapmalısın.')),
+                              );
+                              return;
+                            }
+                            await ref.read(firestoreServiceProvider).upsertBasketItem(
+                              userId: user.uid,
+                              productId: item.product.id,
+                              quantity: 1,
+                              lastKnownPrice: item.displayPrice,
+                              includeLastKnownPrice: true,
+                            );
+                            if (!context.mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(builder: (_) => const CartScreenV2()),
+                            );
+                          },
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
+                            ),
+                            child: const Icon(Icons.add, size: 16, color: _t2),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -933,25 +1014,14 @@ class _LiveStatusDotState extends State<_LiveStatusDot> with SingleTickerProvide
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final pulse = 1 + (_controller.value * 0.8);
-        final opacity = 0.26 * (1 - _controller.value);
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 7 * pulse,
-              height: 7 * pulse,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF2BAE66).withOpacity(opacity),
-              ),
-            ),
-            Container(
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF27A85A)),
-            ),
-          ],
+        final pulse = 0.9 + (math.sin(_controller.value * 2 * math.pi).abs() * 0.35);
+        return Transform.scale(
+          scale: pulse,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF27A85A)),
+          ),
         );
       },
     );
