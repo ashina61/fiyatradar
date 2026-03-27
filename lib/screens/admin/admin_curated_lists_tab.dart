@@ -71,72 +71,6 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
     super.dispose();
   }
 
-  Future<void> _showCreateListDialog(BuildContext context) async {
-    final titleController = TextEditingController();
-    final subtitleController = TextEditingController();
-
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Yeni Özel Liste'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Liste adı')),
-            TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Hero başlık')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal')),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.trim().isEmpty) return;
-              final service = ref.read(specialListServiceProvider);
-              final id = await service.createSpecialList({
-                'title': titleController.text.trim(),
-                'subtitle': subtitleController.text.trim(),
-                'badgeText': 'ÖZEL LİSTE',
-                'description': '',
-                'coverType': 'default',
-                'coverImageUrl': null,
-                'totalPrice': 0,
-                'savingsAmount': 0,
-                'savingsLabel': '',
-                'bestMarketName': '',
-                'ctaText': 'Sepeti Kıyasla',
-                'ctaActionType': SpecialListCtaActionType.compareCart.value,
-                'isActive': true,
-                'sortOrder': DateTime.now().millisecondsSinceEpoch,
-              });
-              if (!mounted) return;
-              setState(() => _selectedListId = id);
-              Navigator.pop(context, true);
-            },
-            child: const Text('Oluştur'),
-          ),
-        ],
-      ),
-    );
-
-    if (created == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Özel liste oluşturuldu.')));
-    }
-  }
-}
-
-class _ListPanel extends StatelessWidget {
-  const _ListPanel({
-    required this.selectedListId,
-    required this.lists,
-    required this.onCreate,
-    required this.onSelect,
-  });
-
-  final String? selectedListId;
-  final List<SpecialListModel> lists;
-  final VoidCallback onCreate;
-  final ValueChanged<String> onSelect;
-
   @override
   Widget build(BuildContext context) {
     final service = ref.watch(specialListServiceProvider);
@@ -259,6 +193,58 @@ class _ListPanel extends StatelessWidget {
     );
   }
 
+  Future<void> _showCreateListDialog(BuildContext context) async {
+    final titleController = TextEditingController();
+    final subtitleController = TextEditingController();
+
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Yeni Özel Liste'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Liste adı')),
+            TextField(controller: subtitleController, decoration: const InputDecoration(labelText: 'Hero başlık')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.trim().isEmpty) return;
+              final service = ref.read(specialListServiceProvider);
+              final id = await service.createSpecialList(
+                title: titleController.text.trim(),
+                subtitle: subtitleController.text.trim(),
+                badgeText: 'ÖZEL LİSTE',
+                description: '',
+                coverType: 'default',
+                coverImageUrl: null,
+                totalPrice: 0,
+                savingsAmount: 0,
+                savingsLabel: '',
+                bestMarketName: '',
+                ctaText: 'Sepeti Kıyasla',
+                ctaActionType: SpecialListCtaActionType.compareCart,
+                isActive: true,
+                sortOrder: DateTime.now().millisecondsSinceEpoch,
+              );
+              if (!mounted) return;
+              setState(() => _selectedListId = id);
+              Navigator.pop(context, true);
+            },
+            child: const Text('Oluştur'),
+          ),
+        ],
+      ),
+    );
+
+    if (created == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Özel liste oluşturuldu.')));
+    }
+  }
+
   Widget _listFormCard(SpecialListService service) {
     return Card(
       margin: const EdgeInsets.all(12),
@@ -266,7 +252,21 @@ class _ListPanel extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            const Align(alignment: Alignment.centerLeft, child: Text('Özel Liste Bilgileri', style: TextStyle(fontWeight: FontWeight.w800))),
+            Row(
+              children: [
+                const Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Özel Liste Bilgileri', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showCreateListDialog(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Hızlı Oluştur'),
+                ),
+              ],
+            ),
             TextField(controller: _title, decoration: const InputDecoration(labelText: 'title')),
             TextField(controller: _subtitle, decoration: const InputDecoration(labelText: 'subtitle')),
             TextField(controller: _badge, decoration: const InputDecoration(labelText: 'badgeText')),
@@ -286,9 +286,7 @@ class _ListPanel extends StatelessWidget {
             DropdownButtonFormField<SpecialListCtaActionType>(
               value: _ctaActionType,
               decoration: const InputDecoration(labelText: 'ctaActionType'),
-              items: SpecialListCtaActionType.values
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e.value)))
-                  .toList(),
+              items: SpecialListCtaActionType.values.map((e) => DropdownMenuItem(value: e, child: Text(e.value))).toList(),
               onChanged: (value) => setState(() => _ctaActionType = value ?? SpecialListCtaActionType.none),
             ),
             SwitchListTile(
@@ -468,8 +466,4 @@ class _ListPanel extends StatelessWidget {
       _ctaActionType = SpecialListCtaActionType.compareCart;
     });
   }
-}
-
-extension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }
