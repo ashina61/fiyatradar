@@ -1383,8 +1383,8 @@ class _HistoryPainter extends CustomPainter {
     final w = text.width + 10;
     final prefersLeftSide = last.dx > (size.width - w - 8);
     final targetLeft = prefersLeftSide ? (last.dx - w - 10) : (last.dx - (w / 2));
-    final clampedLeft = targetLeft.clamp(0.0, math.max(0.0, size.width - w));
-    final top = (last.dy - 24).clamp(0.0, math.max(0.0, size.height - 18));
+    final clampedLeft = targetLeft.clamp(0.0, math.max(0.0, size.width - w)).toDouble();
+    final top = (last.dy - 24).clamp(0.0, math.max(0.0, size.height - 18)).toDouble();
     final rect = RRect.fromRectAndRadius(Rect.fromLTWH(clampedLeft, top, w, 16), const Radius.circular(5));
     canvas.drawRRect(rect, Paint()..color = _dark);
     text.paint(canvas, Offset(clampedLeft + (w - text.width) / 2, top + 2));
