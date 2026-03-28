@@ -1180,7 +1180,7 @@ class _PriceChart extends StatelessWidget {
     final maxY = points.map((e) => e.price).reduce(math.max);
     final padding = ((maxY - minY).abs() * 0.2).clamp(1.0, 20.0);
 
-    final horizontalInterval = ((maxY - minY) / 4).abs().clamp(1, 100);
+    final horizontalInterval = ((maxY - minY) / 4).abs().clamp(1.0, 100.0);
     final bottomInterval = math.max(1, (points.length / 4).floor()).toDouble();
 
     return LineChart(
