@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +17,7 @@ import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart' hide firestoreServiceProvider;
 import '../../services/firestore_service.dart';
 import '../../services/product_engagement_service.dart';
+import '../../theme/fr_colors.dart';
 import '../../utils/elite_level_engine.dart';
 import '../../widgets/app_network_image.dart';
 
@@ -267,18 +267,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             delegate: SliverChildListDelegate([
                               _HeroSummaryCard(
                                 product: state.data!,
-                                onMapTap: () => _launchMap(state.data!.bestPrice),
                               ),
                               const SizedBox(height: 10),
                               _DecisionCard(product: state.data!),
                               const SizedBox(height: 10),
-                              _MarketComparisonSection(product: state.data!, onOpenMap: _launchMap),
-                              const SizedBox(height: 10),
-                              _PriceHistorySection(product: state.data!, history: state.history),
+                              _PriceStatsMiniSection(product: state.data!),
                               const SizedBox(height: 10),
                               _VerificationSummaryCard(
                                 product: state.data!,
                                 isSubmitting: state.isSubmittingVote,
+                                onOpenHistory: () => _openPastPricesSheet(state.data!),
                                 onVote: (priceId, isApproved) async {
                                   final user = ref.read(authStateProvider).valueOrNull;
                                   if (user == null) {
@@ -306,11 +304,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 onWrongTap: _showRejectModal,
                               ),
                               const SizedBox(height: 10),
-                              _PastPriceEntriesSection(
-                                product: state.data!,
-                              ),
+                              _PriceHistorySection(product: state.data!, history: state.history),
                               const SizedBox(height: 10),
-                              _ProductInfoGrid(product: state.data!),
+                              _MarketComparisonSection(product: state.data!, onOpenMap: _launchMap),
                               const SizedBox(height: 10),
                               _CommentsSection(
                                 product: state.data!,
@@ -364,7 +360,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   child: OutlinedButton.icon(
                                     onPressed: () => _openAlertSheet(state.data!),
                                     icon: const Icon(Icons.notifications_none_rounded, size: 16),
-                                    label: Text('Alarm Kur', style: _pjs(size: 13, weight: FontWeight.w700, color: _t1)),
+                                    label: Text('Alarm', style: _pjs(size: 13, weight: FontWeight.w700, color: _t1)),
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(color: _border),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -382,7 +378,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                     child: Text(
-                                      'Markete Git — ${state.data!.bestPrice.store}',
+                                      'Markete Git',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: _pjs(size: 13, weight: FontWeight.w800, color: _white),
@@ -396,6 +392,67 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ],
                 ),
+    );
+  }
+
+  void _openPastPricesSheet(ProductDetailResponse product) {
+    final prices = ref
+        .read(pricesForProductProvider(product.id))
+        .valueOrNull
+        ?.where((e) => e.isActive)
+        .toList()
+      ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+
+    final entries = (prices == null || prices.isEmpty)
+        ? [_VerificationSummaryCard._toPriceModel(product.bestPrice)]
+        : prices;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.of(context).viewInsets.bottom),
+        decoration: const BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: FRColors.borderStrong,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('🕐 Geçmiş Fiyatları Doğrula', style: _pjs(size: 15, weight: FontWeight.w900)),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: math.min(entries.length, 8),
+                itemBuilder: (_, i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _PastEntryRow(entry: entries[i]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -413,9 +470,20 @@ class _Header extends ConsumerWidget {
     final isFavorite = override ?? favoriteAsync.valueOrNull ?? false;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: _dark,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [FRColors.espresso, FRColors.espressoSoft],
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: FRColors.shadowStrong.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 14,
@@ -489,7 +557,11 @@ class _HdrBtn extends StatelessWidget {
       child: Container(
         width: 38,
         height: 38,
-        decoration: BoxDecoration(color: _white.withOpacity(0.08), borderRadius: BorderRadius.circular(13)),
+        decoration: BoxDecoration(
+          color: _white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _white.withOpacity(0.1)),
+        ),
         child: Icon(icon, size: 18, color: iconColor),
       ),
     );
@@ -497,71 +569,79 @@ class _HdrBtn extends StatelessWidget {
 }
 
 class _HeroSummaryCard extends StatelessWidget {
-  const _HeroSummaryCard({required this.product, required this.onMapTap});
+  const _HeroSummaryCard({required this.product});
 
   final ProductDetailResponse product;
-  final VoidCallback onMapTap;
 
   @override
   Widget build(BuildContext context) {
-    final category = product.categories.isNotEmpty ? product.categories.first : 'GIDA';
-    final subtitle = product.bestPrice.userName;
+    final category = product.categories.isNotEmpty ? product.categories.join(' > ') : 'Kategori yok';
     final totalVerifications = product.trust.approveCount + product.trust.rejectCount;
+    final marketCount = 1;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: _white,
         borderRadius: BorderRadius.circular(_cardRadius),
         boxShadow: [_cardShadow],
+        border: Border.all(color: FRColors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 110,
-            height: 110,
-            decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(22)),
-            clipBehavior: Clip.antiAlias,
-            child: Image.network(
-              product.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_rounded, color: _t3),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(color: _tan.withOpacity(0.13), borderRadius: BorderRadius.circular(7)),
-                  child: Text(
-                    category.toUpperCase(),
-                    style: _pjs(size: 10, weight: FontWeight.w800, color: _tan, letterSpacing: 0.6),
+          Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 280),
+                decoration: BoxDecoration(
+                  color: FRColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: FRColors.border),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: AppNetworkImage(
+                    imageUrl: product.imageUrl,
+                    cacheKey: 'product_detail_${product.id}',
+                    fit: BoxFit.cover,
+                    errorWidget: const Center(
+                      child: Icon(Icons.image_not_supported_rounded, color: _t3, size: 40),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 7),
-                Text(product.title, style: _pjs(size: 16, weight: FontWeight.w900, color: _t1, letterSpacing: -0.3)),
-                const SizedBox(height: 3),
-                Text('Bildiren: $subtitle', style: _pjs(size: 12, weight: FontWeight.w500, color: _t2)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+              ),
+              Positioned(
+                left: 10,
+                top: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _statChip(Icons.verified_rounded, '${product.trust.scorePercent}/100 güven'),
-                    _statChip(Icons.groups_rounded, '$totalVerifications doğrulama'),
+                    _pill('📍 Son Fiyat', FRColors.gold),
+                    const SizedBox(height: 6),
+                    _pill('✓ $totalVerifications Doğrulama', FRColors.success),
                   ],
                 ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: onMapTap,
-                  child: Text('En iyi fiyat ${_fmtPrice(product.bestPrice.price)} · ${product.bestPrice.store}',
-                      style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
-                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(product.title, style: _pjs(size: 18, weight: FontWeight.w900, color: _t1, height: 1.3)),
+          const SizedBox(height: 4),
+          Text('🍞 $category', style: _pjs(size: 12, weight: FontWeight.w600, color: _t3)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.only(top: 14),
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: _border))),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _heroStat('${product.priceEntryCount}', 'Fiyat Girişi'),
+                _heroStat('$marketCount', 'Market'),
+                _heroStat('${product.comments.length}', 'İnceleme'),
               ],
             ),
           ),
@@ -570,21 +650,69 @@ class _HeroSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _statChip(IconData icon, String text, {VoidCallback? onTap}) {
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(8)),
+  Widget _pill(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
+      child: Text(text, style: _pjs(size: 10, weight: FontWeight.w800, color: _white, letterSpacing: 0.3)),
+    );
+  }
+
+  Widget _heroStat(String value, String label) {
+    return Column(
+      children: [
+        Text(value, style: _pjs(size: 18, weight: FontWeight.w900, color: _tan)),
+        const SizedBox(height: 1),
+        Text(label, style: _pjs(size: 11, weight: FontWeight.w600, color: _t3)),
+      ],
+    );
+  }
+}
+
+class _PriceStatsMiniSection extends StatelessWidget {
+  const _PriceStatsMiniSection({required this.product});
+
+  final ProductDetailResponse product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: _t2),
-          const SizedBox(width: 5),
-          Text(text, style: _pjs(size: 11, weight: FontWeight.w700, color: _t2)),
+          Expanded(child: _statCard('En Düşük', product.stats.lowest, FRColors.success, Icons.south_rounded)),
+          const SizedBox(width: 8),
+          Expanded(child: _statCard('Ortalama', product.stats.average, FRColors.gold, Icons.bar_chart_rounded)),
+          const SizedBox(width: 8),
+          Expanded(child: _statCard('En Yüksek', product.stats.highest, FRColors.danger, Icons.north_rounded)),
         ],
       ),
     );
-    if (onTap == null) return chip;
-    return GestureDetector(onTap: onTap, child: chip);
+  }
+
+  Widget _statCard(String label, double value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+        boxShadow: [_cardShadow],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: color.withOpacity(0.14), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(_fmtPrice(value), style: _pjs(size: 13, weight: FontWeight.w800)),
+          Text(label, style: _pjs(size: 9, weight: FontWeight.w600, color: _t3)),
+        ],
+      ),
+    );
   }
 }
 
@@ -595,16 +723,28 @@ class _DecisionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = product.bestPrice.price;
-    final whole = price.floor();
-    final frac = ((price - whole) * 100).round().toString().padLeft(2, '0');
+    final priceText = _fmtPrice(product.bestPrice.price);
     final hasDrop = product.stats.lowest < product.stats.highest && product.stats.highest > 0;
     final dropPct = hasDrop ? ((product.stats.highest - product.stats.lowest) / product.stats.highest) * 100 : 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-      decoration: BoxDecoration(color: _dark, borderRadius: BorderRadius.circular(_cardRadius)),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_cardRadius),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [FRColors.espressoSoft, _dark],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: FRColors.shadowStrong,
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -622,52 +762,76 @@ class _DecisionCard extends StatelessWidget {
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Son doğrulanan fiyat', style: _pjs(size: 11, weight: FontWeight.w700, color: _white.withOpacity(0.7))),
-                  const SizedBox(height: 6),
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(text: '$whole', style: _pjs(size: 42, weight: FontWeight.w900, color: _white, letterSpacing: -1.5)),
-                        TextSpan(text: ',$frac ₺', style: _pjs(size: 20, weight: FontWeight.w600, color: _white)),
-                      ],
-                    ),
-                  ),
-                  if (hasDrop)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Container(
-                      margin: const EdgeInsets.only(top: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                      decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(9)),
-                      child: Text('↓ %${dropPct.toStringAsFixed(1).replaceAll('.', ',')} son 30 günde',
-                          style: _pjs(size: 12, weight: FontWeight.w800, color: _green)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(999)),
+                      child: Text('Son Eklenen Fiyat', style: _pjs(size: 11, weight: FontWeight.w700, color: FRColors.camelStrong)),
                     ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    decoration: BoxDecoration(color: _tanCard.withOpacity(0.9), borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    const SizedBox(height: 10),
+                    Text(priceText, style: _pjs(size: 45, weight: FontWeight.w900, color: _white, letterSpacing: -1.2)),
+                    const SizedBox(height: 14),
+                    Container(height: 1, color: _white.withOpacity(0.12)),
+                    const SizedBox(height: 14),
+                    Row(
                       children: [
-                        Text(product.bestPrice.store, style: _pjs(size: 16, weight: FontWeight.w900, color: _white)),
-                        const SizedBox(height: 2),
-                        Text(product.bestPrice.createdAtLabel,
-                            style: _pjs(size: 10, weight: FontWeight.w500, color: _white.withOpacity(0.65))),
-                        const SizedBox(height: 2),
-                        Text(
-                          product.bestPrice.storeLocation.isEmpty ? 'Online / Şube bilgisi yok' : product.bestPrice.storeLocation,
-                          style: _pjs(size: 10, color: _white.withOpacity(0.65)),
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _tanCard.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            product.bestPrice.store.isEmpty ? 'M' : product.bestPrice.store[0].toUpperCase(),
+                            style: _pjs(size: 18, weight: FontWeight.w900, color: _white),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${product.bestPrice.store} (${product.bestPrice.storeLocation.isEmpty ? 'Şube bilgisi yok' : product.bestPrice.storeLocation})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _pjs(size: 14, weight: FontWeight.w700, color: _white),
+                          ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (hasDrop)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: FRColors.success.withOpacity(0.16),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: FRColors.success.withOpacity(0.4)),
+                      ),
+                      child: Text('↓ %${dropPct.toStringAsFixed(0)} Düştü', style: _pjs(size: 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80))),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(product.bestPrice.userName, style: _pjs(size: 12, weight: FontWeight.w700, color: _white)),
+                      const SizedBox(width: 6),
+                      const CircleAvatar(radius: 14, backgroundColor: _tanCard, child: Icon(Icons.person, size: 12, color: _dark)),
+                    ],
                   ),
+                  const SizedBox(height: 2),
+                  Text(product.bestPrice.createdAtLabel, style: _pjs(size: 11, color: _white.withOpacity(0.6))),
                 ],
               ),
             ],
@@ -696,21 +860,13 @@ class _MarketComparisonSection extends ConsumerWidget {
     final pricesAsync = ref.watch(pricesForProductProvider(product.id));
 
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow]),
+      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow], border: Border.all(color: _border)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Market Karşılaştırması', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              GestureDetector(
-                onTap: () => _showAllStoresSheet(context, ref, pricesAsync.valueOrNull),
-                child: Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
-              ),
-            ],
-          ),
+          Text('Tüm Marketler', style: _pjs(size: 16, weight: FontWeight.w800)),
           const SizedBox(height: 10),
           pricesAsync.when(
             loading: () => const Padding(
@@ -735,150 +891,101 @@ class _MarketComparisonSection extends ConsumerWidget {
       children: entries.map((entry) {
         final isBest = (entry.price - best).abs() < 0.001;
         final diff = entry.price - best;
-        return InkWell(
-          borderRadius: BorderRadius.circular(_innerRadius),
-          onTap: isBest ? () => onOpenMap(product.bestPrice) : null,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              color: isBest ? _greenBg : _bg.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(_innerRadius),
-              border: Border.all(color: isBest ? _green.withOpacity(0.35) : _border),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: (_storeColors[entry.storeName ?? ''] ?? _tan).withOpacity(0.2),
-                  child: Text((entry.storeName ?? 'M').substring(0, 1), style: _pjs(size: 12, weight: FontWeight.w800, color: _t1)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isBest ? _greenBg : FRColors.background,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isBest ? _green : Colors.transparent, width: isBest ? 2 : 1),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: (_storeColors[entry.storeName ?? ''] ?? _tan),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text((entry.storeName ?? 'M').substring(0, 1), style: _pjs(size: 16, weight: FontWeight.w900, color: _white)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(child: Text(entry.storeName ?? 'Market', style: _pjs(size: 13, weight: FontWeight.w700))),
+                            if (isBest) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(999)),
+                                child: Text('En Ucuz', style: _pjs(size: 8, weight: FontWeight.w700, color: _white)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(entry.storeLocation?.trim().isNotEmpty == true ? entry.storeLocation! : 'Konum bilgisi yok',
+                            style: _pjs(size: 10, color: _t3)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(entry.storeName ?? 'Market', style: _pjs(size: 13, weight: FontWeight.w800)),
-                      Text(entry.storeLocation?.trim().isNotEmpty == true ? entry.storeLocation! : 'Online / Konum yok',
-                          style: _pjs(size: 11, color: _t3)),
+                      Text(_fmtPrice(entry.price), style: _pjs(size: 18, weight: FontWeight.w800, color: _t1)),
+                      Text(_fmtPrice(entry.price + (isBest ? 0 : 2)), style: _pjs(size: 11, color: _t3)),
+                      Container(
+                        margin: const EdgeInsets.only(top: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isBest ? _greenBg : _redBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          isBest ? 'Son fiyattan aynı' : '+${diff.toStringAsFixed(2).replaceAll('.', ',')}₺ pahalı',
+                          style: _pjs(size: 10, weight: FontWeight.w700, color: isBest ? _green : _red),
+                        ),
+                      ),
                     ],
                   ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(children: [Icon(Icons.history_rounded, size: 12, color: _t3), const SizedBox(width: 4), Text(_timeAgo(entry.reportedAt), style: _pjs(size: 10, color: _t3))]),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => onOpenMap(product.bestPrice),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _dark,
+                    foregroundColor: _white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  ),
+                  icon: const Icon(Icons.map_outlined, size: 14, color: _tan),
+                  label: Text('Haritada Göster', style: _pjs(size: 11, weight: FontWeight.w700, color: _white)),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(_fmtPrice(entry.price), style: _pjs(size: 14, weight: FontWeight.w900, color: isBest ? _green : _t1)),
-                    Text(isBest ? 'EN UCUZ' : '+${diff.toStringAsFixed(2).replaceAll('.', ',')} ₺',
-                        style: _pjs(size: 10, weight: FontWeight.w700, color: isBest ? _green : _t3)),
-                  ],
-                ),
-                Icon(Icons.chevron_right_rounded, size: 18, color: isBest ? _tan : _t3),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       }).toList(),
     );
   }
 
-  void _showAllStoresSheet(BuildContext context, WidgetRef ref, List<PriceModel>? loadedPrices) {
-    final allPrices = (loadedPrices ?? ref.read(pricesForProductProvider(product.id)).valueOrNull ?? <PriceModel>[])
-        .where((e) => e.isActive)
-        .toList()
-      ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
-    final source = allPrices.isEmpty ? [_VerificationSummaryCard._toPriceModel(product.bestPrice)] : allPrices;
-
-    final Map<String, List<PriceModel>> byStore = {};
-    for (final p in source) {
-      final storeName = (p.storeName ?? 'Market').trim();
-      byStore.putIfAbsent(storeName, () => []).add(p);
-    }
-
-    final storeMinPrices = byStore.map((store, entries) {
-      final minEntry = entries.reduce((a, b) => a.price < b.price ? a : b);
-      return MapEntry(store, minEntry);
-    });
-
-    final sortedStores = storeMinPrices.entries.toList()
-      ..sort((a, b) => a.value.price.compareTo(b.value.price));
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-          top: 12,
-          left: 16,
-          right: 16,
-        ),
-        decoration: const BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 38, height: 4, decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Mağaza Fiyatları', style: _pjs(size: 18, weight: FontWeight.w900)),
-                Text('${sortedStores.length} mağaza', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...sortedStores.asMap().entries.map((e) {
-              final isBest = e.key == 0;
-              final storeName = e.value.key;
-              final entry = e.value.value;
-              final dot = _storeColors[storeName] ?? _t3;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 7),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: _white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: isBest ? Border.all(color: _dark, width: 2) : Border.all(color: _border),
-                  boxShadow: [BoxShadow(color: _dark.withOpacity(0.05), blurRadius: 8)],
-                ),
-                child: Row(
-                  children: [
-                    Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-                    const SizedBox(width: 10),
-                    Text(storeName, style: _pjs(size: 14, weight: FontWeight.w800)),
-                    if (isBest) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
-                        child: Text('EN UCUZ', style: _pjs(size: 9, weight: FontWeight.w800, color: _green)),
-                      ),
-                    ],
-                    const Spacer(),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(_fmtPrice(entry.price),
-                            style: _pjs(
-                              size: 16,
-                              weight: FontWeight.w900,
-                              color: isBest ? _green : _t1,
-                              letterSpacing: -0.4,
-                            )),
-                        Text(_VerificationSummaryCard._timeAgo(entry.reportedAt), style: _pjs(size: 10, weight: FontWeight.w500, color: _t3)),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
+  String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 1) return 'Az önce eklendi';
+    if (d.inHours < 1) return '${d.inMinutes} dk önce eklendi';
+    if (d.inDays < 1) return '${d.inHours} saat önce eklendi';
+    return '${d.inDays} gün önce eklendi';
   }
 }
 
@@ -898,88 +1005,63 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
   @override
   Widget build(BuildContext context) {
     final stats = widget.product.stats;
-    final drop = stats.highest > 0 ? ((stats.highest - stats.lowest) / stats.highest) * 100 : 0;
     final source = widget.history;
     final hasHistory = source.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text('Fiyat Geçmişi', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-        ),
-        Container(
-          margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-            decoration: BoxDecoration(color: _tanCard, borderRadius: BorderRadius.circular(28)),
-          child: Stack(
-            clipBehavior: Clip.none,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(24), boxShadow: [_cardShadow], border: Border.all(color: _border)),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Positioned(
-                right: 56,
-                top: -24,
-                child: Container(width: 88, height: 88, decoration: BoxDecoration(shape: BoxShape.circle, color: _white.withOpacity(0.1))),
-              ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-                        decoration: BoxDecoration(color: _dark.withOpacity(0.18), borderRadius: BorderRadius.circular(999)),
-                        child: Text('📈 Son 30 Gün'.toUpperCase(),
-                            style: _pjs(size: 10, weight: FontWeight.w800, color: _white.withOpacity(0.85), letterSpacing: 0.5)),
-                      ),
-                      const SizedBox(height: 10),
-                      Text('Fiyat hareketi: %${drop.toStringAsFixed(1).replaceAll('.', ',')}',
-                          style: _pjs(size: 21, weight: FontWeight.w900, color: _white, letterSpacing: -0.4)),
-                      const SizedBox(height: 5),
-                      Text('En iyi alım zamanı bu hafta',
-                          style: _pjs(size: 11, weight: FontWeight.w500, color: _white.withOpacity(0.65))),
-                    ],
-                  ),
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(color: _white.withOpacity(0.18), borderRadius: BorderRadius.circular(15)),
-                    child: const Icon(Icons.show_chart_rounded, color: _white, size: 22),
-                  ),
+                  const Icon(Icons.show_chart_rounded, size: 18, color: _tan),
+                  const SizedBox(width: 6),
+                  Text('Fiyat Geçmişi', style: _pjs(size: 14, weight: FontWeight.w800)),
                 ],
               ),
-            ],
-          ),
-        ),
-        Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(24), boxShadow: [_cardShadow]),
-          child: Column(
-            children: [
+              const Spacer(),
               Row(
-                children: List.generate(4, (i) {
-                  const labels = ['7G', '1A', '3A', '6A'];
+                children: List.generate(3, (i) {
+                  const labels = ['7G', '30G', '90G'];
                   final active = i == _selected;
                   return Padding(
-                    padding: EdgeInsets.only(right: i == 3 ? 0 : 4),
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
                     child: GestureDetector(
                       onTap: () => setState(() => _selected = i),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: active ? _dark : Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
+                          color: active ? _dark : FRColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: active ? _dark : _border),
                         ),
-                        child: Text(labels[i], style: _pjs(size: 12, weight: FontWeight.w700, color: active ? _white : _t2)),
+                        child: Text(labels[i], style: _pjs(size: 11, weight: FontWeight.w700, color: active ? _white : _t3)),
                       ),
                     ),
                   );
                 }),
               ),
-              const SizedBox(height: 10),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [FRColors.background.withOpacity(0.5), Colors.transparent],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          child: Column(
+            children: [
               if (hasHistory) ...[
-                SizedBox(height: 76, width: double.infinity, child: CustomPaint(painter: _HistoryPainter(source))),
+                SizedBox(height: 170, width: double.infinity, child: CustomPaint(painter: _HistoryPainter(source))),
                 const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -991,20 +1073,21 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                 ),
               ] else
                 Text('Henüz yeterli veri yok', style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: _historyStat('${stats.lowest.toStringAsFixed(0)} ₺', 'EN DÜŞÜK')),
-                  const SizedBox(width: 7),
-                  Expanded(child: _historyStat('${stats.highest.toStringAsFixed(0)} ₺', 'EN YÜKSEK')),
-                  const SizedBox(width: 7),
-                  Expanded(child: _historyStat('${stats.average.toStringAsFixed(0)} ₺', 'ORTALAMA')),
-                ],
-              ),
             ],
           ),
-        ),
-      ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _historyStat('${stats.lowest.toStringAsFixed(0)} ₺', 'EN DÜŞÜK')),
+              const SizedBox(width: 7),
+              Expanded(child: _historyStat('${stats.highest.toStringAsFixed(0)} ₺', 'EN YÜKSEK')),
+              const SizedBox(width: 7),
+              Expanded(child: _historyStat('${stats.average.toStringAsFixed(0)} ₺', 'ORTALAMA')),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1030,8 +1113,10 @@ class _HistoryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final grid = Paint()..color = _dark.withOpacity(0.05)..strokeWidth = 1;
-    for (var i = 1; i <= 3; i++) {
+    final grid = Paint()
+      ..color = _dark.withOpacity(0.12)
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 4; i++) {
       final y = size.height * i / 4;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
@@ -1063,25 +1148,26 @@ class _HistoryPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [_dark.withOpacity(0.13), Colors.transparent],
+        colors: [_tan.withOpacity(0.38), Colors.transparent],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(areaPath, fill);
     canvas.drawPath(
       linePath,
       Paint()
-        ..color = _dark
+        ..color = _tan
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
+        ..strokeWidth = 3
         ..strokeCap = StrokeCap.round,
     );
 
     for (var i = 0; i < coords.length; i++) {
       if (i == coords.length - 1) {
-        canvas.drawCircle(coords[i], 4.5, Paint()..color = _white);
-        canvas.drawCircle(coords[i], 4.5, Paint()..color = _dark..style = PaintingStyle.stroke..strokeWidth = 2.5);
+        canvas.drawCircle(coords[i], 6, Paint()..color = FRColors.success);
+        canvas.drawCircle(coords[i], 6, Paint()..color = FRColors.success..style = PaintingStyle.stroke..strokeWidth = 2.5);
       } else {
-        canvas.drawCircle(coords[i], 3, Paint()..color = _dark);
+        canvas.drawCircle(coords[i], 5, Paint()..color = _white);
+        canvas.drawCircle(coords[i], 5, Paint()..color = _tan..style = PaintingStyle.stroke..strokeWidth = 2.5);
       }
     }
 
@@ -1104,12 +1190,14 @@ class _VerificationSummaryCard extends ConsumerWidget {
   const _VerificationSummaryCard({
     required this.product,
     required this.isSubmitting,
+    required this.onOpenHistory,
     required this.onVote,
     required this.onWrongTap,
   });
 
   final ProductDetailResponse product;
   final bool isSubmitting;
+  final VoidCallback onOpenHistory;
   final Future<void> Function(String, bool) onVote;
   final void Function(String) onWrongTap;
 
@@ -1118,28 +1206,80 @@ class _VerificationSummaryCard extends ConsumerWidget {
     final trustScore = product.trust.scorePercent.clamp(0, 100);
     final totalVotes = product.trust.approveCount + product.trust.rejectCount;
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow]),
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(_cardRadius),
+        boxShadow: [_cardShadow],
+        border: Border.all(color: _border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$totalVotes kişi bu fiyatı doğruladı', style: _pjs(size: 17, weight: FontWeight.w900)),
-          const SizedBox(height: 4),
-          Text('Son doğrulama: ${product.bestPrice.createdAtLabel}', style: _pjs(size: 12, color: _t2)),
-          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.edit_rounded, size: 18, color: _tan),
+                  const SizedBox(width: 6),
+                  Text('Fiyat Girişi', style: _pjs(size: 14, weight: FontWeight.w800)),
+                ],
+              ),
+              InkWell(
+                onTap: onOpenHistory,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: FRColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Stack(
+                    children: [
+                      const Center(child: Icon(Icons.history_rounded, size: 16, color: _tan)),
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(color: FRColors.danger, shape: BoxShape.circle),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: LinearProgressIndicator(
-                  value: trustScore / 100,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(999),
-                  backgroundColor: _bg,
-                  valueColor: const AlwaysStoppedAnimation(_green),
+                child: _verifyStat(
+                  product.trust.approveCount,
+                  'Doğru ($trustScore%)',
+                  FRColors.success.withOpacity(0.14),
+                  FRColors.success,
                 ),
               ),
-              const SizedBox(width: 10),
-              Text('$trustScore/100', style: _pjs(size: 13, weight: FontWeight.w800, color: _t1)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _verifyStat(
+                  product.trust.rejectCount,
+                  'Yanlış (${100 - trustScore}%)',
+                  FRColors.danger.withOpacity(0.08),
+                  FRColors.danger,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _verifyStat(totalVotes, 'Toplam', FRColors.background, _t1),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1157,13 +1297,29 @@ class _VerificationSummaryCard extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => onWrongTap(product.bestPrice.id),
-                  icon: const Icon(Icons.report_gmailerrorred_rounded, size: 16, color: _red),
-                  label: Text('İtiraz Et', style: _pjs(size: 12, weight: FontWeight.w700, color: _red)),
+                  icon: const Icon(Icons.close_rounded, size: 16, color: _red),
+                  label: Text('Fiyat Yanlış', style: _pjs(size: 12, weight: FontWeight.w700, color: _red)),
                   style: OutlinedButton.styleFrom(side: BorderSide(color: _red.withOpacity(0.35)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _verifyStat(int count, String label, Color bg, Color valueColor) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text('$count', style: _pjs(size: 20, weight: FontWeight.w900, color: valueColor)),
+          Text(label, style: _pjs(size: 10, weight: FontWeight.w600, color: _t3), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -1307,114 +1463,93 @@ class _CommentsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
     final all = product.comments;
-    final display = isExpanded ? all : all.take(2).toList();
+    final display = isExpanded ? all : all.take(3).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Row(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow], border: Border.all(color: _border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Yorumlar', style: _pjs(size: 17, weight: FontWeight.w900, letterSpacing: -0.3)),
-              if (all.length > 2)
-                GestureDetector(
-                  onTap: onExpand,
-                  child: Text('Tümü →', style: _pjs(size: 12, weight: FontWeight.w700, color: _tan)),
-                ),
+              Text('Yorumlar', style: _pjs(size: 16, weight: FontWeight.w800)),
+              Text('${display.length} / ${all.length} inceleme', style: _pjs(size: 12, weight: FontWeight.w600, color: _t3)),
             ],
           ),
-        ),
-        ...display.map((c) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow]),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          const SizedBox(height: 8),
+          ...display.map((c) => Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _border))),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _UserAvatar(
-                      imageUrl: c.authorPhotoUrl,
-                      fallbackText: c.author,
-                      size: 34,
-                      radius: 11,
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Text(c.author, style: _pjs(size: 13, weight: FontWeight.w800, color: _t1)),
-                            _UserLevelTag(userId: c.authorId, fallbackLevel: c.authorLevel),
-                          ],
+                        _UserAvatar(imageUrl: c.authorPhotoUrl, fallbackText: c.author, size: 32, radius: 12),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(c.author, style: _pjs(size: 13, weight: FontWeight.w700)),
+                              Text('${c.timeAgo} • ${product.bestPrice.store}', style: _pjs(size: 10, color: _t3)),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 1),
-                        Text(c.timeAgo, style: _pjs(size: 10, weight: FontWeight.w500, color: _t3)),
+                        Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 12, color: i < 4 ? FRColors.gold : FRColors.borderStrong))),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(c.text, style: _pjs(size: 12, color: _t2, height: 1.5)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _reviewAction('Faydalı', Icons.thumb_up_alt_outlined),
+                        const SizedBox(width: 10),
+                        _reviewAction('Faydasız', Icons.thumb_down_alt_outlined),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(c.text, style: _pjs(size: 13, weight: FontWeight.w500, color: _t1, height: 1.65)),
-                const SizedBox(height: 2),
-              ],
-            ),
-          );
-        }),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow]),
-          child: Row(
-            children: [
-              _UserAvatar(
-                imageUrl: currentUser?.photoURL,
-                fallbackText: currentUser?.displayName ?? 'Kullanıcı',
-                size: 32,
-                radius: 11,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-                  decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(11)),
-                  child: TextField(
-                    controller: controller,
-                    style: _pjs(size: 13, weight: FontWeight.w500, color: _t1),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'Yorum ekle…',
-                      hintStyle: _pjs(size: 13, weight: FontWeight.w500, color: _t3),
-                    ),
+              )),
+          if (!isExpanded && all.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onExpand,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: const BorderSide(color: _border),
                   ),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _tan),
+                  label: Text('Tüm Yorumları Göster (${all.length - 3} daha)', style: _pjs(size: 13, weight: FontWeight.w700, color: _tan)),
                 ),
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: isSubmitting ? null : onSend,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(color: _dark, borderRadius: BorderRadius.circular(11)),
-                  child: isSubmitting
-                      ? const Padding(
-                          padding: EdgeInsets.all(9),
-                          child: CircularProgressIndicator(strokeWidth: 2, color: _white),
-                        )
-                      : const Icon(Icons.send_rounded, size: 13, color: _white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewAction(String text, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: FRColors.background, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: _t3),
+          const SizedBox(width: 4),
+          Text(text, style: _pjs(size: 10, weight: FontWeight.w700, color: _t3)),
+        ],
+      ),
     );
   }
 }
