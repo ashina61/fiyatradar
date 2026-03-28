@@ -104,6 +104,8 @@ class ProductDetailApiService {
           : null;
       final stats = _buildStats(prices);
       final trust = _buildTrust(prices);
+      final marketPrices = _buildMarketPrices(prices);
+      final recentPrices = _buildRecentPrices(prices);
 
       return ProductDetailResponse(
         id: product.id,
@@ -122,6 +124,8 @@ class ProductDetailApiService {
                   authorPhotoUrl: commentAuthorProfiles[comment.userId]?.photoUrl ?? comment.userPhotoUrl ?? '',
                 ))
             .toList(growable: false),
+        marketPrices: marketPrices,
+        recentPrices: recentPrices,
       );
     } catch (e, st) {
       _log('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
@@ -138,7 +142,7 @@ class ProductDetailApiService {
   Future<List<PriceHistoryPoint>> fetchPriceHistory(String productId) async {
     try {
       final now = DateTime.now();
-      final since = now.subtract(const Duration(days: 30));
+      final since = now.subtract(const Duration(days: 90));
 
       _log(
         '[ProductDetailApiService.fetchPriceHistory] Firestore query => collection=priceReports, where=[productId == $productId, status == active, reportedAt >= ${Timestamp.fromDate(since)}], orderBy=[]',
@@ -297,6 +301,68 @@ class ProductDetailApiService {
       approveCount: approveCount,
       rejectCount: rejectCount,
     );
+  }
+
+  List<MarketPriceEntry> _buildMarketPrices(List<PriceModel> prices) {
+    if (prices.isEmpty) return const [];
+    final latestByStore = <String, PriceModel>{};
+    for (final price in prices) {
+      final key = [
+        (price.selectedStoreId ?? '').trim(),
+        price.branchStoreId.trim(),
+        (price.storeName ?? '').trim().toLowerCase(),
+      ].firstWhere((e) => e.isNotEmpty, orElse: () => 'unknown');
+      final existing = latestByStore[key];
+      if (existing == null || price.reportedAt.isAfter(existing.reportedAt)) {
+        latestByStore[key] = price;
+      }
+    }
+
+    final list = latestByStore.values.toList()
+      ..sort((a, b) => a.price.compareTo(b.price));
+    return list
+        .map((price) => MarketPriceEntry(
+              priceId: price.id,
+              storeId: (price.selectedStoreId ?? price.branchStoreId).trim(),
+              storeName: (price.storeName ?? 'Market').trim().isEmpty
+                  ? 'Market'
+                  : (price.storeName ?? 'Market').trim(),
+              storeLocation: (price.storeLocation ?? '').trim(),
+              storeUrl: (price.storeLocation ?? '').trim(),
+              price: price.price,
+              timeAgo: _formatTimeAgo(price.reportedAt),
+              userName: (price.userName ?? 'Kullanıcı').trim().isEmpty
+                  ? 'Kullanıcı'
+                  : (price.userName ?? 'Kullanıcı').trim(),
+              userId: (price.createdByUid ?? price.userId).trim(),
+              upVotes: price.upVotes,
+              downVotes: price.downVotes,
+              isOnline: (price.storeLocation ?? '').toLowerCase().contains('online'),
+            ))
+        .toList(growable: false);
+  }
+
+  List<RecentPriceEntry> _buildRecentPrices(List<PriceModel> prices) {
+    if (prices.isEmpty) return const [];
+    final list = [...prices]..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+    return list
+        .take(20)
+        .map((price) => RecentPriceEntry(
+              priceId: price.id,
+              storeName: (price.storeName ?? 'Market').trim().isEmpty
+                  ? 'Market'
+                  : (price.storeName ?? 'Market').trim(),
+              storeLocation: (price.storeLocation ?? '').trim(),
+              price: price.price,
+              timeAgo: _formatTimeAgo(price.reportedAt),
+              userName: (price.userName ?? 'Kullanıcı').trim().isEmpty
+                  ? 'Kullanıcı'
+                  : (price.userName ?? 'Kullanıcı').trim(),
+              userId: (price.createdByUid ?? price.userId).trim(),
+              upVotes: price.upVotes,
+              downVotes: price.downVotes,
+            ))
+        .toList(growable: false);
   }
 
 

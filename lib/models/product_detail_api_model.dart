@@ -10,6 +10,8 @@ class ProductDetailResponse {
     required this.stats,
     required this.trust,
     required this.comments,
+    required this.marketPrices,
+    required this.recentPrices,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class ProductDetailResponse {
   final PriceStats stats;
   final TrustStats trust;
   final List<ProductComment> comments;
+  final List<MarketPriceEntry> marketPrices;
+  final List<RecentPriceEntry> recentPrices;
 
   factory ProductDetailResponse.fromJson(Map<String, dynamic> json) {
     return ProductDetailResponse(
@@ -40,6 +44,99 @@ class ProductDetailResponse {
           .whereType<Map<String, dynamic>>()
           .map(ProductComment.fromJson)
           .toList(),
+      marketPrices: ((json['marketPrices'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(MarketPriceEntry.fromJson)
+          .toList(),
+      recentPrices: ((json['recentPrices'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(RecentPriceEntry.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class MarketPriceEntry {
+  MarketPriceEntry({
+    required this.priceId,
+    required this.storeId,
+    required this.storeName,
+    required this.storeLocation,
+    required this.storeUrl,
+    required this.price,
+    required this.timeAgo,
+    required this.userName,
+    required this.userId,
+    required this.upVotes,
+    required this.downVotes,
+    required this.isOnline,
+  });
+
+  final String priceId;
+  final String storeId;
+  final String storeName;
+  final String storeLocation;
+  final String storeUrl;
+  final double price;
+  final String timeAgo;
+  final String userName;
+  final String userId;
+  final int upVotes;
+  final int downVotes;
+  final bool isOnline;
+
+  factory MarketPriceEntry.fromJson(Map<String, dynamic> json) {
+    return MarketPriceEntry(
+      priceId: (json['priceId'] ?? '').toString(),
+      storeId: (json['storeId'] ?? '').toString(),
+      storeName: (json['storeName'] ?? '').toString(),
+      storeLocation: (json['storeLocation'] ?? '').toString(),
+      storeUrl: (json['storeUrl'] ?? '').toString(),
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      timeAgo: (json['timeAgo'] ?? '').toString(),
+      userName: (json['userName'] ?? '').toString(),
+      userId: (json['userId'] ?? '').toString(),
+      upVotes: (json['upVotes'] as num?)?.toInt() ?? 0,
+      downVotes: (json['downVotes'] as num?)?.toInt() ?? 0,
+      isOnline: json['isOnline'] == true,
+    );
+  }
+}
+
+class RecentPriceEntry {
+  RecentPriceEntry({
+    required this.priceId,
+    required this.storeName,
+    required this.storeLocation,
+    required this.price,
+    required this.timeAgo,
+    required this.userName,
+    required this.userId,
+    required this.upVotes,
+    required this.downVotes,
+  });
+
+  final String priceId;
+  final String storeName;
+  final String storeLocation;
+  final double price;
+  final String timeAgo;
+  final String userName;
+  final String userId;
+  final int upVotes;
+  final int downVotes;
+
+  factory RecentPriceEntry.fromJson(Map<String, dynamic> json) {
+    return RecentPriceEntry(
+      priceId: (json['priceId'] ?? '').toString(),
+      storeName: (json['storeName'] ?? '').toString(),
+      storeLocation: (json['storeLocation'] ?? '').toString(),
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      timeAgo: (json['timeAgo'] ?? '').toString(),
+      userName: (json['userName'] ?? '').toString(),
+      userId: (json['userId'] ?? '').toString(),
+      upVotes: (json['upVotes'] as num?)?.toInt() ?? 0,
+      downVotes: (json['downVotes'] as num?)?.toInt() ?? 0,
     );
   }
 }
