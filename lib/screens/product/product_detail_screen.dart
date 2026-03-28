@@ -987,7 +987,7 @@ class _DecisionCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
