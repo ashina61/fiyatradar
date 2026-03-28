@@ -74,7 +74,6 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
-  final _commentController = TextEditingController();
   final _targetPriceController = TextEditingController();
   final _productEngagementService = ProductEngagementService();
   bool _showAllComments = false;
@@ -111,7 +110,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   void dispose() {
-    _commentController.dispose();
     _targetPriceController.dispose();
     super.dispose();
   }
@@ -310,16 +308,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               const SizedBox(height: 10),
                               _CommentsSection(
                                 product: state.data!,
-                                controller: _commentController,
                                 isExpanded: _showAllComments,
                                 onExpand: () => setState(() => _showAllComments = true),
-                                onSend: () async {
-                                  if (_commentController.text.trim().isEmpty) return;
-                                  HapticFeedback.lightImpact();
-                                  await notifier.postComment(_commentController.text.trim());
-                                  _commentController.clear();
-                                },
-                                isSubmitting: state.isSubmittingComment,
                               ),
                             ]),
                           ),
@@ -371,13 +361,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   flex: 2,
-                                  child: ElevatedButton(
+                                  child: ElevatedButton.icon(
                                     onPressed: () => _launchMap(state.data!.bestPrice),
+                                    icon: const Icon(Icons.location_on_rounded, size: 16, color: _tanCard),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _dark,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
-                                    child: Text(
+                                    label: Text(
                                       'Markete Git',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -769,12 +760,25 @@ class _DecisionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(999)),
-                      child: Text('Son Eklenen Fiyat', style: _pjs(size: 11, weight: FontWeight.w700, color: FRColors.camelStrong)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(16)),
+                      child: Text('SON EKLENEN FİYAT', style: _pjs(size: 11, weight: FontWeight.w800, color: FRColors.camelStrong, letterSpacing: 1)),
                     ),
-                    const SizedBox(height: 10),
-                    Text(priceText, style: _pjs(size: 45, weight: FontWeight.w900, color: _white, letterSpacing: -1.2)),
+                    const SizedBox(height: 12),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: priceText.replaceAll(' ₺', ''),
+                            style: _pjs(size: 72, weight: FontWeight.w500, color: _white, letterSpacing: -2.2).copyWith(fontFamily: 'Georgia'),
+                          ),
+                          TextSpan(
+                            text: '₺',
+                            style: _pjs(size: 46, weight: FontWeight.w500, color: _white).copyWith(fontFamily: 'Georgia'),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     Container(height: 1, color: _white.withOpacity(0.12)),
                     const SizedBox(height: 14),
@@ -799,7 +803,7 @@ class _DecisionCard extends StatelessWidget {
                             '${product.bestPrice.store} (${product.bestPrice.storeLocation.isEmpty ? 'Şube bilgisi yok' : product.bestPrice.storeLocation})',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _pjs(size: 14, weight: FontWeight.w700, color: _white),
+                            style: _pjs(size: 17, weight: FontWeight.w800, color: _white),
                           ),
                         ),
                       ],
@@ -813,13 +817,20 @@ class _DecisionCard extends StatelessWidget {
                 children: [
                   if (hasDrop)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: FRColors.success.withOpacity(0.16),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: FRColors.success.withOpacity(0.4)),
                       ),
-                      child: Text('↓ %${dropPct.toStringAsFixed(0)} Düştü', style: _pjs(size: 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80))),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
+                          const SizedBox(width: 4),
+                          Text('%${dropPct.toStringAsFixed(0)} Düştü', style: _pjs(size: 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80))),
+                        ],
+                      ),
                     ),
                   const SizedBox(height: 16),
                   Row(
@@ -1061,7 +1072,27 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
           child: Column(
             children: [
               if (hasHistory) ...[
-                SizedBox(height: 170, width: double.infinity, child: CustomPaint(painter: _HistoryPainter(source))),
+                SizedBox(
+                  height: 170,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 70,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _priceAxisLabel(source.map((e) => e.price).reduce(math.max)),
+                            _priceAxisLabel(source.map((e) => e.price).reduce((a, b) => (a + b) / 2)),
+                            _priceAxisLabel(source.map((e) => e.price).reduce(math.min)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: CustomPaint(painter: _HistoryPainter(source))),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1102,6 +1133,18 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
           Text(label, style: _pjs(size: 9, weight: FontWeight.w700, color: _t3, letterSpacing: 0.5)),
         ],
       ),
+    );
+  }
+
+  Widget _priceAxisLabel(double value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FRColors.background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+      ),
+      child: Text(_fmtPrice(value), style: _pjs(size: 10, weight: FontWeight.w700, color: _t2)),
     );
   }
 }
@@ -1205,6 +1248,17 @@ class _VerificationSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trustScore = product.trust.scorePercent.clamp(0, 100);
     final totalVotes = product.trust.approveCount + product.trust.rejectCount;
+    final currentUserId = ref.watch(authStateProvider).valueOrNull?.uid;
+    final prices = ref.watch(pricesForProductProvider(product.id)).valueOrNull ?? const <PriceModel>[];
+    PriceModel? targetPrice;
+    for (final item in prices) {
+      if (item.id == product.bestPrice.id) {
+        targetPrice = item;
+        break;
+      }
+    }
+    final alreadyVerified = currentUserId != null && (targetPrice?.userVotes.containsKey(currentUserId) ?? false);
+    final disableButtons = alreadyVerified || isSubmitting;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(18),
@@ -1287,8 +1341,8 @@ class _VerificationSummaryCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: isSubmitting ? null : () => onVote(product.bestPrice.id, true),
-                  icon: const Icon(Icons.check_rounded, size: 16),
+                  onPressed: disableButtons ? null : () => onVote(product.bestPrice.id, true),
+                  icon: const Icon(Icons.check_rounded, size: 16, color: _white),
                   label: Text('Fiyat Doğru', style: _pjs(size: 12, weight: FontWeight.w700, color: _white)),
                   style: ElevatedButton.styleFrom(backgroundColor: _green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
@@ -1296,7 +1350,7 @@ class _VerificationSummaryCard extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => onWrongTap(product.bestPrice.id),
+                  onPressed: disableButtons ? null : () => onWrongTap(product.bestPrice.id),
                   icon: const Icon(Icons.close_rounded, size: 16, color: _red),
                   label: Text('Fiyat Yanlış', style: _pjs(size: 12, weight: FontWeight.w700, color: _red)),
                   style: OutlinedButton.styleFrom(side: BorderSide(color: _red.withOpacity(0.35)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -1304,6 +1358,10 @@ class _VerificationSummaryCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (alreadyVerified) ...[
+            const SizedBox(height: 8),
+            Text('Daha önce doğrulama yaptınız.', style: _pjs(size: 11, weight: FontWeight.w700, color: _t3)),
+          ],
         ],
       ),
     );
@@ -1396,26 +1454,43 @@ class _PastEntryRow extends StatelessWidget {
     final rejectCount = entry.downVotes > 0 ? entry.downVotes : entry.unverifiedCount;
     final trustDelta = approveCount - rejectCount;
     final statusColor = trustDelta >= 0 ? _green : _red;
+    final isVerified = trustDelta >= 0 && approveCount > rejectCount;
+    final monthNames = const ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+    final month = monthNames[entry.reportedAt.month - 1];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _bg,
-        borderRadius: BorderRadius.circular(_innerRadius),
-        border: Border.all(color: _border),
+        color: const Color(0xFFF0EFEB),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Container(
+            width: 5,
+            height: 98,
+            decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(999)),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 58,
+            child: Column(
+              children: [
+                Text('${entry.reportedAt.day}'.padLeft(2, '0'), style: _pjs(size: 22, weight: FontWeight.w900)),
+                Text(month, style: _pjs(size: 14, weight: FontWeight.w600, color: _t3)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${entry.storeName ?? 'Market'} · ${_VerificationSummaryCard._timeAgo(entry.reportedAt)}',
-                    style: _pjs(size: 12, weight: FontWeight.w700)),
+                Text(_fmtPrice(entry.price), style: _pjs(size: 24, weight: FontWeight.w900)),
                 const SizedBox(height: 2),
-                Text('Ekleyen: ${entry.userName ?? 'Kullanıcı'}', style: _pjs(size: 11, color: _t2)),
-                const SizedBox(height: 4),
-                Text('✔ $approveCount  •  ✖ $rejectCount', style: _pjs(size: 11, color: _t3)),
+                Text('⌂ ${entry.storeName ?? 'Market'}', style: _pjs(size: 12, color: _t2)),
+                Text('${entry.userName ?? 'Kullanıcı'} ekledi', style: _pjs(size: 12, color: _t3)),
               ],
             ),
           ),
@@ -1423,21 +1498,51 @@ class _PastEntryRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(_fmtPrice(entry.price), style: _pjs(size: 16, weight: FontWeight.w900)),
-              const SizedBox(height: 4),
+              if (isVerified)
+                _voteChip(label: 'Doğrulandı', icon: Icons.check_rounded, color: _green, filled: true)
+              else ...[
+                _voteChip(label: 'Doğru', icon: Icons.check_rounded, color: _green, filled: false),
+                const SizedBox(height: 8),
+                _voteChip(label: 'Yanlış', icon: Icons.close_rounded, color: _red, filled: false),
+              ],
+              const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  trustDelta >= 0 ? 'Güvenli' : 'İtirazlı',
-                  style: _pjs(size: 10, weight: FontWeight.w700, color: statusColor),
+                  '✔ $approveCount  •  ✖ $rejectCount',
+                  style: _pjs(size: 9, weight: FontWeight.w700, color: statusColor),
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _voteChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool filled,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: filled ? color : Colors.transparent,
+        border: Border.all(color: color.withOpacity(0.8), width: 1.8),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: filled ? _white : color),
+          const SizedBox(width: 6),
+          Text(label, style: _pjs(size: 14, weight: FontWeight.w700, color: filled ? _white : color)),
         ],
       ),
     );
@@ -1447,19 +1552,13 @@ class _PastEntryRow extends StatelessWidget {
 class _CommentsSection extends StatelessWidget {
   const _CommentsSection({
     required this.product,
-    required this.controller,
     required this.isExpanded,
     required this.onExpand,
-    required this.onSend,
-    required this.isSubmitting,
   });
 
   final ProductDetailResponse product;
-  final TextEditingController controller;
   final bool isExpanded;
   final VoidCallback onExpand;
-  final VoidCallback onSend;
-  final bool isSubmitting;
 
   @override
   Widget build(BuildContext context) {
@@ -1500,19 +1599,10 @@ class _CommentsSection extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 12, color: i < 4 ? FRColors.gold : FRColors.borderStrong))),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(c.text, style: _pjs(size: 12, color: _t2, height: 1.5)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _reviewAction('Faydalı', Icons.thumb_up_alt_outlined),
-                        const SizedBox(width: 10),
-                        _reviewAction('Faydasız', Icons.thumb_down_alt_outlined),
-                      ],
-                    ),
                   ],
                 ),
               )),
@@ -1538,20 +1628,6 @@ class _CommentsSection extends StatelessWidget {
     );
   }
 
-  Widget _reviewAction(String text, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: FRColors.background, borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: _t3),
-          const SizedBox(width: 4),
-          Text(text, style: _pjs(size: 10, weight: FontWeight.w700, color: _t3)),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProductInfoGrid extends StatelessWidget {
