@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 class FRColors {
   const FRColors._();
 
-  static const Color espresso = Color(0xFF1C1108);
-  static const Color espressoSoft = Color(0xFF211510);
+  static const Color espresso = Color(0xFF18100A);
+  static const Color espressoSoft = Color(0xFF2C2418);
+  static const Color tan = Color(0xFFBF9470);
+  static const Color tanLight = Color(0xFFD4B599);
   static const Color camel = Color(0xFFC09A60);
   static const Color camelStrong = Color(0xFFC29B78);
   static const Color camelDeep = Color(0xFFA67C52);
@@ -27,19 +29,23 @@ class FRColors {
   static const Color shadowStrong = Color(0x33170D08);
   static const Color white = Color(0xFFFFFFFF);
   static const Color whiteMuted = Color(0x99FFFFFF);
-  static const Color success = Color(0xFF4CAF50);
+  static const Color success = Color(0xFF27A85A);
   static const Color successSurface = Color(0xFFE8F5E9);
-  static const Color danger = Color(0xFFF44336);
+  static const Color danger = Color(0xFFE53935);
   static const Color dangerSurface = Color(0xFFFFEBEE);
+  static const Color mapBlue = Color(0xFF1E40AF);
   static const Color sapphire = Color(0xFF1976D2);
   static const Color sapphireSurface = Color(0x261976D2);
   static const Color silver = Color(0xFFB0BEC5);
   static const Color silverDeep = Color(0xFF78909C);
   static const Color ivory = Color(0xFFFFE6C9);
-  static const Color gold = Color(0xFFE9C46A);
+  static const Color gold = Color(0xFFF59E0B);
   static const Color goldGlow = gold;
   static const Color goldGlowSoft = Color(0xFFF4D06F);
 
   static Color camelOverlay(double opacity) => camelStrong.withOpacity(opacity);
-  static Color espressoOverlay(double opacity) => espressoSoft.withOpacity(opacity);
+  static Color successBg(double opacity) => success.withOpacity(opacity);
+  static Color dangerBg(double opacity) => danger.withOpacity(opacity);
+  static Color goldBg(double opacity) => gold.withOpacity(opacity);
+  static Color espressoOverlay(double opacity) => espresso.withOpacity(opacity);
 }
