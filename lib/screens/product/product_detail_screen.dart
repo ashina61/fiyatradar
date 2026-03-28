@@ -36,6 +36,7 @@ const _t3 = Color(0xFFA89A8A);
 const _border = Color(0x121C1108);
 const _cardRadius = 24.0;
 const _innerRadius = 14.0;
+const _sectionGap = 12.0;
 
 const _cardShadow = BoxShadow(color: Color(0x121C1108), blurRadius: 14, offset: Offset(0, 2));
 
@@ -75,9 +76,11 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _targetPriceController = TextEditingController();
+  final _commentController = TextEditingController();
   final _productEngagementService = ProductEngagementService();
   bool _showAllComments = false;
   bool _notifyOnEveryPrice = false;
+  bool _isCommentComposerActive = false;
 
   @override
   void initState() {
@@ -111,7 +114,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   @override
   void dispose() {
     _targetPriceController.dispose();
+    _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitComment(ProductDetailNotifier notifier) async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+    HapticFeedback.lightImpact();
+    final ok = await notifier.postComment(text);
+    if (!mounted) return;
+    if (ok) {
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorum eklenemedi. Lütfen tekrar dene.')),
+      );
+    }
   }
 
   Future<void> _openAlertSheet(ProductDetailResponse product) async {
@@ -246,6 +266,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
     final notifier = ref.read(productDetailProvider(widget.productId).notifier);
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardVisible = viewInsetsBottom > 0;
+    final contentBottomPadding = keyboardVisible ? viewInsetsBottom + 24 : 122.0;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -260,17 +283,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       slivers: [
                         SliverToBoxAdapter(child: _Header(product: state.data!)),
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
+                          padding: EdgeInsets.fromLTRB(14, 14, 14, contentBottomPadding),
                           sliver: SliverList(
                             delegate: SliverChildListDelegate([
                               _HeroSummaryCard(
                                 product: state.data!,
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _DecisionCard(product: state.data!),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _PriceStatsMiniSection(product: state.data!),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _VerificationSummaryCard(
                                 product: state.data!,
                                 isSubmitting: state.isSubmittingVote,
@@ -301,14 +324,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 },
                                 onWrongTap: _showRejectModal,
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _PriceHistorySection(product: state.data!, history: state.history),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _MarketComparisonSection(product: state.data!, onOpenMap: _launchMap),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: _sectionGap),
                               _CommentsSection(
                                 product: state.data!,
                                 isExpanded: _showAllComments,
+                                composerController: _commentController,
+                                isSubmittingComment: state.isSubmittingComment,
+                                isComposerActive: _isCommentComposerActive,
+                                onComposerFocusChanged: (v) => setState(() => _isCommentComposerActive = v),
+                                onSubmitComment: () => _submitComment(notifier),
                                 onExpand: () => setState(() => _showAllComments = true),
                               ),
                             ]),
@@ -320,65 +348,72 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [_bg, _bg.withOpacity(0.9), Colors.transparent],
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 160),
+                        opacity: keyboardVisible ? 0 : 1,
+                        child: IgnorePointer(
+                          ignoring: keyboardVisible,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [_bg, _bg.withOpacity(0.9), Colors.transparent],
+                              ),
+                            ),
+                            child: Container(
+                              height: 54,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: _white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: _border),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _dark.withOpacity(0.08),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _openAlertSheet(state.data!),
+                                      icon: const Icon(Icons.notifications_none_rounded, size: 16),
+                                      label: Text('Alarm', style: _pjs(size: 13, weight: FontWeight.w700, color: _t1)),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: _border),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        backgroundColor: _bg,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    flex: 2,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _launchMap(state.data!.bestPrice),
+                                      icon: const Icon(Icons.location_on_rounded, size: 16, color: _tanCard),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _dark,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      label: Text(
+                                        'Markete Git',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _pjs(size: 13, weight: FontWeight.w800, color: _white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        child: Container(
-                          height: 58,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                              color: _white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: _border),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _dark.withOpacity(0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => _openAlertSheet(state.data!),
-                                    icon: const Icon(Icons.notifications_none_rounded, size: 16),
-                                    label: Text('Alarm', style: _pjs(size: 13, weight: FontWeight.w700, color: _t1)),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(color: _border),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      backgroundColor: _bg,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 2,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _launchMap(state.data!.bestPrice),
-                                    icon: const Icon(Icons.location_on_rounded, size: 16, color: _tanCard),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _dark,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                    label: Text(
-                                      'Markete Git',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: _pjs(size: 13, weight: FontWeight.w800, color: _white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                       ),
                     ),
                   ],
@@ -403,45 +438,66 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
         decoration: const BoxDecoration(
           color: _white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: FRColors.borderStrong,
-                borderRadius: BorderRadius.circular(999),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: FRColors.borderStrong,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('🕐 Geçmiş Fiyatları Doğrula', style: _pjs(size: 15, weight: FontWeight.w900)),
-                IconButton(
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(Icons.history_toggle_off_rounded, size: 20, color: _tan),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Geçmiş Fiyatları Doğrula', style: _pjs(size: 17, weight: FontWeight.w900))),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 21),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Divider(height: 1, color: _border),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: math.min(entries.length, 8),
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _PastEntryRow(entry: entries[i]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: _border),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: math.min(entries.length, 8),
-                itemBuilder: (_, i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _PastEntryRow(entry: entries[i]),
+                  style: TextButton.styleFrom(
+                    backgroundColor: FRColors.background,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text('Kapat', style: _pjs(size: 14, weight: FontWeight.w700, color: _t2)),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -714,13 +770,15 @@ class _DecisionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final priceText = _fmtPrice(product.bestPrice.price);
+    final valueText = product.bestPrice.price.toStringAsFixed(2).replaceAll('.', ',');
     final hasDrop = product.stats.lowest < product.stats.highest && product.stats.highest > 0;
     final dropPct = hasDrop ? ((product.stats.highest - product.stats.lowest) / product.stats.highest) * 100 : 0;
+    final location = product.bestPrice.storeLocation.trim().isEmpty ? 'Şube bilgisi yok' : product.bestPrice.storeLocation.trim();
+    final marketLabel = '${product.bestPrice.store} ($location)';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(_cardRadius),
         gradient: const LinearGradient(
@@ -751,37 +809,50 @@ class _DecisionCard extends StatelessWidget {
               ),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 365;
+              final rightWidth = compact ? 116.0 : 132.0;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(16)),
-                      child: Text('SON EKLENEN FİYAT', style: _pjs(size: 11, weight: FontWeight.w800, color: FRColors.camelStrong, letterSpacing: 1)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(14)),
+                      child: Text('SON EKLENEN FİYAT', style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.camelStrong, letterSpacing: 0.9)),
                     ),
                     const SizedBox(height: 12),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: priceText.replaceAll(' ₺', ''),
-                            style: _pjs(size: 72, weight: FontWeight.w500, color: _white, letterSpacing: -2.2).copyWith(fontFamily: 'Georgia'),
-                          ),
-                          TextSpan(
-                            text: '₺',
-                            style: _pjs(size: 46, weight: FontWeight.w500, color: _white).copyWith(fontFamily: 'Georgia'),
-                          ),
-                        ],
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: valueText,
+                              style: _pjs(size: compact ? 66 : 76, weight: FontWeight.w500, color: _white, letterSpacing: -2.2).copyWith(fontFamily: 'Georgia'),
+                            ),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.top,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 5, top: 10),
+                                child: Text(
+                                  '₺',
+                                  style: _pjs(size: compact ? 36 : 42, weight: FontWeight.w500, color: _white).copyWith(fontFamily: 'Georgia'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Container(height: 1, color: _white.withOpacity(0.12)),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Container(
@@ -800,52 +871,89 @@ class _DecisionCard extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${product.bestPrice.store} (${product.bestPrice.storeLocation.isEmpty ? 'Şube bilgisi yok' : product.bestPrice.storeLocation})',
+                            marketLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _pjs(size: 17, weight: FontWeight.w800, color: _white),
+                            style: _pjs(size: compact ? 15 : 17, weight: FontWeight.w800, color: _white),
                           ),
                         ),
                       ],
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (hasDrop)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: FRColors.success.withOpacity(0.16),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: FRColors.success.withOpacity(0.4)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
-                          const SizedBox(width: 4),
-                          Text('%${dropPct.toStringAsFixed(0)} Düştü', style: _pjs(size: 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80))),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(product.bestPrice.userName, style: _pjs(size: 12, weight: FontWeight.w700, color: _white)),
-                      const SizedBox(width: 6),
-                      const CircleAvatar(radius: 14, backgroundColor: _tanCard, child: Icon(Icons.person, size: 12, color: _dark)),
-                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(product.bestPrice.createdAtLabel, style: _pjs(size: 11, color: _white.withOpacity(0.6))),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: rightWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (hasDrop)
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: FRColors.success.withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: FRColors.success.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
+                                const SizedBox(width: 3),
+                                Flexible(
+                                  child: Text(
+                                    '%${dropPct.toStringAsFixed(0)} Düştü',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _pjs(size: compact ? 11 : 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        SizedBox(height: compact ? 16 : 20),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      product.bestPrice.userName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _pjs(size: compact ? 11 : 12, weight: FontWeight.w700, color: _white),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      product.bestPrice.createdAtLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _pjs(size: 11, color: _white.withOpacity(0.6)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _UserAvatar(
+                                imageUrl: null,
+                                fallbackText: product.bestPrice.userName,
+                                size: compact ? 28 : 30,
+                                radius: 15,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -872,7 +980,7 @@ class _MarketComparisonSection extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(_cardRadius), boxShadow: [_cardShadow], border: Border.all(color: _border)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -904,7 +1012,7 @@ class _MarketComparisonSection extends ConsumerWidget {
         final diff = entry.price - best;
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color: isBest ? _greenBg : FRColors.background,
             borderRadius: BorderRadius.circular(16),
@@ -924,14 +1032,14 @@ class _MarketComparisonSection extends ConsumerWidget {
                     alignment: Alignment.center,
                     child: Text((entry.storeName ?? 'M').substring(0, 1), style: _pjs(size: 16, weight: FontWeight.w900, color: _white)),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 11),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Flexible(child: Text(entry.storeName ?? 'Market', style: _pjs(size: 13, weight: FontWeight.w700))),
+                            Flexible(child: Text(entry.storeName ?? 'Market', style: _pjs(size: 14, weight: FontWeight.w700))),
                             if (isBest) ...[
                               const SizedBox(width: 6),
                               Container(
@@ -942,15 +1050,20 @@ class _MarketComparisonSection extends ConsumerWidget {
                             ],
                           ],
                         ),
-                        Text(entry.storeLocation?.trim().isNotEmpty == true ? entry.storeLocation! : 'Konum bilgisi yok',
-                            style: _pjs(size: 10, color: _t3)),
+                        Text(
+                          entry.storeLocation?.trim().isNotEmpty == true ? entry.storeLocation! : 'Konum bilgisi yok',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _pjs(size: 10, color: _t3),
+                        ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(_fmtPrice(entry.price), style: _pjs(size: 18, weight: FontWeight.w800, color: _t1)),
+                      Text(_fmtPrice(entry.price), style: _pjs(size: 20, weight: FontWeight.w800, color: _t1)),
                       Text(_fmtPrice(entry.price + (isBest ? 0 : 2)), style: _pjs(size: 11, color: _t3)),
                       Container(
                         margin: const EdgeInsets.only(top: 3),
@@ -961,7 +1074,7 @@ class _MarketComparisonSection extends ConsumerWidget {
                         ),
                         child: Text(
                           isBest ? 'Son fiyattan aynı' : '+${diff.toStringAsFixed(2).replaceAll('.', ',')}₺ pahalı',
-                          style: _pjs(size: 10, weight: FontWeight.w700, color: isBest ? _green : _red),
+                          style: _pjs(size: 9.5, weight: FontWeight.w700, color: isBest ? _green : _red),
                         ),
                       ),
                     ],
@@ -1012,11 +1125,12 @@ class _PriceHistorySection extends StatefulWidget {
 
 class _PriceHistorySectionState extends State<_PriceHistorySection> {
   int _selected = 1;
+  static const _dayRanges = [7, 30, 90];
 
   @override
   Widget build(BuildContext context) {
     final stats = widget.product.stats;
-    final source = widget.history;
+    final source = _historyForSelectedPeriod(widget.history);
     final hasHistory = source.isNotEmpty;
 
     return Container(
@@ -1044,13 +1158,13 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selected = i),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                         decoration: BoxDecoration(
                           color: active ? _dark : FRColors.background,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: active ? _dark : _border),
                         ),
-                        child: Text(labels[i], style: _pjs(size: 11, weight: FontWeight.w700, color: active ? _white : _t3)),
+                        child: Text(labels[i], style: _pjs(size: 12, weight: FontWeight.w800, color: active ? _white : _t3)),
                       ),
                     ),
                   );
@@ -1058,9 +1172,9 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -1069,43 +1183,50 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-          child: Column(
-            children: [
-              if (hasHistory) ...[
-                SizedBox(
-                  height: 170,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 70,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _priceAxisLabel(source.map((e) => e.price).reduce(math.max)),
-                            _priceAxisLabel(source.map((e) => e.price).reduce((a, b) => (a + b) / 2)),
-                            _priceAxisLabel(source.map((e) => e.price).reduce(math.min)),
-                          ],
+            child: Column(
+              children: [
+                if (hasHistory) ...[
+                  SizedBox(
+                    height: 186,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 74,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _axisValues(source).map(_priceAxisLabel).toList(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: CustomPaint(painter: _HistoryPainter(source))),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(child: CustomPaint(painter: _HistoryPainter(source))),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(
-                    math.min(source.length, 5),
-                    (i) => Text(source[i].dateLabel.isEmpty ? '—' : source[i].dateLabel,
-                        style: _pjs(size: 9, weight: FontWeight.w600, color: _t3)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: _xAxisTicks(source)
+                        .map(
+                          (label) => Expanded(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: _pjs(size: 10, weight: FontWeight.w600, color: _t3),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
-                ),
-              ] else
-                Text('Henüz yeterli veri yok', style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
-            ],
-          ),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 28),
+                    child: Text('Henüz yeterli veri yok', style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1147,6 +1268,42 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
       child: Text(_fmtPrice(value), style: _pjs(size: 10, weight: FontWeight.w700, color: _t2)),
     );
   }
+
+  List<PriceHistoryPoint> _historyForSelectedPeriod(List<PriceHistoryPoint> input) {
+    if (input.isEmpty) return const [];
+    final sorted = [...input]..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
+    final days = _dayRanges[_selected.clamp(0, _dayRanges.length - 1)];
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final filtered = sorted.where((e) => e.reportedAt.isAfter(cutoff)).toList();
+    return filtered.isEmpty ? sorted : filtered;
+  }
+
+  List<double> _axisValues(List<PriceHistoryPoint> source) {
+    final prices = source.map((e) => e.price).toList();
+    final min = prices.reduce(math.min);
+    final max = prices.reduce(math.max);
+    final mid = (min + max) / 2;
+    return [max, mid, min];
+  }
+
+  List<String> _xAxisTicks(List<PriceHistoryPoint> source) {
+    if (source.isEmpty) return const ['—'];
+    final count = math.min(4, source.length);
+    if (count == 1) return [source.last.dateLabel.isEmpty ? '—' : source.last.dateLabel];
+    final step = (source.length - 1) / (count - 1);
+    final labels = <String>[];
+    for (var i = 0; i < count; i++) {
+      final index = (step * i).round().clamp(0, source.length - 1);
+      final candidate = source[index].dateLabel.isEmpty ? '—' : source[index].dateLabel;
+      if (labels.isEmpty || labels.last != candidate) {
+        labels.add(candidate);
+      }
+    }
+    while (labels.length < count) {
+      labels.add('—');
+    }
+    return labels;
+  }
 }
 
 class _HistoryPainter extends CustomPainter {
@@ -1179,8 +1336,12 @@ class _HistoryPainter extends CustomPainter {
 
     final linePath = Path()..moveTo(coords.first.dx, coords.first.dy);
     for (var i = 1; i < coords.length; i++) {
-      linePath.lineTo(coords[i].dx, coords[i].dy);
+      final previous = coords[i - 1];
+      final current = coords[i];
+      final cx = (previous.dx + current.dx) / 2;
+      linePath.quadraticBezierTo(previous.dx, previous.dy, cx, (previous.dy + current.dy) / 2);
     }
+    linePath.lineTo(coords.last.dx, coords.last.dy);
 
     final areaPath = Path.from(linePath)
       ..lineTo(coords.last.dx, size.height)
@@ -1200,7 +1361,7 @@ class _HistoryPainter extends CustomPainter {
       Paint()
         ..color = _tan
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
+        ..strokeWidth = 3.4
         ..strokeCap = StrokeCap.round,
     );
 
@@ -1220,9 +1381,13 @@ class _HistoryPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     final w = text.width + 10;
-    final rect = RRect.fromRectAndRadius(Rect.fromLTWH(last.dx - w / 2, math.max(0, last.dy - 24), w, 16), const Radius.circular(5));
+    final prefersLeftSide = last.dx > (size.width - w - 8);
+    final targetLeft = prefersLeftSide ? (last.dx - w - 10) : (last.dx - (w / 2));
+    final clampedLeft = targetLeft.clamp(0.0, math.max(0.0, size.width - w));
+    final top = (last.dy - 24).clamp(0.0, math.max(0.0, size.height - 18));
+    final rect = RRect.fromRectAndRadius(Rect.fromLTWH(clampedLeft, top, w, 16), const Radius.circular(5));
     canvas.drawRRect(rect, Paint()..color = _dark);
-    text.paint(canvas, Offset(last.dx - text.width / 2, math.max(0, last.dy - 21)));
+    text.paint(canvas, Offset(clampedLeft + (w - text.width) / 2, top + 2));
   }
 
   @override
@@ -1450,6 +1615,7 @@ class _PastEntryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.of(context).size.width < 390;
     final approveCount = entry.upVotes > 0 ? entry.upVotes : entry.verifiedCount;
     final rejectCount = entry.downVotes > 0 ? entry.downVotes : entry.unverifiedCount;
     final trustDelta = approveCount - rejectCount;
@@ -1459,65 +1625,78 @@ class _PastEntryRow extends StatelessWidget {
     final month = monthNames[entry.reportedAt.month - 1];
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(0, 0, 12, 0),
       decoration: BoxDecoration(
         color: const Color(0xFFF0EFEB),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 5,
-            height: 98,
-            decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(999)),
-          ),
+          Container(width: 5, decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(999))),
           const SizedBox(width: 12),
-          SizedBox(
-            width: 58,
-            child: Column(
-              children: [
-                Text('${entry.reportedAt.day}'.padLeft(2, '0'), style: _pjs(size: 22, weight: FontWeight.w900)),
-                Text(month, style: _pjs(size: 14, weight: FontWeight.w600, color: _t3)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_fmtPrice(entry.price), style: _pjs(size: 24, weight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text('⌂ ${entry.storeName ?? 'Market'}', style: _pjs(size: 12, color: _t2)),
-                Text('${entry.userName ?? 'Kullanıcı'} ekledi', style: _pjs(size: 12, color: _t3)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (isVerified)
-                _voteChip(label: 'Doğrulandı', icon: Icons.check_rounded, color: _green, filled: true)
-              else ...[
-                _voteChip(label: 'Doğru', icon: Icons.check_rounded, color: _green, filled: false),
-                const SizedBox(height: 8),
-                _voteChip(label: 'Yanlış', icon: Icons.close_rounded, color: _red, filled: false),
-              ],
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '✔ $approveCount  •  ✖ $rejectCount',
-                  style: _pjs(size: 9, weight: FontWeight.w700, color: statusColor),
-                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: SizedBox(
+              width: 54,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${entry.reportedAt.day}'.padLeft(2, '0'), style: _pjs(size: 22, weight: FontWeight.w900)),
+                  Text(month, style: _pjs(size: 14, weight: FontWeight.w600, color: _t3)),
+                ],
               ),
-            ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_fmtPrice(entry.price), style: _pjs(size: 24, weight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text('⌂ ${entry.storeName ?? 'Market'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: _pjs(size: 12, color: _t2)),
+                  Text(
+                    '${entry.userName ?? 'Kullanıcı'} ekledi',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _pjs(size: 12, color: _t3),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: compact ? 104 : 112, maxWidth: compact ? 122 : 132),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isVerified)
+                    _voteChip(label: 'Doğrulandı', icon: Icons.check_rounded, color: _green, filled: true, compact: compact)
+                  else ...[
+                    _voteChip(label: 'Doğru', icon: Icons.check_rounded, color: _green, filled: false, compact: compact),
+                    const SizedBox(height: 8),
+                    _voteChip(label: 'Yanlış', icon: Icons.close_rounded, color: _red, filled: false, compact: compact),
+                  ],
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE4ECE5),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text('✔ $approveCount • ✖ $rejectCount', style: _pjs(size: compact ? 9 : 10, weight: FontWeight.w700, color: statusColor)),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1529,9 +1708,11 @@ class _PastEntryRow extends StatelessWidget {
     required IconData icon,
     required Color color,
     required bool filled,
+    bool compact = false,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: compact ? 8 : 9),
       decoration: BoxDecoration(
         color: filled ? color : Colors.transparent,
         border: Border.all(color: color.withOpacity(0.8), width: 1.8),
@@ -1540,9 +1721,9 @@ class _PastEntryRow extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: filled ? _white : color),
+          Icon(icon, size: compact ? 15 : 16, color: filled ? _white : color),
           const SizedBox(width: 6),
-          Text(label, style: _pjs(size: 14, weight: FontWeight.w700, color: filled ? _white : color)),
+          Text(label, style: _pjs(size: compact ? 13 : 14, weight: FontWeight.w700, color: filled ? _white : color)),
         ],
       ),
     );
@@ -1553,11 +1734,21 @@ class _CommentsSection extends StatelessWidget {
   const _CommentsSection({
     required this.product,
     required this.isExpanded,
+    required this.composerController,
+    required this.isSubmittingComment,
+    required this.isComposerActive,
+    required this.onComposerFocusChanged,
+    required this.onSubmitComment,
     required this.onExpand,
   });
 
   final ProductDetailResponse product;
   final bool isExpanded;
+  final TextEditingController composerController;
+  final bool isSubmittingComment;
+  final bool isComposerActive;
+  final ValueChanged<bool> onComposerFocusChanged;
+  final VoidCallback onSubmitComment;
   final VoidCallback onExpand;
 
   @override
@@ -1623,6 +1814,89 @@ class _CommentsSection extends StatelessWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: EdgeInsets.fromLTRB(10, 7, 7, 7 + (isComposerActive ? 7 : 0)),
+            decoration: BoxDecoration(
+              color: FRColors.background,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isComposerActive ? _tan.withOpacity(0.35) : _border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _UserAvatar(imageUrl: null, fallbackText: 'Kullanıcı', size: 26, radius: 13),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Focus(
+                    onFocusChange: onComposerFocusChanged,
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: composerController,
+                      builder: (context, value, _) {
+                        final canSubmit = value.text.trim().isNotEmpty && !isSubmittingComment;
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: composerController,
+                                minLines: 1,
+                                maxLines: 3,
+                                scrollPadding: const EdgeInsets.only(bottom: 140),
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => canSubmit ? onSubmitComment() : null,
+                                decoration: InputDecoration(
+                                  hintText: 'Yorum ekle...',
+                                  hintStyle: _pjs(size: 12, color: _t3),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: _white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: const BorderSide(color: _border),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: BorderSide(color: _tan.withOpacity(0.35)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            SizedBox(
+                              height: 34,
+                              child: ElevatedButton(
+                                onPressed: canSubmit ? onSubmitComment : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _dark,
+                                  disabledBackgroundColor: _dark.withOpacity(0.25),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                ),
+                                child: isSubmittingComment
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: _white),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 14, color: _white),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
