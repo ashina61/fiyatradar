@@ -11,6 +11,7 @@ class AppNetworkImage extends StatelessWidget {
   final BorderRadius? borderRadius;
   final BoxFit fit;
   final String cacheKey;
+  final Widget? errorWidget;
 
   const AppNetworkImage({
     super.key,
@@ -20,6 +21,7 @@ class AppNetworkImage extends StatelessWidget {
     this.height,
     this.borderRadius,
     this.fit = BoxFit.contain,
+    this.errorWidget,
   });
 
   @override
@@ -27,7 +29,7 @@ class AppNetworkImage extends StatelessWidget {
     final radius = borderRadius ?? BorderRadius.circular(AppRadius.md);
 
     if (imageUrl == null || imageUrl!.isEmpty) {
-      return _ImageFallback(width: width, height: height, borderRadius: radius);
+      return errorWidget ?? _ImageFallback(width: width, height: height, borderRadius: radius);
     }
 
     return ClipRRect(
@@ -42,7 +44,7 @@ class AppNetworkImage extends StatelessWidget {
         filterQuality: FilterQuality.high,
         placeholder: (_, __) => _ImageSkeleton(width: width, height: height),
         errorWidget: (_, __, ___) =>
-            _ImageFallback(width: width, height: height, borderRadius: radius),
+            errorWidget ?? _ImageFallback(width: width, height: height, borderRadius: radius),
       ),
     );
   }

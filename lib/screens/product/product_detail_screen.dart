@@ -400,8 +400,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         .read(pricesForProductProvider(product.id))
         .valueOrNull
         ?.where((e) => e.isActive)
-        .toList()
-      ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+        .toList();
+    prices?.sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
 
     final entries = (prices == null || prices.isEmpty)
         ? [_VerificationSummaryCard._toPriceModel(product.bestPrice)]
