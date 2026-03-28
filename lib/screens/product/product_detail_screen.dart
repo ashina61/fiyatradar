@@ -18,13 +18,14 @@ import '../../services/firestore_service.dart';
 import '../../services/product_engagement_service.dart';
 import '../../widgets/app_network_image.dart';
 
+// ════════════════════════════════ RENKLER (HTML TASARIMINA BIREBIR) ════════════════════════════════
 const _bg = Color(0xFFFAFAF8);
 const _surface = Color(0xFFFFFFFF);
 const _surfaceAlt = Color(0xFFF5F3F0);
-const _dark = Color(0xFF18100A);
-const _dark2 = Color(0xFF2C2418);
-const _tan = Color(0xFFBF9470);
-const _tanLight = Color(0xFFD4B599);
+const _dark = Color(0xFF18100A);        // Espresso
+const _dark2 = Color(0xFF2C2418);       // Espresso Soft
+const _tan = Color(0xFFBF9470);         // Tan/Bej
+const _tanLight = Color(0xFFD4B599);    // Light Tan
 const _text = Color(0xFF18100A);
 const _textMuted = Color(0xFF5E4A38);
 const _textSoft = Color(0xFF9E8B78);
@@ -34,6 +35,8 @@ const _greenBg = Color(0x1A27A85A);
 const _red = Color(0xFFE53935);
 const _redBg = Color(0x1AE53935);
 const _amber = Color(0xFFF59E0B);
+const _amberBg = Color(0x1AF59E0B);
+const _mapBlue = Color(0xFF1E40AF);     // Harita butonu için
 
 TextStyle _t({
   double s = 14,
@@ -44,7 +47,6 @@ TextStyle _t({
 }) {
   return GoogleFonts.plusJakartaSans(fontSize: s, fontWeight: w, color: c, height: h, letterSpacing: ls);
 }
-
 String _fmt(double value) => '${value.toStringAsFixed(2).replaceAll('.', ',')}₺';
 String _fmtPrice(double value) => '${value.toStringAsFixed(2).replaceAll('.', ',')} ₺';
 
@@ -94,7 +96,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     _commentController.dispose();
     super.dispose();
   }
-
   Future<void> _launchMap(BestPrice bestPrice) async {
     final query = bestPrice.storeLocation.trim().isNotEmpty ? '${bestPrice.store} ${bestPrice.storeLocation}' : bestPrice.store;
     final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
@@ -144,8 +145,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               decoration: BoxDecoration(
                 color: _dark,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                border: Border.all(color: _tan.withOpacity(0.35)),
-              ),
+                border: Border.all(color: _tan.withOpacity(0.35)),              ),
               child: SafeArea(
                 top: false,
                 child: Column(
@@ -194,8 +194,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 userId: currentUser.uid,
                                 targetPrice: parsed,
                                 notifyOnEveryPrice: _notifyOnEveryPrice,
-                              );
-                          if (!mounted) return;
+                              );                          if (!mounted) return;
                           Navigator.of(sheetContext).pop();
                         },
                         style: ElevatedButton.styleFrom(
@@ -244,8 +243,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   void _openPastPricesSheet(ProductDetailResponse product) {
     final prices = ref.read(pricesForProductProvider(product.id)).valueOrNull?.where((e) => e.isActive).toList();
-    prices?.sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
-    final entries = prices ?? const <PriceModel>[];
+    prices?.sort((a, b) => b.reportedAt.compareTo(a.reportedAt));    final entries = prices ?? const <PriceModel>[];
 
     showModalBottomSheet<void>(
       context: context,
@@ -295,7 +293,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final state = ref.watch(productDetailProvider(widget.productId));
     final notifier = ref.read(productDetailProvider(widget.productId).notifier);
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-
     if (state.isLoading) {
       return const Scaffold(backgroundColor: _bg, body: Center(child: CircularProgressIndicator(color: _tan)));
     }
@@ -344,8 +341,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         final result = await notifier.votePrice(priceId: priceId, isApproved: isApproved);
                         if (!mounted || result == null) return;
                         if (result.status == PriceVoteStatus.alreadyVoted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu fiyatı zaten doğruladın')));
-                        } else if (result.status == PriceVoteStatus.selfVoteBlocked) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu fiyatı zaten doğruladın')));                        } else if (result.status == PriceVoteStatus.selfVoteBlocked) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kendi eklediğin fiyatı doğrulayamazsın')));
                         }
                       },
@@ -394,8 +390,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   _StickyHeaderDelegate({required this.minExtent, required this.maxExtent, required this.child});
 
-  @override
-  final double minExtent;
+  @override  final double minExtent;
 
   @override
   final double maxExtent;
@@ -444,8 +439,7 @@ class _TopHeader extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           _HeaderBtn(
-            icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            iconColor: isFavorite ? const Color(0xFFFF6B6B) : _tanLight,
+            icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,            iconColor: isFavorite ? const Color(0xFFFF6B6B) : _tanLight,
             onTap: () async {
               if (user == null) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favorilere eklemek için giriş yapmalısın.')));
@@ -494,7 +488,6 @@ class _HeaderBtn extends StatelessWidget {
 
 class _HeroSection extends StatelessWidget {
   const _HeroSection({required this.product});
-
   final ProductDetailResponse product;
 
   @override
@@ -544,13 +537,12 @@ class _HeroSection extends StatelessWidget {
           const SizedBox(height: 4),
           Text('🍞 $category', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 12, w: FontWeight.w600, c: _textSoft)),
           const SizedBox(height: 14),
-          Container(
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: _line))),
+          Container(            decoration: const BoxDecoration(border: Border(top: BorderSide(color: _line))),
             padding: const EdgeInsets.only(top: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _heroStat('${product.priceEntryCount}', 'Fiyat Girişi'),
+                _heroStat('${product.priceEntryCount}', 'Fiyat Girişi'), // ✅ DEĞİŞTİ: "Doğrulama" → "Fiyat Girişi"
                 _heroStat('6', 'Market'),
                 _heroStat('${product.comments.length}', 'İnceleme'),
               ],
@@ -576,6 +568,7 @@ class _HeroSection extends StatelessWidget {
       );
 }
 
+// ════════════════════════════════ SON FİYAT KARTI (HTML TASARIMINA BIREBIR) ════════════════════════════════
 class _LastPriceCard extends StatelessWidget {
   const _LastPriceCard({required this.product});
 
@@ -585,72 +578,154 @@ class _LastPriceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dropPct = product.stats.highest <= 0 ? 0 : (((product.stats.highest - product.bestPrice.price) / product.stats.highest) * 100).round();
     final initials = _initials(product.bestPrice.userName);
+    final marketLabel = product.bestPrice.storeLocation.trim().isNotEmpty
+        ? '${product.bestPrice.store} (${product.bestPrice.storeLocation})'
+        : product.bestPrice.store;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _card(),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,          end: Alignment.bottomRight,
+          colors: [Color(0xFF1a1510), Color(0xFF2C2418)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 32, offset: const Offset(0, 8)),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: Label + Drop Badge
           Row(
             children: [
-              Text('Son Eklenen Fiyat', style: _t(s: 12, w: FontWeight.w700, c: _textSoft)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _tan.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'SON EKLENEN FİYAT',
+                  style: _t(s: 11, w: FontWeight.w700, c: _tanLight, ls: 0.5),
+                ),
+              ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(999), border: Border.all(color: _green.withOpacity(0.16))),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _green.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _green.withOpacity(0.3)),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: _green),
-                    Text('%$dropPct Düştü', style: _t(s: 11, w: FontWeight.w700, c: _green)),
+                    const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '%$dropPct Düştü',
+                      style: _t(s: 13, w: FontWeight.w800, c: const Color(0xFF4ADE80)),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(text: product.bestPrice.price.toStringAsFixed(2).replaceAll('.', ','), style: _t(s: 34, w: FontWeight.w800, c: _text)),
-                TextSpan(text: ' ₺', style: _t(s: 18, w: FontWeight.w700, c: _textSoft)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Divider(color: _line, height: 1),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 16),
+          
+          // Fiyat - BÜYÜK, Georgia font          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('🛒', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${product.bestPrice.store}${product.bestPrice.storeLocation.isNotEmpty ? ' (${product.bestPrice.storeLocation})' : ''}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _t(s: 13, w: FontWeight.w700),
-                ),
+              Text(
+                product.bestPrice.price.toStringAsFixed(2).replaceAll('.', ','),
+                style: _t(s: 56, w: FontWeight.w900, c: Colors.white, h: 1.0, ls: -2)
+                    .copyWith(fontFamily: 'Georgia'),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: _surfaceAlt, borderRadius: BorderRadius.circular(999)),
-                child: Text(initials, style: _t(s: 11, w: FontWeight.w800, c: _textMuted)),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 12),
+                child: Text(
+                  '₺',
+                  style: _t(s: 40, w: FontWeight.w900, c: Colors.white.withOpacity(0.6), h: 1.0)
+                      .copyWith(fontFamily: 'Georgia'),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${product.bestPrice.userName} • ${product.bestPrice.createdAtLabel}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _t(s: 11, c: _textSoft, w: FontWeight.w600),
-            ),
+          const SizedBox(height: 20),
+          
+          // Divider
+          Divider(color: Colors.white.withOpacity(0.1), height: 1),
+          const SizedBox(height: 20),
+          
+          // Footer: Market (sol) + Kullanıcı (sağ)
+          Row(
+            children: [
+              // Market - SOL
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _tan,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text('🛒', style: TextStyle(fontSize: 20)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        marketLabel,
+                        style: _t(s: 15, w: FontWeight.w800, c: Colors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              
+              // Kullanıcı - SAĞ
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        product.bestPrice.userName,
+                        style: _t(s: 13, w: FontWeight.w700, c: Colors.white),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: _tan,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            initials,
+                            style: _t(s: 12, w: FontWeight.w800, c: _dark),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    product.bestPrice.createdAtLabel,
+                    style: _t(s: 11, c: Colors.white.withOpacity(0.6)),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -658,8 +733,7 @@ class _LastPriceCard extends StatelessWidget {
   }
 }
 
-class _StatsStrip extends StatelessWidget {
-  const _StatsStrip({required this.product});
+class _StatsStrip extends StatelessWidget {  const _StatsStrip({required this.product});
 
   final ProductDetailResponse product;
 
@@ -682,20 +756,21 @@ class _StatsStrip extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(color: color.withOpacity(0.14), borderRadius: BorderRadius.circular(10)),
               child: Icon(icon, size: 16, color: color),
             ),
-            const SizedBox(height: 8),
-            Text(_fmt(v), style: _t(s: 12, w: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(_fmt(v), style: _t(s: 13, w: FontWeight.w800)),
             const SizedBox(height: 2),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, c: _textSoft, w: FontWeight.w600)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 9, c: _textSoft, w: FontWeight.w600)),
           ],
         ),
       );
 }
 
+// ════════════════════════════════ FİYAT GİRİŞİ BÖLÜMÜ (BAŞLIK DEĞİŞTİ) ════════════════════════════════
 class _VerificationSection extends StatelessWidget {
   const _VerificationSection({
     required this.product,
@@ -707,8 +782,7 @@ class _VerificationSection extends StatelessWidget {
 
   final ProductDetailResponse product;
   final bool isSubmittingVote;
-  final VoidCallback onOpenHistory;
-  final Future<void> Function(String priceId, bool isApproved) onVote;
+  final VoidCallback onOpenHistory;  final Future<void> Function(String priceId, bool isApproved) onVote;
   final ValueChanged<String> onWrongTap;
 
   @override
@@ -718,38 +792,55 @@ class _VerificationSection extends StatelessWidget {
     final rejectPercent = total == 0 ? 0 : 100 - approvePercent;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: _card(),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.edit_rounded, size: 18, color: _tan),
-              const SizedBox(width: 8),
-              Text('Fiyat Girişi', style: _t(s: 16, w: FontWeight.w800)),
-              const Spacer(),
+              Row(
+                children: [
+                  const Icon(Icons.edit_rounded, size: 18, color: _tan),
+                  const SizedBox(width: 6),
+                  Text('Fiyat Girişi', style: _t(s: 14, w: FontWeight.w800)), // ✅ DEĞİŞTİ
+                ],
+              ),
               InkWell(
                 onTap: onOpenHistory,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 child: Ink(
                   padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(color: _surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: _line)),
-                  child: const Icon(Icons.history_rounded, size: 18, color: _textMuted),
+                  decoration: BoxDecoration(color: _surfaceAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: _line)),
+                  child: Stack(
+                    children: [
+                      const Icon(Icons.history_rounded, size: 16, color: _textMuted),
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(color: _red, shape: BoxShape.circle),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 14),          Row(
             children: [
-              Expanded(child: _voteMini('${product.trust.approveCount}', 'Doğru (%$approvePercent)', _green, _greenBg)),
+              Expanded(child: _voteMini('${product.trust.approveCount}', 'Doğru ($approvePercent%)', _green, _greenBg)),
               const SizedBox(width: 8),
-              Expanded(child: _voteMini('${product.trust.rejectCount}', 'Yanlış (%$rejectPercent)', _red, _redBg)),
+              Expanded(child: _voteMini('${product.trust.rejectCount}', 'Yanlış ($rejectPercent%)', _red, _redBg)),
               const SizedBox(width: 8),
               Expanded(child: _voteMini('$total', 'Toplam', _tan, _surfaceAlt)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -761,22 +852,21 @@ class _VerificationSection extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                   ),
-                  icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                  label: Text('Fiyat Doğru', style: _t(s: 13, w: FontWeight.w800, c: Colors.white)),
+                  icon: const Icon(Icons.check_rounded, color: Colors.white, size: 16),
+                  label: Text('Fiyat Doğru', style: _t(s: 12, w: FontWeight.w700, c: Colors.white)), // ✅ DEĞİŞTİ
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ElevatedButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: isSubmittingVote ? null : () => onWrongTap(product.bestPrice.id),
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: _red,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: _red.withOpacity(0.35)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                   ),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
-                  label: Text('Fiyat Yanlış', style: _t(s: 13, w: FontWeight.w800, c: Colors.white)),
+                  icon: const Icon(Icons.close_rounded, size: 16, color: _red),
+                  label: Text('Fiyat Yanlış', style: _t(s: 12, w: FontWeight.w700, c: _red)), // ✅ DEĞİŞTİ
                 ),
               ),
             ],
@@ -790,10 +880,9 @@ class _VerificationSection extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))),
         child: Column(
-          children: [
-            Text(number, style: _t(s: 16, w: FontWeight.w800, c: color)),
+          children: [            Text(number, style: _t(s: 20, w: FontWeight.w900, c: color)),
             const SizedBox(height: 2),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, w: FontWeight.w700, c: _textMuted)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, w: FontWeight.w600, c: _textMuted)),
           ],
         ),
       );
@@ -821,7 +910,7 @@ class _HistoryChartCard extends StatelessWidget {
     final labels = points.map((e) => e.dateLabel).toList();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       decoration: _card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -829,26 +918,25 @@ class _HistoryChartCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.show_chart_rounded, color: _tan, size: 18),
-              const SizedBox(width: 7),
-              Text('Fiyat Geçmişi', style: _t(s: 16, w: FontWeight.w800)),
+              const SizedBox(width: 6),
+              Text('Fiyat Geçmişi', style: _t(s: 14, w: FontWeight.w800)),
               const Spacer(),
               ...['7G', '30G', '90G'].map((e) => Padding(
                     padding: const EdgeInsets.only(left: 6),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: e == '30G' ? _dark : _surfaceAlt,
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: _line),
-                      ),
-                      child: Text(e, style: _t(s: 10, w: FontWeight.w700, c: e == '30G' ? Colors.white : _textMuted)),
+                      ),                      child: Text(e, style: _t(s: 11, w: FontWeight.w700, c: e == '30G' ? Colors.white : _textMuted)),
                     ),
                   )),
             ],
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 210,
+            height: 220,
             child: _LineHistoryChart(points: points),
           ),
           const SizedBox(height: 8),
@@ -890,16 +978,17 @@ class _HistoryPainter extends CustomPainter {
     if (points.isEmpty) return;
 
     final prices = points.map((e) => e.price).toList();
-    final maxP = prices.reduce(math.max);
-    final minP = prices.reduce(math.min);
+    final maxP = prices.reduce(math.max);    final minP = prices.reduce(math.min);
     final range = (maxP - minP).abs() < 0.001 ? 1.0 : maxP - minP;
 
+    // Grid çizgileri
     final grid = Paint()..color = _line;
     for (var i = 0; i < 5; i++) {
       final y = (size.height - 16) * (i / 4);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
 
+    // Nokta koordinatları
     final pts = <Offset>[];
     for (var i = 0; i < points.length; i++) {
       final x = points.length == 1 ? size.width : i * (size.width / (points.length - 1));
@@ -908,6 +997,7 @@ class _HistoryPainter extends CustomPainter {
       pts.add(Offset(x, y));
     }
 
+    // Area fill
     final fillPath = Path()..moveTo(pts.first.dx, size.height);
     for (final p in pts) {
       fillPath.lineTo(p.dx, p.dy);
@@ -924,6 +1014,7 @@ class _HistoryPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawPath(fillPath, fill);
 
+    // Smooth line (cubic bezier)
     final linePath = Path()..moveTo(pts.first.dx, pts.first.dy);
     for (var i = 1; i < pts.length; i++) {
       final p0 = pts[i - 1];
@@ -935,13 +1026,14 @@ class _HistoryPainter extends CustomPainter {
     final line = Paint()
       ..color = _tan
       ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(linePath, line);
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;    canvas.drawPath(linePath, line);
 
-    final dot = Paint()..color = _tan;
+    // Dots
     for (var i = 0; i < pts.length; i++) {
-      canvas.drawCircle(pts[i], i == pts.length - 1 ? 5.5 : 4.2, dot);
-      canvas.drawCircle(pts[i], i == pts.length - 1 ? 7.5 : 6, Paint()..color = _tan.withOpacity(0.2));
+      final isLast = i == pts.length - 1;
+      canvas.drawCircle(pts[i], isLast ? 7 : 5, Paint()..color = isLast ? _green : Colors.white);
+      canvas.drawCircle(pts[i], isLast ? 9 : 7, Paint()..color = isLast ? _green.withOpacity(0.3) : _tan);
     }
   }
 
@@ -967,25 +1059,24 @@ class _MarketsSection extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: _card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.store_mall_directory_rounded, size: 18, color: _tan),
+              const Icon(Icons.store_mall_directory_rounded, size: 20, color: _tan),
               const SizedBox(width: 8),
               Text('Tüm Marketler', style: _t(s: 16, w: FontWeight.w800)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           ...mockMarkets.map(
             (e) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _MarketTile(
-                data: e,
-                bestPrice: best.price,
+                data: e,                bestPrice: best.price,
                 onOpenMap: () => onOpenMap(best),
               ),
             ),
@@ -1022,72 +1113,76 @@ class _MarketTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _surfaceAlt,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: data.isBest ? _green.withOpacity(0.3) : _line),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: data.isBest ? _green.withOpacity(0.3) : _line, width: data.isBest ? 2 : 1),
       ),
       child: Column(
         children: [
           Row(
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 42,
+                height: 42,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: _tan, borderRadius: BorderRadius.circular(8)),
-                child: Text(data.name.isNotEmpty ? data.name[0].toUpperCase() : '?', style: _t(s: 12, w: FontWeight.w800, c: Colors.white)),
-              ),
-              const SizedBox(width: 8),
+                decoration: BoxDecoration(color: _tan, borderRadius: BorderRadius.circular(12)),
+                child: Text(data.name.isNotEmpty ? data.name[0].toUpperCase() : '?', style: _t(s: 17, w: FontWeight.w800, c: Colors.white)),              ),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text(data.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 13, w: FontWeight.w800))),
+                        Flexible(child: Text(data.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 14, w: FontWeight.w700))),
                         if (data.isBest)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(999)),
-                            child: Text('En Ucuz', style: _t(s: 10, w: FontWeight.w800, c: _green)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(999)),
+                            child: Text('En Ucuz', style: _t(s: 8, w: FontWeight.w700, c: Colors.white)),
                           ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(data.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 11, c: _textSoft, w: FontWeight.w600)),
+                    Text(data.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, c: _textSoft, w: FontWeight.w600)),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(_fmt(data.price), style: _t(s: 15, w: FontWeight.w800)),
+                  Text(_fmt(data.price), style: _t(s: 18, w: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text(
                     isCheap ? 'Son fiyattan aynı' : '+${diff.toStringAsFixed(2).replaceAll('.', ',')}₺ pahalı',
-                    style: _t(s: 10, w: FontWeight.w700, c: isCheap ? _green : _red),
+                    style: _t(s: 11, w: FontWeight.w700, c: isCheap ? _green : _red),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
                 child: Text('⏱ ${data.when} eklendi', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, c: _textSoft, w: FontWeight.w600)),
               ),
-              TextButton.icon(
-                onPressed: onOpenMap,
-                style: TextButton.styleFrom(
-                  backgroundColor: _dark,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                icon: const Icon(Icons.map_outlined, size: 14),
-                label: Text('Haritada', style: _t(s: 11, w: FontWeight.w700, c: Colors.white)),
-              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onOpenMap,
+              style: ElevatedButton.styleFrom(                backgroundColor: _dark, // ✅ KOYU KAHVE
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.map_outlined, size: 13, color: _tan), // ✅ BEJ İKON
+              label: Text('Haritada Göster', style: _t(s: 11, w: FontWeight.w700, c: Colors.white)), // ✅ BEYAZ YAZI
+            ),
           ),
         ],
       ),
@@ -1117,34 +1212,37 @@ class _CommentsSection extends StatelessWidget {
     final visible = isExpanded ? comments : comments.take(3).toList();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: _card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _tan),
-              const SizedBox(width: 8),
-              Text('Yorumlar', style: _t(s: 16, w: FontWeight.w800)),
-              const Spacer(),
-              Text('${visible.length} / ${comments.length} inceleme', style: _t(s: 12, c: _textSoft, w: FontWeight.w700)),
+              Row(
+                children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: _tan),
+                  const SizedBox(width: 8),                  Text('Yorumlar', style: _t(s: 16, w: FontWeight.w800)),
+                ],
+              ),
+              Text('${visible.length} / ${comments.length} inceleme', style: _t(s: 12, c: _textSoft, w: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           if (visible.isEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text('Henüz yorum yok. İlk yorumu sen yaz.', style: _t(s: 12, c: _textSoft)),
             )
           else
-            ...visible.map((c) => Padding(padding: const EdgeInsets.only(bottom: 10), child: _CommentTile(comment: c))),
+            ...visible.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _CommentTile(comment: c))),
           if (!isExpanded && comments.length > 3)
             Center(
               child: TextButton.icon(
                 onPressed: onToggleAll,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                label: Text('Tüm Yorumları Göster (${comments.length - 3} daha)', style: _t(s: 12, w: FontWeight.w700)),
+                label: Text('Tüm Yorumları Göster (${comments.length - 3} daha)', style: _t(s: 13, w: FontWeight.w700)),
               ),
             ),
           const SizedBox(height: 8),
@@ -1172,10 +1270,9 @@ class _CommentTile extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: _colorFromHex(comment.avatarBgHex), borderRadius: BorderRadius.circular(999)),
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,                decoration: BoxDecoration(color: _colorFromHex(comment.avatarBgHex), borderRadius: BorderRadius.circular(999)),
                 child: Text(initials, style: _t(s: 12, w: FontWeight.w800, c: _text)),
               ),
               const SizedBox(width: 10),
@@ -1183,8 +1280,8 @@ class _CommentTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(comment.author, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 13, w: FontWeight.w800)),
-                    Text(comment.timeAgo, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 11, c: _textSoft, w: FontWeight.w600)),
+                    Text(comment.author, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 13, w: FontWeight.w700)),
+                    Text(comment.timeAgo, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, c: _textSoft, w: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -1193,7 +1290,7 @@ class _CommentTile extends StatelessWidget {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(comment.text, style: _t(s: 13, c: _textMuted, h: 1.45), maxLines: 6, overflow: TextOverflow.ellipsis),
+            child: Text(comment.text, style: _t(s: 12, c: _textMuted, h: 1.5), maxLines: 6, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -1224,10 +1321,9 @@ class _CommentComposer extends StatelessWidget {
               onSubmitted: (_) => onSubmit(),
               decoration: const InputDecoration(
                 hintText: 'Yorum yaz...',
-                border: InputBorder.none,
-                isDense: true,
+                border: InputBorder.none,                isDense: true,
               ),
-              style: _t(s: 13),
+              style: _t(s: 12),
             ),
           ),
           const SizedBox(width: 8),
@@ -1236,12 +1332,12 @@ class _CommentComposer extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: _dark,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              minimumSize: const Size(72, 38),
+              minimumSize: const Size(72, 34),
               elevation: 0,
             ),
             child: isSubmitting
                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text('Gönder', style: _t(s: 12, w: FontWeight.w800, c: Colors.white)),
+                : Text('Gönder', style: _t(s: 11, w: FontWeight.w700, c: Colors.white)),
           ),
         ],
       ),
@@ -1258,7 +1354,7 @@ class _StickyActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [_bg, _bg.withOpacity(0.9), Colors.transparent]),
       ),
@@ -1274,8 +1370,7 @@ class _StickyActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: onAlert,
-                icon: const Icon(Icons.notifications_none_rounded, size: 16),
+                onPressed: onAlert,                icon: const Icon(Icons.notifications_none_rounded, size: 16),
                 label: Text('Alarm', style: _t(s: 13, w: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: _line),
@@ -1317,24 +1412,23 @@ class _HistoryPriceRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 48,
+            width: 50,
             padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: _line)),
             child: Column(
               children: [
                 Text('${entry.reportedAt.day}'.padLeft(2, '0'), style: _t(s: 14, w: FontWeight.w800)),
-                Text(_month(entry.reportedAt.month), style: _t(s: 11, c: _textSoft, w: FontWeight.w700)),
-              ],
-            ),
+                Text(_month(entry.reportedAt.month), style: _t(s: 10, c: _textSoft, w: FontWeight.w700)),
+              ],            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_fmt(entry.price), style: _t(s: 16, w: FontWeight.w800)),
-                Text(entry.storeName ?? 'Market bilgisi yok', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 12, w: FontWeight.w700, c: _textMuted)),
-                Text('${entry.userName ?? 'Kullanıcı'} ekledi', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 11, c: _textSoft)),
+                Text(entry.storeName ?? 'Market bilgisi yok', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 11, w: FontWeight.w700, c: _textMuted)),
+                Text('${entry.userName ?? 'Kullanıcı'} ekledi', maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 10, c: _textSoft)),
               ],
             ),
           ),
@@ -1344,13 +1438,13 @@ class _HistoryPriceRow extends StatelessWidget {
               FilledButton.tonal(
                 onPressed: () {},
                 style: FilledButton.styleFrom(backgroundColor: _greenBg, foregroundColor: _green),
-                child: Text('Doğru', style: _t(s: 11, w: FontWeight.w700, c: _green)),
+                child: Text('Doğru', style: _t(s: 10, w: FontWeight.w700, c: _green)),
               ),
               const SizedBox(height: 6),
               FilledButton.tonal(
                 onPressed: () {},
                 style: FilledButton.styleFrom(backgroundColor: _redBg, foregroundColor: _red),
-                child: Text('Yanlış', style: _t(s: 11, w: FontWeight.w700, c: _red)),
+                child: Text('Yanlış', style: _t(s: 10, w: FontWeight.w700, c: _red)),
               ),
             ],
           ),
@@ -1374,8 +1468,7 @@ class _RejectSheet extends StatelessWidget {
       ('expired', '⏰ İndirim Bitti'),
     ];
 
-    return Container(
-      decoration: const BoxDecoration(
+    return Container(      decoration: const BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1389,7 +1482,7 @@ class _RejectSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Text('Neden yanlış?', style: _t(s: 17, w: FontWeight.w800)),
+                Text('Neden yanlış?', style: _t(s: 15, w: FontWeight.w800)),
                 const Spacer(),
                 IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
               ],
@@ -1403,9 +1496,9 @@ class _RejectSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   child: Ink(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(color: _surfaceAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: _line)),
-                    child: Text(e.$2, style: _t(s: 14, w: FontWeight.w700)),
+                    child: Text(e.$2, style: _t(s: 12, w: FontWeight.w700)),
                   ),
                 ),
               ),
@@ -1425,7 +1518,6 @@ BoxDecoration _card() => BoxDecoration(
         BoxShadow(color: _dark.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2)),
       ],
     );
-
 String _initials(String text) {
   final parts = text.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
   if (parts.isEmpty) return 'FR';
