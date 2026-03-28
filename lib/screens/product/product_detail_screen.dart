@@ -429,74 +429,100 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         .toList();
     prices?.sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
 
-    final entries = (prices == null || prices.isEmpty)
-        ? [_VerificationSummaryCard._toPriceModel(product.bestPrice)]
-        : prices;
+    final entries = prices ?? const <PriceModel>[];
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
-        decoration: const BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: FRColors.borderStrong,
-                  borderRadius: BorderRadius.circular(999),
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.88,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          decoration: const BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: FRColors.borderStrong,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Icon(Icons.history_toggle_off_rounded, size: 20, color: _tan),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('Geçmiş Fiyatları Doğrula', style: _pjs(size: 17, weight: FontWeight.w900))),
-                  IconButton(
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Icon(Icons.history_toggle_off_rounded, size: 20, color: _tan),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Geçmiş Fiyatları Doğrula', style: _pjs(size: 17, weight: FontWeight.w900))),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, size: 21),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Divider(height: 1, color: _border),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: entries.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 26),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: FRColors.background,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(Icons.history_toggle_off_rounded, size: 30, color: _tan),
+                                ),
+                                const SizedBox(height: 12),
+                                Text('Geçmiş fiyat bulunamadı', style: _pjs(size: 16, weight: FontWeight.w800)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Bu ürün için henüz doğrulanabilir geçmiş fiyat girişi yok.',
+                                  textAlign: TextAlign.center,
+                                  style: _pjs(size: 12, color: _t3, height: 1.45),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: math.min(entries.length, 8),
+                          physics: const BouncingScrollPhysics(),
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (_, i) => _PastEntryRow(entry: entries[i]),
+                        ),
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: _border),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 21),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: math.min(entries.length, 8),
-                  itemBuilder: (_, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _PastEntryRow(entry: entries[i]),
+                    style: TextButton.styleFrom(
+                      backgroundColor: FRColors.background,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text('Kapat', style: _pjs(size: 14, weight: FontWeight.w700, color: _t2)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    backgroundColor: FRColors.background,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text('Kapat', style: _pjs(size: 14, weight: FontWeight.w700, color: _t2)),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -778,7 +804,7 @@ class _DecisionCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(_cardRadius),
         gradient: const LinearGradient(
@@ -794,168 +820,149 @@ class _DecisionCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            right: -30,
-            top: -30,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [_tanCard.withOpacity(0.28), Colors.transparent]),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 365;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                right: -30,
+                top: -30,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [_tanCard.withOpacity(0.28), Colors.transparent]),
+                  ),
+                ),
               ),
-            ),
-          ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 365;
-              final rightWidth = compact ? 116.0 : 132.0;
-              return Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                      decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(14)),
-                      child: Text('SON EKLENEN FİYAT', style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.camelStrong, letterSpacing: 0.9)),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                        decoration: BoxDecoration(color: FRColors.camelOverlay(0.2), borderRadius: BorderRadius.circular(14)),
+                        child: Text('SON EKLENEN FİYAT', style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.camelStrong, letterSpacing: 0.9)),
+                      ),
+                      const Spacer(),
+                      if (hasDrop)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: FRColors.success.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: FRColors.success.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
+                              const SizedBox(width: 3),
+                              Text(
+                                '%${dropPct.toStringAsFixed(0)} Düştü',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _pjs(size: compact ? 11 : 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80)),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: valueText,
+                            style: _pjs(size: compact ? 66 : 76, weight: FontWeight.w500, color: _white, letterSpacing: -2.2).copyWith(fontFamily: 'Georgia'),
+                          ),
+                          TextSpan(
+                            text: '₺',
+                            style: _pjs(size: compact ? 44 : 48, weight: FontWeight.w500, color: _white).copyWith(fontFamily: 'Georgia'),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: RichText(
-                        text: TextSpan(
+                  ),
+                  const SizedBox(height: 14),
+                  Container(height: 1, width: double.infinity, color: _white.withOpacity(0.14)),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
                           children: [
-                            TextSpan(
-                              text: valueText,
-                              style: _pjs(size: compact ? 66 : 76, weight: FontWeight.w500, color: _white, letterSpacing: -2.2).copyWith(fontFamily: 'Georgia'),
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: _tanCard.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                product.bestPrice.store.isEmpty ? 'M' : product.bestPrice.store[0].toUpperCase(),
+                                style: _pjs(size: 18, weight: FontWeight.w900, color: _white),
+                              ),
                             ),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.top,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 5, top: 10),
-                                child: Text(
-                                  '₺',
-                                  style: _pjs(size: compact ? 36 : 42, weight: FontWeight.w500, color: _white).copyWith(fontFamily: 'Georgia'),
-                                ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                marketLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _pjs(size: compact ? 15 : 17, weight: FontWeight.w800, color: _white),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(height: 1, color: _white.withOpacity(0.12)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: _tanCard.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            product.bestPrice.store.isEmpty ? 'M' : product.bestPrice.store[0].toUpperCase(),
-                            style: _pjs(size: 18, weight: FontWeight.w900, color: _white),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            marketLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _pjs(size: compact ? 15 : 17, weight: FontWeight.w800, color: _white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: rightWidth,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (hasDrop)
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: FRColors.success.withOpacity(0.16),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: FRColors.success.withOpacity(0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: Color(0xFF4ADE80)),
-                                const SizedBox(width: 3),
-                                Flexible(
-                                  child: Text(
-                                    '%${dropPct.toStringAsFixed(0)} Düştü',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: _pjs(size: compact ? 11 : 12, weight: FontWeight.w800, color: const Color(0xFF4ADE80)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        SizedBox(height: compact ? 16 : 20),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                      const SizedBox(width: 10),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      product.bestPrice.userName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: _pjs(size: compact ? 11 : 12, weight: FontWeight.w700, color: _white),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      product.bestPrice.createdAtLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: _pjs(size: 11, color: _white.withOpacity(0.6)),
-                                    ),
-                                  ],
-                                ),
+                              Text(
+                                product.bestPrice.userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _pjs(size: compact ? 12 : 13, weight: FontWeight.w700, color: _white),
                               ),
-                              const SizedBox(width: 8),
-                              _UserAvatar(
-                                imageUrl: null,
-                                fallbackText: product.bestPrice.userName,
-                                size: compact ? 28 : 30,
-                                radius: 15,
+                              const SizedBox(height: 2),
+                              Text(
+                                product.bestPrice.createdAtLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _pjs(size: 11, color: _white.withOpacity(0.65)),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 8),
+                          _UserAvatar(
+                            imageUrl: null,
+                            fallbackText: product.bestPrice.userName,
+                            size: compact ? 30 : 32,
+                            radius: 16,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
-              );
-            },
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1191,10 +1198,10 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
                     child: Row(
                       children: [
                         SizedBox(
-                          width: 74,
+                          width: 70,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: _axisValues(source).map(_priceAxisLabel).toList(),
                           ),
                         ),
@@ -1265,7 +1272,11 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _border),
       ),
-      child: Text(_fmtPrice(value), style: _pjs(size: 10, weight: FontWeight.w700, color: _t2)),
+      child: Text(
+        _fmtPrice(value),
+        textAlign: TextAlign.right,
+        style: _pjs(size: 10, weight: FontWeight.w700, color: _t2),
+      ),
     );
   }
 
@@ -1287,22 +1298,29 @@ class _PriceHistorySectionState extends State<_PriceHistorySection> {
   }
 
   List<String> _xAxisTicks(List<PriceHistoryPoint> source) {
-    if (source.isEmpty) return const ['—'];
-    final count = math.min(4, source.length);
-    if (count == 1) return [source.last.dateLabel.isEmpty ? '—' : source.last.dateLabel];
-    final step = (source.length - 1) / (count - 1);
-    final labels = <String>[];
-    for (var i = 0; i < count; i++) {
-      final index = (step * i).round().clamp(0, source.length - 1);
-      final candidate = source[index].dateLabel.isEmpty ? '—' : source[index].dateLabel;
-      if (labels.isEmpty || labels.last != candidate) {
-        labels.add(candidate);
+    if (source.isEmpty) return const [];
+    if (source.length == 1) return [_formatDateLabel(source.last.reportedAt)];
+    final targetCount = math.min(4, source.length);
+    final labels = List<String>.filled(targetCount, '');
+    final used = <String>{};
+    for (var i = 0; i < targetCount; i++) {
+      final ratio = targetCount == 1 ? 0.0 : i / (targetCount - 1);
+      final index = (ratio * (source.length - 1)).round().clamp(0, source.length - 1);
+      final label = _formatDateLabel(source[index].reportedAt);
+      if (!used.contains(label)) {
+        labels[i] = label;
+        used.add(label);
       }
     }
-    while (labels.length < count) {
-      labels.add('—');
+    if (labels.every((e) => e.isEmpty)) {
+      labels[labels.length - 1] = _formatDateLabel(source.last.reportedAt);
     }
     return labels;
+  }
+
+  String _formatDateLabel(DateTime date) {
+    const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    return '${date.day.toString().padLeft(2, '0')} ${monthNames[date.month - 1]}';
   }
 }
 
@@ -1384,7 +1402,8 @@ class _HistoryPainter extends CustomPainter {
     final prefersLeftSide = last.dx > (size.width - w - 8);
     final targetLeft = prefersLeftSide ? (last.dx - w - 10) : (last.dx - (w / 2));
     final clampedLeft = targetLeft.clamp(0.0, math.max(0.0, size.width - w)).toDouble();
-    final top = (last.dy - 24).clamp(0.0, math.max(0.0, size.height - 18)).toDouble();
+    final preferredTop = last.dy - 24;
+    final top = (preferredTop < 0 ? last.dy + 8 : preferredTop).clamp(0.0, math.max(0.0, size.height - 18)).toDouble();
     final rect = RRect.fromRectAndRadius(Rect.fromLTWH(clampedLeft, top, w, 16), const Radius.circular(5));
     canvas.drawRRect(rect, Paint()..color = _dark);
     text.paint(canvas, Offset(clampedLeft + (w - text.width) / 2, top + 2));
