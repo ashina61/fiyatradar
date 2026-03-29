@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 
 import '../models/comment_model.dart';
@@ -10,19 +9,6 @@ import '../models/product_detail_api_model.dart';
 import '../models/product_model.dart';
 import '../utils/elite_level_engine.dart';
 import 'firestore_service.dart';
-
-class StoreNavigationPayload {
-  const StoreNavigationPayload({
-    this.coordinates,
-    this.mapsUrl,
-    this.address,
-  });
-
-  final LatLng? coordinates;
-  final String? mapsUrl;
-  final String? address;
-}
-
 
 class _UserProfileLite {
   const _UserProfileLite({
@@ -76,8 +62,6 @@ class ProductDetailApiService {
       _firestore.collection('priceReports');
   CollectionReference<Map<String, dynamic>> get _commentsRef =>
       _firestore.collection('comments');
-  CollectionReference<Map<String, dynamic>> get _storesRef =>
-      _firestore.collection('stores');
 
   static const int _initialPricesLimit = 120;
   static const int _initialCommentsLimit = 40;
@@ -401,6 +385,7 @@ class ProductDetailApiService {
                   : (price.storeName ?? 'Market').trim(),
               storeLocation: (price.storeLocation ?? '').trim(),
               storeUrl: (price.storeLocation ?? '').trim(),
+              userNote: price.userNote?.trim(),
               price: price.price,
               timeAgo: _formatTimeAgo(price.reportedAt),
               userName: (price.userName ?? 'Kullanıcı').trim().isEmpty
@@ -409,7 +394,7 @@ class ProductDetailApiService {
               userId: (price.createdByUid ?? price.userId).trim(),
               upVotes: price.upVotes,
               downVotes: price.downVotes,
-              isOnline: (price.storeLocation ?? '').toLowerCase().contains('online'),
+              isOnline: price.priceSourceType == 'online_store',
             ))
         .toList(growable: false);
   }
@@ -435,87 +420,6 @@ class ProductDetailApiService {
               downVotes: price.downVotes,
             ))
         .toList(growable: false);
-  }
-
-
-  Future<LatLng?> resolveStoreCoordinates(BestPrice bestPrice) async {
-    final payload = await resolveStoreNavigation(bestPrice);
-    return payload?.coordinates;
-  }
-
-  Future<StoreNavigationPayload?> resolveStoreNavigation(BestPrice bestPrice) async {
-    final direct = _parseCoordinatesFromText(bestPrice.storeLocation);
-    if (direct != null) {
-      return StoreNavigationPayload(
-        coordinates: direct,
-        mapsUrl: bestPrice.storeUrl,
-        address: bestPrice.storeLocation,
-      );
-    }
-
-    String? mapsUrl = bestPrice.storeUrl.trim().isEmpty ? null : bestPrice.storeUrl.trim();
-    String? address = bestPrice.storeLocation.trim().isEmpty ? null : bestPrice.storeLocation.trim();
-    LatLng? coordinates;
-
-    if (bestPrice.storeId.isNotEmpty) {
-      final storeDoc = await _storesRef.doc(bestPrice.storeId).get();
-      if (storeDoc.exists) {
-        final data = storeDoc.data() ?? const <String, dynamic>{};
-        coordinates = _parseCoordinatesFromDynamic(data);
-        mapsUrl ??= _readFirstNonEmptyString(data, const [
-          'mapsUrl',
-          'mapUrl',
-          'googleMapsUrl',
-          'locationUrl',
-        ]);
-        address ??= _readFirstNonEmptyString(data, const ['address', 'fullAddress']);
-      }
-    }
-
-    if (coordinates == null && mapsUrl == null && address == null) {
-      return null;
-    }
-
-    return StoreNavigationPayload(
-      coordinates: coordinates,
-      mapsUrl: mapsUrl,
-      address: address,
-    );
-  }
-
-  LatLng? _parseCoordinatesFromDynamic(Map<String, dynamic> data) {
-    final lat = _toDouble(data['lat'] ?? data['latitude']);
-    final lng = _toDouble(data['lng'] ?? data['longitude'] ?? data['lon']);
-    if (lat != null && lng != null) return LatLng(lat, lng);
-
-    final geo = data['geoPoint'] ?? data['location'] ?? data['coordinates'] ?? data['geo'];
-    if (geo is GeoPoint) return LatLng(geo.latitude, geo.longitude);
-    if (geo is Map) {
-      final map = Map<String, dynamic>.from(geo);
-      final mapLat = _toDouble(map['lat'] ?? map['latitude']);
-      final mapLng = _toDouble(map['lng'] ?? map['longitude'] ?? map['lon']);
-      if (mapLat != null && mapLng != null) return LatLng(mapLat, mapLng);
-    }
-    if (geo is String) return _parseCoordinatesFromText(geo);
-    return null;
-  }
-
-  LatLng? _parseCoordinatesFromText(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty) return null;
-    final matches = RegExp(r'-?\d+(?:[\.,]\d+)?').allMatches(text).map((m) => m.group(0) ?? '').toList();
-    if (matches.length < 2) return null;
-    final lat = _toDouble(matches[0]);
-    final lng = _toDouble(matches[1]);
-    if (lat == null || lng == null) return null;
-    return LatLng(lat, lng);
-  }
-
-  double? _toDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value.replaceAll(',', '.').trim());
-    return null;
   }
 
   String? _readFirstNonEmptyString(Map<String, dynamic> data, List<String> keys) {

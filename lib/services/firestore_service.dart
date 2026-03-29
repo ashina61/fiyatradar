@@ -973,9 +973,14 @@ class FirestoreService {
     final productDoc = await _productsRef.doc(price.productId).get();
     final productRaw = productDoc.data();
     final productData = productRaw is Map<String, dynamic> ? Map<String, dynamic>.from(productRaw) : null;
+    final canonicalStoreId = (price.chainId ?? price.selectedStoreId ?? price.branchStoreId).trim();
+    if (canonicalStoreId.isEmpty) {
+      throw Exception('storeId zorunludur.');
+    }
+
     final dedupeKey = _buildPriceDedupeKey(
       productId: price.productId,
-      branchStoreId: price.branchStoreId,
+      branchStoreId: canonicalStoreId,
       price: price.price,
       reportedAt: price.reportedAt,
     );
@@ -1002,6 +1007,8 @@ class FirestoreService {
           .copyWith(
             id: priceRef.id,
             dedupeKey: dedupeKey,
+            branchStoreId: canonicalStoreId,
+            selectedStoreId: canonicalStoreId,
             userId: reporterUid,
             createdByUid: reporterUid,
             reporterUid: reporterUid,
@@ -1015,7 +1022,7 @@ class FirestoreService {
       payload['productName'] =
           ((price.productName ?? '').trim().isNotEmpty ? price.productName!.trim() : (productData?['name'] ?? ''));
       payload['categoryId'] = (price.selectedCategoryId ?? '').trim();
-      payload['storeId'] = price.branchStoreId;
+      payload['storeId'] = canonicalStoreId;
       payload['storeName'] = (price.storeName ?? '').trim();
       payload['price'] = price.price;
       payload['reporterUid'] = reporterUid;
@@ -1028,8 +1035,8 @@ class FirestoreService {
       payload['isPending'] = price.isPending;
       payload['verificationStatus'] = 'unverified';
       payload['dedupeKey'] = dedupeKey;
-      payload['branchStoreId'] = price.branchStoreId;
-      payload['branchId'] = price.branchStoreId;
+      payload['branchStoreId'] = canonicalStoreId;
+      payload['branchId'] = canonicalStoreId;
       payload['userId'] = reporterUid;
       payload['userName'] = reporterName;
 
@@ -1037,7 +1044,7 @@ class FirestoreService {
       txn.set(productMirrorRef, payload);
       txn.set(dedupeRef, {
         'productId': price.productId,
-        'branchStoreId': price.branchStoreId,
+        'branchStoreId': canonicalStoreId,
         'price': price.price,
         'day': dayKey,
         'createdByUid': reporterUid,
@@ -1102,8 +1109,8 @@ class FirestoreService {
         eventType: 'price_add',
         meta: {
           'productId': price.productId,
-          'storeId': price.chainId,
-          'branchId': price.branchStoreId,
+          'storeId': canonicalStoreId,
+          'branchId': canonicalStoreId,
           'priceEntryId': priceRef.id,
         },
       );

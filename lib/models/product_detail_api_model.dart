@@ -63,6 +63,7 @@ class MarketPriceEntry {
     required this.storeName,
     required this.storeLocation,
     required this.storeUrl,
+    this.userNote,
     required this.price,
     required this.timeAgo,
     required this.userName,
@@ -77,6 +78,7 @@ class MarketPriceEntry {
   final String storeName;
   final String storeLocation;
   final String storeUrl;
+  final String? userNote;
   final double price;
   final String timeAgo;
   final String userName;
@@ -92,6 +94,7 @@ class MarketPriceEntry {
       storeName: (json['storeName'] ?? '').toString(),
       storeLocation: (json['storeLocation'] ?? '').toString(),
       storeUrl: (json['storeUrl'] ?? '').toString(),
+      userNote: json['userNote'] as String?,
       price: (json['price'] as num?)?.toDouble() ?? 0,
       timeAgo: (json['timeAgo'] ?? '').toString(),
       userName: (json['userName'] ?? '').toString(),

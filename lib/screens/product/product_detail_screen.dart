@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/price_model.dart';
 import '../../models/product_detail_api_model.dart';
@@ -14,7 +13,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../services/firestore_service.dart';
-import '../../services/product_detail_api_service.dart';
 import '../../services/product_engagement_service.dart';
 import '../../widgets/app_network_image.dart';
 import '../../theme/fr_colors.dart';
@@ -84,40 +82,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     _commentController.dispose();
     _targetPriceController.dispose();
     super.dispose();
-  }
-
-  Future<void> _openMap(BestPrice bestPrice) async {
-    final api = ref.read(productDetailApiServiceProvider);
-
-    try {
-      final nav = await api.resolveStoreNavigation(bestPrice);
-      Uri targetUri;
-
-      if (nav?.coordinates != null) {
-        final lat = nav!.coordinates!.latitude;
-        final lng = nav.coordinates!.longitude;
-        targetUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-      } else if ((nav?.mapsUrl ?? '').trim().isNotEmpty) {
-        targetUri = Uri.parse(nav!.mapsUrl!.trim());
-      } else {
-        final query = (nav?.address ?? '').trim().isNotEmpty
-            ? nav!.address!.trim()
-            : '${bestPrice.store} ${bestPrice.storeLocation}'.trim();
-        targetUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
-      }
-
-      final launched = await launchUrl(targetUri, mode: LaunchMode.externalApplication);
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Harita açılamadı. Lütfen tekrar dene.')),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harita açılırken bir hata oluştu.')),
-      );
-    }
   }
 
   Future<void> _toggleFavorite(ProductDetailResponse product) async {
@@ -487,26 +451,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  BestPrice _toBestPrice(MarketPriceEntry entry) {
-    return BestPrice(
-      id: entry.priceId,
-      userId: entry.userId,
-      price: entry.price,
-      store: entry.storeName,
-      userName: entry.userName,
-      userTier: '',
-      createdAtLabel: entry.timeAgo,
-      storeUrl: entry.storeUrl,
-      storeId: entry.storeId,
-      storeLocation: entry.storeLocation,
-      upVotes: entry.upVotes,
-      downVotes: entry.downVotes,
-      userTrustScore: 0,
-      addedByVerifiedBadge: false,
-      createdByVerifiedSnapshot: false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productDetailProvider(widget.productId));
@@ -552,10 +496,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       onVerifyWrong: () => _vote(notifier: notifier, product: product, isApproved: false),
       onHistoryTap: () => _openHistorySheet(product, notifier),
       onChartDaysChanged: (days) => setState(() => _chartDays = days),
-      onMarketMapTap: (entry) => _openMap(_toBestPrice(entry)),
       onCommentSend: () => _submitComment(notifier),
       onAlertTap: () => _openAlertSheet(product),
-      onMapTap: () => _openMap(product.bestPrice),
     );
   }
 }
@@ -576,10 +518,8 @@ class _ProductDetailBody extends StatelessWidget {
     required this.onVerifyWrong,
     required this.onHistoryTap,
     required this.onChartDaysChanged,
-    required this.onMarketMapTap,
     required this.onCommentSend,
     required this.onAlertTap,
-    required this.onMapTap,
   });
 
   final ProductDetailResponse product;
@@ -596,10 +536,8 @@ class _ProductDetailBody extends StatelessWidget {
   final VoidCallback onVerifyWrong;
   final VoidCallback onHistoryTap;
   final ValueChanged<int> onChartDaysChanged;
-  final ValueChanged<MarketPriceEntry> onMarketMapTap;
   final VoidCallback onCommentSend;
   final VoidCallback onAlertTap;
-  final VoidCallback onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -684,7 +622,6 @@ class _ProductDetailBody extends StatelessWidget {
                   const SizedBox(height: 12),
                   _MarketListCard(
                     product: product,
-                    onMapTap: onMarketMapTap,
                   ),
                   const SizedBox(height: 12),
                   _CommentsCard(
@@ -703,7 +640,6 @@ class _ProductDetailBody extends StatelessWidget {
           ? null
           : _BottomActions(
               onAlertTap: onAlertTap,
-              onMapTap: onMapTap,
             ),
     );
   }
@@ -855,9 +791,7 @@ class _LastPriceHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = product.stats.highest <= 0 ? product.bestPrice.price : product.stats.highest;
     final drop = base <= 0 ? 0 : (((base - product.bestPrice.price) / base) * 100).round();
-    final market = product.bestPrice.storeLocation.trim().isEmpty
-        ? product.bestPrice.store
-        : '${product.bestPrice.store} (${product.bestPrice.storeLocation})';
+    final market = product.bestPrice.store;
 
     return Container(
       padding: FRSpaceInsets.all(20),
@@ -1338,10 +1272,9 @@ class _PriceChart extends StatelessWidget {
 }
 
 class _MarketListCard extends StatelessWidget {
-  const _MarketListCard({required this.product, required this.onMapTap});
+  const _MarketListCard({required this.product});
 
   final ProductDetailResponse product;
-  final ValueChanged<MarketPriceEntry> onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1374,7 +1307,6 @@ class _MarketListCard extends StatelessWidget {
                   entry: market,
                   isBest: isBest,
                   diff: diff,
-                  onMapTap: () => onMapTap(market),
                 ),
               );
             }),
@@ -1389,13 +1321,11 @@ class _MarketItem extends StatelessWidget {
     required this.entry,
     required this.isBest,
     required this.diff,
-    required this.onMapTap,
   });
 
   final MarketPriceEntry entry;
   final bool isBest;
   final double diff;
-  final VoidCallback onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1453,9 +1383,7 @@ class _MarketItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      entry.isOnline
-                          ? 'Online mağaza'
-                          : (entry.storeLocation.trim().isEmpty ? 'Konum bilgisi yok' : entry.storeLocation),
+                      entry.userNote?.trim().isNotEmpty == true ? entry.userNote!.trim() : (entry.isOnline ? 'Online mağaza' : 'Fiziksel market'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _t(s: 11, w: FontWeight.w600, c: FRColors.textSubtle),
@@ -1487,22 +1415,6 @@ class _MarketItem extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onMapTap,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: FRColors.border),
-                    shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.pill)),
-                  ),
-                  icon: const Icon(Icons.map_outlined, size: 15, color: FRColors.tan),
-                  label: Text('Yol Tarifi', style: _t(s: 11, w: FontWeight.w700, c: FRColors.textMuted)),
-                ),
               ),
             ],
           ),
@@ -1658,10 +1570,9 @@ class _CommentTile extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.onAlertTap, required this.onMapTap});
+  const _BottomActions({required this.onAlertTap});
 
   final VoidCallback onAlertTap;
-  final VoidCallback onMapTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1699,20 +1610,6 @@ class _BottomActions extends StatelessWidget {
                   side: const BorderSide(color: FRColors.border),
                   shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: onMapTap,
-                icon: const Icon(Icons.location_on_rounded, size: 16, color: FRColors.tan),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FRColors.espresso,
-                  shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
-                  elevation: 0,
-                ),
-                label: Text('Markete Git', style: _t(s: 13, w: FontWeight.w800, c: FRColors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],

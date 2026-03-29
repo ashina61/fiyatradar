@@ -13,7 +13,6 @@ import 'package:intl/intl.dart';
 import '../../models/category_model.dart';
 import '../../models/product_model.dart';
 import '../../models/store.dart';
-import '../../models/store_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../theme/fr_colors.dart';
@@ -74,6 +73,7 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   final _productController = TextEditingController();
   final _priceController = TextEditingController();
+  final _storeNoteController = TextEditingController();
   final _productFocus = FocusNode();
   final _priceFocus = FocusNode();
   final _scrollController = ScrollController();
@@ -127,6 +127,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     _stateListener?.close();
     _productController.dispose();
     _priceController.dispose();
+    _storeNoteController.dispose();
     _productFocus.dispose();
     _priceFocus.dispose();
     _scrollController.dispose();
@@ -160,6 +161,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       _priceController.value = TextEditingValue(
         text: state.price,
         selection: TextSelection.collapsed(offset: state.price.length),
+      );
+    }
+    if (_storeNoteController.text != state.storeNote) {
+      _storeNoteController.value = TextEditingValue(
+        text: state.storeNote,
+        selection: TextSelection.collapsed(offset: state.storeNote.length),
       );
     }
   }
@@ -530,15 +537,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             onTap: () => notifier.setActiveTab(1),
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _StoreModeButton(
-                            icon: Icons.storefront_outlined,
-                            text: 'Mahalle Pazarı',
-                            on: state.activeTab == 2,
-                            onTap: () => notifier.setActiveTab(2),
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -580,7 +578,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                   store: store,
                                   selected: selected,
                                   showDivider: idx != state.visibleStores.length - 1,
-                                  showNearestBadge: state.activeTab == 0 && idx == 0,
+                                  showNearestBadge: false,
                                   onTap: () {
                                     notifier.setSelectedStore(store);
                                     Future.delayed(const Duration(milliseconds: 320), () {
@@ -686,6 +684,19 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       const SizedBox(width: 6),
                       Text('Dokunarak fiyatı gir', style: _pjs(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle)),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _storeNoteController,
+                  maxLength: 80,
+                  onChanged: notifier.setStoreNote,
+                  decoration: InputDecoration(
+                    hintText: 'Opsiyonel not: Örn. Taşdelen tarafında gördüm',
+                    hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.textSubtle),
+                    border: InputBorder.none,
+                    isDense: true,
+                    counterText: '',
                   ),
                 ),
               ],
@@ -1086,10 +1097,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   String _storeSubtitle(Store store) {
-    if (store.distanceMeters != null) {
-      return '${store.distanceMeters}m${store.subtitle != null ? ' · ${store.subtitle}' : ''}';
-    }
-    return store.subtitle ?? 'Online';
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
   }
 
   Future<void> _scanBarcode() async {
@@ -1498,18 +1506,6 @@ class _StoreRow extends StatelessWidget {
                   Text(store.name, style: _pjs(size: 14, weight: FontWeight.w900)),
                   const SizedBox(height: 1),
                   Text(_subText(store), style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle)),
-                  if (store.isNeighborhoodMarket) ...[
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _badge('Semt Pazarı', FRColors.successSurface, FRColors.success),
-                        if (_isOpenToday(store))
-                          _badge('Bugün Açık', FRColors.goldBg(0.16), FRColors.gold),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -1537,26 +1533,7 @@ class _StoreRow extends StatelessWidget {
   }
 
   String _subText(Store store) {
-    if (store.isNeighborhoodMarket) {
-      return store.subtitle ?? [store.district, store.neighborhood].where((e) => e.trim().isNotEmpty).join(' / ');
-    }
-    if (store.distanceMeters != null) {
-      return '${store.distanceMeters}m${store.subtitle != null ? ' · ${store.subtitle}' : ''}';
-    }
-    return store.subtitle ?? 'Online';
-  }
-
-  bool _isOpenToday(Store store) {
-    final today = StoreModel.todayWeekdayKey();
-    return store.activeDays.contains(today) && store.status == StoreStatus.active;
-  }
-
-  Widget _badge(String text, Color bg, Color fg) {
-    return Container(
-      padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: FRRadius.all(FRRadius.xs)),
-      child: Text(text, style: _pjs(size: 9, weight: FontWeight.w800, color: fg)),
-    );
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
   }
 
   Color _avatarColor(String text) {

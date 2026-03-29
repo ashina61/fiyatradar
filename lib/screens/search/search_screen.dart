@@ -750,12 +750,7 @@ class _LiveRadarSection extends StatelessWidget {
               (entry) {
                 final item = entry.value;
                 final showDivider = entry.key != top.length - 1;
-                final marketLine = item.isNeighborhoodMarket
-                    ? [item.neighborhoodMarketScheduleLabel, item.locationLabel]
-                        .whereType<String>()
-                        .where((e) => e.trim().isNotEmpty)
-                        .join(' • ')
-                    : item.storeName;
+                final marketLine = item.storeName;
                 final subtitle = '$marketLine • ${_timeAgo(item.price.createdAt)}';
                 return _contrib(
                   _avatarFromName(item.product.name),
@@ -1116,12 +1111,7 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
             contentPadding: FRSpaceInsets.horizontalMdVerticalXs,
             title: Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
             subtitle: Text(
-              item.isNeighborhoodMarket
-                  ? [item.neighborhoodMarketScheduleLabel, item.locationLabel]
-                      .whereType<String>()
-                      .where((e) => e.trim().isNotEmpty)
-                      .join(' • ')
-                  : item.storeName,
+              item.storeName,
               style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle),
             ),
             trailing: Text('${item.displayPrice.toStringAsFixed(2)}₺', style: _serif(size: 16)),

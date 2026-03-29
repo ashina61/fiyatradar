@@ -21,10 +21,6 @@ class Store extends StoreModel {
     bool isTemporary = false,
     bool isRecurring = false,
     String? addressText,
-    List<String> activeDays = const [],
-    String? startHour,
-    String? endHour,
-    String? marketKind,
     List<String> searchKeywords = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -36,18 +32,12 @@ class Store extends StoreModel {
           lat: lat,
           lng: lng,
           status: status,
-          type: storeType == 'neighborhood_market'
-              ? StoreType.neighborhoodMarket
-              : (type == 'online' ? StoreType.onlineStore : StoreType.store),
+          type: type == 'online' ? StoreType.onlineStore : StoreType.store,
           storeType: storeType,
           legacyIsOnline: legacyIsOnline,
           isTemporary: isTemporary,
           isRecurring: isRecurring,
           addressText: addressText,
-          activeDays: activeDays,
-          startHour: startHour,
-          endHour: endHour,
-          marketKind: marketKind,
           searchKeywords: searchKeywords,
           createdAt: createdAt ?? DateTime.now(),
           updatedAt: updatedAt,
@@ -58,8 +48,6 @@ class Store extends StoreModel {
   final String? subtitle;
 
   String get typeLabel => isOnline ? 'online' : 'nearby';
-  bool get isNeighborhoodMarket => storeType == 'neighborhood_market';
-
   factory Store.fromJson(Map<String, dynamic> json) {
     final model = StoreModel.fromMap(json);
     return Store.fromModel(
@@ -96,10 +84,6 @@ class Store extends StoreModel {
       isTemporary: model.isTemporary,
       isRecurring: model.isRecurring,
       addressText: model.addressText,
-      activeDays: model.activeDays,
-      startHour: model.startHour,
-      endHour: model.endHour,
-      marketKind: model.marketKind,
       searchKeywords: model.searchKeywords,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,

@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../models/category_model.dart';
 import '../models/price_model.dart';
@@ -11,7 +9,6 @@ import '../models/product_model.dart';
 import '../models/store.dart';
 import '../models/store_model.dart';
 import '../services/firestore_service.dart';
-import '../services/location_service.dart';
 import 'price_provider.dart';
 import 'service_providers.dart';
 
@@ -31,12 +28,12 @@ class AddPriceState {
     this.selectedStore,
     this.selectedStoreId,
     this.selectedStoreName,
+    this.storeNote = '',
     this.categories = const [],
     this.nearbyStores = const [],
     this.onlineStores = const [],
     this.isStoresLoading = false,
     this.storesError,
-    this.locationMessage,
     this.isLoading = false,
     this.error,
   });
@@ -55,12 +52,12 @@ class AddPriceState {
   final Store? selectedStore;
   final String? selectedStoreId;
   final String? selectedStoreName;
+  final String storeNote;
   final List<CategoryModel> categories;
   final List<Store> nearbyStores;
   final List<Store> onlineStores;
   final bool isStoresLoading;
   final String? storesError;
-  final String? locationMessage;
   final bool isLoading;
   final String? error;
 
@@ -83,13 +80,13 @@ class AddPriceState {
     bool clearSelectedStore = false,
     String? selectedStoreId,
     String? selectedStoreName,
+    String? storeNote,
     List<CategoryModel>? categories,
     List<Store>? nearbyStores,
     List<Store>? onlineStores,
     bool? isStoresLoading,
     String? storesError,
     bool clearStoresError = false,
-    String? locationMessage,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -119,26 +116,21 @@ class AddPriceState {
       selectedStoreName: clearSelectedStore
           ? null
           : (selectedStoreName ?? this.selectedStoreName),
+      storeNote: storeNote ?? this.storeNote,
       categories: categories ?? this.categories,
       nearbyStores: nearbyStores ?? this.nearbyStores,
       onlineStores: onlineStores ?? this.onlineStores,
       isStoresLoading: isStoresLoading ?? this.isStoresLoading,
       storesError: clearStoresError ? null : (storesError ?? this.storesError),
-      locationMessage: locationMessage ?? this.locationMessage,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
     );
   }
 
   bool get isNearbyMode => activeTab == 0;
-  bool get isNeighborhoodMode => activeTab == 2;
 
   List<Store> get visibleStores {
-    final source = isNearbyMode
-        ? nearbyStores
-        : isNeighborhoodMode
-        ? nearbyStores.where((store) => store.isNeighborhoodMarket).toList(growable: false)
-        : onlineStores;
+    final source = isNearbyMode ? nearbyStores : onlineStores;
     final q = searchQuery.trim().toLowerCase();
     final filtered = searchQuery.trim().isEmpty
         ? source
@@ -152,24 +144,8 @@ class AddPriceState {
             )
             .toList(growable: false);
 
-    final ordered = List<Store>.of(filtered);
-    if (isNearbyMode) {
-      ordered.sort((a, b) {
-        final today = StoreModel.todayWeekdayKey();
-        final aTodayOpen = a.isNeighborhoodMarket && a.activeDays.contains(today);
-        final bTodayOpen = b.isNeighborhoodMarket && b.activeDays.contains(today);
-        if (aTodayOpen != bTodayOpen) return aTodayOpen ? -1 : 1;
-
-        final ad = a.distanceMeters;
-        final bd = b.distanceMeters;
-        if (ad != null && bd != null) return ad.compareTo(bd);
-        if (ad != null) return -1;
-        if (bd != null) return 1;
-        return 0;
-      });
-    } else {
-      ordered.sort((a, b) => a.name.compareTo(b.name));
-    }
+    final ordered = List<Store>.of(filtered)
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     return ordered.take(5).toList(growable: false);
   }
@@ -178,21 +154,18 @@ class AddPriceState {
 final addPriceProvider = StateNotifierProvider<AddPriceNotifier, AddPriceState>((ref) {
   return AddPriceNotifier(
     ref.read(firestoreServiceProvider),
-    ref.read(locationServiceProvider),
   );
 });
 
 class AddPriceNotifier extends StateNotifier<AddPriceState> {
-  AddPriceNotifier(this._firestore, this._locationService)
+  AddPriceNotifier(this._firestore)
       : super(const AddPriceState()) {
     loadStoresAndCategories();
   }
 
   final FirestoreService _firestore;
-  final LocationService _locationService;
 
   Timer? _productSearchDebounce;
-  LocationData? _cachedLocationData;
 
   @override
   void dispose() {
@@ -204,25 +177,18 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     state = state.copyWith(
       isStoresLoading: true,
       clearStoresError: true,
-      locationMessage: null,
     );
     try {
       final categories = await _firestore.getCategories().first;
       final stores = await _firestore.getAllStoresStream().first;
-      _cachedLocationData ??= await _locationService.getLocationData();
-      final userPosition = _cachedLocationData?.position;
-
-      final locationMessage = userPosition == null
-          ? 'Konum izni olmadan mesafe hesaplanamiyor.'
-          : null;
 
       final nearby = stores
           .where((s) => s.status == StoreStatus.active && !s.isOnline)
-          .map((store) => _mapStore(store, userPosition))
+          .map(_mapStore)
           .toList(growable: false);
       final online = stores
           .where((s) => s.status == StoreStatus.active && s.isOnline)
-          .map((store) => _mapStore(store, userPosition))
+          .map(_mapStore)
           .toList(growable: false);
 
       state = state.copyWith(
@@ -230,7 +196,6 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         nearbyStores: nearby,
         onlineStores: online,
         isStoresLoading: false,
-        locationMessage: locationMessage,
         clearStoresError: true,
       );
     } catch (e) {
@@ -243,26 +208,13 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
     }
   }
 
-  Store _mapStore(StoreModel model, Position? userPosition) {
-    final hasCoordinates = model.lat != 0 && model.lng != 0;
-    final lat = hasCoordinates ? model.lat : null;
-    final lng = hasCoordinates ? model.lng : null;
-
-    final distanceMeters = lat != null && lng != null && userPosition != null
-        ? _haversineMeters(
-            userPosition.latitude,
-            userPosition.longitude,
-            lat,
-            lng,
-          ).round()
-        : null;
-
+  Store _mapStore(StoreModel model) {
     return Store(
       id: model.id,
       name: model.displayName,
       type: model.isOnline ? 'online' : 'nearby',
       storeType: model.storeType,
-      distanceMeters: distanceMeters,
+      distanceMeters: null,
       logoUrl: model.displayName.isNotEmpty ? model.displayName[0].toUpperCase() : '?',
       subtitle: _buildStoreSubtitle(model),
       city: model.city,
@@ -276,10 +228,6 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
       isTemporary: model.isTemporary,
       isRecurring: model.isRecurring,
       addressText: model.addressText,
-      activeDays: model.activeDays,
-      startHour: model.startHour,
-      endHour: model.endHour,
-      marketKind: model.marketKind,
       searchKeywords: model.searchKeywords,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
@@ -287,60 +235,12 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
   }
 
   String? _buildStoreSubtitle(StoreModel model) {
-    if (model.isNeighborhoodMarket) {
-      final day = model.activeDays.isNotEmpty ? _weekdayTr(model.activeDays.first) : 'Semt Pazarı';
-      final schedule = (model.startHour != null && model.endHour != null) ? '$day • ${model.startHour}–${model.endHour}' : day;
-      final location = [model.district, model.neighborhood].where((e) => e.trim().isNotEmpty).join(' / ');
-      if (location.isEmpty) return schedule;
-      return '$schedule • $location';
-    }
-    final loc = [model.district, model.city].where((e) => e.trim().isNotEmpty).join(', ');
-    return loc.trim().isEmpty ? null : loc;
+    return model.isOnline ? 'Online' : 'Fiziksel Market';
   }
-
-  String _weekdayTr(String key) {
-    switch (key) {
-      case 'monday':
-        return 'Pazartesi';
-      case 'tuesday':
-        return 'Salı';
-      case 'wednesday':
-        return 'Çarşamba';
-      case 'thursday':
-        return 'Perşembe';
-      case 'friday':
-        return 'Cuma';
-      case 'saturday':
-        return 'Cumartesi';
-      case 'sunday':
-        return 'Pazar';
-      default:
-        return key;
-    }
-  }
-
-  double _haversineMeters(
-    double startLatitude,
-    double startLongitude,
-    double endLatitude,
-    double endLongitude,
-  ) {
-    const earthRadius = 6371000.0;
-    final dLat = _degToRad(endLatitude - startLatitude);
-    final dLng = _degToRad(endLongitude - startLongitude);
-    final a =
-        (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-        math.cos(_degToRad(startLatitude)) *
-            math.cos(_degToRad(endLatitude)) *
-            (math.sin(dLng / 2) * math.sin(dLng / 2));
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _degToRad(double deg) => deg * (math.pi / 180);
 
   void setPrice(String value) => state = state.copyWith(price: value);
   void setSearchQuery(String value) => state = state.copyWith(searchQuery: value);
+  void setStoreNote(String value) => state = state.copyWith(storeNote: value);
   void setActiveTab(int value) =>
       state = state.copyWith(activeTab: value, clearSelectedStore: true);
 
@@ -515,13 +415,16 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         selectedProductId: product.id,
         selectedCategoryId: state.selectedCategoryId,
         selectedStoreId: state.selectedStoreId,
+        storeLocation: null,
+        userNote: state.storeNote.trim().isEmpty ? null : state.storeNote.trim(),
         barcode: state.barcode,
         userId: userId,
         userName: fallbackReporterName,
         createdByUid: userId,
         price: parsedPrice,
         branchStoreId: state.selectedStoreId!,
-        chainId: null,
+        priceSourceType: state.selectedStore?.isOnline == true ? 'online_store' : 'store',
+        chainId: state.selectedStoreId,
         storeName: state.selectedStoreName,
         reportedAt: DateTime.now(),
         isPending: true,
@@ -539,6 +442,7 @@ class AddPriceNotifier extends StateNotifier<AddPriceState> {
         price: '',
         productName: '',
         searchQuery: '',
+        storeNote: '',
         clearCategory: true,
         clearSelectedStore: true,
         clearBarcode: true,
