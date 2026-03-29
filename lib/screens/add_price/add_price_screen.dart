@@ -567,7 +567,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.08), blurRadius: 18, offset: const Offset(0, 2))],
                       ),
                       child: state.isStoresLoading
-                          ? const Padding(
+                          ? Padding(
                               padding: FRSpaceInsets.symmetric(vertical: 26),
                               child: Center(child: CircularProgressIndicator(color: FRColors.camel)),
                             )
@@ -902,7 +902,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       decoration: BoxDecoration(
         color: FRColors.surface,
         borderRadius: FRRadius.all(FRRadius.xl),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: FRColors.espressoOverlay(0.06),
             blurRadius: 16,
@@ -922,7 +922,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Padding(
+            return Padding(
               padding: FRSpaceInsets.symmetric(vertical: 28),
               child: Center(
                 child: CircularProgressIndicator(color: FRColors.camel),

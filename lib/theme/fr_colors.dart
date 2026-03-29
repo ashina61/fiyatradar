@@ -19,6 +19,7 @@ class FRColors {
   static const Color studio = Color(0xFFEBE5DF);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceSoft = Color(0xFFFAFAFA);
+  static const Color surfaceAlt = surfaceSoft;
   static const Color background = Color(0xFFF5F3F0);
   static const Color backgroundWarm = Color(0xFFEFECE6);
   static const Color bgApp = backgroundWarm;

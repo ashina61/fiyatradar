@@ -36,6 +36,7 @@ class FRRadius {
   static const BorderRadius xxlTightRadius = BorderRadius.all(Radius.circular(xxlTight));
   static const BorderRadius xxlRadius = BorderRadius.all(Radius.circular(xxl));
   static const BorderRadius xxxlRadius = BorderRadius.all(Radius.circular(xxxl));
+  static const BorderRadius heroRadius = BorderRadius.all(Radius.circular(hero));
   static const BorderRadius pillRadius = BorderRadius.all(Radius.circular(pill));
 
   static BorderRadius all(double radius) => BorderRadius.all(Radius.circular(radius));
