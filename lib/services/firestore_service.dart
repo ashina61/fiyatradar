@@ -1744,7 +1744,7 @@ class FirestoreService {
 
   Future<int> getAdminUserCountAggregate() async {
     final snapshot = await _usersRef.count().get();
-    return snapshot.count;
+    return snapshot.count ?? 0;
   }
 
   Future<AdminUserStatsSnapshot> getAdminUserStatsSnapshot() async {
@@ -1752,7 +1752,7 @@ class FirestoreService {
     final totalPriceEntriesFuture = _pricesRef.count().get();
 
     final userCount = await userCountFuture;
-    final totalPriceEntries = (await totalPriceEntriesFuture).count;
+    final totalPriceEntries = (await totalPriceEntriesFuture).count ?? 0;
     return AdminUserStatsSnapshot(
       userCount: userCount,
       totalPriceEntries: totalPriceEntries,

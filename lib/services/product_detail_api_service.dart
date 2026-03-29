@@ -237,7 +237,7 @@ class ProductDetailApiService {
         '[ProductDetailApiService.fetchPriceSnapshot] Firestore aggregate => collection=priceReports, where=[productId == $productId, status == active], aggregate=[count]',
       );
       final countSnapshot = await activePricesQuery.count().get();
-      totalActivePriceCount = countSnapshot.count;
+      totalActivePriceCount = countSnapshot.count ?? 0;
     } catch (e, st) {
       _log(
         '[ProductDetailApiService.fetchPriceSnapshot] aggregate count failed, fallback to limited snapshot length: $e',
