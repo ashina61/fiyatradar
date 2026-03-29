@@ -2,42 +2,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../theme/fr_foundation.dart';
 import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../product/product_detail_screen.dart';
 
-const _bg = Color(0xFFEDEAE3);
-const _surface = Color(0xFFFAFAF8);
-const _surface2 = Color(0xFFF5F3F0);
-const _dk = Color(0xFF18100A);
-const _dk2 = Color(0xFF261808);
-const _tc = Color(0xFFBF9470);
-const _t1 = Color(0xFF18100A);
-const _t2 = Color(0xFF5E4A38);
-const _t3 = Color(0xFFA0887A);
-const _line = Color.fromRGBO(24, 16, 10, 0.08);
-const _grn = Color(0xFF27A85A);
-const _red = Color(0xFFE53935);
-
 TextStyle _jakarta({
   double size = 14,
   FontWeight weight = FontWeight.w500,
-  Color color = _t1,
+  Color color = FRColors.textPrimary,
   FontStyle? style,
   double? height,
   double? letterSpacing,
   TextDecoration? decoration,
 }) {
-  return GoogleFonts.plusJakartaSans(
+  return FRTypography.bodyMd.copyWith(
+    fontFamily: FRTypography.fontFamily,
     fontSize: size,
-    fontWeight: weight,
     color: color,
+    fontWeight: weight,
     fontStyle: style,
     height: height,
     letterSpacing: letterSpacing,
@@ -47,13 +35,12 @@ TextStyle _jakarta({
 
 TextStyle _serif({
   double size = 20,
-  Color color = _t1,
+  Color color = FRColors.textPrimary,
   double? height,
   double? letterSpacing,
 }) {
-  return GoogleFonts.dmSerifDisplay(
+  return FRTypography.serifDisplay.copyWith(
     fontSize: size,
-    fontWeight: FontWeight.w400,
     color: color,
     height: height,
     letterSpacing: letterSpacing,
@@ -105,8 +92,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(exploreControllerProvider);
     final allProducts = state.items;
-    final categoryFiltered = _matchesCategory(state.selectedCategory, allProducts);
-    final products = _selectedMarket == 'Tümü' ? categoryFiltered : categoryFiltered.where((e) => _matchesMarket(e.storeName)).toList();
+    final products = _selectedMarket == 'Tümü'
+        ? allProducts
+        : allProducts.where((e) => _matchesMarket(e.storeName)).toList();
     final primaryItem = products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null;
     final fallbackLocation = primaryItem == null
         ? null
@@ -116,11 +104,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final locationLabel = _extractLocationLabel(state.userLocation?.address) ?? fallbackLocation;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFC8C4BC),
+      backgroundColor: FRColors.background,
       body: SafeArea(
         bottom: false,
         child: Container(
-          color: _bg,
+          color: FRColors.backgroundWarm,
           child: Column(
             children: [
               _Header(
@@ -130,9 +118,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 20),
+                  padding: FRSpaceInsets.verticalXl,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: FRSpaceInsets.screenBody,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -159,8 +147,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         const SizedBox(height: 12),
                         if (state.loading)
                           const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Center(child: CircularProgressIndicator(color: _tc)),
+                            padding: FRSpaceInsets.verticalXxl,
+                            child: Center(child: CircularProgressIndicator(color: FRColors.tan)),
                           )
                         else if (products.isEmpty)
                           _emptySignals()
@@ -212,28 +200,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  List<ExploreFeedItem> _matchesCategory(String selectedCategory, List<ExploreFeedItem> source) {
-    if (selectedCategory.trim().toLowerCase() == 'tumu' || selectedCategory.trim().toLowerCase() == 'tümü') {
-      return source;
-    }
-    final normalized = selectedCategory.trim().toLowerCase();
-    return source.where((item) {
-      final categories = item.product.categories.map((e) => e.trim().toLowerCase());
-      return categories.contains(normalized);
-    }).toList();
-  }
-
   Widget _emptySignals() {
     return Container(
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _line),
+        color: FRColors.surfaceSoft,
+        borderRadius: FRRadius.xxlRadius,
+        border: Border.all(color: FRColors.border),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: FRSpaceInsets.allLg,
       child: Text(
         'Seçilen filtrede ürün yok.',
-        style: _jakarta(size: 12, weight: FontWeight.w700, color: _t3),
+        style: _jakarta(size: 12, weight: FontWeight.w700, color: FRColors.textSubtle),
       ),
     );
   }
@@ -292,11 +269,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: _dk,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.15), blurRadius: 24, offset: Offset(0, 10))],
+        color: FRColors.espresso,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(FRRadius.xxxl)),
+        boxShadow: [BoxShadow(color: FRColors.shadowMedium, blurRadius: 24, offset: Offset(0, 10))],
       ),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      padding: FRSpaceInsets.header,
       child: Column(
         children: [
           Row(
@@ -304,11 +281,11 @@ class _Header extends StatelessWidget {
               Expanded(child: Text('Keşfet.', style: _serif(size: 32, color: Colors.white, height: 1, letterSpacing: -0.5))),
               Container(
                 constraints: const BoxConstraints(maxWidth: 168),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                padding: FRSpaceInsets.horizontalMdVerticalXs,
                 decoration: BoxDecoration(
-                  color: const Color.fromRGBO(255, 255, 255, 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
+                  color: FRColors.white.withOpacity(0.08),
+                  borderRadius: FRRadius.smPlusRadius,
+                  border: Border.all(color: FRColors.tan.withOpacity(0.2)),
                 ),
                 child: Text(
                   (locationLabel == null || locationLabel!.trim().isEmpty) ? 'Konum bulunamadı' : locationLabel!.trim(),
@@ -332,20 +309,20 @@ class _Header extends StatelessWidget {
                     filled: true,
                     fillColor: Colors.white,
                     hintText: 'Ürün, marka veya barkod ara...',
-                    hintStyle: _jakarta(size: 14, weight: FontWeight.w400, color: _t3, style: FontStyle.italic),
-                    prefixIcon: const Icon(Icons.search, size: 18, color: _t3),
+                    hintStyle: _jakarta(size: 14, weight: FontWeight.w400, color: FRColors.textSubtle, style: FontStyle.italic),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
                     suffixIcon: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: FRSpaceInsets.allSm,
                       child: Container(
-                        decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.qr_code_2_rounded, size: 16, color: _dk),
+                        decoration: BoxDecoration(color: FRColors.backgroundWarm, borderRadius: FRRadius.smPlusRadius),
+                        child: const Icon(Icons.qr_code_2_rounded, size: 16, color: FRColors.espresso),
                       ),
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: FRRadius.lgRadius,
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    contentPadding: FRSpaceInsets.verticalMdPlus,
                   ),
                 ),
               ),
@@ -379,20 +356,20 @@ class _CategoryCapsuleChips extends StatelessWidget {
             onTap: () => onChanged(categories[index]),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: FRSpaceInsets.chip,
               decoration: BoxDecoration(
-                color: isSelected ? _dk : _surface,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: isSelected ? _dk : _line),
+                color: isSelected ? FRColors.espresso : FRColors.surfaceSoft,
+                borderRadius: FRRadius.pillRadius,
+                border: Border.all(color: isSelected ? FRColors.espresso : FRColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: isSelected ? const Color.fromRGBO(24, 16, 10, 0.15) : const Color.fromRGBO(0, 0, 0, 0.02),
+                    color: isSelected ? FRColors.espresso.withOpacity(0.15) : Colors.black.withOpacity(0.02),
                     blurRadius: isSelected ? 14 : 8,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: Text(label, style: _jakarta(size: 12, weight: FontWeight.w800, color: isSelected ? Colors.white : _t2)),
+              child: Text(label, style: _jakarta(size: 12, weight: FontWeight.w800, color: isSelected ? Colors.white : FRColors.textMuted)),
             ),
           );
         },
@@ -412,11 +389,11 @@ class _ActualLinkCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(colors: [_dk, Color(0xFF2A1A0B)]),
-          boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.15), blurRadius: 30, offset: Offset(0, 10))],
+          borderRadius: FRRadius.xxlRadius,
+          gradient: const LinearGradient(colors: [FRColors.espresso, FRColors.espressoSoft]),
+          boxShadow: const [BoxShadow(color: FRColors.shadowMedium, blurRadius: 30, offset: Offset(0, 10))],
         ),
-        padding: const EdgeInsets.all(20),
+        padding: FRSpaceInsets.allXl,
         child: Row(
           children: [
             Expanded(
@@ -425,7 +402,7 @@ class _ActualLinkCard extends StatelessWidget {
                 children: [
                   Text('Aktüel Fırsatlar', style: _serif(size: 22, color: Colors.white, letterSpacing: -0.3)),
                   const SizedBox(height: 4),
-                  Text('BİM, A-101 Canlı Stok Takibi', style: _jakarta(size: 12, color: const Color.fromRGBO(255, 255, 255, 0.6))),
+                  Text('BİM, A-101 Canlı Stok Takibi', style: _jakarta(size: 12, color: FRColors.white.withOpacity(0.6))),
                 ],
               ),
             ),
@@ -433,11 +410,11 @@ class _ActualLinkCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(191, 148, 112, 0.15),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.2)),
+                color: FRColors.tan.withOpacity(0.15),
+                borderRadius: FRRadius.mdPlusRadius,
+                border: Border.all(color: FRColors.tan.withOpacity(0.2)),
               ),
-              child: const Icon(Icons.chevron_right_rounded, size: 20, color: _tc),
+              child: const Icon(Icons.chevron_right_rounded, size: 20, color: FRColors.tan),
             ),
           ],
         ),
@@ -469,14 +446,14 @@ class _FilterChips extends StatelessWidget {
           return GestureDetector(
             onTap: () => onChanged(label),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 16, vertical: compact ? 8 : 10),
+              padding: FRSpaceInsets.symmetric(horizontal: compact ? FRSpacing.mdPlus : FRSpacing.lg, vertical: compact ? FRSpacing.sm : FRSpacing.smPlus),
               decoration: BoxDecoration(
-                color: active ? _dk : _surface,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: active ? _dk : _line),
+                color: active ? FRColors.espresso : FRColors.surfaceSoft,
+                borderRadius: FRRadius.pillRadius,
+                border: Border.all(color: active ? FRColors.espresso : FRColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: active ? const Color.fromRGBO(24, 16, 10, 0.15) : const Color.fromRGBO(0, 0, 0, 0.02),
+                    color: active ? FRColors.espresso.withOpacity(0.15) : Colors.black.withOpacity(0.02),
                     blurRadius: active ? 16 : 10,
                     offset: active ? const Offset(0, 6) : const Offset(0, 4),
                   ),
@@ -491,7 +468,7 @@ class _FilterChips extends StatelessWidget {
                   ],
                   Text(
                     label,
-                    style: _jakarta(size: compact ? 11 : 12, weight: FontWeight.w800, color: active ? Colors.white : _t2),
+                    style: _jakarta(size: compact ? 11 : 12, weight: FontWeight.w800, color: active ? Colors.white : FRColors.textMuted),
                   ),
                 ],
               ),
@@ -534,21 +511,21 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
       onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _line),
-          boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 20, offset: Offset(0, 8))],
+          color: FRColors.surfaceSoft,
+          borderRadius: FRRadius.xxlRadius,
+          border: Border.all(color: FRColors.border),
+          boxShadow: const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 20, offset: Offset(0, 8))],
         ),
         child: Column(
           children: [
             Container(
               height: 160,
               decoration: const BoxDecoration(
-                color: Color(0xFFF8F4EE),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(bottom: BorderSide(color: _line)),
+                color: FRColors.background,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(FRRadius.xxl)),
+                border: Border(bottom: BorderSide(color: FRColors.border)),
               ),
-              padding: const EdgeInsets.all(8),
+              padding: FRSpaceInsets.allSm,
               child: Stack(
                 children: [
                   Align(
@@ -558,7 +535,7 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
                       fit: BoxFit.contain,
                       width: 100,
                       height: 100,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3),
+                      errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle),
                     ),
                   ),
                   Positioned(top: 4, left: 4, child: _PriceChangeIndicator(item: widget.item)),
@@ -589,9 +566,9 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.white,
-                              boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
+                              boxShadow: [BoxShadow(color: FRColors.shadowSoft, blurRadius: 10, offset: Offset(0, 4))],
                             ),
-                            child: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, size: 14, color: isFavorite ? _red : _t3),
+                            child: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, size: 14, color: isFavorite ? FRColors.danger : FRColors.textSubtle),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -628,7 +605,7 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.white,
-                              boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 10, offset: Offset(0, 4))],
+                              boxShadow: [BoxShadow(color: FRColors.shadowSoft, blurRadius: 10, offset: Offset(0, 4))],
                             ),
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 180),
@@ -639,13 +616,13 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
                                       Icons.check_rounded,
                                       key: ValueKey('added'),
                                       size: 16,
-                                      color: _grn,
+                                      color: FRColors.success,
                                     )
                                   : Icon(
                                       _isAddingToCart ? Icons.more_horiz_rounded : Icons.add,
                                       key: const ValueKey('add'),
                                       size: 16,
-                                      color: _t2,
+                                      color: FRColors.textMuted,
                                     ),
                             ),
                           ),
@@ -658,11 +635,11 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+                padding: FRSpaceInsets.productCard,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: _tc, letterSpacing: 0.6)),
+                    Text(widget.item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: FRColors.tan, letterSpacing: 0.6)),
                     const SizedBox(height: 4),
                     Text(widget.item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
                     const Spacer(),
@@ -674,7 +651,7 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
                         if (hasOld)
                           Text(
                             '${old.toStringAsFixed(2).replaceAll('.', ',')}₺',
-                            style: _jakarta(size: 12, weight: FontWeight.w600, color: _t3, decoration: TextDecoration.lineThrough),
+                            style: _jakarta(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle, decoration: TextDecoration.lineThrough),
                           ),
                       ],
                     ),
@@ -683,21 +660,21 @@ class _ProductCardState extends ConsumerState<_ProductCard> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.md, vertical: FRSpacing.smPlus),
               decoration: const BoxDecoration(
-                color: Color.fromRGBO(255, 255, 255, 0.5),
-                border: Border(top: BorderSide(color: Color.fromRGBO(24, 16, 10, 0.08), style: BorderStyle.solid)),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                color: FRColors.whiteMuted,
+                border: Border(top: BorderSide(color: FRColors.border, style: BorderStyle.solid)),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(FRRadius.xxl)),
               ),
               child: Row(
                 children: [
                   Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _marketColor(widget.item.storeName))),
                   const SizedBox(width: 4),
-                  Expanded(child: Text(widget.item.storeName, style: _jakarta(size: 10, weight: FontWeight.w800, color: _t2))),
+                  Expanded(child: Text(widget.item.storeName, style: _jakarta(size: 10, weight: FontWeight.w800, color: FRColors.textMuted))),
                   const SizedBox(width: 4),
-                  Icon(showOnline ? Icons.public : Icons.location_on_outlined, size: 10, color: _t3),
+                  Icon(showOnline ? Icons.public : Icons.location_on_outlined, size: 10, color: FRColors.textSubtle),
                   const SizedBox(width: 3),
-                  Text(showOnline ? 'Online' : distance, style: _jakarta(size: 9, weight: FontWeight.w700, color: _t3)),
+                  Text(showOnline ? 'Online' : distance, style: _jakarta(size: 9, weight: FontWeight.w700, color: FRColors.textSubtle)),
                 ],
               ),
             ),
@@ -725,7 +702,7 @@ class _FollowedProductsSection extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Henüz favori ürün eklemedin. Ürün kartındaki kalp ikonuyla takip etmeye başlayabilirsin.',
-                style: _jakarta(size: 12, weight: FontWeight.w600, color: _t3),
+                style: _jakarta(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle),
               ),
             )
           else
@@ -765,8 +742,8 @@ class _LiveRadarSection extends StatelessWidget {
           ),
           if (top.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text('Henüz canlı fiyat akışı yok.', style: _jakarta(size: 12, weight: FontWeight.w700, color: _t3)),
+              padding: FRSpaceInsets.symmetric(vertical: FRSpacing.md),
+              child: Text('Henüz canlı fiyat akışı yok.', style: _jakarta(size: 12, weight: FontWeight.w700, color: FRColors.textSubtle)),
             )
           else
             ...top.asMap().entries.map(
@@ -812,9 +789,9 @@ class _LiveRadarSection extends StatelessWidget {
 
   Widget _contrib(String avatar, String title, String subtitle, String price, {bool inverse = false, bool showDivider = true}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: FRSpaceInsets.verticalMdPlus,
       decoration: BoxDecoration(
-        border: showDivider ? const Border(bottom: BorderSide(color: Color.fromRGBO(24, 16, 10, 0.08), style: BorderStyle.solid)) : null,
+        border: showDivider ? const Border(bottom: BorderSide(color: FRColors.border, style: BorderStyle.solid)) : null,
       ),
       child: Row(
         children: [
@@ -822,12 +799,12 @@ class _LiveRadarSection extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: inverse ? _tc : _surface2,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _line),
+              color: inverse ? FRColors.tan : FRColors.background,
+              borderRadius: FRRadius.mdRadius,
+              border: Border.all(color: FRColors.border),
             ),
             alignment: Alignment.center,
-            child: Text(avatar, style: _jakarta(size: 14, weight: FontWeight.w800, color: inverse ? _dk : _tc)),
+            child: Text(avatar, style: _jakarta(size: 14, weight: FontWeight.w800, color: inverse ? FRColors.espresso : FRColors.tan)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -835,7 +812,7 @@ class _LiveRadarSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: _jakarta(size: 13, weight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -859,24 +836,24 @@ class _FollowedProductRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(10),
+        margin: FRSpaceInsets.bottomSmPlus,
+        padding: FRSpaceInsets.allSmPlus,
         decoration: BoxDecoration(
-          color: _surface2,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _line),
+          color: FRColors.background,
+          borderRadius: FRRadius.lgRadius,
+          border: Border.all(color: FRColors.border),
         ),
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: FRRadius.smPlusRadius,
               child: Container(
                 width: 44,
                 height: 44,
-                color: const Color(0xFFF8F4EE),
+                color: FRColors.background,
                 child: image.isEmpty
-                    ? const Icon(Icons.image_not_supported_outlined, color: _t3, size: 18)
-                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _t3, size: 18)),
+                    ? const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle, size: 18)
+                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle, size: 18)),
               ),
             ),
             const SizedBox(width: 10),
@@ -885,7 +862,7 @@ class _FollowedProductRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
-                  Text(item.storeName, style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3)),
+                  Text(item.storeName, style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle)),
                 ],
               ),
             ),
@@ -907,30 +884,30 @@ class _FooterCta extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(colors: [_dk, _dk2]),
-        border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.3)),
-        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.2), blurRadius: 30, offset: Offset(0, 10))],
+        borderRadius: FRRadius.xxlRadius,
+        gradient: const LinearGradient(colors: [FRColors.espresso, FRColors.espressoSoft]),
+        border: Border.all(color: FRColors.tan.withOpacity(0.3)),
+        boxShadow: const [BoxShadow(color: FRColors.shadowStrong, blurRadius: 30, offset: Offset(0, 10))],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: FRSpaceInsets.allXxl,
       child: Column(
         children: [
           Container(
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: const Color.fromRGBO(191, 148, 112, 0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color.fromRGBO(191, 148, 112, 0.25)),
+              color: FRColors.tan.withOpacity(0.1),
+              borderRadius: FRRadius.lgRadius,
+              border: Border.all(color: FRColors.tan.withOpacity(0.25)),
             ),
-            child: const Icon(Icons.add_circle_outline, size: 26, color: _tc),
+            child: const Icon(Icons.add_circle_outline, size: 26, color: FRColors.tan),
           ),
           const SizedBox(height: 14),
           Text('Fiyat Ekle, Puan Kazan', style: _jakarta(size: 20, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
           const SizedBox(height: 8),
           Text(
             'Raflardaki güncel fiyatları okut, Radar Puanları toplayarak Premium ödüllerin kilidini aç.',
-            style: _jakarta(size: 11, weight: FontWeight.w500, color: const Color.fromRGBO(255, 255, 255, 0.6), height: 1.5),
+            style: _jakarta(size: 11, weight: FontWeight.w500, color: FRColors.white.withOpacity(0.6), height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 18),
@@ -940,12 +917,12 @@ class _FooterCta extends StatelessWidget {
               onPressed: onTap,
               style: ElevatedButton.styleFrom(
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                backgroundColor: _tc,
-                foregroundColor: _dk,
+                padding: FRSpaceInsets.button,
+                shape: RoundedRectangleBorder(borderRadius: FRRadius.mdPlusRadius),
+                backgroundColor: FRColors.tan,
+                foregroundColor: FRColors.espresso,
               ),
-              child: Text('Hemen Başla', style: _jakarta(size: 14, weight: FontWeight.w800, color: _dk)),
+              child: Text('Hemen Başla', style: _jakarta(size: 14, weight: FontWeight.w800, color: FRColors.espresso)),
             ),
           ),
         ],
@@ -963,12 +940,12 @@ class _SectionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _line),
-        boxShadow: const [BoxShadow(color: Color.fromRGBO(24, 16, 10, 0.04), blurRadius: 20, offset: Offset(0, 8))],
+        color: FRColors.surfaceSoft,
+        borderRadius: FRRadius.xxlRadius,
+        border: Border.all(color: FRColors.border),
+        boxShadow: const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 20, offset: Offset(0, 8))],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: FRSpaceInsets.allLgPlus,
       child: child,
     );
   }
@@ -985,7 +962,7 @@ class _SectionHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: FRSpaceInsets.bottomLg,
       child: Row(
         children: [
           if (leading != null) ...[leading!, const SizedBox(width: 8)],
@@ -993,7 +970,7 @@ class _SectionHead extends StatelessWidget {
           if (action != null)
             GestureDetector(
               onTap: onActionTap,
-              child: Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: _tc)),
+              child: Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: FRColors.tan)),
             ),
         ],
       ),
@@ -1031,7 +1008,8 @@ class _LiveStatusDotState extends State<_LiveStatusDot> with SingleTickerProvide
           child: Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF27A85A)),
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: FRColors.success),
+            
           ),
         );
       },
@@ -1048,16 +1026,16 @@ class _PriceChangeIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final raw = item.priceChangePercent ?? -item.dropPercent;
     final isDrop = raw < 0;
-    final color = isDrop ? _grn : _red;
+    final color = isDrop ? FRColors.success : FRColors.danger;
     final icon = isDrop ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.sm, vertical: FRSpacing.xs),
       decoration: BoxDecoration(
-        color: isDrop ? const Color.fromRGBO(39, 168, 90, 0.12) : const Color.fromRGBO(229, 57, 53, 0.12),
+        color: isDrop ? FRColors.success.withOpacity(0.12) : FRColors.danger.withOpacity(0.12),
         border: Border.all(
-          color: isDrop ? const Color.fromRGBO(39, 168, 90, 0.25) : const Color.fromRGBO(229, 57, 53, 0.25),
+          color: isDrop ? FRColors.success.withOpacity(0.25) : FRColors.danger.withOpacity(0.25),
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: FRRadius.smRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1103,39 +1081,39 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
   Widget build(BuildContext context) {
     final state = ref.watch(exploreControllerProvider);
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: FRColors.backgroundWarm,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: FRColors.backgroundWarm,
         elevation: 0,
         titleSpacing: 0,
         title: Padding(
-          padding: const EdgeInsets.only(right: 16),
+          padding: FRSpaceInsets.rightLg,
           child: TextField(
             controller: _controller,
             autofocus: true,
             onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateSearchQuery(value),
             decoration: InputDecoration(
               hintText: 'Ürün, marka veya barkod ara...',
-              prefixIcon: const Icon(Icons.search, size: 18, color: _t3),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
+              prefixIcon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: FRRadius.mdPlusRadius,
+                  borderSide: BorderSide.none,
+                ),
             ),
           ),
         ),
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: FRSpaceInsets.allLg,
         itemCount: state.items.length,
         itemBuilder: (context, index) {
           final item = state.items[index];
           return ListTile(
-            tileColor: _surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            tileColor: FRColors.surfaceSoft,
+            shape: RoundedRectangleBorder(borderRadius: FRRadius.mdPlusRadius, side: const BorderSide(color: FRColors.border)),
+            contentPadding: FRSpaceInsets.horizontalMdVerticalXs,
             title: Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
             subtitle: Text(
               item.isNeighborhoodMarket
@@ -1144,7 +1122,7 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
                       .where((e) => e.trim().isNotEmpty)
                       .join(' • ')
                   : item.storeName,
-              style: _jakarta(size: 11, weight: FontWeight.w600, color: _t3),
+              style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle),
             ),
             trailing: Text('${item.displayPrice.toStringAsFixed(2)}₺', style: _serif(size: 16)),
             onTap: () => Navigator.of(context).push(
@@ -1161,18 +1139,18 @@ Color _marketColor(String market) {
   switch (market.toLowerCase()) {
     case 'a-101':
     case 'a101':
-      return const Color(0xFFD44020);
+      return FRColors.danger;
     case 'bi̇m':
     case 'bim':
-      return const Color(0xFFD4A000);
+      return FRColors.gold;
     case 'trendyol':
-      return const Color(0xFFF27A1A);
+      return FRColors.camel;
     case 'şok':
     case 'sok':
-      return const Color(0xFF7B3FA0);
+      return FRColors.mapBlue;
     case 'tümü':
-      return _dk;
+      return FRColors.espresso;
     default:
-      return _t3;
+      return FRColors.textSubtle;
   }
 }

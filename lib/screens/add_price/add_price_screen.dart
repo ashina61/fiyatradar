@@ -97,6 +97,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   bool _storeCollapsed = false;
   bool _showSuccess = false;
   XFile? _productPhoto;
+  ProviderSubscription<String?>? _errorListener;
+  ProviderSubscription<AddPriceState>? _stateListener;
 
   String _savedProduct = '—';
   String _savedStore = '—';
@@ -105,6 +107,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   @override
   void initState() {
     super.initState();
+    _errorListener = ref.listenManual<String?>(
+      addPriceProvider.select((s) => s.error),
+      (_, next) {
+        if (next != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next), behavior: SnackBarBehavior.floating),
+          );
+        }
+      },
+    );
+    _stateListener = ref.listenManual<AddPriceState>(
+      addPriceProvider,
+      _onAddPriceStateChanged,
+      fireImmediately: true,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pid = widget.initialProductId?.trim() ?? '';
       if (pid.isNotEmpty) {
@@ -115,6 +132,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   @override
   void dispose() {
+    _errorListener?.close();
+    _stateListener?.close();
     _productController.dispose();
     _priceController.dispose();
     _productFocus.dispose();
@@ -166,6 +185,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     }
   }
 
+  void _onAddPriceStateChanged(AddPriceState? previous, AddPriceState next) {
+    _syncControllers(next);
+    _updateStep(next);
+  }
+
   Future<void> _scrollToStep(_AddStep step, {bool expand = false}) async {
     if (expand) {
       setState(() {
@@ -194,17 +218,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final state = ref.watch(addPriceProvider);
     final notifier = ref.read(addPriceProvider.notifier);
     final safeBottom = MediaQuery.of(context).padding.bottom;
-
-    _syncControllers(state);
-    _updateStep(state);
-
-    ref.listen<String?>(addPriceProvider.select((s) => s.error), (_, next) {
-      if (next != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next), behavior: SnackBarBehavior.floating),
-        );
-      }
-    });
 
     return GestureDetector(
       onTap: () {
@@ -1102,12 +1115,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Future<void> _submitProductSuggestion(AddPriceNotifier notifier) async {
-    final auth = ref.read(authStateProvider).value;
-    final user = auth ?? FirebaseAuth.instance.currentUser;
-    if (user == null || user.uid.trim().isEmpty || user.isAnonymous) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ürün talebi göndermek için giriş yapman gerekiyor.')),
-      );
+    final user = _requireAuthenticatedUser(
+      const SnackBar(content: Text('Ürün talebi göndermek için giriş yapman gerekiyor.')),
+    );
+    if (user == null) {
       return;
     }
 
@@ -1126,12 +1137,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Future<void> _submit() async {
-    final auth = ref.read(authStateProvider).value;
-    final user = auth ?? FirebaseAuth.instance.currentUser;
-    if (user == null || user.uid.trim().isEmpty || user.isAnonymous) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fiyat eklemek için giriş yapman gerekiyor.')),
-      );
+    final user = _requireAuthenticatedUser(
+      const SnackBar(content: Text('Fiyat eklemek için giriş yapman gerekiyor.')),
+    );
+    if (user == null) {
       return;
     }
 
@@ -1161,6 +1170,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null || !mounted) return;
     setState(() => _productPhoto = file);
+  }
+
+  User? _requireAuthenticatedUser(SnackBar authError) {
+    final auth = ref.read(authStateProvider).value;
+    final user = auth ?? FirebaseAuth.instance.currentUser;
+    if (user != null && user.uid.trim().isNotEmpty && !user.isAnonymous) {
+      return user;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(authError);
+    return null;
   }
 
   void _resetAll(AddPriceNotifier notifier) {

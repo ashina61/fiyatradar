@@ -26,7 +26,7 @@ class AdminUserManagementTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final usersAsync = ref.watch(allUsersProvider);
+    final usersAsync = ref.watch(adminAllUsersProvider);
 
     return Container(
       color: pBgApp,

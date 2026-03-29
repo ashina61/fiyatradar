@@ -130,12 +130,83 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read: if isAdmin() || isOwner(uid);
+        allow create: if isAdmin() || isOwner(uid);
+        allow update, delete: if isAdmin() || isOwner(uid);
+      }
+
+      // Legacy migration read path
+      match /inbox/{notificationId} {
+        allow read: if isAdmin() || isOwner(uid);
+        allow create: if isAdmin() || isOwner(uid);
+        allow update, delete: if isAdmin() || isOwner(uid);
+      }
+
+      // Legacy NotificationCenter / PriceDropWatcher path
+      match /inAppNotifications/{notificationId} {
+        allow read: if isAdmin() || isOwner(uid);
+        allow create: if isAdmin() || isOwner(uid);
+        allow update, delete: if isAdmin() || isOwner(uid);
+      }
+    }
+
+    // Legacy global notification docs used during migration.
+    match /inAppNotifications/{notificationId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Legacy path used by older notification-center items.
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Legacy path used by older notification-center items.
+    match /notifications/{uid}/items/{itemId} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow create: if isAdmin() || isOwner(uid);
+      allow update, delete: if isAdmin() || isOwner(uid);
     }
 
     match /products/{productId} {
       allow read: if true;
       allow create: if isAdmin();
       allow update, delete: if isAdmin();
+    }
+
+    match /stores/{storeId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /brands/{brandId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /campaignProducts/{itemId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    match /campaignBaskets/{campaignId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     function hasSafePriceReportCreatePayload() {
@@ -184,6 +255,17 @@ service cloud.firestore {
           immutable('status') &&
           immutable('verificationStatus')
         );
+
+      // Legacy vote documents.
+      match /verifications/{voteUid} {
+        allow read: if signedIn();
+        allow create, update, delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
+      }
+    }
+
+    match /price_votes/{priceId}/votes/{voteUid} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
     }
 
     match /comments/{commentId} {
@@ -263,6 +345,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if signedIn() &&
+        (
+          (!('reporterUserId' in request.resource.data)) ||
+          request.resource.data.reporterUserId == request.auth.uid
+        ) &&
+        (
+          (!('reporterUid' in request.resource.data)) ||
+          request.resource.data.reporterUid == request.auth.uid
+        );
+      allow update, delete: if isAdmin();
+    }
+
 
     match /special_lists/{listId} {
       allow read: if true;
@@ -272,6 +368,63 @@ service cloud.firestore {
         allow read: if true;
         allow create, update, delete: if isAdmin();
       }
+    }
+
+    match /users/{uid}/favorites/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/watchlist/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/followedProducts/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/recently_viewed/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/searchHistory/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/basketItems/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/cartItems/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/receipts/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/points_log/{docId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /users/{uid}/points_daily/{docId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    match /users/{uid}/points_summary/{docId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    match /users/{uid}/trust_daily/{docId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    match /users/{uid}/trust_events/{docId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
     }
 
     match /{document=**} {

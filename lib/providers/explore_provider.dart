@@ -9,7 +9,8 @@ import '../models/store_model.dart';
 import '../models/category_model.dart';
 import '../services/location_service.dart';
 import 'price_provider.dart';
-import 'product_provider.dart' hide firestoreServiceProvider;
+import 'product_provider.dart';
+import 'service_providers.dart';
 
 enum ExploreMode { nearby, online, drops }
 
@@ -334,16 +335,19 @@ class ExploreController extends StateNotifier<ExploreState> {
   }
 
   void updateSearchQuery(String value) {
+    if (value == state.searchQuery) return;
     state = state.copyWith(searchQuery: value, clearError: true);
     _recompute();
   }
 
   void updateCategory(String category) {
+    if (category == state.selectedCategory) return;
     state = state.copyWith(selectedCategory: category, clearError: true);
     _recompute();
   }
 
   void updateMode(ExploreMode mode) {
+    if (mode == state.selectedMode) return;
     state = state.copyWith(selectedMode: mode, clearError: true);
     _recompute();
   }
@@ -363,6 +367,14 @@ class ExploreController extends StateNotifier<ExploreState> {
     final pricesByProduct = <String, List<PriceModel>>{};
     for (final price in _prices) {
       pricesByProduct.putIfAbsent(price.productId, () => []).add(price);
+    }
+    final previousPriceById = <String, PriceModel>{};
+    for (final entry in pricesByProduct.entries) {
+      final sorted = [...entry.value]
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      for (var i = 0; i < sorted.length - 1; i++) {
+        previousPriceById[sorted[i].id] = sorted[i + 1];
+      }
     }
 
     final cheapestCache = <String, List<StorePrice>>{};
@@ -425,7 +437,11 @@ class ExploreController extends StateNotifier<ExploreState> {
             return null;
           }
 
-          final dropPercent = _computeDropPercent(pricesByProduct[price.productId] ?? const [], price);
+          final previousPrice = previousPriceById[price.id];
+          final dropPercent = _computeDropPercentFromPrevious(
+            currentPrice: price,
+            previousPrice: previousPrice,
+          );
           if (state.selectedMode == ExploreMode.drops && dropPercent <= 0) {
             return null;
           }
@@ -446,9 +462,9 @@ class ExploreController extends StateNotifier<ExploreState> {
             store: store,
             distanceMeters: distanceMeters,
             dropPercent: dropPercent,
-            priceChangePercent: _computeSignedPriceChangePercent(
-              pricesByProduct[price.productId] ?? const [],
-              price,
+            priceChangePercent: _computeSignedPriceChangePercentFromPrevious(
+              currentPrice: price,
+              previousPrice: previousPrice,
             ),
             onlineCheapest3: onlineCheapest3,
             isPrimaryOnlineCheapest: onlineCheapest3.isNotEmpty && onlineCheapest3.first.storeId == price.branchStoreId,
@@ -498,30 +514,22 @@ class ExploreController extends StateNotifier<ExploreState> {
 
   double _clamp01(double value) => value.clamp(0, 1).toDouble();
 
-  double _computeDropPercent(List<PriceModel> productPrices, PriceModel currentPrice) {
-    if (productPrices.length < 2) return 0;
-    final sorted = [...productPrices]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final currentIndex = sorted.indexWhere((p) => p.id == currentPrice.id);
-    if (currentIndex < 0 || currentIndex == sorted.length - 1) return 0;
-
-    final previous = sorted[currentIndex + 1];
-    if (previous.price <= 0 || currentPrice.price >= previous.price) return 0;
-    return ((previous.price - currentPrice.price) / previous.price) * 100;
+  double _computeDropPercentFromPrevious({
+    required PriceModel currentPrice,
+    required PriceModel? previousPrice,
+  }) {
+    if (previousPrice == null) return 0;
+    if (previousPrice.price <= 0 || currentPrice.price >= previousPrice.price) return 0;
+    return ((previousPrice.price - currentPrice.price) / previousPrice.price) * 100;
   }
 
-  double? _computeSignedPriceChangePercent(
-    List<PriceModel> productPrices,
-    PriceModel currentPrice,
-  ) {
-    if (productPrices.length < 2) return null;
-    final sorted = [...productPrices]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final currentIndex = sorted.indexWhere((p) => p.id == currentPrice.id);
-    if (currentIndex < 0 || currentIndex == sorted.length - 1) return null;
-
-    final previous = sorted[currentIndex + 1];
-    if (previous.price <= 0) return null;
-
-    final percent = ((currentPrice.price - previous.price) / previous.price) * 100;
+  double? _computeSignedPriceChangePercentFromPrevious({
+    required PriceModel currentPrice,
+    required PriceModel? previousPrice,
+  }) {
+    if (previousPrice == null || previousPrice.price <= 0) return null;
+    final percent =
+        ((currentPrice.price - previousPrice.price) / previousPrice.price) * 100;
     if (percent.abs() < 0.5) return null;
     return percent;
   }

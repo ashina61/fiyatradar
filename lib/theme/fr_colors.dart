@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+/// Canonical color source for the FiyatRadar design foundation.
+///
+/// Rules:
+/// - New UI code must consume semantic colors from this class.
+/// - Do not introduce parallel palette classes for new features.
+/// - Legacy palette classes can stay temporarily, but are deprecated.
 class FRColors {
   const FRColors._();
 
