@@ -16,18 +16,11 @@ import '../add_price/add_price_screen.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/premium_scaffold_shell.dart';
+import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
+import '../../theme/fr_typography.dart';
 import 'cart_result_tab.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 🎨 PORSCHE DNA RENK PALETİ
-// ─────────────────────────────────────────────────────────────────────────────
-const Color pxDarkHeader = Color(0xFF1A110D); 
-const Color pxDarkBtn = Color(0xFF2A1C14);    
-const Color pxCaramel = Color(0xFF6B4226);     
-const Color pxWhite = Color(0xFFFFFFFF);
-const Color pxTextMuted = Color(0xFF8C7B70);
-const Color pxBgApp = Color(0xFFF9F6F2);
-const Color pxDarkText = Color(0xFF2A1A10);
 
 class CartScreenV2 extends ConsumerStatefulWidget {
   const CartScreenV2({super.key});
@@ -65,7 +58,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
         final estimatedTotal = ref.watch(basketViewModelProvider.select((vm) => vm.computedEstimatedTotal));
 
         return Scaffold(
-          backgroundColor: pxBgApp,
+          backgroundColor: FRColors.background,
           // AppBar'ı iptal ettik, Porsche Header'ı Body'nin içine entegre ediyoruz.
           body: Column(
             children: [
@@ -114,7 +107,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
           ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: pxCaramel))),
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: FRColors.camelDeep))),
       error: (_, __) => const Scaffold(body: SizedBox.shrink()),
     );
   }
@@ -125,14 +118,14 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
   Future<void> _handleCalculate(BasketViewModel viewModel) async {
     if (viewModel.items.isEmpty) {
       ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(
-          SnackBar(content: const Text('Hesaplama için en az bir ürün ekleyin.'), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          SnackBar(content: const Text('Hesaplama için en az bir ürün ekleyin.'), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: FRRadius.all(12))),
         );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(children: [Icon(Icons.check_circle, color: Color(0xFFC89B7B)), SizedBox(width: 8), Text("Fiyatlar analiz ediliyor...", style: TextStyle(color: Color(0xFFC89B7B), fontWeight: FontWeight.bold))]),
-        backgroundColor: const Color(0xFF2A1A10), duration: const Duration(seconds: 1), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+        content: const Row(children: [Icon(Icons.check_circle, color: FRColors.camelStrong), SizedBox(width: 8), Text("Fiyatlar analiz ediliyor...", style: TextStyle(color: FRColors.camelStrong, fontWeight: FontWeight.bold))]),
+        backgroundColor: FRColors.espressoSoft, duration: const Duration(seconds: 1), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: FRRadius.all(100)),
       ),
     );
     HapticFeedback.mediumImpact();
@@ -156,7 +149,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: FRColors.white.withOpacity(0),
       builder: (ctx) {
         final tempSelection = Set<String>.from(initialSelection);
         return StatefulBuilder(
@@ -164,16 +157,16 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             Widget buildStoreList(List<StoreModel> stores) {
               if (stores.isEmpty) return const Center(child: Text('Mağaza bulunamadı.', style: TextStyle(fontWeight: FontWeight.bold)));
               return ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8), itemCount: stores.length, separatorBuilder: (_, __) => const SizedBox(height: 4),
+                padding: FRSpaceInsets.symmetric(vertical: 8), itemCount: stores.length, separatorBuilder: (_, __) => const SizedBox(height: 4),
                 itemBuilder: (_, index) {
                   final store = stores[index]; final isSelected = tempSelection.contains(store.id);
                   return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(color: isSelected ? pxCaramel.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(14)),
+                    margin: FRSpaceInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(color: isSelected ? FRColors.camelDeep.withOpacity(0.1) : FRColors.white.withOpacity(0), borderRadius: FRRadius.all(14)),
                     child: CheckboxListTile(
-                      activeColor: pxCaramel, value: isSelected, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      title: Text(store.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: pxDarkText)),
-                      subtitle: Text(store.isOnline ? 'Online' : [store.neighborhood, store.district].where((e) => e.isNotEmpty).join(', '), style: const TextStyle(color: pxTextMuted)),
+                      activeColor: FRColors.camelDeep, value: isSelected, shape: RoundedRectangleBorder(borderRadius: FRRadius.all(14)),
+                      title: Text(store.displayName, style: _t(fontWeight: FontWeight.bold, color: FRColors.espressoSoft)),
+                      subtitle: Text(store.isOnline ? 'Online' : [store.neighborhood, store.district].where((e) => e.isNotEmpty).join(', '), style: _t(color: FRColors.textMuted)),
                       onChanged: (val) { setModalState(() { if (val == true) tempSelection.add(store.id); else tempSelection.remove(store.id); }); },
                     ),
                   );
@@ -182,27 +175,27 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             }
 
             return Container(
-              height: MediaQuery.of(ctx).size.height * 0.75, decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              height: MediaQuery.of(ctx).size.height * 0.75, decoration: const BoxDecoration(color: FRColors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
               child: DefaultTabController(
                 length: 2,
                 child: Column(
                   children: [
-                    const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE8D8C8), borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: FRColors.camelOverlay(0.25), borderRadius: FRRadius.all(2))),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      padding: FRSpaceInsets.fromLTRB(20, 16, 20, 8),
                       child: Row(
                         children: [
-                          const Expanded(child: Text('Mağaza Seç', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pxDarkText))),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: pxCaramel.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text('${tempSelection.length} seçili', style: const TextStyle(color: pxCaramel, fontWeight: FontWeight.w800))),
+                          const Expanded(child: Text('Mağaza Seç', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: FRColors.espressoSoft))),
+                          Container(padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: FRColors.camelDeep.withOpacity(0.1), borderRadius: FRRadius.all(20)), child: Text('${tempSelection.length} seçili', style: _t(color: FRColors.camelDeep, fontWeight: FontWeight.w800))),
                         ],
                       ),
                     ),
-                    const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: TabBar(indicatorSize: TabBarIndicatorSize.tab, dividerColor: Colors.transparent, labelColor: pxCaramel, unselectedLabelColor: pxTextMuted, tabs: [Tab(text: 'Yakınımda'), Tab(text: 'Online')])),
-                    Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: TabBarView(children: [buildStoreList(viewModel.nearbyStores), buildStoreList(viewModel.onlineStores)]))),
+                    Padding(padding: FRSpaceInsets.symmetric(horizontal: 20), child: const TabBar(indicatorSize: TabBarIndicatorSize.tab, dividerColor: Colors.transparent, labelColor: FRColors.camelDeep, unselectedLabelColor: FRColors.textMuted, tabs: [Tab(text: 'Yakınımda'), Tab(text: 'Online')])),
+                    Expanded(child: Padding(padding: FRSpaceInsets.symmetric(horizontal: 12), child: TabBarView(children: [buildStoreList(viewModel.nearbyStores), buildStoreList(viewModel.onlineStores)]))),
                     SafeArea(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                        child: SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () { viewModel.setSelectedStoreIds(Set<String>.from(tempSelection)); if (Navigator.canPop(ctx)) Navigator.of(ctx).pop(); }, style: FilledButton.styleFrom(backgroundColor: pxCaramel, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
+                        padding: FRSpaceInsets.fromLTRB(20, 8, 20, 16),
+                        child: SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () { viewModel.setSelectedStoreIds(Set<String>.from(tempSelection)); if (Navigator.canPop(ctx)) Navigator.of(ctx).pop(); }, style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep, shape: RoundedRectangleBorder(borderRadius: FRRadius.all(16))), child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
                       ),
                     ),
                   ],
@@ -218,7 +211,7 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
   void _showProductPicker(BuildContext context, BasketViewModel viewModel) {
     // Aynı product picker bottom sheet kodun
     showModalBottomSheet<void>(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      context: context, isScrollControlled: true, backgroundColor: FRColors.white.withOpacity(0),
       builder: (ctx) {
         final controller = TextEditingController();
         return StatefulBuilder(
@@ -228,52 +221,52 @@ class _CartScreenV2State extends ConsumerState<CartScreenV2>
             final filtered = allProducts.where((p) => query.isEmpty || p.name.toLowerCase().contains(query) || p.brand.toLowerCase().contains(query)).toList();
 
             return Container(
-              height: MediaQuery.of(ctx).size.height * 0.80, decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              height: MediaQuery.of(ctx).size.height * 0.80, decoration: const BoxDecoration(color: FRColors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
               child: Column(
                 children: [
-                  const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE8D8C8), borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: FRColors.camelOverlay(0.25), borderRadius: FRRadius.all(2))),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    padding: FRSpaceInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Ürün Ekle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pxDarkText)),
+                        const Text('Ürün Ekle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: FRColors.espressoSoft)),
                         const SizedBox(height: 12),
                         TextField(
                           controller: controller, onChanged: (_) => setModalState(() {}),
-                          decoration: InputDecoration(hintText: 'Ürün veya marka ara...', prefixIcon: const Icon(Icons.search_rounded, color: pxTextMuted), suffixIcon: query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () { controller.clear(); setModalState(() {}); }) : null, filled: true, fillColor: pxBgApp, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                          decoration: InputDecoration(hintText: 'Ürün veya marka ara...', prefixIcon: const Icon(Icons.search_rounded, color: FRColors.textMuted), suffixIcon: query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () { controller.clear(); setModalState(() {}); }) : null, filled: true, fillColor: FRColors.background, border: OutlineInputBorder(borderRadius: FRRadius.all(14), borderSide: BorderSide.none), contentPadding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 14)),
                         ),
                       ],
                     ),
                   ),
-                  if (filtered.isEmpty) const Expanded(child: Center(child: Text('Ürün bulunamadı', style: TextStyle(fontWeight: FontWeight.bold, color: pxDarkText))))
+                  if (filtered.isEmpty) const Expanded(child: Center(child: Text('Ürün bulunamadı', style: TextStyle(fontWeight: FontWeight.bold, color: FRColors.espressoSoft))))
                   else Expanded(
                     child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16), itemCount: filtered.length, separatorBuilder: (_, __) => const SizedBox(height: 2),
+                      padding: FRSpaceInsets.fromLTRB(12, 4, 12, 16), itemCount: filtered.length, separatorBuilder: (_, __) => const SizedBox(height: 2),
                       itemBuilder: (_, index) {
                         final product = filtered[index]; final hasPrice = product.lastPrice != null;
                         return Material(
-                          color: Colors.transparent,
+                          color: FRColors.white.withOpacity(0),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: FRRadius.all(14),
                             onTap: () { HapticFeedback.selectionClick(); viewModel.addProduct(product.id); if (Navigator.canPop(ctx)) Navigator.pop(ctx); },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 10),
                               child: Row(
                                 children: [
-                                  AppNetworkImage(imageUrl: product.mainImage, cacheKey: product.id, width: 50, height: 50, fit: BoxFit.cover, borderRadius: BorderRadius.circular(12)),
+                                  AppNetworkImage(imageUrl: product.mainImage, cacheKey: product.id, width: 50, height: 50, fit: BoxFit.cover, borderRadius: FRRadius.all(12)),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, color: pxDarkText)),
-                                        const SizedBox(height: 2), Text(product.brand.isNotEmpty ? product.brand : 'Marka bilgisi yok', style: const TextStyle(fontSize: 12, color: pxTextMuted)),
+                                        Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(fontWeight: FontWeight.bold, color: FRColors.espressoSoft)),
+                                        const SizedBox(height: 2), Text(product.brand.isNotEmpty ? product.brand : 'Marka bilgisi yok', style: _t(fontSize: 12, color: FRColors.textMuted)),
                                       ],
                                     ),
                                   ),
-                                  if (hasPrice) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: pxCaramel.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(formatTRY(product.lastPrice!), style: const TextStyle(color: pxCaramel, fontWeight: FontWeight.w800))),
-                                  const SizedBox(width: 8), Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: pxCaramel, shape: BoxShape.circle), child: const Icon(Icons.add_rounded, size: 18, color: Colors.white)),
+                                  if (hasPrice) Container(padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: FRColors.camelDeep.withOpacity(0.1), borderRadius: FRRadius.all(8)), child: Text(formatTRY(product.lastPrice!), style: _t(color: FRColors.camelDeep, fontWeight: FontWeight.w800))),
+                                  const SizedBox(width: 8), Container(padding: FRSpaceInsets.all(6), decoration: const BoxDecoration(color: FRColors.camelDeep, shape: BoxShape.circle), child: const Icon(Icons.add_rounded, size: 18, color: FRColors.white)),
                                 ],
                               ),
                             ),
@@ -304,7 +297,7 @@ class _PremiumCartHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 26), // Üzerine binen menünün altındaki listeyi ezmemesi için boşluk
+      margin: FRSpaceInsets.only(bottom: 26), // Üzerine binen menünün altındaki listeyi ezmemesi için boşluk
       child: Stack(
         clipBehavior: Clip.none, 
         alignment: Alignment.bottomCenter,
@@ -312,15 +305,15 @@ class _PremiumCartHeader extends StatelessWidget {
           // 💥 1. ZİFİRİ KARANLIK LÜKS BAŞLIK 💥
           Container(
             width: double.infinity,
-            padding: EdgeInsets.only(
+            padding: FRSpaceInsets.only(
               top: MediaQuery.of(context).padding.top + 16, 
               bottom: 44, // Alt menüye yer açıyoruz
               left: 20, right: 20,
             ),
             decoration: const BoxDecoration(
-              color: pxDarkHeader,
+              color: FRColors.espressoSoft,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
-              boxShadow: [BoxShadow(color: Color(0x331A110D), blurRadius: 20, offset: Offset(0, 10))],
+              boxShadow: [BoxShadow(color: FRColors.shadowStrong, blurRadius: 20, offset: Offset(0, 10))],
             ),
             child: Row(
               children: [
@@ -331,14 +324,14 @@ class _PremiumCartHeader extends StatelessWidget {
                   },
                   child: Container(
                     width: 44, height: 44,
-                    decoration: BoxDecoration(color: pxDarkBtn, borderRadius: BorderRadius.circular(14)),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded, color: pxWhite, size: 20),
+                    decoration: BoxDecoration(color: FRColors.espresso, borderRadius: FRRadius.all(14)),
+                    child: const Icon(Icons.arrow_back_ios_new_rounded, color: FRColors.white, size: 20),
                   ),
                 ),
                 // Ortalanmış Başlık
                 const Expanded(
                   child: Center(
-                    child: Text('Sepetim', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: pxWhite, letterSpacing: 0.5)),
+                    child: Text('Sepetim', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: FRColors.white, letterSpacing: 0.5)),
                   ),
                 ),
                 const SizedBox(width: 44), // Simetri için boşluk
@@ -351,10 +344,10 @@ class _PremiumCartHeader extends StatelessWidget {
             bottom: -26, // Karanlık ve aydınlığın tam kesişimi
             left: 24, right: 24,
             child: Container(
-              height: 52, padding: const EdgeInsets.all(4),
+              height: 52, padding: FRSpaceInsets.all(4),
               decoration: BoxDecoration(
-                color: pxWhite, borderRadius: BorderRadius.circular(100),
-                boxShadow: const [BoxShadow(color: Color(0x1A6A442A), blurRadius: 20, offset: Offset(0, 10))],
+                color: FRColors.white, borderRadius: FRRadius.all(100),
+                boxShadow: [BoxShadow(color: FRColors.camelOverlay(0.10), blurRadius: 20, offset: const Offset(0, 10))],
               ),
               child: Stack(
                 children: [
@@ -367,8 +360,8 @@ class _PremiumCartHeader extends StatelessWidget {
                       widthFactor: 0.5,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: pxCaramel, borderRadius: BorderRadius.circular(100),
-                          boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
+                          color: FRColors.camelDeep, borderRadius: FRRadius.all(100),
+                          boxShadow: [BoxShadow(color: FRColors.camelDeep.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
                         ),
                       ),
                     ),
@@ -404,7 +397,7 @@ class _PremiumCartHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-              color: isSelected ? pxWhite : pxTextMuted,
+              color: isSelected ? FRColors.white : FRColors.textMuted,
             ),
             child: Text(title),
           ),
@@ -430,14 +423,14 @@ class _CartBody extends StatefulWidget {
 class _CartBodyState extends State<_CartBody> {
   @override
   Widget build(BuildContext context) {
-    if (widget.viewModel.isLoadingItems) return const Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator(color: pxCaramel)));
+    if (widget.viewModel.isLoadingItems) return Center(child: Padding(padding: FRSpaceInsets.all(48), child: const CircularProgressIndicator(color: FRColors.camelDeep)));
     if (widget.viewModel.items.isEmpty) return _EmptyCartView(onAdd: widget.onAddProduct);
 
     return Column(
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+            padding: FRSpaceInsets.fromLTRB(24, 10, 24, 24),
             physics: const BouncingScrollPhysics(),
             children: [
               _StatsHeader(itemCount: widget.itemCount, estimatedTotal: widget.estimatedTotal),
@@ -450,11 +443,11 @@ class _CartBodyState extends State<_CartBody> {
                   key: ValueKey(item.productId), tween: Tween(begin: 0, end: 1), duration: Duration(milliseconds: 300 + (index * 50)), curve: Curves.easeOutCubic,
                   builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 16 * (1 - value)), child: child)),
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
+                    padding: FRSpaceInsets.only(bottom: 14),
                     child: Dismissible(
                       key: ValueKey('dismiss_${item.productId}'), direction: DismissDirection.endToStart,
                       onDismissed: (_) { HapticFeedback.mediumImpact(); widget.viewModel.updateQuantity(item.productId, 0); },
-                      background: Container(alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 24), decoration: BoxDecoration(color: const Color(0xFFA33333), borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28)),
+                      background: Container(alignment: Alignment.centerRight, padding: FRSpaceInsets.only(right: 24), decoration: BoxDecoration(color: FRColors.danger, borderRadius: FRRadius.all(24)), child: const Icon(Icons.delete_outline_rounded, color: FRColors.white, size: 28)),
                       child: _CartProductCard(item: item, product: product, onQuantityChanged: (qty) => widget.viewModel.updateQuantity(item.productId, qty), onRemove: () => widget.viewModel.updateQuantity(item.productId, 0), onAddPrice: () => widget.onAddPrice(product)),
                     ),
                   ),
@@ -475,14 +468,14 @@ class _StatsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8))], border: Border.all(color: pxCaramel.withOpacity(0.03))),
+      padding: FRSpaceInsets.all(16),
+      decoration: BoxDecoration(color: FRColors.white, borderRadius: FRRadius.all(20), boxShadow: [BoxShadow(color: FRColors.camelDeep.withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8))], border: Border.all(color: FRColors.camelDeep.withOpacity(0.03))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Row(children: [const Icon(Icons.shopping_bag_rounded, color: pxTextMuted, size: 20), const SizedBox(width: 8), Text('$itemCount Ürün', style: const TextStyle(fontWeight: FontWeight.w800, color: pxDarkText, fontSize: 14))]),
-          Container(width: 1, height: 24, color: pxCaramel.withOpacity(0.1)),
-          Row(children: [const Icon(Icons.payments_rounded, color: Color(0xFFC89B7B), size: 20), const SizedBox(width: 8), Text('${formatTRY(estimatedTotal.total, keepTrailingZeros: true)} Tahmini', style: const TextStyle(fontWeight: FontWeight.w800, color: pxDarkText, fontSize: 14))]),
+          Row(children: [const Icon(Icons.shopping_bag_rounded, color: FRColors.textMuted, size: 20), const SizedBox(width: 8), Text('$itemCount Ürün', style: _t(fontWeight: FontWeight.w800, color: FRColors.espressoSoft, fontSize: 14))]),
+          Container(width: 1, height: 24, color: FRColors.camelDeep.withOpacity(0.1)),
+          Row(children: [const Icon(Icons.payments_rounded, color: FRColors.camelStrong, size: 20), const SizedBox(width: 8), Text('${formatTRY(estimatedTotal.total, keepTrailingZeros: true)} Tahmini', style: _t(fontWeight: FontWeight.w800, color: FRColors.espressoSoft, fontSize: 14))]),
         ],
       ),
     );
@@ -497,14 +490,14 @@ class _SectionLabel extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: pxDarkText)),
+        Text(label, style: _t(fontSize: 18, fontWeight: FontWeight.w800, color: FRColors.espressoSoft)),
         if (onAddProduct != null)
           InkWell(
-            onTap: onAddProduct, borderRadius: BorderRadius.circular(14),
+            onTap: onAddProduct, borderRadius: FRRadius.all(14),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFC89B7B), pxCaramel], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4))]),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add_circle, color: Colors.white, size: 16), SizedBox(width: 6), Text('Ürün Ekle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))]),
+              padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [FRColors.camelStrong, FRColors.camelDeep], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: FRRadius.all(14), boxShadow: [BoxShadow(color: FRColors.camelDeep.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4))]),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add_circle, color: FRColors.white, size: 16), SizedBox(width: 6), Text('Ürün Ekle', style: TextStyle(color: FRColors.white, fontWeight: FontWeight.w800, fontSize: 13))]),
             ),
           )
       ],
@@ -520,22 +513,22 @@ class _CartProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasPrice = item.lastKnownPrice != null;
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))], border: Border.all(color: pxCaramel.withOpacity(0.03))),
+      padding: FRSpaceInsets.all(14),
+      decoration: BoxDecoration(color: FRColors.white, borderRadius: FRRadius.all(24), boxShadow: [BoxShadow(color: FRColors.camelDeep.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))], border: Border.all(color: FRColors.camelDeep.withOpacity(0.03))),
       child: Row(
         children: [
-          Container(width: 85, height: 85, decoration: BoxDecoration(color: pxBgApp, borderRadius: BorderRadius.circular(18)), child: AppNetworkImage(imageUrl: product?.mainImage, cacheKey: product?.id ?? item.productId, width: 85, height: 85, fit: BoxFit.cover, borderRadius: BorderRadius.circular(18))),
+          Container(width: 85, height: 85, decoration: BoxDecoration(color: FRColors.background, borderRadius: FRRadius.all(18)), child: AppNetworkImage(imageUrl: product?.mainImage, cacheKey: product?.id ?? item.productId, width: 85, height: 85, fit: BoxFit.cover, borderRadius: FRRadius.all(18))),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(product?.name ?? 'Ürün', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: pxDarkText)),
+                Text(product?.name ?? 'Ürün', maxLines: 2, overflow: TextOverflow.ellipsis, style: _t(fontWeight: FontWeight.w700, fontSize: 16, color: FRColors.espressoSoft)),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    hasPrice ? Text(formatTRY(item.lastKnownPrice!), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19, color: pxCaramel)) : GestureDetector(onTap: onAddPrice, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFA33333).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text("Fiyat Ekle", style: TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 12)))),
+                    hasPrice ? Text(formatTRY(item.lastKnownPrice!), style: _t(fontWeight: FontWeight.w800, fontSize: 19, color: FRColors.camelDeep)) : GestureDetector(onTap: onAddPrice, child: Container(padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: FRColors.danger.withOpacity(0.1), borderRadius: FRRadius.all(8)), child: Text("Fiyat Ekle", style: _t(color: FRColors.danger, fontWeight: FontWeight.w800, fontSize: 12)))),
                     _QuantityControl(quantity: item.quantity, onChanged: onQuantityChanged, onRemove: onRemove),
                   ],
                 ),
@@ -566,14 +559,14 @@ class _QuantityControlState extends State<_QuantityControl> {
   Widget build(BuildContext context) {
     final isOne = widget.quantity <= 1;
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: pxCaramel.withOpacity(0.06), borderRadius: BorderRadius.circular(14)),
+      padding: FRSpaceInsets.all(4),
+      decoration: BoxDecoration(color: FRColors.camelDeep.withOpacity(0.06), borderRadius: FRRadius.all(14)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(onTap: () => _changeBy(-1), onLongPressStart: (_) => _onLongPressStart(-1), onLongPressEnd: (_) => _onLongPressEnd(), child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)]), child: Icon(isOne ? Icons.delete_outline_rounded : Icons.remove_rounded, size: 18, color: isOne ? const Color(0xFFA33333) : pxDarkText))),
-          Container(constraints: const BoxConstraints(minWidth: 32), alignment: Alignment.center, child: AnimatedSwitcher(duration: const Duration(milliseconds: 150), transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child), child: Text('${widget.quantity}', key: ValueKey(widget.quantity), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: pxDarkText)))),
-          GestureDetector(onTap: () => _changeBy(1), onLongPressStart: (_) => _onLongPressStart(1), onLongPressEnd: (_) => _onLongPressEnd(), child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)]), child: const Icon(Icons.add_rounded, size: 18, color: pxDarkText))),
+          GestureDetector(onTap: () => _changeBy(-1), onLongPressStart: (_) => _onLongPressStart(-1), onLongPressEnd: (_) => _onLongPressEnd(), child: Container(width: 30, height: 30, decoration: BoxDecoration(color: FRColors.white, borderRadius: FRRadius.all(10), boxShadow: [BoxShadow(color: FRColors.espresso.withOpacity(0.08), blurRadius: 6)]), child: Icon(isOne ? Icons.delete_outline_rounded : Icons.remove_rounded, size: 18, color: isOne ? FRColors.danger : FRColors.espressoSoft))),
+          Container(constraints: const BoxConstraints(minWidth: 32), alignment: Alignment.center, child: AnimatedSwitcher(duration: const Duration(milliseconds: 150), transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child), child: Text('${widget.quantity}', key: ValueKey(widget.quantity), style: _t(fontWeight: FontWeight.w700, fontSize: 15, color: FRColors.espressoSoft)))),
+          GestureDetector(onTap: () => _changeBy(1), onLongPressStart: (_) => _onLongPressStart(1), onLongPressEnd: (_) => _onLongPressEnd(), child: Container(width: 30, height: 30, decoration: BoxDecoration(color: FRColors.white, borderRadius: FRRadius.all(10), boxShadow: [BoxShadow(color: FRColors.espresso.withOpacity(0.08), blurRadius: 6)]), child: const Icon(Icons.add_rounded, size: 18, color: FRColors.espressoSoft))),
         ],
       ),
     );
@@ -587,18 +580,18 @@ class _CartActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+      minimum: FRSpaceInsets.fromLTRB(24, 0, 24, 120),
       child: InkWell(
         onTap: itemCount == 0 || isLoading ? null : onCalculate,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: FRRadius.all(20),
         child: Container(
-          width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(color: pxCaramel, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: pxCaramel.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+          width: double.infinity, padding: FRSpaceInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(color: FRColors.camelDeep, borderRadius: FRRadius.all(20), boxShadow: [BoxShadow(color: FRColors.camelDeep.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isLoading) const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))) else const Text('En Uygunu Bul', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 8), const Icon(Icons.east_rounded, color: Colors.white, size: 20),
+              if (isLoading) Padding(padding: FRSpaceInsets.only(right: 8), child: const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.white))) else const Text('En Uygunu Bul', style: TextStyle(color: FRColors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8), const Icon(Icons.east_rounded, color: FRColors.white, size: 20),
             ],
           ),
         ),
@@ -614,15 +607,15 @@ class _EmptyCartView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: FRSpaceInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(padding: const EdgeInsets.all(28), decoration: BoxDecoration(color: pxCaramel.withOpacity(0.08), shape: BoxShape.circle), child: const Icon(Icons.shopping_cart_outlined, size: 48, color: pxCaramel)),
-            const SizedBox(height: 24), const Text('Sepetiniz boş', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pxDarkText)),
-            const SizedBox(height: 8), const Text('Ürün ekleyerek marketler arasında\nfiyat karşılaştırması yapın.', textAlign: TextAlign.center, style: TextStyle(color: pxTextMuted, height: 1.5)),
+            Container(padding: FRSpaceInsets.all(28), decoration: BoxDecoration(color: FRColors.camelDeep.withOpacity(0.08), shape: BoxShape.circle), child: const Icon(Icons.shopping_cart_outlined, size: 48, color: FRColors.camelDeep)),
+            const SizedBox(height: 24), const Text('Sepetiniz boş', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: FRColors.espressoSoft)),
+            const SizedBox(height: 8), const Text('Ürün ekleyerek marketler arasında\nfiyat karşılaştırması yapın.', textAlign: TextAlign.center, style: TextStyle(color: FRColors.textMuted, height: 1.5)),
             const SizedBox(height: 28),
-            FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Ürün Ekle', style: TextStyle(fontWeight: FontWeight.bold)), style: FilledButton.styleFrom(backgroundColor: pxCaramel, padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))),
+            FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Ürün Ekle', style: TextStyle(fontWeight: FontWeight.bold)), style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep, padding: FRSpaceInsets.symmetric(horizontal: 28, vertical: 16), shape: RoundedRectangleBorder(borderRadius: FRRadius.all(16)))),
           ],
         ),
       ),
@@ -635,22 +628,39 @@ class _LoginPromptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: pxBgApp,
+      backgroundColor: FRColors.background,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: FRSpaceInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: pxCaramel.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.lock_outline_rounded, size: 40, color: pxCaramel)),
-              const SizedBox(height: 20), const Text('Giriş Yapın', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pxDarkText)),
-              const SizedBox(height: 8), const Text('Sepet özelliğini kullanmak için\nhesabınıza giriş yapmalısınız.', textAlign: TextAlign.center, style: TextStyle(color: pxTextMuted, height: 1.5)),
+              Container(padding: FRSpaceInsets.all(24), decoration: BoxDecoration(color: FRColors.camelDeep.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.lock_outline_rounded, size: 40, color: FRColors.camelDeep)),
+              const SizedBox(height: 20), const Text('Giriş Yapın', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: FRColors.espressoSoft)),
+              const SizedBox(height: 8), const Text('Sepet özelliğini kullanmak için\nhesabınıza giriş yapmalısınız.', textAlign: TextAlign.center, style: TextStyle(color: FRColors.textMuted, height: 1.5)),
               const SizedBox(height: 24),
-              FilledButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Devam etmek için giriş yapın.'))); }, style: FilledButton.styleFrom(backgroundColor: pxCaramel, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Giriş Yap', style: TextStyle(fontWeight: FontWeight.bold))),
+              FilledButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Devam etmek için giriş yapın.'))); }, style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep, padding: FRSpaceInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: FRRadius.all(16))), child: const Text('Giriş Yap', style: TextStyle(fontWeight: FontWeight.bold))),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+TextStyle _t({
+  double fontSize = 14,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+}) {
+  return TextStyle(
+    fontFamily: FRTypography.fontFamily,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color ?? FRColors.textPrimary,
+    height: height,
+    letterSpacing: letterSpacing,
+  );
 }

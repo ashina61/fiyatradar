@@ -5,7 +5,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,32 +17,20 @@ import '../../services/firestore_service.dart';
 import '../../services/product_detail_api_service.dart';
 import '../../services/product_engagement_service.dart';
 import '../../widgets/app_network_image.dart';
-
-const _bg = Color(0xFFFAFAF8);
-const _surface = Color(0xFFFFFFFF);
-const _surfaceAlt = Color(0xFFF5F3F0);
-const _dark = Color(0xFF18100A);
-const _dark2 = Color(0xFF2C2418);
-const _tan = Color(0xFFBF9470);
-const _tanLight = Color(0xFFD4B599);
-const _text = Color(0xFF18100A);
-const _textMuted = Color(0xFF5E4A38);
-const _textSoft = Color(0xFF9E8B78);
-const _line = Color(0x1418100A);
-const _green = Color(0xFF27A85A);
-const _greenBg = Color(0x1A27A85A);
-const _red = Color(0xFFE53935);
-const _redBg = Color(0x1AE53935);
-const _amber = Color(0xFFF59E0B);
+import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
+import '../../theme/fr_typography.dart';
 
 TextStyle _t({
   double s = 14,
   FontWeight w = FontWeight.w500,
-  Color c = _text,
+  Color c = FRColors.textPrimary,
   double? h,
   double ls = 0,
 }) {
-  return GoogleFonts.plusJakartaSans(
+  return TextStyle(
+    fontFamily: FRTypography.fontFamily,
     fontSize: s,
     fontWeight: w,
     color: c,
@@ -260,10 +247,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           builder: (context, setModalState) {
             return Container(
               decoration: const BoxDecoration(
-                color: _surface,
+                color: FRColors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              padding: EdgeInsets.only(
+              padding: FRSpaceInsets.only(
                 left: 16,
                 right: 16,
                 top: 12,
@@ -280,8 +267,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         width: 42,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: _textSoft,
-                          borderRadius: BorderRadius.circular(999),
+                          color: FRColors.textSubtle,
+                          borderRadius: FRRadius.all(FRRadius.pill),
                         ),
                       ),
                     ),
@@ -293,11 +280,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Hedef fiyat (₺)',
-                        labelStyle: _t(s: 13, c: _textMuted),
+                        labelStyle: _t(s: 13, c: FRColors.textMuted),
                         filled: true,
-                        fillColor: _surfaceAlt,
+                        fillColor: FRColors.surfaceAlt,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: FRRadius.all(FRRadius.mdPlus),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -307,21 +294,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       contentPadding: EdgeInsets.zero,
                       value: _notifyOnEveryPrice,
                       title: Text('Her fiyat değişiminde bildir', style: _t(s: 13, w: FontWeight.w700)),
-                      subtitle: Text('Kapalıysa sadece hedef fiyat altı bildirir', style: _t(s: 11, c: _textSoft)),
+                      subtitle: Text('Kapalıysa sadece hedef fiyat altı bildirir', style: _t(s: 11, c: FRColors.textSubtle)),
                       onChanged: (value) {
                         setState(() => _notifyOnEveryPrice = value);
                         setModalState(() {});
                       },
-                      activeColor: _tan,
+                      activeColor: FRColors.tan,
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _dark,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: FRColors.espresso,
+                          shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.mdPlus)),
+                          padding: FRSpaceInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () async {
                           final raw = _targetPriceController.text.trim().replaceAll(',', '.');
@@ -347,7 +334,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             const SnackBar(content: Text('Alarm kaydedildi.')),
                           );
                         },
-                        child: Text('Alarmı Kaydet', style: _t(s: 14, w: FontWeight.w800, c: Colors.white)),
+                        child: Text('Alarmı Kaydet', style: _t(s: 14, w: FontWeight.w800, c: FRColors.white)),
                       ),
                     ),
                   ],
@@ -372,10 +359,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           height: MediaQuery.of(context).size.height * 0.84,
           child: Container(
             decoration: const BoxDecoration(
-              color: _surface,
+              color: FRColors.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: FRSpaceInsets.fromLTRB(16, 12, 16, 16),
             child: SafeArea(
               top: false,
               child: Column(
@@ -384,8 +371,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     width: 42,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: _textSoft,
-                      borderRadius: BorderRadius.circular(999),
+                      color: FRColors.textSubtle,
+                      borderRadius: FRRadius.all(FRRadius.pill),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -403,7 +390,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   Expanded(
                     child: product.recentPrices.isEmpty
                         ? Center(
-                            child: Text('Geçmiş fiyat kaydı bulunamadı.', style: _t(s: 13, c: _textSoft)),
+                            child: Text('Geçmiş fiyat kaydı bulunamadı.', style: _t(s: 13, c: FRColors.textSubtle)),
                           )
                         : ListView.separated(
                             itemCount: product.recentPrices.length,
@@ -414,7 +401,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                               return Container(
                                 decoration: _card(),
-                                padding: const EdgeInsets.all(12),
+                                padding: FRSpaceInsets.all(12),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -447,12 +434,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                                       ownerUid: item.userId,
                                                     ),
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: _green,
-                                              disabledBackgroundColor: _green.withOpacity(0.35),
-                                              padding: const EdgeInsets.symmetric(vertical: 10),
+                                              backgroundColor: FRColors.success,
+                                              disabledBackgroundColor: FRColors.success.withOpacity(0.35),
+                                              padding: FRSpaceInsets.symmetric(vertical: 10),
                                             ),
-                                            icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
-                                            label: Text('Doğru', style: _t(s: 12, w: FontWeight.w700, c: Colors.white)),
+                                            icon: const Icon(Icons.check_rounded, size: 16, color: FRColors.white),
+                                            label: Text('Doğru', style: _t(s: 12, w: FontWeight.w700, c: FRColors.white)),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -468,21 +455,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                                       ownerUid: item.userId,
                                                     ),
                                             style: OutlinedButton.styleFrom(
-                                              side: BorderSide(color: _red.withOpacity(0.3)),
-                                              padding: const EdgeInsets.symmetric(vertical: 10),
+                                              side: BorderSide(color: FRColors.danger.withOpacity(0.3)),
+                                              padding: FRSpaceInsets.symmetric(vertical: 10),
                                             ),
-                                            icon: const Icon(Icons.close_rounded, size: 16, color: _red),
-                                            label: Text('Yanlış', style: _t(s: 12, w: FontWeight.w700, c: _red)),
+                                            icon: const Icon(Icons.close_rounded, size: 16, color: FRColors.danger),
+                                            label: Text('Yanlış', style: _t(s: 12, w: FontWeight.w700, c: FRColors.danger)),
                                           ),
                                         ),
                                       ],
                                     ),
                                     if (selfBlocked)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 8),
+                                        padding: FRSpaceInsets.only(top: 8),
                                         child: Text(
                                           'Kendi fiyatını doğrulama kuralı nedeniyle oy kapalı.',
-                                          style: _t(s: 11, w: FontWeight.w600, c: _textSoft),
+                                          style: _t(s: 11, w: FontWeight.w600, c: FRColors.textSubtle),
                                         ),
                                       ),
                                   ],
@@ -527,14 +514,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     if (state.isLoading) {
       return const Scaffold(
-        backgroundColor: _bg,
-        body: Center(child: CircularProgressIndicator(color: _tan)),
+        backgroundColor: FRColors.surfaceSoft,
+        body: Center(child: CircularProgressIndicator(color: FRColors.tan)),
       );
     }
 
     if (state.error != null) {
       return Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: FRColors.surfaceSoft,
         body: Center(child: Text(state.error!, style: _t())),
       );
     }
@@ -617,7 +604,7 @@ class _ProductDetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: FRColors.surfaceSoft,
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
@@ -633,7 +620,7 @@ class _ProductDetailBody extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [_dark, _dark2],
+                    colors: [FRColors.espresso, FRColors.espressoSoft],
                   ),
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
                 ),
@@ -652,7 +639,7 @@ class _ProductDetailBody extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _t(s: 16, w: FontWeight.w800, c: Colors.white),
+                      style: _t(s: 16, w: FontWeight.w800, c: FRColors.white),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -663,14 +650,14 @@ class _ProductDetailBody extends StatelessWidget {
                   const SizedBox(width: 8),
                   _HeaderButton(
                     icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isFavorite ? _red : _tanLight,
+                    color: isFavorite ? FRColors.danger : FRColors.tanLight,
                     onTap: onFavoriteTap,
                   ),
                 ],
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              padding: FRSpaceInsets.fromLTRB(16, 16, 16, 120),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _HeroSection(product: product),
@@ -726,7 +713,7 @@ class _HeaderButton extends StatelessWidget {
   const _HeaderButton({
     required this.icon,
     required this.onTap,
-    this.color = _tanLight,
+    this.color = FRColors.tanLight,
   });
 
   final IconData icon;
@@ -737,14 +724,14 @@ class _HeaderButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: FRRadius.all(FRRadius.md),
       child: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          color: FRColors.white.withOpacity(0.08),
+          borderRadius: FRRadius.all(FRRadius.md),
+          border: Border.all(color: FRColors.white.withOpacity(0.1)),
         ),
         child: Icon(icon, color: color, size: 18),
       ),
@@ -764,7 +751,7 @@ class _HeroSection extends StatelessWidget {
 
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.all(18),
+      padding: FRSpaceInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -772,20 +759,20 @@ class _HeroSection extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: _surfaceAlt,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _line),
+                  color: FRColors.surfaceAlt,
+                  borderRadius: FRRadius.all(FRRadius.lg),
+                  border: Border.all(color: FRColors.border),
                 ),
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: FRRadius.all(FRRadius.lg),
                     child: AppNetworkImage(
                       imageUrl: product.imageUrl,
                       cacheKey: 'product_detail_${product.id}',
                       fit: BoxFit.cover,
                       errorWidget: const Center(
-                        child: Icon(Icons.image_not_supported_rounded, color: _textSoft, size: 38),
+                        child: Icon(Icons.image_not_supported_rounded, color: FRColors.textSubtle, size: 38),
                       ),
                     ),
                   ),
@@ -797,9 +784,9 @@ class _HeroSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _pill('SON FİYAT', _amber),
+                    _pill('SON FİYAT', FRColors.gold),
                     const SizedBox(height: 6),
-                    _pill('$verifyTotal doğrulama', _green),
+                    _pill('$verifyTotal doğrulama', FRColors.success),
                   ],
                 ),
               ),
@@ -817,14 +804,14 @@ class _HeroSection extends StatelessWidget {
             category,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _t(s: 12, w: FontWeight.w600, c: _textSoft),
+            style: _t(s: 12, w: FontWeight.w600, c: FRColors.textSubtle),
           ),
           const SizedBox(height: 14),
           Container(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _line)),
+              border: Border(top: BorderSide(color: FRColors.border)),
             ),
-            padding: const EdgeInsets.only(top: 14),
+            padding: FRSpaceInsets.only(top: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -842,18 +829,18 @@ class _HeroSection extends StatelessWidget {
 
   Widget _pill(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: _t(s: 10, w: FontWeight.w800, c: Colors.white, ls: 0.2)),
+      padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color, borderRadius: FRRadius.all(FRRadius.pill)),
+      child: Text(label, style: _t(s: 10, w: FontWeight.w800, c: FRColors.white, ls: 0.2)),
     );
   }
 
   Widget _heroStat(String value, String label) {
     return Column(
       children: [
-        Text(value, style: _t(s: 16, w: FontWeight.w800, c: _tan)),
+        Text(value, style: _t(s: 16, w: FontWeight.w800, c: FRColors.tan)),
         const SizedBox(height: 2),
-        Text(label, style: _t(s: 10, w: FontWeight.w600, c: _textSoft)),
+        Text(label, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle)),
       ],
     );
   }
@@ -873,17 +860,17 @@ class _LastPriceHero extends StatelessWidget {
         : '${product.bestPrice.store} (${product.bestPrice.storeLocation})';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: FRSpaceInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_dark, _dark2],
+          colors: [FRColors.espresso, FRColors.espressoSoft],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: FRRadius.all(FRRadius.xxlTight),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.18),
+            color: FRColors.espresso.withOpacity(0.18),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -895,38 +882,38 @@ class _LastPriceHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _tan.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(999),
+                  color: FRColors.tan.withOpacity(0.2),
+                  borderRadius: FRRadius.all(FRRadius.pill),
                 ),
-                child: Text('SON FİYAT KARARI', style: _t(s: 10, w: FontWeight.w700, c: _tanLight, ls: 0.4)),
+                child: Text('SON FİYAT KARARI', style: _t(s: 10, w: FontWeight.w700, c: FRColors.tanLight, ls: 0.4)),
               ),
               const Spacer(),
               if (drop > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _green.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _green.withOpacity(0.3)),
+                    color: FRColors.success.withOpacity(0.15),
+                    borderRadius: FRRadius.all(FRRadius.pill),
+                    border: Border.all(color: FRColors.success.withOpacity(0.3)),
                   ),
-                  child: Text('%$drop daha düşük', style: _t(s: 11, w: FontWeight.w800, c: const Color(0xFF4ADE80))),
+                  child: Text('%$drop daha düşük', style: _t(s: 11, w: FontWeight.w800, c: FRColors.success)),
                 ),
             ],
           ),
           const SizedBox(height: 14),
           RichText(
             text: TextSpan(
-              style: _t(s: 50, w: FontWeight.w900, c: Colors.white, h: 0.95),
+              style: _t(s: 50, w: FontWeight.w900, c: FRColors.white, h: 0.95),
               children: [
                 TextSpan(text: product.bestPrice.price.toStringAsFixed(2).replaceAll('.', ',')),
-                TextSpan(text: '₺', style: _t(s: 34, w: FontWeight.w900, c: Colors.white.withOpacity(0.62))),
+                TextSpan(text: '₺', style: _t(s: 34, w: FontWeight.w900, c: FRColors.white.withOpacity(0.62))),
               ],
             ),
           ),
           const SizedBox(height: 14),
-          Divider(color: Colors.white.withOpacity(0.12)),
+          Divider(color: FRColors.white.withOpacity(0.12)),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -937,8 +924,8 @@ class _LastPriceHero extends StatelessWidget {
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: _tan,
-                        borderRadius: BorderRadius.circular(10),
+                        color: FRColors.tan,
+                        borderRadius: FRRadius.all(FRRadius.smPlus),
                       ),
                       child: const Center(child: Text('🛒', style: TextStyle(fontSize: 19))),
                     ),
@@ -948,7 +935,7 @@ class _LastPriceHero extends StatelessWidget {
                         market,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _t(s: 13, w: FontWeight.w800, c: Colors.white),
+                        style: _t(s: 13, w: FontWeight.w800, c: FRColors.white),
                       ),
                     ),
                   ],
@@ -962,9 +949,9 @@ class _LastPriceHero extends StatelessWidget {
                     product.bestPrice.userName.isEmpty ? 'Anonim kullanıcı' : product.bestPrice.userName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _t(s: 12, w: FontWeight.w700, c: Colors.white),
+                    style: _t(s: 12, w: FontWeight.w700, c: FRColors.white),
                   ),
-                  Text(product.bestPrice.createdAtLabel, style: _t(s: 11, c: Colors.white.withOpacity(0.64))),
+                  Text(product.bestPrice.createdAtLabel, style: _t(s: 11, c: FRColors.white.withOpacity(0.64))),
                 ],
               ),
             ],
@@ -984,11 +971,11 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _statCard('En Düşük', product.stats.lowest, _green, Icons.keyboard_arrow_down_rounded)),
+        Expanded(child: _statCard('En Düşük', product.stats.lowest, FRColors.success, Icons.keyboard_arrow_down_rounded)),
         const SizedBox(width: 8),
-        Expanded(child: _statCard('Ortalama', product.stats.average, _amber, Icons.equalizer_rounded)),
+        Expanded(child: _statCard('Ortalama', product.stats.average, FRColors.gold, Icons.equalizer_rounded)),
         const SizedBox(width: 8),
-        Expanded(child: _statCard('En Yüksek', product.stats.highest, _red, Icons.keyboard_arrow_up_rounded)),
+        Expanded(child: _statCard('En Yüksek', product.stats.highest, FRColors.danger, Icons.keyboard_arrow_up_rounded)),
       ],
     );
   }
@@ -996,7 +983,7 @@ class _StatsRow extends StatelessWidget {
   Widget _statCard(String label, double value, Color color, IconData icon) {
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 12),
       child: Column(
         children: [
           Container(
@@ -1004,14 +991,14 @@ class _StatsRow extends StatelessWidget {
             height: 30,
             decoration: BoxDecoration(
               color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: FRRadius.all(FRRadius.smPlus),
             ),
             child: Icon(icon, size: 18, color: color),
           ),
           const SizedBox(height: 6),
           Text(_fmt(value), style: _t(s: 13, w: FontWeight.w800)),
           const SizedBox(height: 2),
-          Text(label, style: _t(s: 9, w: FontWeight.w600, c: _textSoft), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(label, style: _t(s: 9, w: FontWeight.w600, c: FRColors.textSubtle), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -1044,26 +1031,26 @@ class _VerificationCard extends StatelessWidget {
 
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.all(18),
+      padding: FRSpaceInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.verified_user_rounded, size: 19, color: _tan),
+              const Icon(Icons.verified_user_rounded, size: 19, color: FRColors.tan),
               const SizedBox(width: 8),
               Expanded(child: Text('Fiyat Doğrulama', style: _t(s: 15, w: FontWeight.w800))),
               InkWell(
                 onTap: onHistoryTap,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: FRRadius.all(FRRadius.md),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: FRSpaceInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _surfaceAlt,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _line),
+                    color: FRColors.surfaceAlt,
+                    borderRadius: FRRadius.all(FRRadius.md),
+                    border: Border.all(color: FRColors.border),
                   ),
-                  child: const Icon(Icons.history_rounded, size: 17, color: _textMuted),
+                  child: const Icon(Icons.history_rounded, size: 17, color: FRColors.textMuted),
                 ),
               ),
             ],
@@ -1071,11 +1058,11 @@ class _VerificationCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _counter('${product.trust.approveCount}', 'Doğru ($correctPercent%)', _green, _greenBg)),
+              Expanded(child: _counter('${product.trust.approveCount}', 'Doğru ($correctPercent%)', FRColors.success, FRColors.successBg(0.10))),
               const SizedBox(width: 8),
-              Expanded(child: _counter('${product.trust.rejectCount}', 'Yanlış ($wrongPercent%)', _red, _redBg)),
+              Expanded(child: _counter('${product.trust.rejectCount}', 'Yanlış ($wrongPercent%)', FRColors.danger, FRColors.dangerBg(0.10))),
               const SizedBox(width: 8),
-              Expanded(child: _counter('$total', 'Toplam', _tan, _surfaceAlt)),
+              Expanded(child: _counter('$total', 'Toplam', FRColors.tan, FRColors.surfaceAlt)),
             ],
           ),
           const SizedBox(height: 14),
@@ -1085,19 +1072,19 @@ class _VerificationCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: selfBlocked || isSubmitting ? null : onCorrect,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _green,
-                    disabledBackgroundColor: _green.withOpacity(0.35),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    backgroundColor: FRColors.success,
+                    disabledBackgroundColor: FRColors.success.withOpacity(0.35),
+                    shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.md)),
+                    padding: FRSpaceInsets.symmetric(vertical: 13),
                   ),
                   icon: isSubmitting
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.white),
                         )
-                      : const Icon(Icons.check_rounded, size: 16, color: Colors.white),
-                  label: Text('Fiyat Doğru', style: _t(s: 12, w: FontWeight.w700, c: Colors.white)),
+                      : const Icon(Icons.check_rounded, size: 16, color: FRColors.white),
+                  label: Text('Fiyat Doğru', style: _t(s: 12, w: FontWeight.w700, c: FRColors.white)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1105,20 +1092,20 @@ class _VerificationCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: selfBlocked || isSubmitting ? null : onWrong,
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: _red.withOpacity(0.35)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: BorderSide(color: FRColors.danger.withOpacity(0.35)),
+                    shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.md)),
+                    padding: FRSpaceInsets.symmetric(vertical: 13),
                   ),
-                  icon: const Icon(Icons.close_rounded, size: 16, color: _red),
-                  label: Text('Fiyat Yanlış', style: _t(s: 12, w: FontWeight.w700, c: _red)),
+                  icon: const Icon(Icons.close_rounded, size: 16, color: FRColors.danger),
+                  label: Text('Fiyat Yanlış', style: _t(s: 12, w: FontWeight.w700, c: FRColors.danger)),
                 ),
               ),
             ],
           ),
           if (selfBlocked)
             Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text('Kendi eklediğin fiyatı doğrulayamazsın.', style: _t(s: 11, w: FontWeight.w600, c: _textSoft)),
+              padding: FRSpaceInsets.only(top: 10),
+              child: Text('Kendi eklediğin fiyatı doğrulayamazsın.', style: _t(s: 11, w: FontWeight.w600, c: FRColors.textSubtle)),
             ),
         ],
       ),
@@ -1127,17 +1114,17 @@ class _VerificationCard extends StatelessWidget {
 
   Widget _counter(String value, String label, Color color, Color bg) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      padding: FRSpaceInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: FRRadius.all(FRRadius.md),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Column(
         children: [
           Text(value, style: _t(s: 20, w: FontWeight.w900, c: color)),
           const SizedBox(height: 2),
-          Text(label, style: _t(s: 10, w: FontWeight.w600, c: _textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(label, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -1167,13 +1154,13 @@ class _HistoryChartCard extends StatelessWidget {
 
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.all(16),
+      padding: FRSpaceInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.show_chart_rounded, color: _tan, size: 20),
+              const Icon(Icons.show_chart_rounded, color: FRColors.tan, size: 20),
               const SizedBox(width: 8),
               Text('Fiyat Geçmişi', style: _t(s: 15, w: FontWeight.w800)),
             ],
@@ -1193,16 +1180,16 @@ class _HistoryChartCard extends StatelessWidget {
             height: 220,
             child: chartPoints.length < 2
                 ? Center(
-                    child: Text('Grafik için yeterli geçmiş veri yok.', style: _t(s: 12, c: _textSoft)),
+                    child: Text('Grafik için yeterli geçmiş veri yok.', style: _t(s: 12, c: FRColors.textSubtle)),
                   )
                 : _PriceChart(points: chartPoints),
           ),
           if (chartPoints.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: FRSpaceInsets.only(top: 8),
               child: Text(
                 'Son fiyat: ${_fmt(chartPoints.last.price)} • Aralık: ${_fmt(stats.lowest)} - ${_fmt(stats.highest)}',
-                style: _t(s: 11, c: _textSoft, w: FontWeight.w600),
+                style: _t(s: 11, c: FRColors.textSubtle, w: FontWeight.w600),
               ),
             ),
         ],
@@ -1213,16 +1200,16 @@ class _HistoryChartCard extends StatelessWidget {
   Widget _segment({required String label, required int days}) {
     final selected = selectedDays == days;
     return InkWell(
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: FRRadius.all(FRRadius.pill),
       onTap: () => onDaysChanged(days),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? _dark : _surfaceAlt,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: selected ? _dark : _line),
+          color: selected ? FRColors.espresso : FRColors.surfaceAlt,
+          borderRadius: FRRadius.all(FRRadius.pill),
+          border: Border.all(color: selected ? FRColors.espresso : FRColors.border),
         ),
-        child: Text(label, style: _t(s: 12, w: FontWeight.w700, c: selected ? Colors.white : _textMuted)),
+        child: Text(label, style: _t(s: 12, w: FontWeight.w700, c: selected ? FRColors.white : FRColors.textMuted)),
       ),
     );
   }
@@ -1256,7 +1243,7 @@ class _PriceChart extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: horizontalInterval,
-          getDrawingHorizontalLine: (_) => FlLine(color: _line, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: FRColors.border, strokeWidth: 1),
         ),
         lineTouchData: LineTouchData(
           handleBuiltInTouches: true,
@@ -1264,19 +1251,19 @@ class _PriceChart extends StatelessWidget {
             tooltipRoundedRadius: 12,
             fitInsideHorizontally: true,
             fitInsideVertically: true,
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            getTooltipColor: (_) => _dark,
+            tooltipPadding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 8),
+            getTooltipColor: (_) => FRColors.espresso,
             getTooltipItems: (items) {
               return items.map((item) {
                 final index = item.x.toInt().clamp(0, points.length - 1);
                 final p = points[index];
                 return LineTooltipItem(
                   '${_fmt(p.price)}\n',
-                  _t(s: 12, w: FontWeight.w800, c: Colors.white),
+                  _t(s: 12, w: FontWeight.w800, c: FRColors.white),
                   children: [
                     TextSpan(
                       text: p.dateLabel,
-                      style: _t(s: 10, w: FontWeight.w600, c: Colors.white.withOpacity(0.78)),
+                      style: _t(s: 10, w: FontWeight.w600, c: FRColors.white.withOpacity(0.78)),
                     ),
                   ],
                 );
@@ -1293,7 +1280,7 @@ class _PriceChart extends StatelessWidget {
               reservedSize: 40,
               interval: horizontalInterval,
               getTitlesWidget: (value, meta) {
-                return Text(_fmt(value), style: _t(s: 9, w: FontWeight.w600, c: _textSoft));
+                return Text(_fmt(value), style: _t(s: 9, w: FontWeight.w600, c: FRColors.textSubtle));
               },
             ),
           ),
@@ -1309,8 +1296,8 @@ class _PriceChart extends StatelessWidget {
                 if (!visible) return const SizedBox.shrink();
 
                 return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(points[index].dateLabel, style: _t(s: 10, w: FontWeight.w600, c: _textSoft)),
+                  padding: FRSpaceInsets.only(top: 8),
+                  child: Text(points[index].dateLabel, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle)),
                 );
               },
             ),
@@ -1321,7 +1308,7 @@ class _PriceChart extends StatelessWidget {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.25,
-            color: _tan,
+            color: FRColors.tan,
             barWidth: 3,
             dotData: FlDotData(
               show: true,
@@ -1329,9 +1316,9 @@ class _PriceChart extends StatelessWidget {
               getDotPainter: (_, __, ___, ____) {
                 return FlDotCirclePainter(
                   radius: 4,
-                  color: _tan,
+                  color: FRColors.tan,
                   strokeWidth: 2,
-                  strokeColor: Colors.white,
+                  strokeColor: FRColors.white,
                 );
               },
             ),
@@ -1340,7 +1327,7 @@ class _PriceChart extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [_tan.withOpacity(0.25), _tan.withOpacity(0.02)],
+                colors: [FRColors.tan.withOpacity(0.25), FRColors.tan.withOpacity(0.02)],
               ),
             ),
           ),
@@ -1363,26 +1350,26 @@ class _MarketListCard extends StatelessWidget {
 
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.all(16),
+      padding: FRSpaceInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.storefront_rounded, color: _tan, size: 19),
+              const Icon(Icons.storefront_rounded, color: FRColors.tan, size: 19),
               const SizedBox(width: 8),
               Text('Market Karşılaştırması', style: _t(s: 15, w: FontWeight.w800)),
             ],
           ),
           const SizedBox(height: 12),
           if (markets.isEmpty)
-            Text('Karşılaştırılacak market verisi bulunamadı.', style: _t(s: 12, c: _textSoft))
+            Text('Karşılaştırılacak market verisi bulunamadı.', style: _t(s: 12, c: FRColors.textSubtle))
           else
             ...markets.map((market) {
               final diff = market.price - best;
               final isBest = diff.abs() < 0.001;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: FRSpaceInsets.only(bottom: 10),
                 child: _MarketItem(
                   entry: market,
                   isBest: isBest,
@@ -1413,11 +1400,11 @@ class _MarketItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: FRSpaceInsets.all(12),
       decoration: BoxDecoration(
-        color: _surfaceAlt,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isBest ? _green.withOpacity(0.35) : _line, width: isBest ? 1.5 : 1),
+        color: FRColors.surfaceAlt,
+        borderRadius: FRRadius.all(FRRadius.lg),
+        border: Border.all(color: isBest ? FRColors.success.withOpacity(0.35) : FRColors.border, width: isBest ? 1.5 : 1),
       ),
       child: Column(
         children: [
@@ -1429,12 +1416,12 @@ class _MarketItem extends StatelessWidget {
                 height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isBest ? _green : _tan,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isBest ? FRColors.success : FRColors.tan,
+                  borderRadius: FRRadius.all(FRRadius.md),
                 ),
                 child: Text(
                   entry.storeName.isNotEmpty ? entry.storeName[0].toUpperCase() : '?',
-                  style: _t(s: 16, w: FontWeight.w800, c: Colors.white),
+                  style: _t(s: 16, w: FontWeight.w800, c: FRColors.white),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1454,13 +1441,13 @@ class _MarketItem extends StatelessWidget {
                         ),
                         if (isBest)
                           Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            margin: FRSpaceInsets.only(left: 6),
+                            padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: _green,
-                              borderRadius: BorderRadius.circular(999),
+                              color: FRColors.success,
+                              borderRadius: FRRadius.all(FRRadius.pill),
                             ),
-                            child: Text('En Ucuz', style: _t(s: 9, w: FontWeight.w800, c: Colors.white)),
+                            child: Text('En Ucuz', style: _t(s: 9, w: FontWeight.w800, c: FRColors.white)),
                           ),
                       ],
                     ),
@@ -1471,14 +1458,14 @@ class _MarketItem extends StatelessWidget {
                           : (entry.storeLocation.trim().isEmpty ? 'Konum bilgisi yok' : entry.storeLocation),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _t(s: 11, w: FontWeight.w600, c: _textSoft),
+                      style: _t(s: 11, w: FontWeight.w600, c: FRColors.textSubtle),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${entry.timeAgo} • ${entry.userName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _t(s: 10, w: FontWeight.w600, c: _textSoft),
+                      style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle),
                     ),
                   ],
                 ),
@@ -1496,7 +1483,7 @@ class _MarketItem extends StatelessWidget {
                     style: _t(
                       s: 10,
                       w: FontWeight.w700,
-                      c: isBest ? _green : (diff > 0 ? _red : _green),
+                      c: isBest ? FRColors.success : (diff > 0 ? FRColors.danger : FRColors.success),
                     ),
                   ),
                 ],
@@ -1510,11 +1497,11 @@ class _MarketItem extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onMapTap,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _line),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                    side: const BorderSide(color: FRColors.border),
+                    shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.pill)),
                   ),
-                  icon: const Icon(Icons.map_outlined, size: 15, color: _tan),
-                  label: Text('Yol Tarifi', style: _t(s: 11, w: FontWeight.w700, c: _textMuted)),
+                  icon: const Icon(Icons.map_outlined, size: 15, color: FRColors.tan),
+                  label: Text('Yol Tarifi', style: _t(s: 11, w: FontWeight.w700, c: FRColors.textMuted)),
                 ),
               ),
             ],
@@ -1542,38 +1529,38 @@ class _CommentsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: _card(),
-      padding: const EdgeInsets.all(16),
+      padding: FRSpaceInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: _tan),
+              const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: FRColors.tan),
               const SizedBox(width: 8),
               Text('Yorumlar', style: _t(s: 16, w: FontWeight.w800)),
               const Spacer(),
-              Text('${comments.length} yorum', style: _t(s: 12, w: FontWeight.w600, c: _textSoft)),
+              Text('${comments.length} yorum', style: _t(s: 12, w: FontWeight.w600, c: FRColors.textSubtle)),
             ],
           ),
           const SizedBox(height: 12),
           if (comments.isEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text('Henüz yorum yok. İlk yorumu sen yaz.', style: _t(s: 12, c: _textSoft)),
+              padding: FRSpaceInsets.only(bottom: 12),
+              child: Text('Henüz yorum yok. İlk yorumu sen yaz.', style: _t(s: 12, c: FRColors.textSubtle)),
             )
           else
             ...comments.take(5).map(
                   (comment) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: FRSpaceInsets.only(bottom: 10),
                     child: _CommentTile(comment: comment),
                   ),
                 ),
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
-              color: _surfaceAlt,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _line),
+              color: FRColors.surfaceAlt,
+              borderRadius: FRRadius.all(FRRadius.mdPlus),
+              border: Border.all(color: FRColors.border),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -1585,27 +1572,27 @@ class _CommentsCard extends StatelessWidget {
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: 'Ürün hakkında yorumunu yaz...',
-                      hintStyle: _t(s: 12, c: _textSoft),
+                      hintStyle: _t(s: 12, c: FRColors.textSubtle),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      contentPadding: FRSpaceInsets.fromLTRB(12, 10, 8, 10),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 6, bottom: 6),
+                  padding: FRSpaceInsets.only(right: 6, bottom: 6),
                   child: IconButton(
                     onPressed: isSubmitting ? null : onSend,
                     style: IconButton.styleFrom(
-                      backgroundColor: _dark,
+                      backgroundColor: FRColors.espresso,
                       minimumSize: const Size(38, 38),
                     ),
                     icon: isSubmitting
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.white),
                           )
-                        : const Icon(Icons.send_rounded, size: 18, color: _tanLight),
+                        : const Icon(Icons.send_rounded, size: 18, color: FRColors.tanLight),
                   ),
                 ),
               ],
@@ -1627,11 +1614,11 @@ class _CommentTile extends StatelessWidget {
     final initials = _initials(comment.author);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: FRSpaceInsets.all(12),
       decoration: BoxDecoration(
-        color: _surfaceAlt,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _line),
+        color: FRColors.surfaceAlt,
+        borderRadius: FRRadius.all(FRRadius.md),
+        border: Border.all(color: FRColors.border),
       ),
       child: Column(
         children: [
@@ -1643,9 +1630,9 @@ class _CommentTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: _colorFromHex(comment.avatarBgHex),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: FRRadius.all(FRRadius.pill),
                 ),
-                child: Text(initials, style: _t(s: 12, w: FontWeight.w800, c: _text)),
+                child: Text(initials, style: _t(s: 12, w: FontWeight.w800, c: FRColors.textPrimary)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1653,7 +1640,7 @@ class _CommentTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(comment.author, style: _t(s: 13, w: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(comment.timeAgo, style: _t(s: 10, w: FontWeight.w600, c: _textSoft), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(comment.timeAgo, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -1662,7 +1649,7 @@ class _CommentTile extends StatelessWidget {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(comment.text, style: _t(s: 12, c: _textMuted, h: 1.45)),
+            child: Text(comment.text, style: _t(s: 12, c: FRColors.textMuted, h: 1.45)),
           ),
         ],
       ),
@@ -1679,28 +1666,28 @@ class _BottomActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+      padding: FRSpaceInsets.fromLTRB(16, 10, 16, 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [_bg, _bg.withOpacity(0.85), Colors.transparent],
+          colors: [FRColors.surfaceSoft, FRColors.surfaceSoft.withOpacity(0.85), Colors.transparent],
         ),
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
+          color: FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.mdPlus),
+          border: Border.all(color: FRColors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: FRColors.espresso.withOpacity(0.08),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(4),
+        padding: FRSpaceInsets.all(4),
         child: Row(
           children: [
             Expanded(
@@ -1709,8 +1696,8 @@ class _BottomActions extends StatelessWidget {
                 icon: const Icon(Icons.notifications_none_rounded, size: 16),
                 label: Text('Alarm Kur', style: _t(s: 13, w: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: _line),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: FRColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
                 ),
               ),
             ),
@@ -1719,13 +1706,13 @@ class _BottomActions extends StatelessWidget {
               flex: 2,
               child: ElevatedButton.icon(
                 onPressed: onMapTap,
-                icon: const Icon(Icons.location_on_rounded, size: 16, color: _tan),
+                icon: const Icon(Icons.location_on_rounded, size: 16, color: FRColors.tan),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _dark,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: FRColors.espresso,
+                  shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
                   elevation: 0,
                 ),
-                label: Text('Markete Git', style: _t(s: 13, w: FontWeight.w800, c: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                label: Text('Markete Git', style: _t(s: 13, w: FontWeight.w800, c: FRColors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -1737,12 +1724,12 @@ class _BottomActions extends StatelessWidget {
 
 BoxDecoration _card() {
   return BoxDecoration(
-    color: _surface,
-    borderRadius: BorderRadius.circular(16),
-    border: Border.all(color: _line),
+    color: FRColors.surface,
+    borderRadius: FRRadius.all(FRRadius.lg),
+    border: Border.all(color: FRColors.border),
     boxShadow: [
       BoxShadow(
-        color: _dark.withOpacity(0.04),
+        color: FRColors.espresso.withOpacity(0.04),
         blurRadius: 10,
         offset: const Offset(0, 2),
       ),
@@ -1761,8 +1748,8 @@ String _initials(String text) {
 
 Color _colorFromHex(String hex) {
   final normalized = hex.replaceAll('#', '').trim();
-  if (normalized.length != 6) return const Color(0xFFEDE6DD);
+  if (normalized.length != 6) return FRColors.studio;
   final value = int.tryParse('FF$normalized', radix: 16);
-  if (value == null) return const Color(0xFFEDE6DD);
+  if (value == null) return FRColors.studio;
   return Color(value);
 }

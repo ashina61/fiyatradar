@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_init_provider.dart';
 import '../models/user_model.dart';
@@ -8,9 +7,9 @@ import '../services/auth_service.dart';
 import 'auth_provider.dart';
 import 'service_providers.dart';
 
-final adminAllUsersProvider = StreamProvider<List<UserModel>>((ref) {
+final adminScopedUsersProvider = StreamProvider<List<UserModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getAllUsers();
+  return ref.watch(firestoreServiceProvider).watchAdminUsersScoped(limit: 200);
 });
 
 class AdminUserStatsSummary {
@@ -34,22 +33,12 @@ final adminUserStatsProvider = FutureProvider<AdminUserStatsSummary>((ref) async
     );
   }
 
-  final usersRef = FirebaseFirestore.instance.collection('users');
-  final userCountSnapshot = await usersRef.count().get();
-  final usersSnapshot = await usersRef.get();
-
-  int totalPriceEntries = 0;
-  int totalPoints = 0;
-  for (final doc in usersSnapshot.docs) {
-    final user = UserModel.fromFirestore(doc);
-    totalPriceEntries += user.priceEntries;
-    totalPoints += user.points;
-  }
+  final stats = await ref.watch(firestoreServiceProvider).getAdminUserStatsSnapshot();
 
   return AdminUserStatsSummary(
-    userCount: userCountSnapshot.count,
-    totalPriceEntries: totalPriceEntries,
-    totalPoints: totalPoints,
+    userCount: stats.userCount,
+    totalPriceEntries: stats.totalPriceEntries,
+    totalPoints: stats.totalPoints,
   );
 });
 

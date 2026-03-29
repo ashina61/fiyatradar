@@ -24,6 +24,8 @@ import '../main_screen.dart';
 import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -78,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             left: -72,
             child: _ambientBlob(
               size: 180,
-              color: Color(0x1A211510),
+              color: FRColors.espressoOverlay(0.10),
             ),
           ),
           CustomScrollView(
@@ -151,21 +153,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final points = user?.points ?? 0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: FRSpaceInsets.bottomXl,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: EdgeInsets.fromLTRB(24, topPadding + 16, 24, 50),
-            decoration: const BoxDecoration(
+            padding: FRSpaceInsets.headerWithTop(topPadding, bottom: FRSpacing.heroHeaderBottom),
+            decoration: BoxDecoration(
               color: FRColors.espressoSoft,
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(32),
-                bottomRight: Radius.circular(32),
+                bottomLeft: Radius.circular(FRRadius.hero),
+                bottomRight: Radius.circular(FRRadius.hero),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0x33211510),
+                  color: FRColors.espressoOverlay(0.20),
                   blurRadius: 30,
                   offset: Offset(0, 10),
                 ),
@@ -174,18 +176,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Row(
               children: [
                 PremiumPressable(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: FRRadius.lgRadius,
                   onTap: () => ref.read(currentTabProvider.notifier).state = 4,
                   child: Container(
                     width: 50,
                     height: 50,
-                    padding: const EdgeInsets.all(2),
+                    padding: FRSpaceInsets.allXxs,
                     decoration: BoxDecoration(
                       border: Border.all(color: FRColors.camelStrong, width: 1.5),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: FRRadius.lgRadius,
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: FRRadius.mdRadius,
                       child: user?.photoUrl != null
                           ? CachedNetworkImage(imageUrl: user!.photoUrl!, fit: BoxFit.cover)
                           : Container(
@@ -202,7 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: FRSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           color: FRColors.camelStrong,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: FRSpacing.xxs),
                       Text(
                         displayName,
                         maxLines: 1,
@@ -231,22 +233,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 PremiumPressable(
-                  borderRadius: BorderRadius.circular(100),
+                  borderRadius: FRRadius.pillRadius,
                   onTap: () => Navigator.of(context)
                       .push(MaterialPageRoute(builder: (_) => const PointsScreen())),
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        FRSpaceInsets.pointsChip,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      borderRadius: BorderRadius.circular(100),
+                      color: FRColors.white.withOpacity(0.08),
+                      border: Border.all(color: FRColors.white.withOpacity(0.1)),
+                      borderRadius: FRRadius.pillRadius,
                     ),
                     child: Row(
                       children: [
                         const Icon(Icons.stars_rounded,
                             color: FRColors.camelStrong, size: 16),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: FRSpacing.xsPlus),
                         Text(
                           formatCompactCount(points),
                           style: const TextStyle(
@@ -259,9 +261,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: FRSpacing.sm),
                 PremiumPressable(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: FRRadius.mdPlusRadius,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
                   ),
@@ -269,9 +271,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      color: FRColors.white.withOpacity(0.05),
+                      borderRadius: FRRadius.mdPlusRadius,
+                      border: Border.all(color: FRColors.white.withOpacity(0.1)),
                     ),
                     child: Stack(
                       children: [
@@ -299,17 +301,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           Positioned(
-            left: 24,
-            right: 24,
-            bottom: -24,
+            left: FRSpacing.xxl,
+            right: FRSpacing.xxl,
+            bottom: -FRSpacing.xxl,
             child: PremiumPressable(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: FRRadius.xlRadius,
               onTap: () => ref.read(currentTabProvider.notifier).state = 1,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+                padding: FRSpaceInsets.searchBar,
                 decoration: BoxDecoration(
                   color: FRColors.surface,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: FRRadius.xlRadius,
                   boxShadow: const [
                     BoxShadow(
                       color: FRColors.shadowMedium,
@@ -322,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     const Icon(Icons.search_rounded,
                         color: FRColors.textMuted, size: 22),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: FRSpacing.md),
                     const Expanded(
                       child: Text(
                         'Ürün, marka veya mağaza ara...',
@@ -334,7 +336,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     PremiumPressable(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: FRRadius.mdPlusRadius,
                       onTap: () async {
                         final barcode = await BarcodeScannerSheet.scan(context);
                         if (!mounted || barcode == null || barcode.trim().isEmpty) {
@@ -348,7 +350,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                           color: FRColors.studio,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: FRRadius.mdPlusRadius,
                         ),
                         child: const Icon(
                           Icons.qr_code_scanner_rounded,
@@ -371,7 +373,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedCategory = ref.watch(selectedCategoryFilterProvider);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      padding: FRSpaceInsets.sectionTop,
       child: SizedBox(
         height: 46,
         child: SingleChildScrollView(
@@ -391,7 +393,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               ...categories.map(
                 (item) => Padding(
-                  padding: const EdgeInsets.only(left: 10),
+                  padding: FRSpaceInsets.leftSmPlus,
                   child: _categoryPill(
                     title: item.title,
                     icon: _categoryIcon(item.title),
@@ -418,23 +420,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required VoidCallback onTap,
   }) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(100),
+      borderRadius: FRRadius.pillRadius,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: FRSpaceInsets.categoryPill,
         decoration: BoxDecoration(
           color: isActive ? FRColors.espressoSoft : FRColors.surface,
-          borderRadius: BorderRadius.circular(100),
+          borderRadius: FRRadius.pillRadius,
           border: Border.all(
             color: isActive ? FRColors.espressoSoft : FRColors.border,
           ),
           boxShadow: [
             BoxShadow(
-              color: isActive ? const Color(0x2B211510) : FRColors.shadowSoft,
+              color: isActive ? FRColors.espressoOverlay(0.17) : FRColors.shadowSoft,
               blurRadius: isActive ? 16 : 12,
-              offset: const Offset(0, 4),
+              offset: Offset(0, FRSpacing.xs),
             ),
           ],
         ),
@@ -446,7 +448,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               size: 16,
               color: isActive ? FRColors.surface : FRColors.textMuted,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: FRSpacing.xsPlus),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
               child: Text(
@@ -481,18 +483,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }).length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      padding: FRSpaceInsets.insightSection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: 6),
+          const SizedBox(height: FRSpacing.xsPlus),
           GridView.count(
             primary: false,
             padding: EdgeInsets.zero,
             crossAxisCount: 2,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 10,
+            crossAxisSpacing: FRSpacing.mdPlus,
+            mainAxisSpacing: FRSpacing.smPlus,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
             childAspectRatio: 1.0,
@@ -529,7 +531,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String meta,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: FRSpaceInsets.insightCard,
       decoration: _cardDecoration(radius: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,10 +539,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: iconBg, borderRadius: FRRadius.mdRadius),
             child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FRSpacing.md),
           Text(
             label,
             maxLines: 2,
@@ -552,7 +554,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: FRSpacing.xsPlus),
           Text(
             value,
             maxLines: 1,
@@ -564,7 +566,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FRSpacing.sm),
           Text(
             meta,
             maxLines: 3,
@@ -590,23 +592,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final trendByProduct = _resolveTrendByProduct(latestPrices);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 36),
+      padding: FRSpaceInsets.topXxxlPlus,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: FRSpaceInsets.horizontalXxl,
             child: _sectionTitle(
               title: 'Trend Ürünler',
               action: 'Tümünü Gör',
               badge: const _PopularBadge(),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: FRSpacing.lg),
           SizedBox(
             height: 258,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: FRSpaceInsets.horizontalXxl,
               scrollDirection: Axis.horizontal,
               itemBuilder: (context, index) {
                 final product = products[index];
@@ -627,7 +629,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 );
               },
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) => const SizedBox(width: FRSpacing.md),
               itemCount: products.length,
             ),
           ),
@@ -643,7 +645,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final hasAffiliate = affiliateUrl != null && affiliateUrl.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      padding: FRSpaceInsets.sectionXxlTop,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -651,9 +653,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: 'Editörün Seçimi',
             badge: const ApprovedBadge(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: FRSpacing.lg),
           PremiumPressable(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: FRRadius.xxlRadius,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ProductDetailScreen(productId: product.id),
@@ -663,7 +665,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               height: 160,
               decoration: BoxDecoration(
                 color: FRColors.espressoSoft,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: FRRadius.xxlRadius,
                 border: Border.all(color: FRColors.borderStrong),
                 boxShadow: const [
                   BoxShadow(
@@ -678,7 +680,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Expanded(
                     flex: 6,
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: FRSpaceInsets.allXl,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -691,7 +693,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: FRSpacing.xsPlus),
                           Text(
                             product.name,
                             maxLines: 2,
@@ -702,7 +704,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: FRSpacing.md),
                           Text(
                             hasPrice
                                 ? formatTRY(product.lastPrice ?? 0)
@@ -710,14 +712,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             style: TextStyle(
                               color: hasPrice
                                   ? FRColors.surface
-                                  : Colors.white.withOpacity(0.7),
+                                  : FRColors.white.withOpacity(0.7),
                               fontSize: hasPrice ? 22 : 13,
                               fontWeight:
                                   hasPrice ? FontWeight.w900 : FontWeight.w600,
                               height: 1,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: FRSpacing.sm),
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Column(
@@ -730,26 +732,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
                                 ),
                                 if (hasAffiliate) ...[
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: FRSpacing.smPlus),
                                   PremiumPressable(
-                                    borderRadius: BorderRadius.circular(18),
+                                    borderRadius: FRRadius.lgPlusRadius,
                                     onTap: () => _launchAffiliateLink(affiliateUrl),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                      padding: FRSpaceInsets.ctaChip,
                                       decoration: BoxDecoration(
                                         gradient: const LinearGradient(
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                           colors: [
-                                            Color(0xFFE8C18D),
-                                            Color(0xFFC9965F),
+                                            FRColors.ivory,
+                                            FRColors.camel,
                                           ],
                                         ),
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(color: const Color(0xFFF4D9AE).withOpacity(0.85)),
-                                        boxShadow: const [
+                                        borderRadius: FRRadius.lgPlusRadius,
+                                        border: Border.all(color: FRColors.goldGlowSoft.withOpacity(0.85)),
+                                        boxShadow: [
                                           BoxShadow(
-                                            color: Color(0x33211510),
+                                            color: FRColors.espressoOverlay(0.20),
                                             blurRadius: 16,
                                             offset: Offset(0, 8),
                                           ),
@@ -766,7 +768,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               fontWeight: FontWeight.w800,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          const SizedBox(width: FRSpacing.xsPlus),
                                           const Icon(
                                             Icons.open_in_new_rounded,
                                             size: 15,
@@ -788,17 +790,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     flex: 4,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
+                        color: FRColors.white.withOpacity(0.03),
                         border: Border(
                           left:
-                              BorderSide(color: Colors.white.withOpacity(0.05)),
+                              BorderSide(color: FRColors.white.withOpacity(0.05)),
                         ),
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(24),
+                        borderRadius: BorderRadius.horizontal(
+                          right: Radius.circular(FRRadius.xxl),
                         ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: FRSpaceInsets.allXxl,
                         child: Center(
                           child: CachedNetworkImage(
                             imageUrl: product.effectiveImage ?? '',
@@ -826,20 +828,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final rows = prices.take(5).toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      padding: FRSpaceInsets.sectionXxlTop,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Son Eklenen Fiyatlar', action: 'Tümünü Gör'),
-          const SizedBox(height: 16),
+          const SizedBox(height: FRSpacing.lg),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: FRSpaceInsets.latestListContainer,
             decoration: _cardDecoration(radius: 24),
             child: Column(
               children: [
                 for (int i = 0; i < rows.length; i++)
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: FRSpaceInsets.verticalLg,
                     decoration: BoxDecoration(
                       border: i == rows.length - 1
                           ? null
@@ -884,7 +886,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           width: 42,
           height: 42,
           decoration:
-              BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+              BoxDecoration(color: iconBg, borderRadius: FRRadius.mdRadius),
           child: Icon(
             verificationDelta == 0
                 ? Icons.drag_handle_rounded
@@ -895,7 +897,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             size: 18,
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: FRSpacing.mdPlus),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,7 +908,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: FRSpacing.xxs),
               Text(
                 '${item.storeName ?? 'Mağaza'} • ${item.userName ?? item.reporterName ?? 'Sistem'}',
                 maxLines: 1,
@@ -931,7 +933,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: FRColors.espressoSoft,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: FRSpacing.xxs),
             Text(
               verificationText,
               style: TextStyle(
@@ -947,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (productId == null) return row;
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: FRRadius.mdPlusRadius,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProductDetailScreen(productId: productId),
@@ -972,19 +974,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final topLeaders = leaders.take(2).toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      padding: FRSpaceInsets.sectionXxlTop,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title: 'Öne Çıkan Avcılar', action: 'Liderlik'),
-          const SizedBox(height: 16),
+          const SizedBox(height: FRSpacing.lg),
           ...topLeaders.asMap().entries.map((entry) {
             final rank = entry.key + 1;
             final user = entry.value;
 
             return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
+              margin: FRSpaceInsets.bottomMd,
+              padding: FRSpaceInsets.allLg,
               decoration: _cardDecoration(radius: 20),
               child: Row(
                 children: [
@@ -992,7 +994,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: FRRadius.mdPlusRadius,
                       gradient: rank == 1
                           ? const LinearGradient(
                               colors: [FRColors.camelStrong, FRColors.camelDeep],
@@ -1010,7 +1012,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: FRSpacing.mdPlus),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1024,7 +1026,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: FRSpacing.xxs),
                         Text(
                           'Bu hafta ${user.priceEntries} doğrulanmış fiyat',
                           style: const TextStyle(
@@ -1037,10 +1039,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        FRSpaceInsets.horizontalMdVerticalSm,
                     decoration: BoxDecoration(
                       color: FRColors.studio,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: FRRadius.mdRadius,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1075,19 +1077,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildFooter(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 160),
+      padding: FRSpaceInsets.footer,
       child: Column(
         children: [
           PremiumPressable(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: FRRadius.xlRadius,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AddPriceScreen()),
             ),
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: FRSpaceInsets.allXl,
               decoration: BoxDecoration(
                 color: FRColors.espressoSoft,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: FRRadius.xlRadius,
                 border: Border.all(color: FRColors.borderStrong),
                 boxShadow: const [
                   BoxShadow(
@@ -1123,7 +1125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   PremiumPressable(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: FRRadius.mdPlusRadius,
                     onTap: () async {
                       final barcode = await BarcodeScannerSheet.scan(context);
                       if (!mounted || barcode == null || barcode.trim().isEmpty) {
@@ -1137,7 +1139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       height: 46,
                       decoration: BoxDecoration(
                         color: FRColors.camelStrong,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: FRRadius.mdPlusRadius,
                       ),
                       child: const Icon(
                         Icons.qr_code_scanner_rounded,
@@ -1195,7 +1197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   BoxDecoration _cardDecoration({double radius = 20}) {
     return BoxDecoration(
       color: FRColors.surface,
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: FRRadius.all(radius),
       border: Border.all(color: FRColors.border),
       boxShadow: const [
         BoxShadow(
@@ -1278,10 +1280,10 @@ class _TrendBadge extends StatelessWidget {
     final arrow = isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: FRSpaceInsets.trendBadge,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: FRRadius.smPlusRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1308,10 +1310,10 @@ class _PopularBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: FRSpaceInsets.popularBadge,
       decoration: BoxDecoration(
         color: FRColors.camelOverlay(0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: FRRadius.xsRadius,
       ),
       child: const Row(
         children: [
