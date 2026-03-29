@@ -364,9 +364,7 @@ class BasketViewModel extends ChangeNotifier {
           status: CartComparisonStatus.success,
           bestMarket: CartMarketResultSummary.fromComparison(comparisonResult!.bestMarket!),
           topMarkets: topMarkets,
-          nearestMarket: comparisonResult!.nearestMarket != null
-              ? CartMarketResultSummary.fromComparison(comparisonResult!.nearestMarket!)
-              : null,
+          nearestMarket: null,
           missingProducts: allMissingProducts,
         );
       }
