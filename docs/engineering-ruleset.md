@@ -51,10 +51,11 @@
 ## 7) legacy exception policy
 
 1. Legacy istisna yalnız açık etiketle kabul edilir: `LEGACY_EXCEPTION`.
-2. Her istisna için zorunlu alanlar: sebep, owner, kaldırılma tarihi.
+2. Her istisna için zorunlu alanlar: `reason`, `owner`, `remove_by=YYYY-MM-DD`.
 3. Legacy istisna süresi maksimum 2 sprinttir.
 4. Legacy path/akışa yeni feature eklemek yasaktır; yalnız stabilization/fix yapılabilir.
 5. Süresi geçmiş istisna bulunan PR merge edilemez.
+6. İstisna eklenen PR’da `.github/pull_request_template.md` içindeki Legacy Exception bölümü doldurulmalı ve `docs/legacy-exception-allowlist.md` güncellenmelidir.
 
 ## 8) codex task template v2
 
@@ -70,19 +71,35 @@ Her Codex task’ı aşağıdaki blokları **zorunlu** içerir:
 
 Eksik blok içeren task uygulanmaz.
 
-## 9) merge checklist
+## 9) merge checklist (mandatory gate)
 
 - [ ] Scope dışı dosya değişmedi.
 - [ ] Katman ihlali yok (Repository/Service/Provider/Screen).
+- [ ] `build()` içinde side-effect eklenmedi.
 - [ ] Full snapshot + client-side sort/filter eklenmedi.
-- [ ] build() içinde side-effect yok.
+- [ ] Full collection fetch eklenmedi.
+- [ ] New query eklendiyse `orderBy/limit/count/index` notu PR açıklamasında var.
+- [ ] Firestore path değiştiyse rules path drift kontrolü yapıldı ve sonucu yazıldı.
 - [ ] GoRouter dışı navigation eklenmedi.
-- [ ] Yeni kodda local color/spacing/radius kullanılmadı.
-- [ ] Firestore path değiştiyse rules/schema etkisi değerlendirildi.
+- [ ] Yeni kodda local `Color(0x...)`, `BorderRadius.circular(...)`, `EdgeInsets.*(...)` yok (script + review).
+- [ ] Legacy exception varsa metadata (`reason/owner/remove_by`) ve allowlist kaydı eklendi.
 - [ ] Verify komutları çalıştırıldı veya neden çalışmadığı yazıldı.
 - [ ] Riskler ve rollback yaklaşımı yazıldı.
 
-## 10) final non-negotiables
+## 10) documented vs enforced map
+
+| Rule | Enforcement |
+|---|---|
+| Local `Color(0x...)` yasağı | Script: `scripts/check_engineering_rules.sh` + PR checklist |
+| Local `BorderRadius.circular(...)` yasağı | Script: `scripts/check_engineering_rules.sh` + PR checklist |
+| Raw `EdgeInsets.*(...)` yasağı | Script: `scripts/check_engineering_rules.sh` + PR checklist |
+| build() side-effect yasağı | PR checklist (review gate) |
+| full collection fetch yasağı | PR checklist (review gate) |
+| new query `order/limit/count/index` notu | PR checklist (review gate) |
+| rules path drift kontrolü | PR checklist (review gate) |
+| legacy exception policy | PR checklist + allowlist dosyası + script metadata kontrolü |
+
+## 11) final non-negotiables
 
 1. Scope dışına çıkılmaz.
 2. Kod davranışını değiştiren gizli refactor yapılmaz.

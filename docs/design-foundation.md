@@ -26,6 +26,16 @@ Bu doküman FiyatRadar için **tek resmi design foundation** kaynağını tanım
 3. Yeni local spacing/radius magic number eklenmez.
 4. Yeni typography helper (`_textStyle`, `_jakarta`, vb.) yerine foundation typography tokenları kullanılır.
 
+## Enforcement
+
+1. PR checklist design-token kurallarını merge gate olarak zorunlu kılar.
+2. CI tarafında `scripts/check_engineering_rules.sh` yeni eklenen `.dart` satırlarında şu pattern’leri bloke eder:
+   - `Color(0x...)`
+   - `BorderRadius.circular(...)`
+   - `EdgeInsets.all/symmetric/only/fromLTRB(...)`
+3. Legacy istisna gerekiyorsa satırda `LEGACY_EXCEPTION: reason=...; owner=...; remove_by=YYYY-MM-DD` formatı zorunludur.
+4. Path bazlı geçici istisnalar `docs/legacy-exception-allowlist.md` içinde takip edilir.
+
 ## Migration intent
 
-Bu task migration değildir. Amaç yalnızca canonical foundation zemini kurmaktır.
+Bu task migration değildir. Amaç canonical foundation zeminini **enforce edilebilir** hale getirmektir.
