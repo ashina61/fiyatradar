@@ -21,7 +21,7 @@ class AdminUserStatsSummary {
 
   final int userCount;
   final int totalPriceEntries;
-  final int totalPoints;
+  final int? totalPoints;
 }
 
 final adminUserStatsProvider = FutureProvider<AdminUserStatsSummary>((ref) async {
@@ -29,7 +29,7 @@ final adminUserStatsProvider = FutureProvider<AdminUserStatsSummary>((ref) async
     return const AdminUserStatsSummary(
       userCount: 0,
       totalPriceEntries: 0,
-      totalPoints: 0,
+      totalPoints: null,
     );
   }
 

@@ -79,7 +79,33 @@ class CatalogService {
         _ensureOpenFoodFactsImage(product);
       }
       return list;
-    });
+        });
+  }
+
+  Future<({
+    List<ProductModel> products,
+    QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc,
+    bool hasMore,
+  })> getProductsPage({
+    int pageSize = 60,
+    QueryDocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    final safePageSize = pageSize < 1 ? 1 : pageSize;
+    Query<Map<String, dynamic>> query = _productsRef
+        .orderBy('createdAt', descending: true)
+        .limit(safePageSize);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    final snapshot = await query.get();
+    final products = snapshot.docs
+        .map(ProductModel.fromFirestore)
+        .toList(growable: false);
+    return (
+      products: products,
+      lastDoc: snapshot.docs.isEmpty ? startAfter : snapshot.docs.last,
+      hasMore: snapshot.docs.length == safePageSize,
+    );
   }
 
   Future<List<ProductModel>> searchProducts(String query) async {

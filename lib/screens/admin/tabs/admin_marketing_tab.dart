@@ -65,7 +65,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
                     if (_selectedIndex == 0) {
                       _showBannerBottomSheet(context, ref);
                     } else {
-                      final products = ref.read(allProductsProvider).valueOrNull ?? [];
+                      final products = ref.read(adminScopedProductsProvider).valueOrNull ?? [];
                       _showCampaignBottomSheet(context, ref, products: products);
                     }
                   },
@@ -243,7 +243,7 @@ class _AdminMarketingTabState extends ConsumerState<AdminMarketingTab> {
   // =========================================================================
   Widget _buildCampaignsView(WidgetRef ref) {
     final campaignsAsync = ref.watch(allCampaignsProvider);
-    final productsAsync = ref.watch(allProductsProvider);
+    final productsAsync = ref.watch(adminScopedProductsProvider);
 
     return campaignsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),

@@ -175,20 +175,49 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
   // ÜRÜNLER GÖRÜNÜMÜ
   // =========================================================================
   Widget _buildProductsView(WidgetRef ref) {
-    final productsAsync = ref.watch(allProductsProvider);
+    final productsAsync = ref.watch(adminCatalogProductsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Ürünler yüklenemedi', style: TextStyle(color: pAlert))),
-      data: (products) {
+      data: (state) {
+        final products = state.products;
+        if (state.isInitialLoading) {
+          return const Center(child: CircularProgressIndicator(color: pBrandBrown));
+        }
         if (products.isEmpty) {
           return const Center(child: Text('Katalogda henüz ürün yok.', style: TextStyle(color: pTextMuted, fontWeight: FontWeight.w600)));
         }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-          itemCount: products.length,
+          itemCount: products.length + 1,
           itemBuilder: (context, index) {
+            if (index == products.length) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Center(
+                  child: state.hasMore
+                      ? ElevatedButton.icon(
+                          onPressed: state.isLoadingMore
+                              ? null
+                              : () => ref.read(adminCatalogProductsProvider.notifier).loadMore(),
+                          icon: state.isLoadingMore
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.expand_more),
+                          label: Text(state.isLoadingMore ? 'Yükleniyor...' : 'Daha Fazla Yükle'),
+                        )
+                      : const Text(
+                          'Tüm ürünler yüklendi',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pTextMuted),
+                        ),
+                ),
+              );
+            }
             final product = products[index];
             final hasImage = (product.effectiveImage ?? '').isNotEmpty;
 
@@ -272,13 +301,13 @@ class _AdminCatalogTabState extends ConsumerState<AdminCatalogTab> {
   // =========================================================================
   Widget _buildCategoriesView(WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
-    final productsAsync = ref.watch(allProductsProvider);
+    final pagedProductsAsync = ref.watch(adminCatalogProductsProvider);
 
     return categoriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: pBrandBrown)),
       error: (_, __) => const Center(child: Text('Kategoriler yüklenemedi', style: TextStyle(color: pAlert))),
       data: (categories) {
-        final products = productsAsync.valueOrNull ?? [];
+        final products = pagedProductsAsync.valueOrNull?.products ?? const <ProductModel>[];
         if (categories.isEmpty) {
           return const Center(child: Text('Henüz kategori yok.', style: TextStyle(color: pTextMuted, fontWeight: FontWeight.w600)));
         }

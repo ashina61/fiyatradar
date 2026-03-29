@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_init_provider.dart';
 import '../models/product_model.dart';
 import '../models/comment_model.dart';
@@ -16,6 +17,8 @@ import '../services/domain_services.dart';
 import 'auth_provider.dart';
 
 export 'service_providers.dart' show firestoreServiceProvider;
+
+const int _adminProductPageSize = 60;
 
 final catalogServiceProvider = Provider<CatalogService>((ref) {
   return CatalogService();
@@ -88,6 +91,108 @@ final editorPickProductsProvider = StreamProvider<List<ProductModel>>((ref) {
 final allProductsProvider = StreamProvider<List<ProductModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(catalogServiceProvider).getAllProducts();
+});
+
+final adminScopedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getAdminProductsScoped(limit: 300);
+});
+
+class AdminCatalogProductsState {
+  const AdminCatalogProductsState({
+    this.products = const <ProductModel>[],
+    this.isInitialLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+  });
+
+  final List<ProductModel> products;
+  final bool isInitialLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+
+  AdminCatalogProductsState copyWith({
+    List<ProductModel>? products,
+    bool? isInitialLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+  }) {
+    return AdminCatalogProductsState(
+      products: products ?? this.products,
+      isInitialLoading: isInitialLoading ?? this.isInitialLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+    );
+  }
+}
+
+class AdminCatalogProductsNotifier
+    extends StateNotifier<AsyncValue<AdminCatalogProductsState>> {
+  AdminCatalogProductsNotifier(this._firestoreService)
+      : super(const AsyncValue.data(AdminCatalogProductsState()));
+
+  final FirestoreService _firestoreService;
+  QueryDocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+  bool _initialized = false;
+
+  Future<void> loadInitial() async {
+    if (_initialized) return;
+    _initialized = true;
+    state = const AsyncValue.data(
+      AdminCatalogProductsState(isInitialLoading: true, hasMore: true),
+    );
+    await _loadPage(reset: true);
+  }
+
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || current.isInitialLoading || current.isLoadingMore || !current.hasMore) {
+      return;
+    }
+    state = AsyncValue.data(current.copyWith(isLoadingMore: true));
+    await _loadPage(reset: false);
+  }
+
+  Future<void> _loadPage({required bool reset}) async {
+    try {
+      final currentProducts = reset
+          ? const <ProductModel>[]
+          : (state.valueOrNull?.products ?? const <ProductModel>[]);
+      final page = await _firestoreService.getAdminProductsPage(
+        pageSize: _adminProductPageSize,
+        startAfter: reset ? null : _lastDoc,
+      );
+      _lastDoc = page.lastDocument;
+      state = AsyncValue.data(
+        AdminCatalogProductsState(
+          products: [...currentProducts, ...page.products],
+          isInitialLoading: false,
+          isLoadingMore: false,
+          hasMore: page.hasMore,
+        ),
+      );
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+final adminCatalogProductsProvider = StateNotifierProvider<
+    AdminCatalogProductsNotifier, AsyncValue<AdminCatalogProductsState>>((ref) {
+  final notifier = AdminCatalogProductsNotifier(ref.watch(firestoreServiceProvider));
+  notifier.loadInitial();
+  return notifier;
+});
+
+final adminProductTypeaheadProvider =
+    FutureProvider.family<List<ProductModel>, String>((ref, query) async {
+  if (!ref.watch(firebaseInitializedProvider)) return const [];
+  final normalized = query.trim();
+  if (normalized.length < 2) return const [];
+  return ref.watch(firestoreServiceProvider).searchProductsByPrefix(
+        normalized,
+        limit: 20,
+      );
 });
 
 final productProvider = FutureProvider.family<ProductModel?, String>((ref, productId) async {
@@ -227,6 +332,20 @@ final allStoresStreamProvider = StreamProvider<List<StoreModel>>((ref) {
   return ref.watch(storeDomainServiceProvider).getAllStoresStream();
 });
 
+final adminScopedStoresProvider = StreamProvider<List<StoreModel>>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getAdminStoresScoped(limit: 200);
+});
+
+final adminStoreTypeaheadProvider =
+    FutureProvider.family<List<StoreModel>, String>((ref, query) async {
+  if (!ref.watch(firebaseInitializedProvider)) return const [];
+  return ref.watch(firestoreServiceProvider).searchAdminStoresByPrefix(
+        query,
+        limit: 20,
+      );
+});
+
 final activeStoresProvider = StreamProvider<List<StoreModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(storeDomainServiceProvider).getActiveStores();
@@ -283,5 +402,3 @@ final recentlyViewedProvider = StreamProvider<List<Map<String, dynamic>>>((ref) 
   if (user == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).recentlyViewedStream(user.uid);
 });
-
-

@@ -89,7 +89,19 @@ class AdminUserStatsSnapshot {
 
   final int userCount;
   final int totalPriceEntries;
-  final int totalPoints;
+  final int? totalPoints;
+}
+
+class AdminProductPage {
+  const AdminProductPage({
+    required this.products,
+    required this.lastDocument,
+    required this.hasMore,
+  });
+
+  final List<ProductModel> products;
+  final QueryDocumentSnapshot<Map<String, dynamic>>? lastDocument;
+  final bool hasMore;
 }
 
 class FirestoreService {
@@ -210,6 +222,33 @@ class FirestoreService {
       list.sort((a, b) => a.displayName.compareTo(b.displayName));
       return list;
     });
+  }
+
+  Stream<List<StoreModel>> getAdminStoresScoped({
+    int limit = 200,
+  }) {
+    final safeLimit = limit < 1 ? 1 : limit;
+    return _storesRef
+        .orderBy('displayName')
+        .limit(safeLimit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(StoreModel.fromFirestore).toList(growable: false));
+  }
+
+  Future<List<StoreModel>> searchAdminStoresByPrefix(
+    String query, {
+    int limit = 20,
+  }) async {
+    final normalized = query.trim();
+    if (normalized.length < 2) return const [];
+    final safeLimit = limit < 1 ? 1 : limit;
+    final snapshot = await _storesRef
+        .orderBy('displayName')
+        .startAt([normalized])
+        .endAt(['$normalized\uf8ff'])
+        .limit(safeLimit)
+        .get();
+    return snapshot.docs.map(StoreModel.fromFirestore).toList(growable: false);
   }
 
   Stream<List<StoreModel>> getActiveStores() {
@@ -492,6 +531,50 @@ class FirestoreService {
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
+  }
+
+  Stream<List<ProductModel>> getAdminProductsScoped({
+    int limit = 300,
+  }) {
+    final safeLimit = limit < 1 ? 1 : limit;
+    return _productsRef
+        .orderBy('createdAt', descending: true)
+        .limit(safeLimit)
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs.map(ProductModel.fromFirestore).toList(growable: false);
+          for (final product in list) {
+            _ensureOpenFoodFactsImage(product);
+          }
+          return list;
+        });
+  }
+
+  Future<AdminProductPage> getAdminProductsPage({
+    int pageSize = 60,
+    QueryDocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    final safePageSize = pageSize < 1 ? 1 : pageSize;
+    Query<Map<String, dynamic>> query = _productsRef
+        .orderBy('createdAt', descending: true)
+        .limit(safePageSize);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    final snapshot = await query.get();
+    final products = snapshot.docs
+        .map(ProductModel.fromFirestore)
+        .toList(growable: false);
+    for (final product in products) {
+      _ensureOpenFoodFactsImage(product);
+    }
+
+    return AdminProductPage(
+      products: products,
+      lastDocument: snapshot.docs.isEmpty ? startAfter : snapshot.docs.last,
+      hasMore: snapshot.docs.length == safePageSize,
+    );
   }
 
   Stream<ProductModel?> getDailyDealProduct() {
@@ -1664,40 +1747,18 @@ class FirestoreService {
     return snapshot.count;
   }
 
-  Future<AdminUserStatsSnapshot> getAdminUserStatsSnapshot({
-    int batchSize = 400,
-  }) async {
-    final safeBatchSize = batchSize < 50 ? 50 : batchSize;
+  Future<AdminUserStatsSnapshot> getAdminUserStatsSnapshot() async {
     final userCountFuture = getAdminUserCountAggregate();
     final totalPriceEntriesFuture = _pricesRef.count().get();
-
-    var totalPoints = 0;
-    Query<Map<String, dynamic>> query = _usersRef
-        .orderBy(FieldPath.documentId)
-        .limit(safeBatchSize);
-
-    while (true) {
-      final page = await query.get();
-      if (page.docs.isEmpty) break;
-
-      for (final doc in page.docs) {
-        final data = doc.data();
-        totalPoints += (data['points'] as num?)?.toInt() ?? 0;
-      }
-
-      if (page.docs.length < safeBatchSize) break;
-      query = _usersRef
-          .orderBy(FieldPath.documentId)
-          .startAfterDocument(page.docs.last)
-          .limit(safeBatchSize);
-    }
 
     final userCount = await userCountFuture;
     final totalPriceEntries = (await totalPriceEntriesFuture).count;
     return AdminUserStatsSnapshot(
       userCount: userCount,
       totalPriceEntries: totalPriceEntries,
-      totalPoints: totalPoints,
+      // NOTE: Safe aggregate counterpart is not available yet for user-level
+      // points sum. We intentionally degrade this metric to avoid full user scan.
+      totalPoints: null,
     );
   }
 

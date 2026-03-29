@@ -147,7 +147,7 @@ class PriceDropWatcherService {
     final notificationRef = _firestore
         .collection('users')
         .doc(uid)
-        .collection('inAppNotifications')
+        .collection('notifications')
         .doc();
 
     await _firestore.runTransaction((txn) async {
@@ -168,13 +168,18 @@ class PriceDropWatcherService {
       }
 
       txn.set(notificationRef, {
+        'id': notificationRef.id,
         'type': 'price_drop',
-        'productId': productId,
         'title': 'Fiyat düştü',
-        'body':
+        'message':
             'Takip ettiğin ürünün en düşük fiyatı ${previousLowest.toStringAsFixed(2)} → ${lowestPrice.toStringAsFixed(2)} oldu.',
         'createdAt': FieldValue.serverTimestamp(),
-        'read': false,
+        'isRead': false,
+        'metaData': {
+          'userId': uid,
+          'productId': productId,
+          'eventId': notificationRef.id,
+        },
       });
 
       txn.set(watchStateRef, {
