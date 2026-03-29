@@ -71,7 +71,7 @@ final todaysNewUsersCountProvider = FutureProvider<int>((ref) async {
       .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
       .where('createdAt', isLessThan: Timestamp.fromDate(end));
   final count = await query.count().get();
-  return count.count;
+  return count.count ?? 0;
 });
 
 final savedProductsProvider = StreamProvider<List<ProductModel>>((ref) {
