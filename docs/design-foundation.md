@@ -2,6 +2,8 @@
 
 Bu doküman FiyatRadar için **tek resmi design foundation** kaynağını tanımlar.
 
+> Not: Store domain kararları design foundation kapsamında değil, `docs/store-policy.md` altında canonical olarak yönetilir.
+
 ## Canonical token sources
 
 - `lib/theme/fr_colors.dart` → renk tokenları (canonical)

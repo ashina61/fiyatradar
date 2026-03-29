@@ -108,3 +108,10 @@ Eksik blok içeren task uygulanmaz.
 5. GoRouter dışı navigation eklenmez.
 6. Local style sabiti (color/spacing/radius) yeni kodda eklenmez.
 7. AC’leri karşılamayan iş merge edilmez.
+
+## 12) store model policy enforcement
+
+1. Store model policy’nin canonical kaynağı `docs/store-policy.md` dosyasıdır.
+2. Yeni feature/PR’lar branch/location-first store davranışı ekleyemez.
+3. Legacy store alanları yalnız compatibility amaçlı taşınabilir; yeni iş kuralı kaynağı olamaz.
+

@@ -1,9 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart'; // Haritalar için eklendi
 
 import '../../features/basket/cart_comparison_state.dart';
 import '../../theme/fr_colors.dart';
@@ -184,7 +182,6 @@ class _SuccessStateState extends State<_SuccessState> {
         return a.totalPrice.compareTo(b.totalPrice);
       });
 
-    final nearest = state.nearestMarket;
     final minTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a < b ? a : b);
     final maxTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a > b ? a : b);
 
@@ -215,7 +212,6 @@ class _SuccessStateState extends State<_SuccessState> {
               best: best, 
               totalProducts: state.missingProducts.length + best.lines.length, 
               scrollFactor: _scrollOffset, 
-              nearest: nearest,
               savingAmount: calculatedSaving, // Dinamik kazanç gönderiliyor
             ),
           ),
@@ -365,54 +361,11 @@ class _PulseSavingsBadgeState extends State<_PulseSavingsBadge> with SingleTicke
 // V15 ŞAMPİYON KART (_HeroCard)
 // ─────────────────────────────────────────────────────────────────────────────
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor, required this.nearest, required this.savingAmount});
+  const _HeroCard({required this.best, required this.totalProducts, required this.scrollFactor, required this.savingAmount});
   final CartMarketResultSummary best;
   final int totalProducts;
   final double scrollFactor;
-  final CartMarketResultSummary? nearest;
   final double savingAmount;
-
-  // Haritaları Açma Fonksiyonu (En Yakın Markete Göre)
-  Future<void> _openMaps(BuildContext context) async {
-    final targetMarket = nearest ?? best;
-
-    try {
-      final storeDoc = await FirebaseFirestore.instance
-          .collection('stores')
-          .doc(targetMarket.storeId)
-          .get();
-      final data = storeDoc.data() ?? const <String, dynamic>{};
-      final geoPoint = data['geoPoint'] as GeoPoint?;
-      final latitude = _toDouble(data['lat'] ?? data['latitude'] ?? geoPoint?.latitude);
-      final longitude = _toDouble(data['lng'] ?? data['longitude'] ?? geoPoint?.longitude);
-
-      if (latitude == null || longitude == null) {
-        throw Exception('Koordinat bulunamadı.');
-      }
-
-      final url = Uri.parse('https://maps.google.com/?q=$latitude,$longitude');
-      final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!launched && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Harita açılamadı.')),
-        );
-      }
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mağaza konumu açılamadı.')),
-      );
-    }
-  }
-
-  double? _toDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.replaceAll(',', '.').trim());
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -503,27 +456,10 @@ class _HeroCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 25),
-              ElevatedButton(
-                onPressed: () => _openMaps(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FRColors.white,
-                  foregroundColor: FRColors.espressoSoft,
-                  shape: RoundedRectangleBorder(borderRadius: FRRadius.lgRadius),
-                  padding: FRSpaceInsets.symmetric(vertical: FRSpacing.mdPlus),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center, 
-                  children: [
-                    Text(
-                      nearest != null ? 'En Yakın Markete Git' : 'Markete Git',
-                      style: _t(fontSize: 15, fontWeight: FontWeight.bold),
-                    ), 
-                    const SizedBox(width: 8), 
-                    const Icon(Icons.directions_walk_rounded, size: 20)
-                  ],
-                ),
-              )
+              Text(
+                'Karşılaştırma sonuçları market zinciri bazında gösterilir.',
+                style: _t(color: FRColors.white.withOpacity(0.78), fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -601,7 +537,7 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                           ),
                         ),
                         Text(
-                          isError ? '${widget.market.missingCount} Eksik' : '${widget.market.distanceKm?.toStringAsFixed(1) ?? "0.5"} km • Eksik Yok',
+                          isError ? '${widget.market.missingCount} Eksik' : 'Eksik Yok',
                           style: _t(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

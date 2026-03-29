@@ -73,6 +73,7 @@ class CartComparisonService {
     Position? userPosition,
     Set<String>? allowedMarketIds,
   }) {
+    final _ = userPosition;
     final storeById = {for (final store in stores) store.id: store};
     final allMarketIds = <String>{
       for (final marketMap in latestPricesByItem.values) ...marketMap.keys,
@@ -119,7 +120,7 @@ class CartComparisonService {
           total: total,
           missingProductIds: missing,
           lines: lines,
-          distanceKm: _distanceKm(userPosition, storeById[marketId]),
+          distanceKm: null,
           hasUnverifiedPrices: hasUnverified,
         ),
       );
@@ -131,17 +132,6 @@ class CartComparisonService {
       }
       return a.total.compareTo(b.total);
     });
-
-    CartMarketComparison? nearest;
-    if (userPosition != null) {
-      final withDistance = comparisons
-          .where((entry) => !entry.hasMissingProducts && entry.distanceKm != null)
-          .toList()
-        ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
-      if (withDistance.isNotEmpty) {
-        nearest = withDistance.first;
-      }
-    }
 
     CartMarketComparison? best;
     for (final comparison in comparisons) {
@@ -156,7 +146,7 @@ class CartComparisonService {
 
     return CartComparisonResult(
       bestMarket: best,
-      nearestMarket: nearest,
+      nearestMarket: null,
       sortedMarkets: comparisons,
       notice: notice,
     );
@@ -177,17 +167,5 @@ class CartComparisonService {
       output[item.productId] = prices.first;
     }
     return output;
-  }
-
-  double? _distanceKm(Position? userPosition, StoreModel? store) {
-    if (userPosition == null || store == null) return null;
-    if (store.lat == 0 && store.lng == 0) return null;
-    final meters = Geolocator.distanceBetween(
-      userPosition.latitude,
-      userPosition.longitude,
-      store.lat,
-      store.lng,
-    );
-    return meters / 1000;
   }
 }
