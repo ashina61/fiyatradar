@@ -87,7 +87,7 @@ class _AdminStatisticsTabState extends ConsumerState<AdminStatisticsTab> {
     final brandsAsync = ref.watch(allBrandsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final bannersAsync = ref.watch(allBannersProvider);
-    final usersAsync = ref.watch(allUsersProvider);
+    final adminUserStatsAsync = ref.watch(adminUserStatsProvider);
     final reportsAsync = ref.watch(reportsProvider);
     final maintenanceAsync = ref.watch(maintenanceModeProvider);
     
@@ -103,19 +103,15 @@ class _AdminStatisticsTabState extends ConsumerState<AdminStatisticsTab> {
     final brandCount = brandsAsync.valueOrNull?.length ?? 0;
     final categoryCount = categoriesAsync.valueOrNull?.length ?? 0;
     final bannerCount = bannersAsync.valueOrNull?.length ?? 0;
-    final userCount = usersAsync.valueOrNull?.length ?? 0;
+    final userCount = adminUserStatsAsync.valueOrNull?.userCount ?? 0;
     
     // Raporları hesapla (Sadece pending/bekleyen olanları almak daha doğru olabilir)
     final allReports = reportsAsync.valueOrNull ?? [];
     final openReportCount = allReports.where((r) => r['status'] == 'pending').length;
 
-    final users = usersAsync.valueOrNull ?? [];
-    int totalPriceEntries = 0;
-    int totalPoints = 0;
-    for (final user in users) {
-      totalPriceEntries += user.priceEntries;
-      totalPoints += user.points;
-    }
+    final totalPriceEntries =
+        adminUserStatsAsync.valueOrNull?.totalPriceEntries ?? 0;
+    final totalPoints = adminUserStatsAsync.valueOrNull?.totalPoints ?? 0;
 
     final maintenanceEnabled = maintenanceAsync.valueOrNull ?? false;
     final maintenanceBusy = maintenanceAsync.isLoading;

@@ -25,18 +25,24 @@ class CatalogService {
       _firestore.collection('comments');
 
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
-    return _productsRef.snapshots().map((snapshot) {
+    return _productsRef
+        .orderBy('priceEntryCount', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final list = snapshot.docs.map(ProductModel.fromFirestore).toList();
-      list.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
-      return list.take(limit).toList();
+      return list;
     });
   }
 
   Stream<List<ProductModel>> getRecommendedProducts({int limit = 10}) {
-    return _productsRef.snapshots().map((snapshot) {
+    return _productsRef
+        .orderBy('viewCount', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final list = snapshot.docs.map(ProductModel.fromFirestore).toList();
-      list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-      return list.take(limit).toList();
+      return list;
     });
   }
 
@@ -55,29 +61,78 @@ class CatalogService {
     });
   }
 
-  Stream<List<ProductModel>> getAllProducts() {
-    return _productsRef.snapshots().map((snapshot) {
+  /// Intentionally capped for listing performance.
+  /// If a full catalog is required in future, pagination should be implemented.
+  Stream<List<ProductModel>> getAllProducts({int limit = 200}) {
+    return _productsRef
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final list = snapshot.docs.map(ProductModel.fromFirestore).toList();
+      if (kDebugMode && list.length == limit) {
+        debugPrint(
+          '[CatalogService.getAllProducts] reached cap ($limit). Consider pagination for full catalog use-cases.',
+        );
+      }
       for (final product in list) {
         _ensureOpenFoodFactsImage(product);
       }
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
   }
 
   Future<List<ProductModel>> searchProducts(String query) async {
-    final queryLower = query.toLowerCase();
-    final snapshot = await _productsRef.get();
-    return snapshot.docs
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return const [];
+
+    final byKeywordSnapshot = await _productsRef
+        .where('searchKeywords', arrayContains: normalizedQuery)
+        .limit(20)
+        .get();
+
+    QuerySnapshot<Map<String, dynamic>> byPrefixSnapshot;
+    try {
+      byPrefixSnapshot = await _productsRef
+          .where('name_lowercase', isGreaterThanOrEqualTo: normalizedQuery)
+          .where('name_lowercase', isLessThan: '$normalizedQuery\uf8ff')
+          .orderBy('name_lowercase')
+          .limit(20)
+          .get();
+    } catch (_) {
+      byPrefixSnapshot = await _productsRef.limit(0).get();
+    }
+
+    final merged = <String, ProductModel>{};
+    for (final doc in [...byKeywordSnapshot.docs, ...byPrefixSnapshot.docs]) {
+      final product = ProductModel.fromFirestore(doc);
+      final haystack = '${product.name} ${product.brand} ${product.barcode ?? ''}'
+          .toLowerCase();
+      if (!haystack.contains(normalizedQuery)) continue;
+      merged[product.id] = product;
+    }
+
+    final results = merged.values.toList(growable: false);
+    results.sort((a, b) {
+      final aExact = a.name.trim().toLowerCase() == normalizedQuery ? 0 : 1;
+      final bExact = b.name.trim().toLowerCase() == normalizedQuery ? 0 : 1;
+      if (aExact != bExact) return aExact.compareTo(bExact);
+      final aPrefix = a.name.trim().toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+      final bPrefix = b.name.trim().toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+      if (aPrefix != bPrefix) return aPrefix.compareTo(bPrefix);
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    if (results.isNotEmpty) {
+      return results.take(20).toList(growable: false);
+    }
+
+    final barcodeSnapshot = await _productsRef
+        .where('barcode', isEqualTo: query.trim())
+        .limit(20)
+        .get();
+    return barcodeSnapshot.docs
         .map(ProductModel.fromFirestore)
-        .where(
-          (product) =>
-              product.name.toLowerCase().contains(queryLower) ||
-              product.brand.toLowerCase().contains(queryLower) ||
-              (product.barcode?.contains(query) ?? false),
-        )
-        .toList();
+        .toList(growable: false);
   }
 
   Future<ProductModel?> getProduct(String productId) async {
@@ -117,10 +172,10 @@ class CatalogService {
 
   Stream<List<PriceModel>> getLatestPrices({int limit = 10}) {
     var query = SafeQueryBuilder.safeWhere(_pricesRef, 'status', 'active', expectedType: String);
+    query = query.orderBy('createdAt', descending: true).limit(limit);
     return query.snapshots().map((snapshot) {
       final list = snapshot.docs.map(PriceModel.fromFirestore).toList();
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list.take(limit).toList();
+      return list;
     });
   }
 

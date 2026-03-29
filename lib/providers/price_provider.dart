@@ -4,17 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_init_provider.dart';
 import '../models/price_model.dart';
 import '../services/firestore_service.dart';
+import 'service_providers.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/auth_service.dart';
 import '../services/points_service.dart';
 import '../utils/elite_level_engine.dart';
 import 'auth_provider.dart';
-
-// Eğer sende zaten varsa, bunu kaldırma. Burada yoksa ekliyoruz.
-final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  return FirestoreService();
-});
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();

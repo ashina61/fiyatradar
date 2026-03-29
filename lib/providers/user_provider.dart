@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_init_provider.dart';
 import '../models/user_model.dart';
@@ -5,11 +6,82 @@ import '../models/product_model.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import 'auth_provider.dart';
-import 'product_provider.dart';
+import 'service_providers.dart';
 
-final allUsersProvider = StreamProvider<List<UserModel>>((ref) {
+final adminAllUsersProvider = StreamProvider<List<UserModel>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getAllUsers();
+});
+
+class AdminUserStatsSummary {
+  const AdminUserStatsSummary({
+    required this.userCount,
+    required this.totalPriceEntries,
+    required this.totalPoints,
+  });
+
+  final int userCount;
+  final int totalPriceEntries;
+  final int totalPoints;
+}
+
+final adminUserStatsProvider = FutureProvider<AdminUserStatsSummary>((ref) async {
+  if (!ref.watch(firebaseInitializedProvider)) {
+    return const AdminUserStatsSummary(
+      userCount: 0,
+      totalPriceEntries: 0,
+      totalPoints: 0,
+    );
+  }
+
+  final usersRef = FirebaseFirestore.instance.collection('users');
+  final userCountSnapshot = await usersRef.count().get();
+  final usersSnapshot = await usersRef.get();
+
+  int totalPriceEntries = 0;
+  int totalPoints = 0;
+  for (final doc in usersSnapshot.docs) {
+    final user = UserModel.fromFirestore(doc);
+    totalPriceEntries += user.priceEntries;
+    totalPoints += user.points;
+  }
+
+  return AdminUserStatsSummary(
+    userCount: userCountSnapshot.count,
+    totalPriceEntries: totalPriceEntries,
+    totalPoints: totalPoints,
+  );
+});
+
+final homeTopUsersProvider = FutureProvider<List<UserModel>>((ref) async {
+  if (!ref.watch(firebaseInitializedProvider)) return const [];
+  final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .orderBy('totalPoints', descending: true)
+      .limit(20)
+      .get();
+  final users = snapshot.docs.map(UserModel.fromFirestore).toList(growable: false);
+  users.sort((a, b) {
+    final byPoints = b.points.compareTo(a.points);
+    if (byPoints != 0) return byPoints;
+    final byTrust = b.trustScorePercent.compareTo(a.trustScorePercent);
+    if (byTrust != 0) return byTrust;
+    return b.priceEntries.compareTo(a.priceEntries);
+  });
+  return users.take(2).toList(growable: false);
+});
+
+final todaysNewUsersCountProvider = FutureProvider<int>((ref) async {
+  if (!ref.watch(firebaseInitializedProvider)) return 0;
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month, now.day);
+  final end = start.add(const Duration(days: 1));
+  final query = FirebaseFirestore.instance
+      .collection('users')
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+      .where('createdAt', isLessThan: Timestamp.fromDate(end));
+  final count = await query.count().get();
+  return count.count;
 });
 
 final savedProductsProvider = StreamProvider<List<ProductModel>>((ref) {

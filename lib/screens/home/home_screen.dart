@@ -50,7 +50,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
-    final usersAsync = ref.watch(allUsersProvider);
+    final topUsersAsync = ref.watch(homeTopUsersProvider);
+    final todaysNewUsersAsync = ref.watch(todaysNewUsersCountProvider);
     final unreadCount = ref.watch(unreadCountProvider);
 
     final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
@@ -99,7 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: _buildInsightGrid(
                   latestPrices,
-                  usersAsync.valueOrNull ?? const <UserModel>[],
+                  todaysNewUsersAsync.valueOrNull ?? 0,
                 ),
               ),
               SliverToBoxAdapter(
@@ -121,7 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildLatestPrices(latestPrices),
               ),
               SliverToBoxAdapter(
-                child: _buildLeaders(usersAsync.valueOrNull ?? const []),
+                child: _buildLeaders(topUsersAsync.valueOrNull ?? const []),
               ),
               SliverToBoxAdapter(child: _buildFooter(context)),
             ],
@@ -468,7 +469,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildInsightGrid(
     List<PriceModel> latestPrices,
-    List<UserModel> users,
+    int todaysNewUsers,
   ) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -476,11 +477,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final todaysPriceEntries = latestPrices.where((price) {
       final dt = price.reportedAt;
-      return !dt.isBefore(todayStart) && dt.isBefore(tomorrowStart);
-    }).length;
-
-    final todaysNewUsers = users.where((user) {
-      final dt = user.createdAt;
       return !dt.isBefore(todayStart) && dt.isBefore(tomorrowStart);
     }).length;
 

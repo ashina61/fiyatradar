@@ -11,12 +11,11 @@ import '../models/category_theme.dart';
 import '../models/product_suggestion_model.dart';
 import '../services/catalog_service.dart';
 import '../services/firestore_service.dart';
+import 'service_providers.dart';
 import '../services/domain_services.dart';
 import 'auth_provider.dart';
 
-final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  return FirestoreService();
-});
+export 'service_providers.dart' show firestoreServiceProvider;
 
 final catalogServiceProvider = Provider<CatalogService>((ref) {
   return CatalogService();

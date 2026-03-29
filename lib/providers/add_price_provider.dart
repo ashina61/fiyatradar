@@ -13,6 +13,7 @@ import '../models/store_model.dart';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
 import 'price_provider.dart';
+import 'service_providers.dart';
 
 class AddPriceState {
   const AddPriceState({

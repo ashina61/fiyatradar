@@ -68,7 +68,26 @@ class ProductDetailNotifier extends StateNotifier<ProductDetailState> {
     state = state.copyWith(isSubmittingComment: true, error: null);
     try {
       await _api.postComment(_productId, text);
-      await load();
+      final nextComments = await _api.fetchComments(_productId);
+      final current = state.data;
+      if (current != null) {
+        state = state.copyWith(
+          data: ProductDetailResponse(
+            id: current.id,
+            title: current.title,
+            imageUrl: current.imageUrl,
+            categories: current.categories,
+            viewCount: current.viewCount,
+            priceEntryCount: current.priceEntryCount,
+            bestPrice: current.bestPrice,
+            stats: current.stats,
+            trust: current.trust,
+            comments: nextComments,
+            marketPrices: current.marketPrices,
+            recentPrices: current.recentPrices,
+          ),
+        );
+      }
       return true;
     } catch (e) {
       state = state.copyWith(isSubmittingComment: false, error: e.toString());
@@ -82,7 +101,26 @@ class ProductDetailNotifier extends StateNotifier<ProductDetailState> {
     state = state.copyWith(isSubmittingVote: true, error: null);
     try {
       final result = await _api.votePrice(priceId, isApproved);
-      await load();
+      final nextSnapshot = await _api.fetchPriceSnapshot(_productId);
+      final current = state.data;
+      if (current != null) {
+        state = state.copyWith(
+          data: ProductDetailResponse(
+            id: current.id,
+            title: current.title,
+            imageUrl: current.imageUrl,
+            categories: current.categories,
+            viewCount: current.viewCount,
+            priceEntryCount: nextSnapshot.priceEntryCount,
+            bestPrice: nextSnapshot.bestPrice,
+            stats: nextSnapshot.stats,
+            trust: nextSnapshot.trust,
+            comments: current.comments,
+            marketPrices: nextSnapshot.marketPrices,
+            recentPrices: nextSnapshot.recentPrices,
+          ),
+        );
+      }
       return result;
     } catch (e) {
       state = state.copyWith(isSubmittingVote: false, error: e.toString());

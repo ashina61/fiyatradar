@@ -34,6 +34,24 @@ class _UserProfileLite {
   final String photoUrl;
 }
 
+class ProductDetailPriceSnapshot {
+  const ProductDetailPriceSnapshot({
+    required this.priceEntryCount,
+    required this.bestPrice,
+    required this.stats,
+    required this.trust,
+    required this.marketPrices,
+    required this.recentPrices,
+  });
+
+  final int priceEntryCount;
+  final BestPrice bestPrice;
+  final PriceStats stats;
+  final TrustStats trust;
+  final List<MarketPriceEntry> marketPrices;
+  final List<RecentPriceEntry> recentPrices;
+}
+
 class ProductDetailApiService {
   void _log(String message) {
     if (!kDebugMode) return;
@@ -61,6 +79,10 @@ class ProductDetailApiService {
   CollectionReference<Map<String, dynamic>> get _storesRef =>
       _firestore.collection('stores');
 
+  static const int _initialPricesLimit = 120;
+  static const int _initialCommentsLimit = 40;
+  static const int _historyLimit = 240;
+
   Future<ProductDetailResponse> fetchProductDetails(String productId) async {
     try {
       _log(
@@ -73,39 +95,11 @@ class ProductDetailApiService {
 
       final product = ProductModel.fromFirestore(productDoc);
 
-      _log(
-        '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=priceReports, where=[productId == $productId, status == active], orderBy=[]',
+      final priceSnapshot = await fetchPriceSnapshot(productId);
+      final comments = await fetchComments(
+        productId,
+        limit: _initialCommentsLimit,
       );
-      final pricesSnapshot = await _pricesRef
-          .where('productId', isEqualTo: productId)
-          .where('status', isEqualTo: 'active')
-          .get();
-      final prices = pricesSnapshot.docs.map(PriceModel.fromFirestore).toList();
-
-      _log(
-        '[ProductDetailApiService.fetchProductDetails] Firestore query => collection=comments, where=[productId == $productId], orderBy=[]',
-      );
-      final commentsSnapshot = await _commentsRef
-          .where('productId', isEqualTo: productId)
-          .get();
-      final comments = commentsSnapshot.docs
-          .map(CommentModel.fromFirestore)
-          .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      final commentAuthorProfiles = await _resolveUserProfiles(
-        comments.map((c) => c.userId),
-      );
-
-      final latestPriceModel = prices.isNotEmpty
-          ? prices.reduce(
-              (current, next) =>
-                  next.reportedAt.isAfter(current.reportedAt) ? next : current,
-            )
-          : null;
-      final stats = _buildStats(prices);
-      final trust = _buildTrust(prices);
-      final marketPrices = _buildMarketPrices(prices);
-      final recentPrices = _buildRecentPrices(prices);
 
       return ProductDetailResponse(
         id: product.id,
@@ -113,19 +107,13 @@ class ProductDetailApiService {
         imageUrl: product.effectiveImage ?? '',
         categories: product.categories,
         viewCount: product.viewCount,
-        priceEntryCount: prices.length,
-        bestPrice: _toBestPrice(latestPriceModel),
-        stats: stats,
-        trust: trust,
-        comments: comments
-            .map((comment) => _toProductComment(
-                  comment,
-                  authorLevel: commentAuthorProfiles[comment.userId]?.level ?? '',
-                  authorPhotoUrl: commentAuthorProfiles[comment.userId]?.photoUrl ?? comment.userPhotoUrl ?? '',
-                ))
-            .toList(growable: false),
-        marketPrices: marketPrices,
-        recentPrices: recentPrices,
+        priceEntryCount: priceSnapshot.priceEntryCount,
+        bestPrice: priceSnapshot.bestPrice,
+        stats: priceSnapshot.stats,
+        trust: priceSnapshot.trust,
+        comments: comments,
+        marketPrices: priceSnapshot.marketPrices,
+        recentPrices: priceSnapshot.recentPrices,
       );
     } catch (e, st) {
       _log('[ProductDetailApiService.fetchProductDetails] ERROR: $e');
@@ -145,18 +133,19 @@ class ProductDetailApiService {
       final since = now.subtract(const Duration(days: 90));
 
       _log(
-        '[ProductDetailApiService.fetchPriceHistory] Firestore query => collection=priceReports, where=[productId == $productId, status == active, reportedAt >= ${Timestamp.fromDate(since)}], orderBy=[]',
+        '[ProductDetailApiService.fetchPriceHistory] Firestore query => collection=priceReports, where=[productId == $productId, status == active, reportedAt >= ${Timestamp.fromDate(since)}], orderBy=[reportedAt asc], limit=$_historyLimit',
       );
       final snapshot = await _pricesRef
           .where('productId', isEqualTo: productId)
           .where('status', isEqualTo: 'active')
+          .where('reportedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
+          .orderBy('reportedAt')
+          .limit(_historyLimit)
           .get();
 
       final prices = snapshot.docs
           .map(PriceModel.fromFirestore)
-          .where((price) => !price.reportedAt.isBefore(since))
-          .toList()
-        ..sort((a, b) => a.reportedAt.compareTo(b.reportedAt));
+          .toList(growable: false);
 
       final uniqueById = <String, PriceModel>{};
       for (final price in prices) {
@@ -232,6 +221,89 @@ class ProductDetailApiService {
     }
 
     return _firestoreService.verifyPrice(priceId, user.uid, isApproved);
+  }
+
+  Future<ProductDetailPriceSnapshot> fetchPriceSnapshot(
+    String productId, {
+    int limit = _initialPricesLimit,
+  }) async {
+    final activePricesQuery = _pricesRef
+        .where('productId', isEqualTo: productId)
+        .where('status', isEqualTo: 'active');
+
+    int totalActivePriceCount;
+    try {
+      _log(
+        '[ProductDetailApiService.fetchPriceSnapshot] Firestore aggregate => collection=priceReports, where=[productId == $productId, status == active], aggregate=[count]',
+      );
+      final countSnapshot = await activePricesQuery.count().get();
+      totalActivePriceCount = countSnapshot.count;
+    } catch (e, st) {
+      _log(
+        '[ProductDetailApiService.fetchPriceSnapshot] aggregate count failed, fallback to limited snapshot length: $e',
+      );
+      if (kDebugMode) {
+        debugPrintStack(
+          stackTrace: st,
+          label: '[ProductDetailApiService.fetchPriceSnapshot] AGGREGATE STACK',
+        );
+      }
+      totalActivePriceCount = 0;
+    }
+
+    _log(
+      '[ProductDetailApiService.fetchPriceSnapshot] Firestore query => collection=priceReports, where=[productId == $productId, status == active], orderBy=[reportedAt desc], limit=$limit',
+    );
+    final pricesSnapshot = await activePricesQuery
+        .orderBy('reportedAt', descending: true)
+        .limit(limit)
+        .get();
+
+    final prices = pricesSnapshot.docs
+        .map(PriceModel.fromFirestore)
+        .toList(growable: false);
+    final latestPriceModel = prices.isNotEmpty ? prices.first : null;
+    final resolvedTotalCount =
+        totalActivePriceCount > 0 ? totalActivePriceCount : prices.length;
+
+    return ProductDetailPriceSnapshot(
+      priceEntryCount: resolvedTotalCount,
+      bestPrice: _toBestPrice(latestPriceModel),
+      stats: _buildStats(prices),
+      trust: _buildTrust(prices),
+      marketPrices: _buildMarketPrices(prices),
+      recentPrices: _buildRecentPrices(prices),
+    );
+  }
+
+  Future<List<ProductComment>> fetchComments(
+    String productId, {
+    int limit = _initialCommentsLimit,
+  }) async {
+    _log(
+      '[ProductDetailApiService.fetchComments] Firestore query => collection=comments, where=[productId == $productId], orderBy=[createdAt desc], limit=$limit',
+    );
+    final commentsSnapshot = await _commentsRef
+        .where('productId', isEqualTo: productId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+    final comments = commentsSnapshot.docs
+        .map(CommentModel.fromFirestore)
+        .toList(growable: false);
+    final commentAuthorProfiles = await _resolveUserProfiles(
+      comments.map((c) => c.userId),
+    );
+
+    return comments
+        .map(
+          (comment) => _toProductComment(
+            comment,
+            authorLevel: commentAuthorProfiles[comment.userId]?.level ?? '',
+            authorPhotoUrl: commentAuthorProfiles[comment.userId]?.photoUrl ?? comment.userPhotoUrl ?? '',
+          ),
+        )
+        .toList(growable: false);
   }
 
   BestPrice _toBestPrice(PriceModel? price) {
