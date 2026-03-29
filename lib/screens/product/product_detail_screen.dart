@@ -89,8 +89,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Future<void> _onFirstFrame() async {
     try {
       await _engagementService.incrementViewCount(widget.productId);
-      if (!mounted) return;
-      await ref.read(productDetailProvider(widget.productId).notifier).load();
     } catch (_) {}
   }
 
@@ -548,6 +546,76 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final favoriteOverride = ref.watch(favoriteOverrideProvider(product.id));
     final isFavorite = favoriteOverride ?? isFavoriteFromStream;
 
+    return _ProductDetailBody(
+      product: product,
+      state: state,
+      isFavorite: isFavorite,
+      keyboardOpen: keyboardOpen,
+      chartDays: _chartDays,
+      currentUid: ref.watch(authUidProvider),
+      commentController: _commentController,
+      onBackTap: () => Navigator.maybePop(context),
+      onShareTap: () {
+        Share.share(
+          '${product.title} ürününü FiyatRadar\'da incele!\n\nEn Ucuz: ${_fmt(product.bestPrice.price)}\nMarket: ${product.bestPrice.store}',
+        );
+      },
+      onFavoriteTap: () => _toggleFavorite(product),
+      onVerifyCorrect: () => _vote(notifier: notifier, product: product, isApproved: true),
+      onVerifyWrong: () => _vote(notifier: notifier, product: product, isApproved: false),
+      onHistoryTap: () => _openHistorySheet(product, notifier),
+      onChartDaysChanged: (days) => setState(() => _chartDays = days),
+      onMarketMapTap: (entry) => _openMap(_toBestPrice(entry)),
+      onCommentSend: () => _submitComment(notifier),
+      onAlertTap: () => _openAlertSheet(product),
+      onMapTap: () => _openMap(product.bestPrice),
+    );
+  }
+}
+
+class _ProductDetailBody extends StatelessWidget {
+  const _ProductDetailBody({
+    required this.product,
+    required this.state,
+    required this.isFavorite,
+    required this.keyboardOpen,
+    required this.chartDays,
+    required this.currentUid,
+    required this.commentController,
+    required this.onBackTap,
+    required this.onShareTap,
+    required this.onFavoriteTap,
+    required this.onVerifyCorrect,
+    required this.onVerifyWrong,
+    required this.onHistoryTap,
+    required this.onChartDaysChanged,
+    required this.onMarketMapTap,
+    required this.onCommentSend,
+    required this.onAlertTap,
+    required this.onMapTap,
+  });
+
+  final ProductDetailResponse product;
+  final ProductDetailState state;
+  final bool isFavorite;
+  final bool keyboardOpen;
+  final int chartDays;
+  final String? currentUid;
+  final TextEditingController commentController;
+  final VoidCallback onBackTap;
+  final VoidCallback onShareTap;
+  final VoidCallback onFavoriteTap;
+  final VoidCallback onVerifyCorrect;
+  final VoidCallback onVerifyWrong;
+  final VoidCallback onHistoryTap;
+  final ValueChanged<int> onChartDaysChanged;
+  final ValueChanged<MarketPriceEntry> onMarketMapTap;
+  final VoidCallback onCommentSend;
+  final VoidCallback onAlertTap;
+  final VoidCallback onMapTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -575,7 +643,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 children: [
                   _HeaderButton(
                     icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => Navigator.maybePop(context),
+                    onTap: onBackTap,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -590,17 +658,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   const SizedBox(width: 10),
                   _HeaderButton(
                     icon: Icons.share_rounded,
-                    onTap: () {
-                      Share.share(
-                        '${product.title} ürününü FiyatRadar\'da incele!\n\nEn Ucuz: ${_fmt(product.bestPrice.price)}\nMarket: ${product.bestPrice.store}',
-                      );
-                    },
+                    onTap: onShareTap,
                   ),
                   const SizedBox(width: 8),
                   _HeaderButton(
                     icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                     color: isFavorite ? _red : _tanLight,
-                    onTap: () => _toggleFavorite(product),
+                    onTap: onFavoriteTap,
                   ),
                 ],
               ),
@@ -618,29 +682,29 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   _VerificationCard(
                     product: product,
                     isSubmitting: state.isSubmittingVote,
-                    currentUid: ref.watch(authUidProvider),
-                    onCorrect: () => _vote(notifier: notifier, product: product, isApproved: true),
-                    onWrong: () => _vote(notifier: notifier, product: product, isApproved: false),
-                    onHistoryTap: () => _openHistorySheet(product, notifier),
+                    currentUid: currentUid,
+                    onCorrect: onVerifyCorrect,
+                    onWrong: onVerifyWrong,
+                    onHistoryTap: onHistoryTap,
                   ),
                   const SizedBox(height: 12),
                   _HistoryChartCard(
                     history: state.history,
                     stats: product.stats,
-                    selectedDays: _chartDays,
-                    onDaysChanged: (days) => setState(() => _chartDays = days),
+                    selectedDays: chartDays,
+                    onDaysChanged: onChartDaysChanged,
                   ),
                   const SizedBox(height: 12),
                   _MarketListCard(
                     product: product,
-                    onMapTap: (entry) => _openMap(_toBestPrice(entry)),
+                    onMapTap: onMarketMapTap,
                   ),
                   const SizedBox(height: 12),
                   _CommentsCard(
                     comments: product.comments,
-                    controller: _commentController,
+                    controller: commentController,
                     isSubmitting: state.isSubmittingComment,
-                    onSend: () => _submitComment(notifier),
+                    onSend: onCommentSend,
                   ),
                 ]),
               ),
@@ -651,8 +715,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       bottomNavigationBar: keyboardOpen
           ? null
           : _BottomActions(
-              onAlertTap: () => _openAlertSheet(product),
-              onMapTap: () => _openMap(product.bestPrice),
+              onAlertTap: onAlertTap,
+              onMapTap: onMapTap,
             ),
     );
   }

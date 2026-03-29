@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_router.dart';
 import 'providers/app_start_provider.dart';
 import 'providers/firebase_init_provider.dart';
+import 'providers/notification_provider.dart';
 import 'theme/fr_colors.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
@@ -117,6 +118,7 @@ class AppStartGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(notificationBootstrapProvider);
     final appStartState = ref.watch(appStartStateProvider);
 
     switch (appStartState) {

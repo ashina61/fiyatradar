@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/notification_model.dart';
+import '../services/notification_service.dart';
 import '../services/firestore_service.dart';
 import 'auth_provider.dart';
 import 'firebase_init_provider.dart';
@@ -11,6 +12,33 @@ import 'product_provider.dart';
 
 final _notificationOptimisticProvider =
     StateProvider<Map<String, bool>>((ref) => <String, bool>{});
+final _notificationBootstrapCompletedUidsProvider =
+    StateProvider<Set<String>>((ref) => <String>{});
+
+final notificationBootstrapProvider = Provider<void>((ref) {
+  if (!ref.watch(firebaseInitializedProvider)) return;
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return;
+
+  final completed = ref.watch(_notificationBootstrapCompletedUidsProvider);
+  if (completed.contains(user.uid)) return;
+
+  final service = NotificationService();
+  unawaited(NotificationService.requestNotificationPermissions());
+  unawaited(service.setupForegroundNotifications());
+  service.setupNotificationOpenedApp();
+  unawaited(
+    service.getFCMToken().then((token) async {
+      if (token == null || token.isEmpty) return;
+      await ref.read(firestoreServiceProvider).updateUserFcmToken(user.uid, token);
+    }),
+  );
+
+  ref.read(_notificationBootstrapCompletedUidsProvider.notifier).state = {
+    ...completed,
+    user.uid,
+  };
+});
 
 final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) {

@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+/// DEPRECATED:
+/// `AppColors` is a legacy palette kept for backward compatibility.
+/// Canonical color source for new code is `lib/theme/fr_colors.dart` (FRColors).
+/// New features must not add tokens here.
+@Deprecated(
+  'Use FRColors from lib/theme/fr_colors.dart and foundation tokens from lib/theme/fr_foundation.dart',
+)
 class AppColors {
   // Primary Colors - Terracotta/Brick Brown
   static const Color primary = Color(0xFFB5651D);
@@ -68,6 +75,12 @@ class AppColors {
   static const Color textSecondaryDark = Color(0xFFB8A99A);
 }
 
+/// DEPRECATED:
+/// `AppTheme` remains to avoid breaking existing screens.
+/// New foundation/theme work should build on `lib/theme/` tokens.
+@Deprecated(
+  'Use tokens from lib/theme/fr_foundation.dart and central app theme wiring in main.dart',
+)
 class AppTheme {
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
