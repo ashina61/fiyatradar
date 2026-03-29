@@ -24,11 +24,15 @@ class NotificationCenterItem {
   ) {
     final data = doc.data();
     final createdAtRaw = data['createdAt'];
+    final metaDataRaw = data['metaData'];
+    final metaData = metaDataRaw is Map<String, dynamic>
+        ? metaDataRaw
+        : <String, dynamic>{};
     return NotificationCenterItem(
       id: doc.id,
       title: (data['title'] ?? 'Bildirim').toString(),
-      body: (data['body'] ?? '').toString(),
-      productId: (data['productId'] ?? '').toString(),
+      body: (data['message'] ?? data['body'] ?? '').toString(),
+      productId: (data['productId'] ?? metaData['productId'] ?? '').toString(),
       isRead: data['isRead'] == true || data['read'] == true,
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : null,
     );
@@ -41,6 +45,9 @@ class NotificationCenterService {
 
   final FirebaseFirestore _firestore;
 
+  CollectionReference<Map<String, dynamic>> _canonicalRef(String userId) =>
+      _firestore.collection('users').doc(userId).collection('notifications');
+
   CollectionReference<Map<String, dynamic>> _itemsRef(String userId) =>
       _firestore.collection('notifications').doc(userId).collection('items');
 
@@ -48,26 +55,36 @@ class NotificationCenterService {
       _firestore.collection('users').doc(userId).collection('inAppNotifications');
 
   Stream<List<NotificationCenterItem>> getNotifications(String userId) {
-    final legacyStream = _itemsRef(userId)
+    final canonicalStream = _canonicalRef(userId)
         .orderBy('createdAt', descending: true)
         .snapshots();
-    final userScopedStream = _userInAppRef(userId)
+    final legacyItemsStream = _itemsRef(userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+    final legacyInAppStream = _userInAppRef(userId)
         .orderBy('createdAt', descending: true)
         .snapshots();
 
-    return _combineNotificationStreams(legacyStream, userScopedStream);
+    return _combineNotificationStreams(
+      canonicalStream: canonicalStream,
+      legacyItemsStream: legacyItemsStream,
+      legacyInAppStream: legacyInAppStream,
+    );
   }
 
   Stream<List<NotificationCenterItem>> _combineNotificationStreams(
-    Stream<QuerySnapshot<Map<String, dynamic>>> legacyStream,
-    Stream<QuerySnapshot<Map<String, dynamic>>> userScopedStream,
+    {required Stream<QuerySnapshot<Map<String, dynamic>>> canonicalStream,
+    required Stream<QuerySnapshot<Map<String, dynamic>>> legacyItemsStream,
+    required Stream<QuerySnapshot<Map<String, dynamic>>> legacyInAppStream,}
   ) {
     late StreamController<List<NotificationCenterItem>> controller;
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacySub;
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? userScopedSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? canonicalSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacyItemsSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacyInAppSub;
 
-    QuerySnapshot<Map<String, dynamic>>? latestLegacy;
-    QuerySnapshot<Map<String, dynamic>>? latestUserScoped;
+    QuerySnapshot<Map<String, dynamic>>? latestCanonical;
+    QuerySnapshot<Map<String, dynamic>>? latestLegacyItems;
+    QuerySnapshot<Map<String, dynamic>>? latestLegacyInApp;
 
     void emitMerged() {
       final merged = <String, NotificationCenterItem>{};
@@ -80,8 +97,11 @@ class NotificationCenterService {
         }
       }
 
-      addFrom(latestLegacy);
-      addFrom(latestUserScoped);
+      addFrom(latestCanonical);
+      if ((latestCanonical?.docs.isEmpty ?? true)) {
+        addFrom(latestLegacyItems);
+        addFrom(latestLegacyInApp);
+      }
 
       final list = merged.values.toList(growable: false)
         ..sort((a, b) {
@@ -95,25 +115,34 @@ class NotificationCenterService {
 
     controller = StreamController<List<NotificationCenterItem>>.broadcast(
       onListen: () {
-        legacySub = legacyStream.listen(
+        canonicalSub = canonicalStream.listen(
           (snapshot) {
-            latestLegacy = snapshot;
+            latestCanonical = snapshot;
             emitMerged();
           },
           onError: controller.addError,
         );
 
-        userScopedSub = userScopedStream.listen(
+        legacyItemsSub = legacyItemsStream.listen(
           (snapshot) {
-            latestUserScoped = snapshot;
+            latestLegacyItems = snapshot;
+            emitMerged();
+          },
+          onError: controller.addError,
+        );
+
+        legacyInAppSub = legacyInAppStream.listen(
+          (snapshot) {
+            latestLegacyInApp = snapshot;
             emitMerged();
           },
           onError: controller.addError,
         );
       },
       onCancel: () async {
-        await legacySub?.cancel();
-        await userScopedSub?.cancel();
+        await canonicalSub?.cancel();
+        await legacyItemsSub?.cancel();
+        await legacyInAppSub?.cancel();
       },
     );
 
@@ -122,19 +151,32 @@ class NotificationCenterService {
 
   Future<void> markAsRead(String userId, String notificationId) async {
     try {
-      await _itemsRef(userId).doc(notificationId).update({'isRead': true});
+      await _canonicalRef(userId).doc(notificationId).update({'isRead': true});
       return;
     } catch (_) {
-      await _userInAppRef(userId).doc(notificationId).update({'read': true});
+      try {
+        await _itemsRef(userId).doc(notificationId).update({'isRead': true});
+      } catch (_) {
+        await _userInAppRef(userId).doc(notificationId).update({'read': true});
+      }
     }
   }
 
   Future<void> markAllAsRead(String userId) async {
+    final canonicalUnread = await _canonicalRef(userId).where('isRead', isEqualTo: false).get();
     final unread = await _itemsRef(userId).where('isRead', isEqualTo: false).get();
-    final userUnread = await _userInAppRef(userId).where('read', isEqualTo: false).get();
-    if (unread.docs.isEmpty && userUnread.docs.isEmpty) return;
+    final userUnread =
+        await _userInAppRef(userId).where('read', isEqualTo: false).get();
+    if (canonicalUnread.docs.isEmpty &&
+        unread.docs.isEmpty &&
+        userUnread.docs.isEmpty) {
+      return;
+    }
 
     final batch = _firestore.batch();
+    for (final doc in canonicalUnread.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
     for (final doc in unread.docs) {
       batch.update(doc.reference, {'isRead': true});
     }

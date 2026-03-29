@@ -37,6 +37,8 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   String? _selectedListId;
   String? _selectedProductId;
   String? _selectedStoreId;
+  ProductModel? _selectedProduct;
+  StoreModel? _selectedStore;
   bool _listActive = true;
   bool _itemActive = true;
   SpecialListCtaActionType _ctaActionType = SpecialListCtaActionType.compareCart;
@@ -70,8 +72,10 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   Widget build(BuildContext context) {
     final service = ref.watch(specialListServiceProvider);
     final listsAsync = ref.watch(adminSpecialListsProvider);
-    final productsAsync = ref.watch(allProductsProvider);
-    final storesAsync = ref.watch(allStoresStreamProvider);
+    final productSuggestionsAsync = ref.watch(adminProductTypeaheadProvider(_productSearch.text));
+    final storeSuggestionsAsync = ref.watch(adminStoreTypeaheadProvider(_storeSearch.text));
+    final productSuggestions = productSuggestionsAsync.valueOrNull ?? const <ProductModel>[];
+    final storeSuggestions = storeSuggestionsAsync.valueOrNull ?? const <StoreModel>[];
 
     return Container(
       color: FRColors.backgroundWarm,
@@ -146,7 +150,7 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
                 ? const Center(child: Text('Ürün yönetimi için soldan bir liste seçin.'))
                 : Column(
                     children: [
-                      _itemFormCard(service, productsAsync.valueOrNull ?? const [], storesAsync.valueOrNull ?? const []),
+                      _itemFormCard(service, productSuggestions, storeSuggestions),
                       Expanded(
                         child: Consumer(
                           builder: (context, ref, _) {
@@ -426,23 +430,21 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  if (_selectedProductId == null || _selectedStoreId == null || _selectedListId == null) return;
-                  final product = products.firstWhere((p) => p.id == _selectedProductId);
-                  final store = stores.firstWhere((s) => s.id == _selectedStoreId);
+                  if (_selectedProduct == null || _selectedStore == null || _selectedListId == null) return;
 
                   await service.upsertSpecialListItem(
                     listId: _selectedListId!,
                     item: SpecialListItemModel(
                       id: '',
-                      productId: _selectedProductId!,
-                      productNameSnapshot: product.name,
-                      productBrandSnapshot: product.brand,
-                      productImageUrlSnapshot: product.mainImage ?? product.imageUrl ?? '',
+                      productId: _selectedProduct!.id,
+                      productNameSnapshot: _selectedProduct!.name,
+                      productBrandSnapshot: _selectedProduct!.brand,
+                      productImageUrlSnapshot: _selectedProduct!.mainImage ?? _selectedProduct!.imageUrl ?? '',
                       quantityLabel: _quantity.text.trim(),
                       tagLabel: _tag.text.trim(),
-                      selectedStoreId: _selectedStoreId!,
-                      selectedStoreNameSnapshot: store.displayName,
-                      selectedStoreColor: _storeColorHex(store.displayName),
+                      selectedStoreId: _selectedStore!.id,
+                      selectedStoreNameSnapshot: _selectedStore!.displayName,
+                      selectedStoreColor: _storeColorHex(_selectedStore!.displayName),
                       selectedPrice: double.tryParse(_itemPrice.text.replaceAll(',', '.')) ?? 0,
                       sortOrder: _nextItemSortOrder(),
                       isActive: _itemActive,
@@ -465,17 +467,15 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   Widget _searchableProductField(List<ProductModel> products) {
     return Autocomplete<ProductModel>(
       optionsBuilder: (value) {
-        final query = value.text.trim().toLowerCase();
-        if (query.isEmpty) return products.take(30);
-        return products.where((product) {
-          final label = '${product.brand} ${product.name}'.toLowerCase();
-          return label.contains(query);
-        }).take(30);
+        final query = value.text.trim();
+        if (query.length < 2) return const Iterable<ProductModel>.empty();
+        return products.take(20);
       },
       displayStringForOption: (option) => '${option.brand} - ${option.name}',
       onSelected: (product) {
         setState(() {
           _selectedProductId = product.id;
+          _selectedProduct = product;
           _productSearch.text = '${product.brand} - ${product.name}';
           if ((_itemPrice.text.trim().isEmpty || _itemPrice.text.trim() == '0') && product.lastPrice != null) {
             _itemPrice.text = product.lastPrice!.toStringAsFixed(2);
@@ -492,9 +492,12 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
           onChanged: (value) {
             _productSearch.text = value;
             _selectedProductId = null;
+            _selectedProduct = null;
+            setState(() {});
           },
           decoration: const InputDecoration(
             labelText: 'Ürün ara / ürün seç',
+            helperText: 'En az 2 karakter yazın (limit 20)',
             prefixIcon: Icon(Icons.search),
           ),
         );
@@ -505,14 +508,15 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
   Widget _searchableStoreField(List<StoreModel> stores) {
     return Autocomplete<StoreModel>(
       optionsBuilder: (value) {
-        final query = value.text.trim().toLowerCase();
-        if (query.isEmpty) return stores.take(30);
-        return stores.where((store) => store.displayName.toLowerCase().contains(query)).take(30);
+        final query = value.text.trim();
+        if (query.length < 2) return const Iterable<StoreModel>.empty();
+        return stores.take(20);
       },
       displayStringForOption: (option) => option.displayName,
       onSelected: (store) {
         setState(() {
           _selectedStoreId = store.id;
+          _selectedStore = store;
           _storeSearch.text = store.displayName;
         });
       },
@@ -526,9 +530,12 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
           onChanged: (value) {
             _storeSearch.text = value;
             _selectedStoreId = null;
+            _selectedStore = null;
+            setState(() {});
           },
           decoration: const InputDecoration(
             labelText: 'Market ara / market seç',
+            helperText: 'En az 2 karakter yazın (limit 20)',
             prefixIcon: Icon(Icons.storefront_outlined),
           ),
         );
@@ -569,6 +576,8 @@ class _AdminCuratedListsTabState extends ConsumerState<AdminCuratedListsTab> {
       _ctaActionType = SpecialListCtaActionType.compareCart;
       _selectedProductId = null;
       _selectedStoreId = null;
+      _selectedProduct = null;
+      _selectedStore = null;
       _productSearch.clear();
       _storeSearch.clear();
     });

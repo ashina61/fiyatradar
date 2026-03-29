@@ -111,7 +111,7 @@ class _AdminStatisticsTabState extends ConsumerState<AdminStatisticsTab> {
 
     final totalPriceEntries =
         adminUserStatsAsync.valueOrNull?.totalPriceEntries ?? 0;
-    final totalPoints = adminUserStatsAsync.valueOrNull?.totalPoints ?? 0;
+    final totalPoints = adminUserStatsAsync.valueOrNull?.totalPoints;
 
     final maintenanceEnabled = maintenanceAsync.valueOrNull ?? false;
     final maintenanceBusy = maintenanceAsync.isLoading;
@@ -265,7 +265,15 @@ class _AdminStatisticsTabState extends ConsumerState<AdminStatisticsTab> {
               children: [
                 Expanded(child: _PremiumStatWidget(label: 'Açık Rapor', value: openReportCount, icon: Icons.flag, isAlert: true)),
                 const SizedBox(width: 12),
-                Expanded(child: _PremiumStatWidget(label: 'Dağıtılan Puan', value: totalPoints, icon: Icons.stars, isGold: true)),
+                Expanded(
+                  child: _PremiumStatWidget(
+                    label: 'Dağıtılan Puan',
+                    value: totalPoints,
+                    icon: Icons.stars,
+                    isGold: true,
+                    unavailableText: 'Yakında',
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -426,10 +434,11 @@ class _SectionTitle extends StatelessWidget {
 
 class _PremiumStatWidget extends StatelessWidget {
   final String label;
-  final int value;
+  final int? value;
   final IconData icon;
   final bool isAlert;
   final bool isGold;
+  final String unavailableText;
 
   const _PremiumStatWidget({
     required this.label,
@@ -437,6 +446,7 @@ class _PremiumStatWidget extends StatelessWidget {
     required this.icon,
     this.isAlert = false,
     this.isGold = false,
+    this.unavailableText = 'N/A',
   });
 
   @override
@@ -471,7 +481,10 @@ class _PremiumStatWidget extends StatelessWidget {
             child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(height: 12),
-          Text(value.toString(), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: valColor, height: 1)),
+          Text(
+            value?.toString() ?? unavailableText,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: valColor, height: 1),
+          ),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pTextMuted)),
         ],

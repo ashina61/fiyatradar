@@ -140,37 +140,39 @@ service cloud.firestore {
       // Legacy migration read path
       match /inbox/{notificationId} {
         allow read: if isAdmin() || isOwner(uid);
-        allow create: if isAdmin() || isOwner(uid);
-        allow update, delete: if isAdmin() || isOwner(uid);
+        // Legacy compat: no new writes.
+        allow create, update, delete: if false;
       }
 
       // Legacy NotificationCenter / PriceDropWatcher path
       match /inAppNotifications/{notificationId} {
         allow read: if isAdmin() || isOwner(uid);
-        allow create: if isAdmin() || isOwner(uid);
-        allow update, delete: if isAdmin() || isOwner(uid);
+        // Legacy compat: only read + read-state updates.
+        allow create, delete: if false;
+        allow update: if isAdmin() || isOwner(uid);
       }
     }
 
     // Legacy global notification docs used during migration.
     match /inAppNotifications/{notificationId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      // Legacy compat: no runtime writes.
+      allow create, update, delete: if false;
     }
 
     // Legacy path used by older notification-center items.
     match /notifications/{notificationId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      // Legacy compat: no runtime writes.
+      allow create, update, delete: if false;
     }
 
     // Legacy path used by older notification-center items.
     match /notifications/{uid}/items/{itemId} {
       allow read: if isAdmin() || isOwner(uid);
-      allow create: if isAdmin() || isOwner(uid);
-      allow update, delete: if isAdmin() || isOwner(uid);
+      // Legacy compat: keep read-state updates only.
+      allow create, delete: if false;
+      allow update: if isAdmin() || isOwner(uid);
     }
 
     match /products/{productId} {
