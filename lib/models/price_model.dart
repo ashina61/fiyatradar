@@ -29,6 +29,7 @@ class PriceModel {
   final String? selectedCategoryId;
   final String? selectedStoreId;
   final String? storeLocation;
+  final String? userNote;
   final GeoPoint? geoPoint;
   final List<String> images;
   final int verifiedCount;
@@ -58,7 +59,7 @@ class PriceModel {
     required this.price,
     required this.branchStoreId,
     this.chainId,
-    this.priceSourceType = 'branch',
+    this.priceSourceType = 'store',
     this.status = 'active',
     this.currency = 'TRY',
     required this.reportedAt,
@@ -77,6 +78,7 @@ class PriceModel {
     this.selectedCategoryId,
     this.selectedStoreId,
     this.storeLocation,
+    this.userNote,
     this.geoPoint,
     this.images = const [],
     this.verifiedCount = 0,
@@ -165,7 +167,7 @@ class PriceModel {
       price: _parsePriceValue(data['price']),
       branchStoreId: (data['branchStoreId'] ?? data['branchId'] ?? data['storeId'] ?? '').toString(),
       chainId: data['chainId'] as String?,
-      priceSourceType: (data['priceSourceType'] ?? 'branch').toString(),
+      priceSourceType: (data['priceSourceType'] ?? 'store').toString(),
       status: (data['status'] ?? 'active').toString(),
       currency: (data['currency'] ?? 'TRY').toString(),
       reportedAt: (data['reportedAt'] as Timestamp?)?.toDate() ?? (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -184,6 +186,7 @@ class PriceModel {
       selectedCategoryId: (data['selectedCategoryId'] ?? data['categoryId']) as String?,
       selectedStoreId: data['selectedStoreId'] as String?,
       storeLocation: data['storeLocation'] as String?,
+      userNote: data['userNote'] as String?,
       geoPoint: data['geoPoint'] as GeoPoint?,
       images: imageList,
       verifiedCount: (data['verifiedCount'] as num?)?.toInt() ?? up,
@@ -223,7 +226,7 @@ class PriceModel {
       'price': price,
       'branchStoreId': branchStoreId,
       'branchId': branchStoreId,
-      'priceSourceType': 'branch',
+      'priceSourceType': priceSourceType,
       'status': status,
       'chainId': chainId,
       'storeId': branchStoreId,
@@ -248,6 +251,7 @@ class PriceModel {
       'categoryId': selectedCategoryId,
       'selectedStoreId': selectedStoreId ?? branchStoreId,
       'storeLocation': storeLocation,
+      'userNote': userNote,
       'geoPoint': geoPoint,
       'images': mergedImages,
       'createdAt': Timestamp.fromDate(reportedAt),
@@ -299,6 +303,7 @@ class PriceModel {
     String? selectedCategoryId,
     String? selectedStoreId,
     String? storeLocation,
+    String? userNote,
     GeoPoint? geoPoint,
     List<String>? images,
     int? verifiedCount,
@@ -347,6 +352,7 @@ class PriceModel {
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
       selectedStoreId: selectedStoreId ?? this.selectedStoreId,
       storeLocation: storeLocation ?? this.storeLocation,
+      userNote: userNote ?? this.userNote,
       geoPoint: geoPoint ?? this.geoPoint,
       images: images ?? this.images,
       verifiedCount: verifiedCount ?? this.verifiedCount,

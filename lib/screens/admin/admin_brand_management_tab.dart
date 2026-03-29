@@ -195,14 +195,10 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
     final addressController = TextEditingController(text: store?.addressText ?? store?.address ?? '');
     final latController = TextEditingController(text: store != null ? store.lat.toString() : '');
     final lngController = TextEditingController(text: store != null ? store.lng.toString() : '');
-    final startHourController = TextEditingController(text: store?.startHour ?? '');
-    final endHourController = TextEditingController(text: store?.endHour ?? '');
-    final marketKindController = TextEditingController(text: store?.marketKind ?? '');
     final keywordController = TextEditingController(text: store?.searchKeywords.join(', ') ?? '');
 
     var selectedType = store?.storeType ?? (store?.isOnline == true ? 'online_store' : 'store');
     var selectedStatus = store?.status.name ?? StoreStatus.active.name;
-    final selectedDays = {...store?.activeDays ?? const <String>[]};
 
     showModalBottomSheet<void>(
       context: context,
@@ -212,7 +208,6 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final isNeighborhood = selectedType == 'neighborhood_market';
             return Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
               child: SingleChildScrollView(
@@ -231,7 +226,6 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
                         items: const [
                           DropdownMenuItem(value: 'store', child: Text('store')),
                           DropdownMenuItem(value: 'online_store', child: Text('online_store')),
-                          DropdownMenuItem(value: 'neighborhood_market', child: Text('neighborhood_market')),
                         ],
                         onChanged: (value) => setModalState(() => selectedType = value ?? 'store'),
                       ),
@@ -247,57 +241,21 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
                         onChanged: (value) => setModalState(() => selectedStatus = value ?? 'active'),
                       ),
                       const SizedBox(height: 10),
-                      if (isNeighborhood) ...[
-                        _field(cityController, label: 'city', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
-                        const SizedBox(height: 10),
-                        _field(districtController, label: 'district', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
-                        const SizedBox(height: 10),
-                        _field(neighborhoodController, label: 'neighborhood', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null),
-                        const SizedBox(height: 10),
-                        _field(addressController, label: 'addressText'),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(child: _field(latController, label: 'lat')),
-                            const SizedBox(width: 10),
-                            Expanded(child: _field(lngController, label: 'lng')),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _weekdays
-                              .map((day) => FilterChip(
-                                    label: Text(day),
-                                    selected: selectedDays.contains(day),
-                                    onSelected: (on) => setModalState(() {
-                                      if (on) {
-                                        selectedDays.add(day);
-                                      } else {
-                                        selectedDays.remove(day);
-                                      }
-                                    }),
-                                  ))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(child: _field(startHourController, label: 'startHour', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null)),
-                            const SizedBox(width: 10),
-                            Expanded(child: _field(endHourController, label: 'endHour', validator: (v) => (v ?? '').trim().isEmpty ? 'Zorunlu alan' : null)),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _field(marketKindController, label: 'marketKind'),
-                      ] else ...[
-                        _field(cityController, label: 'Şehir'),
-                        const SizedBox(height: 10),
-                        _field(districtController, label: 'İlçe'),
-                        const SizedBox(height: 10),
-                        _field(neighborhoodController, label: 'Mahalle'),
-                      ],
+                      _field(cityController, label: 'Şehir'),
+                      const SizedBox(height: 10),
+                      _field(districtController, label: 'İlçe'),
+                      const SizedBox(height: 10),
+                      _field(neighborhoodController, label: 'Mahalle'),
+                      const SizedBox(height: 10),
+                      _field(addressController, label: 'Adres'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: _field(latController, label: 'Lat')),
+                          const SizedBox(width: 10),
+                          Expanded(child: _field(lngController, label: 'Lng')),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       _field(keywordController, label: 'searchKeywords (virgül ile)'),
                       const SizedBox(height: 16),
@@ -306,10 +264,6 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
                         child: ElevatedButton(
                           onPressed: () async {
                             if (!(formKey.currentState?.validate() ?? false)) return;
-                            if (isNeighborhood && selectedDays.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('activeDays zorunludur.')));
-                              return;
-                            }
                             final payload = <String, dynamic>{
                               'displayName': nameController.text.trim(),
                               'name': nameController.text.trim(),
@@ -324,12 +278,8 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
                               'addressText': addressController.text.trim(),
                               'lat': double.tryParse(latController.text.replaceAll(',', '.').trim()) ?? 0,
                               'lng': double.tryParse(lngController.text.replaceAll(',', '.').trim()) ?? 0,
-                              'isTemporary': isNeighborhood,
-                              'isRecurring': isNeighborhood,
-                              'activeDays': selectedDays.toList()..sort(),
-                              'startHour': startHourController.text.trim(),
-                              'endHour': endHourController.text.trim(),
-                              'marketKind': marketKindController.text.trim(),
+                              'isTemporary': false,
+                              'isRecurring': false,
                               'searchKeywords': keywordController.text
                                   .split(',')
                                   .map((e) => e.trim().toLowerCase())
@@ -373,16 +323,6 @@ class _AdminBrandManagementTabState extends ConsumerState<AdminBrandManagementTa
     );
   }
 }
-
-const List<String> _weekdays = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];
 
 // ---------------------------------------------------------------------------
 // KART WIDGETLARI

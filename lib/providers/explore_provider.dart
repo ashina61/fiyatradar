@@ -66,8 +66,6 @@ class ExploreFeedItem {
   double get displayPrice => price.price;
 
   bool get isLocalStore => !_isOnlineStore;
-  bool get isNeighborhoodMarket => store?.isNeighborhoodMarket == true;
-  bool get isNeighborhoodMarketOpenToday => store?.isOpenToday == true;
 
   bool get _isOnlineStore {
     if (store == null) return false;
@@ -121,40 +119,6 @@ class ExploreFeedItem {
     }
 
     return '';
-  }
-
-  String? get neighborhoodMarketScheduleLabel {
-    if (!isNeighborhoodMarket) return null;
-    final days = store?.activeDays ?? const [];
-    if (days.isEmpty) return null;
-    final day = _weekdayTr(days.first);
-    final start = store?.startHour?.trim();
-    final end = store?.endHour?.trim();
-    if (start != null && start.isNotEmpty && end != null && end.isNotEmpty) {
-      return '$day • $start–$end';
-    }
-    return day;
-  }
-
-  static String _weekdayTr(String key) {
-    switch (key) {
-      case 'monday':
-        return 'Pazartesi';
-      case 'tuesday':
-        return 'Salı';
-      case 'wednesday':
-        return 'Çarşamba';
-      case 'thursday':
-        return 'Perşembe';
-      case 'friday':
-        return 'Cuma';
-      case 'saturday':
-        return 'Cumartesi';
-      case 'sunday':
-        return 'Pazar';
-      default:
-        return key;
-    }
   }
 
   String get neighborhoodLabel {
