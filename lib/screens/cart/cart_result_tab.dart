@@ -6,6 +6,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart'; // Haritalar için eklendi
 
 import '../../features/basket/cart_comparison_state.dart';
+import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
+import '../../theme/fr_typography.dart';
 
 class CartResultTab extends StatelessWidget {
   const CartResultTab({
@@ -57,29 +61,50 @@ class _IdleState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+        return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: FRSpaceInsets.all(FRSpacing.xl),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 460),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
+          padding: FRSpaceInsets.allXxl,
+          decoration: BoxDecoration(
+            color: FRColors.white,
+            borderRadius: FRRadius.xxlRadius,
+            border: Border.all(color: FRColors.camelDeep.withOpacity(0.05)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_graph_rounded, size: 52, color: Color(0xFF6B4226)),
+              const Icon(Icons.auto_graph_rounded, size: 52, color: FRColors.camelDeep),
               const SizedBox(height: 16),
-              const Text('Sonuçları görmek için Hesapla', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+              Text(
+                'Sonuçları görmek için Hesapla',
+                style: _t(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: FRColors.espressoSoft,
+                ),
+              ),
               const SizedBox(height: 8),
-              const Text('Market bazlı toplamları premium karşılaştırma görünümünde görmek için hesaplamayı başlat.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9E8E82))),
+              Text(
+                'Market bazlı toplamları premium karşılaştırma görünümünde görmek için hesaplamayı başlat.',
+                textAlign: TextAlign.center,
+                style: _t(color: FRColors.textMuted),
+              ),
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: () { HapticFeedback.mediumImpact(); onCalculate(); },
                 icon: const Icon(Icons.calculate_rounded),
                 label: const Text('Hesapla'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
+                style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep),
               ),
-              TextButton(onPressed: onGoToCart, child: const Text('Sepete dön', style: TextStyle(color: Color(0xFF6B4226)))),
+              TextButton(
+                onPressed: onGoToCart,
+                child: Text(
+                  'Sepete dön',
+                  style: _t(color: FRColors.camelDeep),
+                ),
+              ),
             ],
           ),
         ),
@@ -104,12 +129,19 @@ class _LoadingStateState extends State<_LoadingState> with SingleTickerProviderS
       animation: _controller,
       builder: (_, __) {
         final alpha = 0.16 + (0.22 * _controller.value);
-        final shimmer = const Color(0xFF6B4226).withOpacity(alpha * 0.5);
+        final shimmer = FRColors.camelDeep.withOpacity(alpha * 0.5);
         Widget block({double height = 16, double? width}) {
-          return Container(width: width, height: height, decoration: BoxDecoration(color: shimmer, borderRadius: BorderRadius.circular(14)));
+          return Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: shimmer,
+              borderRadius: FRRadius.mdPlusRadius,
+            ),
+          );
         }
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: FRSpaceInsets.allLg,
           children: [
             block(height: 170),
             const SizedBox(height: 12),
@@ -172,7 +204,7 @@ class _SuccessStateState extends State<_SuccessState> {
         return false;
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 120), // Alt bar için boşluk
+        padding: FRSpaceInsets.fromLTRB(FRSpacing.xxl, FRSpacing.lg, FRSpacing.xxl, 120), // Alt bar için boşluk
         children: [
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
@@ -188,14 +220,31 @@ class _SuccessStateState extends State<_SuccessState> {
             ),
           ),
           const SizedBox(height: 25),
-          const Text('Alternatif Marketler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10))),
+          Text(
+            'Alternatif Marketler',
+            style: _t(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: FRColors.espressoSoft,
+            ),
+          ),
           if (widget.selectedStoreNames.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}', style: const TextStyle(color: Color(0xFF9E8E82), fontSize: 12)),
+            Text(
+              'Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}',
+              style: _t(
+                color: FRColors.textMuted,
+                fontSize: 12,
+              ),
+            ),
           ],
           const SizedBox(height: 15),
           Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
+            decoration: BoxDecoration(
+              color: FRColors.white,
+              borderRadius: FRRadius.xxlRadius,
+              border: Border.all(color: FRColors.camelDeep.withOpacity(0.05)),
+            ),
             child: Column(
               children: markets.asMap().entries.map((entry) {
                   return TweenAnimationBuilder<double>(
@@ -225,9 +274,11 @@ class _SuccessStateState extends State<_SuccessState> {
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sonuç panoya kopyalandı.')));
                   },
-                  icon: const Icon(Icons.content_copy_rounded, color: Color(0xFF6B4226)),
-                  label: const Text('Kopyala', style: TextStyle(color: Color(0xFF6B4226))),
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6B4226))),
+                  icon: const Icon(Icons.content_copy_rounded, color: FRColors.camelDeep),
+                  label: Text('Kopyala', style: _t(color: FRColors.camelDeep)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: FRColors.camelDeep),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -236,7 +287,7 @@ class _SuccessStateState extends State<_SuccessState> {
                   onPressed: () => Share.share(_buildShareText(markets.take(3).toList())),
                   icon: const Icon(Icons.share_rounded),
                   label: const Text('Paylaş'),
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
+                  style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep),
                 ),
               ),
             ],
@@ -277,20 +328,30 @@ class _PulseSavingsBadgeState extends State<_PulseSavingsBadge> with SingleTicke
       builder: (context, child) {
         return Transform.scale(
           scale: _scaleAnimation.value,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Container(
+            padding: FRSpaceInsets.symmetric(
+              horizontal: FRSpacing.mdPlus,
+              vertical: FRSpacing.sm,
+            ),
             decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFC89B7B), width: 2),
+              color: FRColors.white, borderRadius: FRRadius.mdRadius,
+              border: Border.all(color: FRColors.camelStrong, width: 2),
               // Gölgeyi çok daha agresif, parlayan bir Gold yaptık
-              boxShadow: [BoxShadow(color: const Color(0xFFC89B7B).withOpacity(0.6), blurRadius: 15 + (_controller.value * 25), spreadRadius: _controller.value * 4)],
+              boxShadow: [BoxShadow(color: FRColors.camelStrong.withOpacity(0.6), blurRadius: 15 + (_controller.value * 25), spreadRadius: _controller.value * 4)],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.savings_outlined, color: Color(0xFFC89B7B), size: 18),
+                const Icon(Icons.savings_outlined, color: FRColors.camelStrong, size: 18),
                 const SizedBox(width: 6),
-                Text(widget.text, style: const TextStyle(color: Color(0xFF2A1A10), fontWeight: FontWeight.w900, fontSize: 13)),
+                Text(
+                  widget.text,
+                  style: _t(
+                    color: FRColors.espressoSoft,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -364,11 +425,15 @@ class _HeroCard extends StatelessWidget {
         scale: scale,
         alignment: Alignment.topCenter,
         child: Container(
-          padding: const EdgeInsets.all(25),
+          padding: FRSpaceInsets.all(FRSpacing.xxl + 1),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF2A1A10), Color(0xFF6B4226)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [BoxShadow(color: const Color(0xFF2A1A10).withOpacity(0.2), blurRadius: 40, offset: const Offset(0, 20))],
+            gradient: const LinearGradient(
+              colors: [FRColors.espressoSoft, FRColors.camelDeep],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: FRRadius.heroRadius,
+            boxShadow: [BoxShadow(color: FRColors.espressoSoft.withOpacity(0.2), blurRadius: 40, offset: const Offset(0, 20))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,9 +442,25 @@ class _HeroCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: const Color(0xFFC89B7B), borderRadius: BorderRadius.circular(10)),
-                    child: const Row(children: [Icon(Icons.star_rounded, size: 14, color: Color(0xFF2A1A10)), SizedBox(width: 6), Text('EN UYGUN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF2A1A10)))]),
+                    padding: FRSpaceInsets.symmetric(
+                      horizontal: FRSpacing.md,
+                      vertical: FRSpacing.xsPlus,
+                    ),
+                    decoration: BoxDecoration(color: FRColors.camelStrong, borderRadius: FRRadius.smPlusRadius),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.star_rounded, size: 14, color: FRColors.espressoSoft),
+                        const SizedBox(width: 6),
+                        Text(
+                          'EN UYGUN',
+                          style: _t(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: FRColors.espressoSoft,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   if (savingAmount > 0)
                     _PulseSavingsBadge(text: "${formatTRY(savingAmount)} KAZANÇ"), 
@@ -393,15 +474,30 @@ class _HeroCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(best.storeName, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
-                      Text(best.missingCount > 0 ? '${best.missingCount} ürün eksik' : 'Tüm ürünler var', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                      Text(
+                        best.storeName,
+                        style: _t(color: FRColors.white, fontSize: 28, fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        best.missingCount > 0 ? '${best.missingCount} ürün eksik' : 'Tüm ürünler var',
+                        style: _t(color: FRColors.white.withOpacity(0.7), fontSize: 13),
+                      ),
                     ],
                   ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(best.totalPrice.toInt().toString(), style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w800, height: 1)),
-                      const Padding(padding: EdgeInsets.only(left: 2, top: 4), child: Text("₺", style: TextStyle(color: Color(0xFFC89B7B), fontSize: 20, fontWeight: FontWeight.w600))),
+                      Text(
+                        best.totalPrice.toInt().toString(),
+                        style: _t(color: FRColors.white, fontSize: 42, fontWeight: FontWeight.w800, height: 1),
+                      ),
+                      Padding(
+                        padding: FRSpaceInsets.only(left: FRSpacing.xxs, top: FRSpacing.xs),
+                        child: Text(
+                          '₺',
+                          style: _t(color: FRColors.camelStrong, fontSize: 20, fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ],
                   )
                 ],
@@ -409,11 +505,20 @@ class _HeroCard extends StatelessWidget {
               const SizedBox(height: 25),
               ElevatedButton(
                 onPressed: () => _openMaps(context),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF2A1A10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 14), minimumSize: const Size(double.infinity, 50)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FRColors.white,
+                  foregroundColor: FRColors.espressoSoft,
+                  shape: RoundedRectangleBorder(borderRadius: FRRadius.lgRadius),
+                  padding: FRSpaceInsets.symmetric(vertical: FRSpacing.mdPlus),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center, 
                   children: [
-                    Text(nearest != null ? "En Yakın Markete Git" : "Markete Git", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)), 
+                    Text(
+                      nearest != null ? 'En Yakın Markete Git' : 'Markete Git',
+                      style: _t(fontSize: 15, fontWeight: FontWeight.bold),
+                    ), 
                     const SizedBox(width: 8), 
                     const Icon(Icons.directions_walk_rounded, size: 20)
                   ],
@@ -448,10 +553,10 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
   Widget build(BuildContext context) {
     final isError = widget.market.missingCount > 0;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+      padding: FRSpaceInsets.symmetric(vertical: 15, horizontal: FRSpacing.xl),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0x0F6B4226))),
+        color: FRColors.white,
+        border: Border(bottom: BorderSide(color: FRColors.border)),
       ),
       child: Column(
         children: [
@@ -464,15 +569,45 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                   children: [
                     Container(
                       width: 32, height: 32,
-                      decoration: BoxDecoration(color: isError ? const Color(0x1AA33333) : (widget.rank == 1 ? const Color(0xFFC89B7B) : const Color(0x0F6B4226)), borderRadius: BorderRadius.circular(10)),
-                      child: Center(child: Text(isError ? '!' : '${widget.rank}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: isError ? 16 : 14, color: isError ? const Color(0xFFA33333) : (widget.rank == 1 ? const Color(0xFF2A1A10) : const Color(0xFF9E8E82))))),
+                      decoration: BoxDecoration(
+                        color: isError
+                            ? FRColors.dangerBg(0.10)
+                            : (widget.rank == 1 ? FRColors.camelStrong : FRColors.border),
+                        borderRadius: FRRadius.smPlusRadius,
+                      ),
+                      child: Center(
+                        child: Text(
+                          isError ? '!' : '${widget.rank}',
+                          style: _t(
+                            fontWeight: FontWeight.w800,
+                            fontSize: isError ? 16 : 14,
+                            color: isError
+                                ? FRColors.danger
+                                : (widget.rank == 1 ? FRColors.espressoSoft : FRColors.textMuted),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.market.storeName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF2A1A10))),
-                        Text(isError ? '${widget.market.missingCount} Eksik' : '${widget.market.distanceKm?.toStringAsFixed(1) ?? "0.5"} km • Eksik Yok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isError ? const Color(0xFFA33333) : const Color(0xFF9E8E82))),
+                        Text(
+                          widget.market.storeName,
+                          style: _t(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: FRColors.espressoSoft,
+                          ),
+                        ),
+                        Text(
+                          isError ? '${widget.market.missingCount} Eksik' : '${widget.market.distanceKm?.toStringAsFixed(1) ?? "0.5"} km • Eksik Yok',
+                          style: _t(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isError ? FRColors.danger : FRColors.textMuted,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -480,12 +615,32 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(formatTRY(widget.market.totalPrice), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFF2A1A10))),
+                    Text(
+                      formatTRY(widget.market.totalPrice),
+                      style: _t(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: FRColors.espressoSoft,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: isError ? const Color(0x1AA33333) : const Color(0x1FB58461), borderRadius: BorderRadius.circular(8)),
-                      child: Text(isError ? 'Stok Yok' : '+${formatTRY(widget.market.totalPrice - widget.minTotal)} Fark', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isError ? const Color(0xFFA33333) : const Color(0xFFB58461))),
+                      padding: FRSpaceInsets.symmetric(
+                        horizontal: FRSpacing.sm,
+                        vertical: FRSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isError ? FRColors.dangerBg(0.10) : FRColors.camelOverlay(0.12),
+                        borderRadius: FRRadius.smRadius,
+                      ),
+                      child: Text(
+                        isError ? 'Stok Yok' : '+${formatTRY(widget.market.totalPrice - widget.minTotal)} Fark',
+                        style: _t(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isError ? FRColors.danger : FRColors.camelDeep,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -496,7 +651,7 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
             child: !_expanded ? const SizedBox.shrink() : Padding(
-              padding: const EdgeInsets.only(top: 15, left: 46),
+              padding: FRSpaceInsets.only(top: 15, left: 46),
               child: Column(
                 children: widget.market.lines.map((line) {
                   
@@ -510,23 +665,52 @@ class _PremiumMarketRowCardState extends State<_PremiumMarketRowCard> {
                   }
 
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: FRSpaceInsets.bottomSmPlus,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text('${line.quantity}x ${line.productName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF2A1A10)))),
+                        Expanded(
+                          child: Text(
+                            '${line.quantity}x ${line.productName}',
+                            style: _t(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: FRColors.espressoSoft,
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 10),
                         
                         Row(
                           children: [
                             if (diff > 0) ...[
-                              Text('(+${formatTRY(diff)})', style: const TextStyle(color: Color(0xFFA33333), fontWeight: FontWeight.w800, fontSize: 11)),
+                              Text(
+                                '(+${formatTRY(diff)})',
+                                style: _t(
+                                  color: FRColors.danger,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                ),
+                              ),
                               const SizedBox(width: 4),
                             ],
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: diff > 0 ? const Color(0x14A33333) : const Color(0x146B4226), borderRadius: BorderRadius.circular(8)),
-                              child: Text(formatTRY(line.lineTotal), style: TextStyle(color: diff > 0 ? const Color(0xFFA33333) : const Color(0xFF2A1A10), fontWeight: FontWeight.w800, fontSize: 12)),
+                              padding: FRSpaceInsets.symmetric(
+                                horizontal: FRSpacing.sm,
+                                vertical: FRSpacing.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: diff > 0 ? FRColors.dangerBg(0.08) : FRColors.espressoOverlay(0.08),
+                                borderRadius: FRRadius.smRadius,
+                              ),
+                              child: Text(
+                                formatTRY(line.lineTotal),
+                                style: _t(
+                                  color: diff > 0 ? FRColors.danger : FRColors.espressoSoft,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -564,20 +748,39 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: FRSpaceInsets.allXxl,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6B4226).withOpacity(0.05))),
+          padding: FRSpaceInsets.all(FRSpacing.xl),
+          decoration: BoxDecoration(
+            color: FRColors.white,
+            borderRadius: FRRadius.xlRadius,
+            border: Border.all(color: FRColors.camelDeep.withOpacity(0.05)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Yeterli fiyat verisi yok', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2A1A10))),
+              Text(
+                'Yeterli fiyat verisi yok',
+                style: _t(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: FRColors.espressoSoft,
+                ),
+              ),
               const SizedBox(height: 8),
               if (state.missingProducts.isNotEmpty) ...[
-                const Text('Fiyatı olmayan ürünler:', style: TextStyle(color: Color(0xFFA33333))),
+                Text(
+                  'Fiyatı olmayan ürünler:',
+                  style: _t(color: FRColors.danger),
+                ),
                 const SizedBox(height: 8),
-                ...state.missingProducts.take(5).map((name) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Text('• $name', style: const TextStyle(color: Color(0xFF9E8E82))))),
+                ...state.missingProducts.take(5).map(
+                  (name) => Padding(
+                    padding: FRSpaceInsets.only(bottom: FRSpacing.xsPlus),
+                    child: Text('• $name', style: _t(color: FRColors.textMuted)),
+                  ),
+                ),
               ],
               const SizedBox(height: 15),
               Wrap(
@@ -587,13 +790,13 @@ class _EmptyState extends StatelessWidget {
                     onPressed: onAddPrice,
                     icon: const Icon(Icons.add_business_rounded),
                     label: const Text('Fiyat Ekle'),
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6B4226)),
+                    style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep),
                   ),
                   OutlinedButton.icon(
                     onPressed: onSelectStores,
-                    icon: const Icon(Icons.store_mall_directory_rounded, color: Color(0xFF6B4226)),
-                    label: const Text('Mağaza Seç', style: TextStyle(color: Color(0xFF6B4226))),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6B4226))),
+                    icon: const Icon(Icons.store_mall_directory_rounded, color: FRColors.camelDeep),
+                    label: Text('Mağaza Seç', style: _t(color: FRColors.camelDeep)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: FRColors.camelDeep)),
                   ),
                 ],
               ),
@@ -614,18 +817,26 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: FRSpaceInsets.allXxl,
         child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: const Color(0x1AA33333), borderRadius: BorderRadius.circular(20)),
+          padding: FRSpaceInsets.all(FRSpacing.xl),
+          decoration: BoxDecoration(color: FRColors.dangerBg(0.10), borderRadius: FRRadius.xlRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: Color(0xFFA33333), size: 36),
+              const Icon(Icons.error_outline_rounded, color: FRColors.danger, size: 36),
               const SizedBox(height: 10),
-              Text(state.errorMessage ?? 'Bir hata oluştu.', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFA33333))),
+              Text(
+                state.errorMessage ?? 'Bir hata oluştu.',
+                textAlign: TextAlign.center,
+                style: _t(color: FRColors.danger),
+              ),
               const SizedBox(height: 10),
-              FilledButton(onPressed: onRetry, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFA33333)), child: const Text('Tekrar Dene')),
+              FilledButton(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(backgroundColor: FRColors.danger),
+                child: const Text('Tekrar Dene'),
+              ),
             ],
           ),
         ),
@@ -640,3 +851,18 @@ String _buildShareText(List<CartMarketResultSummary> markets) {
 }
 
 String _formatCurrency(num value) => formatTRY(value);
+
+TextStyle _t({
+  double fontSize = 14,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+}) {
+  return TextStyle(
+    fontFamily: FRTypography.fontFamily,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color ?? FRColors.textPrimary,
+    height: height,
+  );
+}

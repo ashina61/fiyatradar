@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -18,34 +17,26 @@ import '../../models/store_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_report_provider.dart';
 import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
+import '../../theme/fr_typography.dart';
 import '../../ui/categories/category_theme.dart';
 import '../../utils/theme.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
 
-const _dark = Color(0xFF1C1108);
-const _bg = Color(0xFFECEAE4);
-const _white = Color(0xFFFFFFFF);
-const _tan = Color(0xFFB88C50);
-const _gold = Color(0xFFC09A60);
-const _green = Color(0xFF27A85A);
-const _greenBg = Color(0x1A27A85A);
-const _t1 = Color(0xFF1C1108);
-const _t2 = Color(0xFF6B5D4E);
-const _t3 = Color(0xFFA89A8A);
-const _border = Color(0x121C1108);
-
 enum _AddStep { product, store, price }
 
 TextStyle _pjs({
   double size = 14,
   FontWeight weight = FontWeight.w600,
-  Color color = _t1,
+  Color color = FRColors.textPrimary,
   double? letterSpacing,
   double? height,
 }) {
-  return GoogleFonts.plusJakartaSans(
+  return TextStyle(
+    fontFamily: FRTypography.fontFamily,
     fontSize: size,
     fontWeight: weight,
     color: color,
@@ -225,7 +216,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         notifier.clearProductSuggestions();
       },
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: FRColors.backgroundWarm,
         resizeToAvoidBottomInset: false,
         bottomNavigationBar: _buildSaveBar(state, safeBottom),
         body: Stack(
@@ -236,7 +227,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    padding: FRSpaceInsets.fromLTRB(16, 16, 16, 24),
                     child: Column(
                       children: [
                         _buildProductSection(state, notifier),
@@ -264,10 +255,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: _dark,
+        color: FRColors.espresso,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(36),
-          bottomRight: Radius.circular(36),
+          bottomLeft: Radius.circular(FRRadius.heroXl),
+          bottomRight: Radius.circular(FRRadius.heroXl),
         ),
       ),
       child: Stack(
@@ -281,7 +272,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [_gold.withOpacity(0.2), Colors.transparent],
+                  colors: [FRColors.camelStrong.withOpacity(0.2), Colors.transparent],
                   stops: const [0, 0.62],
                 ),
               ),
@@ -290,7 +281,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
+              padding: FRSpaceInsets.fromLTRB(20, 22, 20, 26),
               child: Column(
                 children: [
                   Row(
@@ -300,15 +291,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         child: Text(
                           'Fiyat Ekle',
                           textAlign: TextAlign.center,
-                          style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white.withOpacity(0.4)),
+                          style: _pjs(size: 15, weight: FontWeight.w800, color: FRColors.white.withOpacity(0.4)),
                         ),
                       ),
                       PremiumPressable(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: FRRadius.all(FRRadius.sm),
                         onTap: () => _resetAll(notifier),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Text('Sıfırla', style: _pjs(size: 11, weight: FontWeight.w800, color: Colors.white.withOpacity(0.3))),
+                          padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Text('Sıfırla', style: _pjs(size: 11, weight: FontWeight.w800, color: FRColors.white.withOpacity(0.3))),
                         ),
                       ),
                     ],
@@ -367,8 +358,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           child: _productCollapsed && done
               ? _SummaryRowCard(
                   icon: Icons.sell_outlined,
-                  iconBg: _tan.withOpacity(0.1),
-                  iconColor: _gold,
+                  iconBg: FRColors.camel.withOpacity(0.1),
+                  iconColor: FRColors.camelStrong,
                   title: state.productName,
                   subtitle: state.selectedCategoryName ?? 'Ürün',
                   onTap: () => setState(() => _productCollapsed = false),
@@ -377,14 +368,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: _white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
+                        color: FRColors.surface,
+                        borderRadius: FRRadius.all(FRRadius.xl),
+                        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.08), blurRadius: 18, offset: const Offset(0, 2))],
                       ),
                       child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                            padding: FRSpaceInsets.fromLTRB(16, 14, 16, 14),
                             child: Row(
                               children: [
                                 Expanded(
@@ -395,26 +386,26 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                     style: _pjs(size: 16, weight: FontWeight.w800),
                                     decoration: InputDecoration(
                                       hintText: 'ürün adını yaz…',
-                                      hintStyle: _pjs(size: 16, weight: FontWeight.w500, color: _t3),
+                                      hintStyle: _pjs(size: 16, weight: FontWeight.w500, color: FRColors.textSubtle),
                                       border: InputBorder.none,
                                       isDense: true,
                                     ),
                                   ),
                                 ),
                                 PremiumPressable(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: FRRadius.all(FRRadius.smPlus),
                                   onTap: _scanBarcode,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                                    padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 7),
                                     decoration: BoxDecoration(
-                                      color: _tan.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(10),
+                                      color: FRColors.camel.withOpacity(0.1),
+                                      borderRadius: FRRadius.all(FRRadius.smPlus),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.qr_code_2_rounded, size: 13, color: _tan),
+                                        const Icon(Icons.qr_code_2_rounded, size: 13, color: FRColors.camel),
                                         const SizedBox(width: 4),
-                                        Text('Tara', style: _pjs(size: 11, weight: FontWeight.w800, color: _tan)),
+                                        Text('Tara', style: _pjs(size: 11, weight: FontWeight.w800, color: FRColors.camel)),
                                       ],
                                     ),
                                   ),
@@ -430,23 +421,23 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               child: ListView.separated(
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: state.productSuggestions.length,
-                                separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+                                separatorBuilder: (_, __) => const Divider(height: 1, color: FRColors.border),
                                 itemBuilder: (context, i) {
                                   final p = state.productSuggestions[i];
                                   return InkWell(
                                     onTap: () => _onProductPicked(p, notifier),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 12),
                                       child: Row(
                                         children: [
                                           Expanded(child: Text(p.name, style: _pjs(size: 14, weight: FontWeight.w800))),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(
-                                              color: _gold.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(6),
+                                              color: FRColors.camelStrong.withOpacity(0.1),
+                                              borderRadius: FRRadius.all(FRRadius.xs),
                                             ),
-                                            child: Text((p.categories.isNotEmpty ? p.categories.first : 'Ürün'), style: _pjs(size: 10, weight: FontWeight.w800, color: _gold)),
+                                            child: Text((p.categories.isNotEmpty ? p.categories.first : 'Ürün'), style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.camelStrong)),
                                           ),
                                         ],
                                       ),
@@ -468,7 +459,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       child: _showRequestProductCta(state)
                           ? Padding(
                               key: const ValueKey('request-product-cta'),
-                              padding: const EdgeInsets.only(top: 10),
+                              padding: FRSpaceInsets.only(top: 10),
                               child: _buildRequestProductButton(notifier),
                             )
                           : const SizedBox.shrink(),
@@ -478,7 +469,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                       child: done
                           ? Padding(
                               key: const ValueKey('product-image-row'),
-                              padding: const EdgeInsets.only(top: 10),
+                              padding: FRSpaceInsets.only(top: 10),
                               child: _ProductImageRow(
                                 imagePath: _productPhoto?.path,
                                 imageUrl: state.selectedProductImageUrl,
@@ -512,8 +503,8 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           child: _storeCollapsed && done && state.selectedStore != null
               ? _SummaryRowCard(
                   icon: Icons.store_mall_directory_outlined,
-                  iconBg: _dark.withOpacity(0.07),
-                  iconColor: _t2,
+                  iconBg: FRColors.espresso.withOpacity(0.07),
+                  iconColor: FRColors.textMutedSoft,
                   title: state.selectedStore!.name,
                   subtitle: _storeSubtitle(state.selectedStore!),
                   onTap: () => setState(() => _storeCollapsed = false),
@@ -553,17 +544,17 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     const SizedBox(height: 10),
                     Container(
                       decoration: BoxDecoration(
-                        color: _white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color.fromRGBO(24, 16, 10, 0.08)),
+                        color: FRColors.surface,
+                        borderRadius: FRRadius.all(FRRadius.mdPlus),
+                        border: Border.all(color: FRColors.espressoOverlay(0.08)),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: FRSpaceInsets.symmetric(horizontal: 12),
                       child: TextField(
                         onChanged: notifier.setSearchQuery,
                         decoration: InputDecoration(
-                          icon: const Icon(Icons.search, size: 18, color: _t3),
+                          icon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
                           hintText: 'Mağaza ara...',
-                          hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: _t3),
+                          hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.textSubtle),
                           border: InputBorder.none,
                         ),
                       ),
@@ -571,14 +562,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     const SizedBox(height: 10),
                     Container(
                       decoration: BoxDecoration(
-                        color: _white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
+                        color: FRColors.surface,
+                        borderRadius: FRRadius.all(FRRadius.xl),
+                        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.08), blurRadius: 18, offset: const Offset(0, 2))],
                       ),
                       child: state.isStoresLoading
                           ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 26),
-                              child: Center(child: CircularProgressIndicator(color: _tan)),
+                              padding: FRSpaceInsets.symmetric(vertical: 26),
+                              child: Center(child: CircularProgressIndicator(color: FRColors.camel)),
                             )
                           : Column(
                               children: state.visibleStores.asMap().entries.map((entry) {
@@ -622,11 +613,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           onTap: () => _priceFocus.requestFocus(),
           child: Container(
             decoration: BoxDecoration(
-              color: _white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .08), blurRadius: 18, offset: Offset(0, 2))],
+              color: FRColors.surface,
+              borderRadius: FRRadius.all(FRRadius.xl),
+              boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.08), blurRadius: 18, offset: const Offset(0, 2))],
             ),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            padding: FRSpaceInsets.fromLTRB(20, 20, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -636,10 +627,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                   onChanged: (v) => _onPriceInput(v, notifier),
-                  style: _pjs(size: 16, weight: FontWeight.w700, color: _t2),
+                  style: _pjs(size: 16, weight: FontWeight.w700, color: FRColors.textMutedSoft),
                   decoration: InputDecoration(
                     hintText: 'Örn: 50,75',
-                    hintStyle: _pjs(size: 14, weight: FontWeight.w500, color: _t3),
+                    hintStyle: _pjs(size: 14, weight: FontWeight.w500, color: FRColors.textSubtle),
                     border: InputBorder.none,
                     isDense: true,
                   ),
@@ -656,7 +647,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         style: _pjs(
                           size: 64,
                           weight: FontWeight.w900,
-                          color: hasPrice ? _t1 : _t1.withOpacity(.1),
+                          color: hasPrice ? FRColors.textPrimary : FRColors.textPrimary.withOpacity(.1),
                           letterSpacing: -3.5,
                           height: 1,
                         ),
@@ -664,15 +655,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ),
                     const SizedBox(width: 3),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(',${parts[1]}', style: _pjs(size: 28, weight: FontWeight.w700, color: _t1.withOpacity(hasPrice ? .42 : .18), letterSpacing: -1)),
+                      padding: FRSpaceInsets.only(bottom: 6),
+                      child: Text(',${parts[1]}', style: _pjs(size: 28, weight: FontWeight.w700, color: FRColors.textPrimary.withOpacity(hasPrice ? .42 : .18), letterSpacing: -1)),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 6),
+                      padding: FRSpaceInsets.only(left: 4, bottom: 6),
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 200),
                         opacity: hasPrice ? 1 : 0.45,
-                        child: Text('₺', style: _pjs(size: 28, weight: FontWeight.w900, color: _gold)),
+                        child: Text('₺', style: _pjs(size: 28, weight: FontWeight.w900, color: FRColors.camelStrong)),
                       ),
                     ),
                   ],
@@ -690,10 +681,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         onEnd: () {
                           if (mounted && !_isPriceDone(state)) setState(() {});
                         },
-                        child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
+                        child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: FRColors.camelStrong, shape: BoxShape.circle)),
                       ),
                       const SizedBox(width: 6),
-                      Text('Dokunarak fiyatı gir', style: _pjs(size: 12, weight: FontWeight.w600, color: _t3)),
+                      Text('Dokunarak fiyatı gir', style: _pjs(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle)),
                     ],
                   ),
                 ),
@@ -708,9 +699,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget _buildSaveBar(AddPriceState state, double safeBottom) {
     final enabled = _isFormReady(state) && !state.isLoading;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 14 + safeBottom),
+      padding: FRSpaceInsets.fromLTRB(16, 12, 16, 14 + safeBottom),
       decoration: const BoxDecoration(
-        color: _bg,
+        color: FRColors.backgroundWarm,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -720,24 +711,24 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             child: IgnorePointer(
               ignoring: !enabled,
               child: PremiumPressable(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: FRRadius.all(FRRadius.xl),
                 onTap: enabled ? _submit : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   height: 58,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: enabled ? const LinearGradient(colors: [_dark, Color(0xFF2C1A0A)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                    color: enabled ? null : _dark.withOpacity(.07),
+                    borderRadius: FRRadius.all(FRRadius.xl),
+                    gradient: enabled ? const LinearGradient(colors: [FRColors.espresso, FRColors.espressoSoft], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                    color: enabled ? null : FRColors.espresso.withOpacity(.07),
                     boxShadow: enabled
-                        ? const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .26), blurRadius: 30, offset: Offset(0, 10))]
+                        ? [BoxShadow(color: FRColors.espressoOverlay(0.26), blurRadius: 30, offset: const Offset(0, 10))]
                         : null,
                   ),
                   child: Center(
                     child: state.isLoading
                         ? const CircularProgressIndicator(
                             strokeWidth: 2.4,
-                            color: Colors.white,
+                            color: FRColors.white,
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -745,7 +736,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               Icon(
                                 Icons.check_rounded,
                                 size: 17,
-                                color: enabled ? Colors.white : _t3,
+                                color: enabled ? FRColors.white : FRColors.textSubtle,
                               ),
                               const SizedBox(width: 9),
                               Text(
@@ -753,7 +744,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                 style: _pjs(
                                   size: 16,
                                   weight: FontWeight.w900,
-                                  color: enabled ? Colors.white : _t3,
+                                  color: enabled ? FRColors.white : FRColors.textSubtle,
                                 ),
                               ),
                             ],
@@ -805,15 +796,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           curve: Curves.easeOutCubic,
           offset: _showSuccess ? Offset.zero : const Offset(0, .03),
           child: Container(
-            color: _bg,
+            color: FRColors.backgroundWarm,
             child: Column(
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(28, 52, 28, 32),
+                  padding: FRSpaceInsets.fromLTRB(28, 52, 28, 32),
                   decoration: const BoxDecoration(
-                    color: _dark,
-                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)),
+                    color: FRColors.espresso,
+                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(FRRadius.heroXl), bottomRight: Radius.circular(FRRadius.heroXl)),
                   ),
                   child: SafeArea(
                     bottom: false,
@@ -824,43 +815,43 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           tween: Tween(begin: .3, end: 1),
                           curve: Curves.easeOutBack,
                           builder: (context, value, child) => Opacity(opacity: value.clamp(0, 1), child: Transform.scale(scale: value, child: child)),
-                          child: Text('🎉', style: _pjs(size: 48, weight: FontWeight.w700, color: Colors.white)),
+                          child: Text('🎉', style: _pjs(size: 48, weight: FontWeight.w700, color: FRColors.white)),
                         ),
                         const SizedBox(height: 14),
-                        Text('Kaydedildi!', style: _pjs(size: 24, weight: FontWeight.w900, color: Colors.white)),
+                        Text('Kaydedildi!', style: _pjs(size: 24, weight: FontWeight.w900, color: FRColors.white)),
                         const SizedBox(height: 4),
-                        Text('Katkın için teşekkürler · +10 puan', style: _pjs(size: 12, weight: FontWeight.w500, color: Colors.white.withOpacity(.35))),
+                        Text('Katkın için teşekkürler · +10 puan', style: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.white.withOpacity(.35))),
                       ],
                     ),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                    padding: FRSpaceInsets.fromLTRB(16, 16, 16, 28),
                     child: Column(
                       children: [
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(20),
+                          padding: FRSpaceInsets.all(20),
                           decoration: BoxDecoration(
-                            color: _white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
+                            color: FRColors.surface,
+                            borderRadius: FRRadius.all(FRRadius.xl),
+                            boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.07), blurRadius: 14, offset: const Offset(0, 2))],
                           ),
                           child: Column(
                             children: [
-                              Text('Girilen Fiyat'.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w800, color: _t3, letterSpacing: .8)),
+                              Text('Girilen Fiyat'.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.textSubtle, letterSpacing: .8)),
                               const SizedBox(height: 6),
-                              Text(_savedPrice, style: _pjs(size: 52, weight: FontWeight.w900, color: _green, letterSpacing: -2.5)),
+                              Text(_savedPrice, style: _pjs(size: 52, weight: FontWeight.w900, color: FRColors.success, letterSpacing: -2.5)),
                             ],
                           ),
                         ),
                         const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: _white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 10, offset: Offset(0, 1))],
+                            color: FRColors.surface,
+                            borderRadius: FRRadius.all(FRRadius.xl),
+                            boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.07), blurRadius: 10, offset: const Offset(0, 1))],
                           ),
                           child: Column(
                             children: [
@@ -881,10 +872,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                               _resetAll(notifier);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _dark,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                              backgroundColor: FRColors.espresso,
+                              shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.lgPlus)),
                             ),
-                            child: Text('Yeni Fiyat Ekle', style: _pjs(size: 15, weight: FontWeight.w800, color: Colors.white)),
+                            child: Text('Yeni Fiyat Ekle', style: _pjs(size: 15, weight: FontWeight.w800, color: FRColors.white)),
                           ),
                         ),
                         SizedBox(height: safeBottom > 0 ? safeBottom : 6),
@@ -909,11 +900,11 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(20),
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.xl),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(28, 17, 8, .06),
+            color: FRColors.espressoOverlay(0.06),
             blurRadius: 16,
             offset: Offset(0, 2),
           ),
@@ -932,9 +923,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
+              padding: FRSpaceInsets.symmetric(vertical: 28),
               child: Center(
-                child: CircularProgressIndicator(color: _tan),
+                child: CircularProgressIndicator(color: FRColors.camel),
               ),
             );
           }
@@ -979,14 +970,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
                 return ListTile(
                   dense: true,
-                  leading: const Icon(Icons.inventory_2_outlined, color: _tan),
+                  leading: const Icon(Icons.inventory_2_outlined, color: FRColors.camel),
                   title: Text(
                     product.name,
                     style: _pjs(size: 14, weight: FontWeight.w800),
                   ),
                   subtitle: Text(
                     subtitle,
-                    style: _pjs(size: 12, weight: FontWeight.w600, color: _t2),
+                    style: _pjs(size: 12, weight: FontWeight.w600, color: FRColors.textMutedSoft),
                   ),
                   onTap: () => _onProductPicked(product, notifier),
                 );
@@ -1007,10 +998,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   Widget _buildProductStreamState(
     String message, {
     IconData icon = Icons.info_outline_rounded,
-    Color iconColor = _t2,
+    Color iconColor = FRColors.textMutedSoft,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 18),
       child: Row(
         children: [
           Icon(icon, color: iconColor, size: 18),
@@ -1018,7 +1009,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           Expanded(
             child: Text(
               message,
-              style: _pjs(size: 13, weight: FontWeight.w700, color: _t2),
+              style: _pjs(size: 13, weight: FontWeight.w700, color: FRColors.textMutedSoft),
             ),
           ),
         ],
@@ -1038,24 +1029,24 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   Widget _buildRequestProductButton(AddPriceNotifier notifier) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: FRRadius.all(FRRadius.lg),
       onTap: () => _submitProductSuggestion(notifier),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: _tan.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _gold.withOpacity(0.3)),
+          color: FRColors.camel.withOpacity(0.1),
+          borderRadius: FRRadius.all(FRRadius.lg),
+          border: Border.all(color: FRColors.camelStrong.withOpacity(0.3)),
         ),
         child: Row(
           children: [
-            Icon(Icons.add_circle_outline, color: _tan.withOpacity(0.95), size: 18),
+            Icon(Icons.add_circle_outline, color: FRColors.camel.withOpacity(0.95), size: 18),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'Aradığın ürünü bulamadın mı? Hemen sisteme ekle!',
-                style: _pjs(size: 12, weight: FontWeight.w800, color: _t2),
+                style: _pjs(size: 12, weight: FontWeight.w800, color: FRColors.textMutedSoft),
               ),
             ),
           ],
@@ -1200,16 +1191,16 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   Widget _headerButton(IconData icon, VoidCallback onTap) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(13),
+      borderRadius: FRRadius.all(FRRadius.mdTight),
       onTap: onTap,
       child: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.08),
-          borderRadius: BorderRadius.circular(13),
+          color: FRColors.white.withOpacity(.08),
+          borderRadius: FRRadius.all(FRRadius.mdTight),
         ),
-        child: Icon(icon, size: 16, color: Colors.white.withOpacity(.8)),
+        child: Icon(icon, size: 16, color: FRColors.white.withOpacity(.8)),
       ),
     );
   }
@@ -1231,25 +1222,25 @@ class _AnswerPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: FRRadius.all(FRRadius.lg),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: FRSpaceInsets.all(12),
         decoration: BoxDecoration(
-          color: filled ? _gold.withOpacity(.15) : Colors.white.withOpacity(.07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: filled ? _gold.withOpacity(.35) : Colors.white.withOpacity(.08), width: 1.5),
+          color: filled ? FRColors.camelStrong.withOpacity(.15) : FRColors.white.withOpacity(.07),
+          borderRadius: FRRadius.all(FRRadius.lg),
+          border: Border.all(color: filled ? FRColors.camelStrong.withOpacity(.35) : FRColors.white.withOpacity(.08), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label.toUpperCase(), style: _pjs(size: 9, weight: FontWeight.w800, letterSpacing: .7, color: filled ? _gold.withOpacity(.7) : Colors.white.withOpacity(.28))),
+            Text(label.toUpperCase(), style: _pjs(size: 9, weight: FontWeight.w800, letterSpacing: .7, color: filled ? FRColors.camelStrong.withOpacity(.7) : FRColors.white.withOpacity(.28))),
             const SizedBox(height: 4),
             Text(
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _pjs(size: 12, weight: FontWeight.w800, color: filled ? Colors.white.withOpacity(.75) : Colors.white.withOpacity(.22)),
+              style: _pjs(size: 12, weight: FontWeight.w800, color: filled ? FRColors.white.withOpacity(.75) : FRColors.white.withOpacity(.22)),
             ),
           ],
         ),
@@ -1271,21 +1262,21 @@ class _SummaryRowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: FRRadius.all(FRRadius.xl),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
+          color: FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.xl),
+          boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.07), blurRadius: 14, offset: const Offset(0, 2))],
         ),
         child: Row(
           children: [
             Container(
               width: 34,
               height: 34,
-              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: iconBg, borderRadius: FRRadius.all(FRRadius.smPlus)),
               child: Icon(icon, size: 14, color: iconColor),
             ),
             const SizedBox(width: 12),
@@ -1295,17 +1286,17 @@ class _SummaryRowCard extends StatelessWidget {
                 children: [
                   Text(title, overflow: TextOverflow.ellipsis, style: _pjs(size: 14, weight: FontWeight.w800)),
                   const SizedBox(height: 1),
-                  Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                  Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle)),
                 ],
               ),
             ),
-            Text('Değiştir', style: _pjs(size: 11, weight: FontWeight.w700, color: _tan)),
+            Text('Değiştir', style: _pjs(size: 11, weight: FontWeight.w700, color: FRColors.camel)),
             const SizedBox(width: 8),
             Container(
               width: 22,
               height: 22,
-              decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(7)),
-              child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
+              decoration: BoxDecoration(color: FRColors.success, borderRadius: FRRadius.all(FRRadius.xsPlus)),
+              child: const Icon(Icons.check_rounded, size: 12, color: FRColors.white),
             ),
           ],
         ),
@@ -1327,34 +1318,34 @@ class _ProductImageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .07), blurRadius: 14, offset: Offset(0, 2))],
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.xl),
+        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.07), blurRadius: 14, offset: const Offset(0, 2))],
       ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: FRSpaceInsets.fromLTRB(16, 10, 16, 14),
       child: Row(
         children: [
           PremiumPressable(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: FRRadius.all(FRRadius.lg),
             onTap: onTapPhoto,
             child: Container(
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: _bg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _border, width: 1.5),
+                color: FRColors.backgroundWarm,
+                borderRadius: FRRadius.all(FRRadius.lg),
+                border: Border.all(color: FRColors.border, width: 1.5),
               ),
               child: imagePath != null
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: FRRadius.all(FRRadius.mdPlus),
                       child: Image.file(File(imagePath!), fit: BoxFit.cover),
                     )
                   : AppNetworkImage(
                       imageUrl: imageUrl,
                       cacheKey: 'add-price-selected-product',
                       fit: BoxFit.cover,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: FRRadius.all(FRRadius.mdPlus),
                     ),
             ),
           ),
@@ -1365,12 +1356,12 @@ class _ProductImageRow extends StatelessWidget {
               children: [
                 Text(productName, maxLines: 1, overflow: TextOverflow.ellipsis, style: _pjs(size: 15, weight: FontWeight.w800, letterSpacing: -0.2)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle)),
                 const SizedBox(height: 6),
                 PremiumPressable(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: FRRadius.all(FRRadius.sm),
                   onTap: onTapPhoto,
-                  child: Text('+ Fotoğraf ekle', style: _pjs(size: 10, weight: FontWeight.w700, color: _tan)),
+                  child: Text('+ Fotoğraf ekle', style: _pjs(size: 10, weight: FontWeight.w700, color: FRColors.camel)),
                 ),
               ],
             ),
@@ -1395,18 +1386,18 @@ class _CategoryChips extends StatelessWidget {
         children: state.categories.map((cat) {
           final selected = state.selectedCategoryId == cat.id;
           return Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: FRSpaceInsets.only(right: 6),
             child: PremiumPressable(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: FRRadius.all(FRRadius.pill),
               onTap: state.lockedCategoryByProduct ? null : () => notifier.setCategory(cat),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                padding: FRSpaceInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
-                  color: selected ? _dark : _white,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .06), blurRadius: 5, offset: Offset(0, 1))],
-                  border: Border.all(color: selected ? Colors.transparent : Colors.transparent, width: 1.5),
+                  color: selected ? FRColors.espresso : FRColors.surface,
+                  borderRadius: FRRadius.all(FRRadius.pill),
+                  boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.06), blurRadius: 5, offset: const Offset(0, 1))],
+                  border: Border.all(color: Colors.transparent, width: 1.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1414,12 +1405,12 @@ class _CategoryChips extends StatelessWidget {
                     Icon(
                       _categoryMaterialIcon(cat),
                       size: 15,
-                      color: selected ? Colors.white.withOpacity(.9) : _t2,
+                      color: selected ? FRColors.white.withOpacity(.9) : FRColors.textMutedSoft,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       cat.title,
-                      style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? Colors.white.withOpacity(.9) : _t2),
+                      style: _pjs(size: 12, weight: FontWeight.w800, color: selected ? FRColors.white.withOpacity(.9) : FRColors.textMutedSoft),
                     ),
                   ],
                 ),
@@ -1443,21 +1434,21 @@ class _StoreModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumPressable(
-      borderRadius: BorderRadius.circular(13),
+      borderRadius: FRRadius.all(FRRadius.mdTight),
       onTap: onTap,
       child: Container(
         height: 40,
         decoration: BoxDecoration(
-          color: on ? _dark : _white,
-          borderRadius: BorderRadius.circular(13),
-          boxShadow: const [BoxShadow(color: Color.fromRGBO(28, 17, 8, .06), blurRadius: 5, offset: Offset(0, 1))],
+          color: on ? FRColors.espresso : FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.mdTight),
+          boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.06), blurRadius: 5, offset: const Offset(0, 1))],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 12, color: on ? Colors.white : _t3),
+            Icon(icon, size: 12, color: on ? FRColors.white : FRColors.textSubtle),
             const SizedBox(width: 6),
-            Text(text, style: _pjs(size: 12, weight: FontWeight.w800, color: on ? Colors.white : _t3)),
+            Text(text, style: _pjs(size: 12, weight: FontWeight.w800, color: on ? FRColors.white : FRColors.textSubtle)),
           ],
         ),
       ),
@@ -1481,10 +1472,10 @@ class _StoreRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: selected ? _dark.withOpacity(.028) : Colors.transparent,
-          border: showDivider ? const Border(bottom: BorderSide(color: _border)) : null,
+          color: selected ? FRColors.espresso.withOpacity(.028) : Colors.transparent,
+          border: showDivider ? const Border(bottom: BorderSide(color: FRColors.border)) : null,
         ),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: FRSpaceInsets.fromLTRB(14, 12, 14, 12),
         child: Row(
           children: [
             Container(
@@ -1492,12 +1483,12 @@ class _StoreRow extends StatelessWidget {
               height: 42,
               decoration: BoxDecoration(
                 color: _avatarColor(store.name),
-                borderRadius: BorderRadius.circular(13),
-                boxShadow: const [BoxShadow(color: Color.fromRGBO(0, 0, 0, .16), blurRadius: 8, offset: Offset(0, 3))],
-                border: selected ? Border.all(color: _gold, width: 2) : null,
+                borderRadius: FRRadius.all(FRRadius.mdTight),
+                boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.16), blurRadius: 8, offset: const Offset(0, 3))],
+                border: selected ? Border.all(color: FRColors.camelStrong, width: 2) : null,
               ),
               alignment: Alignment.center,
-              child: Text(store.logoUrl.isNotEmpty ? store.logoUrl[0] : '?', style: _pjs(size: 14, weight: FontWeight.w900, color: Colors.white)),
+              child: Text(store.logoUrl.isNotEmpty ? store.logoUrl[0] : '?', style: _pjs(size: 14, weight: FontWeight.w900, color: FRColors.white)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1506,16 +1497,16 @@ class _StoreRow extends StatelessWidget {
                 children: [
                   Text(store.name, style: _pjs(size: 14, weight: FontWeight.w900)),
                   const SizedBox(height: 1),
-                  Text(_subText(store), style: _pjs(size: 11, weight: FontWeight.w500, color: _t3)),
+                  Text(_subText(store), style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle)),
                   if (store.isNeighborhoodMarket) ...[
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _badge('Semt Pazarı', const Color(0xFFEAF7EF), const Color(0xFF1F8F4A)),
+                        _badge('Semt Pazarı', FRColors.successSurface, FRColors.success),
                         if (_isOpenToday(store))
-                          _badge('Bugün Açık', const Color(0xFFFFF4E5), const Color(0xFFB66A00)),
+                          _badge('Bugün Açık', FRColors.goldBg(0.16), FRColors.gold),
                       ],
                     ),
                   ],
@@ -1524,20 +1515,20 @@ class _StoreRow extends StatelessWidget {
             ),
             if (showNearestBadge)
               Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: _greenBg, borderRadius: BorderRadius.circular(5)),
-                child: Text('En Yakın'.toUpperCase(), style: _pjs(size: 8, weight: FontWeight.w900, color: _green, letterSpacing: .4)),
+                margin: FRSpaceInsets.only(right: 8),
+                padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: FRColors.successBg(0.10), borderRadius: FRRadius.all(FRRadius.xxs)),
+                child: Text('En Yakın'.toUpperCase(), style: _pjs(size: 8, weight: FontWeight.w900, color: FRColors.success, letterSpacing: .4)),
               ),
             Container(
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: selected ? _dark : _border, width: 2),
-                color: selected ? _dark : Colors.transparent,
+                borderRadius: FRRadius.all(FRRadius.xsPlus),
+                border: Border.all(color: selected ? FRColors.espresso : FRColors.border, width: 2),
+                color: selected ? FRColors.espresso : Colors.transparent,
               ),
-              child: selected ? const Icon(Icons.check_rounded, size: 12, color: Colors.white) : null,
+              child: selected ? const Icon(Icons.check_rounded, size: 12, color: FRColors.white) : null,
             ),
           ],
         ),
@@ -1562,20 +1553,20 @@ class _StoreRow extends StatelessWidget {
 
   Widget _badge(String text, Color bg, Color fg) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: FRRadius.all(FRRadius.xs)),
       child: Text(text, style: _pjs(size: 9, weight: FontWeight.w800, color: fg)),
     );
   }
 
   Color _avatarColor(String text) {
     final palette = [
-      const Color(0xFFD44020),
-      const Color(0xFFC89018),
-      const Color(0xFF6020C0),
-      const Color(0xFF1840C0),
-      const Color(0xFFC07010),
-      const Color(0xFFB01818),
+      FRColors.danger,
+      FRColors.gold,
+      FRColors.silverDeep,
+      FRColors.sapphire,
+      FRColors.camelDeep,
+      FRColors.danger,
     ];
     final idx = text.isEmpty ? 0 : text.codeUnitAt(0) % palette.length;
     return palette[idx];
@@ -1593,18 +1584,18 @@ class _SuccessSummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: _border))),
+      padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: FRColors.border))),
       child: Row(
         children: [
-          Text(label.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w700, color: _t3, letterSpacing: .5)),
+          Text(label.toUpperCase(), style: _pjs(size: 10, weight: FontWeight.w700, color: FRColors.textSubtle, letterSpacing: .5)),
           const Spacer(),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
-              style: _pjs(size: 13, weight: FontWeight.w800, color: highlight ? _gold : _t1),
+              style: _pjs(size: 13, weight: FontWeight.w800, color: highlight ? FRColors.camelStrong : FRColors.textPrimary),
             ),
           ),
         ],

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/special_list_item_model.dart';
 import '../../models/special_list_model.dart';
 import '../../providers/special_list_provider.dart';
 import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
+import '../../theme/fr_typography.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/staggered_fade_slide.dart';
 
@@ -28,7 +30,7 @@ class CartListDetailScreen extends ConsumerWidget {
     final detailState = ref.watch(specialListDetailProvider(listId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEDEAE3),
+      backgroundColor: FRColors.backgroundWarm,
       body: SafeArea(
         bottom: false,
         child: detailState.isLoading
@@ -60,7 +62,12 @@ class CartListDetailScreen extends ConsumerWidget {
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
+          padding: FRSpaceInsets.fromLTRB(
+            FRSpacing.lg,
+            FRSpacing.smPlus,
+            FRSpacing.lg,
+            120,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -79,7 +86,7 @@ class CartListDetailScreen extends ConsumerWidget {
               else
                 for (var i = 0; i < items.length; i++)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: FRSpaceInsets.bottomSmPlus,
                     child: StaggeredFadeSlide(
                       index: i + 1,
                       offsetY: 12,
@@ -135,7 +142,12 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      padding: FRSpaceInsets.fromLTRB(
+        FRSpacing.xs,
+        FRSpacing.sm,
+        FRSpacing.xs,
+        0,
+      ),
       child: Row(
         children: [
           _IconButtonShell(icon: Icons.chevron_left_rounded, onTap: onBack, iconSize: 24),
@@ -143,7 +155,11 @@ class _TopBar extends StatelessWidget {
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF18100A)),
+              style: _t(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: FRColors.espresso,
+              ),
             ),
           ),
           _IconButtonShell(icon: Icons.share_outlined, onTap: onShare, iconSize: 18),
@@ -168,12 +184,16 @@ class _SummaryCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF18100A), Color(0xFF2A1A0B)]),
+        borderRadius: FRRadius.xxlRadius,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [FRColors.espresso, FRColors.espressoSoft],
+        ),
         boxShadow: [BoxShadow(color: FRColors.espresso.withOpacity(0.20), blurRadius: 30, offset: const Offset(0, 12))],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: FRRadius.xxlRadius,
         child: Stack(
           children: [
             Positioned(
@@ -189,35 +209,55 @@ class _SummaryCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: FRSpaceInsets.allXxl,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: FRSpaceInsets.symmetric(
+                      horizontal: FRSpacing.smPlus,
+                      vertical: FRSpacing.xs,
+                    ),
                     decoration: BoxDecoration(
                       color: FRColors.camel.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: FRRadius.smRadius,
                       border: Border.all(color: FRColors.camel.withOpacity(0.30)),
                     ),
                     child: Text(
                       list.badgeText,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10, color: FRColors.camel, fontWeight: FontWeight.w800, letterSpacing: .5),
+                      style: _t(
+                        fontSize: 10,
+                        color: FRColors.camel,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(list.title, style: GoogleFonts.dmSerifDisplay(fontSize: 24, height: 1.1, color: FRColors.white, letterSpacing: -.5)),
+                  Text(
+                    list.title,
+                    style: _serif(
+                      fontSize: 24,
+                      height: 1.1,
+                      color: FRColors.white,
+                      letterSpacing: -.5,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     list.description,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: FRColors.white.withOpacity(0.6)),
+                    style: _t(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: FRColors.white.withOpacity(0.6),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: FRSpaceInsets.allLg,
                     decoration: BoxDecoration(
                       color: FRColors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: FRRadius.lgRadius,
                       border: Border.all(color: FRColors.white.withOpacity(0.10)),
                     ),
                     child: Row(
@@ -226,9 +266,23 @@ class _SummaryCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(totalLabel, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: FRColors.white.withOpacity(0.60))),
+                              Text(
+                                totalLabel,
+                                style: _t(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: FRColors.white.withOpacity(0.60),
+                                ),
+                              ),
                               const SizedBox(height: 2),
-                              Text(formatTRY(list.totalPrice), style: GoogleFonts.dmSerifDisplay(fontSize: 32, height: 1, color: FRColors.white)),
+                              Text(
+                                formatTRY(list.totalPrice),
+                                style: _serif(
+                                  fontSize: 32,
+                                  height: 1,
+                                  color: FRColors.white,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -236,17 +290,31 @@ class _SummaryCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: const Color(0xFF27A85A).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                              padding: FRSpaceInsets.symmetric(
+                                horizontal: FRSpacing.sm,
+                                vertical: FRSpacing.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: FRColors.successBg(0.15),
+                                borderRadius: FRRadius.xsRadius,
+                              ),
                               child: Text(
                                 savingText,
-                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF1E8E3E)),
+                                style: _t(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: FRColors.success,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${list.bestMarketName}${itemCount > 0 ? ' • $itemCount Ürün' : ''}',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.white.withOpacity(0.5)),
+                              style: _t(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: FRColors.white.withOpacity(0.5),
+                              ),
                             ),
                           ],
                         ),
@@ -272,9 +340,23 @@ class _ListHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text('Sepet İçeriği', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF18100A))),
+        Text(
+          'Sepet İçeriği',
+          style: _t(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: FRColors.espresso,
+          ),
+        ),
         const Spacer(),
-        Text('$itemCount Ürün', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: FRColors.camel)),
+        Text(
+          '$itemCount Ürün',
+          style: _t(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: FRColors.camel,
+          ),
+        ),
       ],
     );
   }
@@ -290,20 +372,23 @@ class _BasketItemRow extends StatelessWidget {
     final tags = [if (item.quantityLabel.isNotEmpty) item.quantityLabel, if (item.tagLabel.isNotEmpty) item.tagLabel];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: FRSpaceInsets.allMd,
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAF8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1418100A)),
-        boxShadow: const [BoxShadow(color: Color(0x05000000), blurRadius: 12, offset: Offset(0, 4))],
+        color: FRColors.surfaceSoft,
+        borderRadius: FRRadius.lgRadius,
+        border: Border.all(color: FRColors.border),
+        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.02), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           Container(
             width: 56,
             height: 56,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: const Color(0xFFF8F4EE), borderRadius: BorderRadius.circular(12)),
+            padding: FRSpaceInsets.all(FRSpacing.xsPlus),
+            decoration: BoxDecoration(
+              color: FRColors.studio,
+              borderRadius: FRRadius.mdRadius,
+            ),
             child: item.productImageUrlSnapshot.isNotEmpty
                 ? Image.network(item.productImageUrlSnapshot, fit: BoxFit.contain, filterQuality: FilterQuality.medium)
                 : const Icon(Icons.image_not_supported_outlined),
@@ -315,14 +400,25 @@ class _BasketItemRow extends StatelessWidget {
               children: [
                 Text(
                   item.productBrandSnapshot.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 9, height: 1, color: FRColors.camel, fontWeight: FontWeight.w900, letterSpacing: .5),
+                  style: _t(
+                    fontSize: 9,
+                    height: 1,
+                    color: FRColors.camel,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   item.productNameSnapshot,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF18100A), height: 1.2),
+                  style: _t(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: FRColors.espresso,
+                    height: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -331,15 +427,22 @@ class _BasketItemRow extends StatelessWidget {
                   children: [
                     for (final tag in tags)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: FRSpaceInsets.symmetric(
+                          horizontal: FRSpacing.xsPlus,
+                          vertical: FRSpacing.xxs,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEDEAE3),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0x1418100A)),
+                          color: FRColors.backgroundWarm,
+                          borderRadius: FRRadius.xsRadius,
+                          border: Border.all(color: FRColors.border),
                         ),
                         child: Text(
                           tag,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF5E4A38)),
+                          style: _t(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: FRColors.camelDeep,
+                          ),
                         ),
                       ),
                   ],
@@ -351,17 +454,37 @@ class _BasketItemRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(formatTRY(item.selectedPrice), style: GoogleFonts.dmSerifDisplay(fontSize: 18, height: 1, color: const Color(0xFF18100A))),
+              Text(
+                formatTRY(item.selectedPrice),
+                style: _serif(
+                  fontSize: 18,
+                  height: 1,
+                  color: FRColors.espresso,
+                ),
+              ),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0x0D18100A), borderRadius: BorderRadius.circular(6)),
+                padding: FRSpaceInsets.symmetric(
+                  horizontal: FRSpacing.xsPlus,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: FRColors.border,
+                  borderRadius: FRRadius.xsRadius,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(width: 6, height: 6, decoration: BoxDecoration(color: item.marketColor, shape: BoxShape.circle)),
                     const SizedBox(width: 4),
-                    Text(item.selectedStoreNameSnapshot, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF18100A))),
+                    Text(
+                      item.selectedStoreNameSnapshot,
+                      style: _t(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: FRColors.espresso,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -388,26 +511,26 @@ class _BottomCompareButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(18),
-            child: Ink(
+          borderRadius: FRRadius.lgPlusRadius,
+          child: Ink(
             height: 58,
             decoration: BoxDecoration(
               color: FRColors.camel,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: FRRadius.lgPlusRadius,
               boxShadow: [BoxShadow(color: FRColors.camel.withOpacity(0.4), blurRadius: 32, offset: const Offset(0, 16))],
             ),
             child: Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.shopping_cart_outlined, color: Color(0xFF18100A), size: 22),
+                  const Icon(Icons.shopping_cart_outlined, color: FRColors.espresso, size: 22),
                   const SizedBox(width: 10),
                   Text(
                     text,
-                    style: GoogleFonts.plusJakartaSans(
+                    style: _t(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF18100A),
+                      color: FRColors.espresso,
                     ),
                   ),
                 ],
@@ -430,18 +553,18 @@ class _IconButtonShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: FRRadius.mdRadius,
       onTap: onTap,
       child: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAF8),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x1418100A)),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 10, offset: Offset(0, 4))],
+          color: FRColors.surfaceSoft,
+          borderRadius: FRRadius.mdRadius,
+          border: Border.all(color: FRColors.border),
+          boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.03), blurRadius: 10, offset: const Offset(0, 4))],
         ),
-        child: Icon(icon, size: iconSize, color: const Color(0xFF18100A)),
+        child: Icon(icon, size: iconSize, color: FRColors.espresso),
       ),
     );
   }
@@ -458,13 +581,17 @@ class _StatusState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: FRSpaceInsets.allXxl,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 42, color: const Color(0xFF6A4B35)),
+            Icon(icon, size: 42, color: FRColors.camelDeep),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: _t(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             TextButton(onPressed: onBack, child: const Text('Geri Dön')),
           ],
@@ -481,9 +608,54 @@ class _EmptyItemsState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: const Color(0xFFFAFAF8), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x1418100A))),
-      child: Text('Bu listede henüz ürün yok.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF5E4A38))),
+      padding: FRSpaceInsets.all(FRSpacing.lgPlus),
+      decoration: BoxDecoration(
+        color: FRColors.surfaceSoft,
+        borderRadius: FRRadius.lgRadius,
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Text(
+        'Bu listede henüz ürün yok.',
+        style: _t(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: FRColors.camelDeep,
+        ),
+      ),
     );
   }
+}
+
+TextStyle _t({
+  required double fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+}) {
+  return TextStyle(
+    fontFamily: FRTypography.fontFamily,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color ?? FRColors.textPrimary,
+    height: height,
+    letterSpacing: letterSpacing,
+  );
+}
+
+TextStyle _serif({
+  required double fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+}) {
+  return TextStyle(
+    fontFamily: FRTypography.serifFamily,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color ?? FRColors.textPrimary,
+    height: height,
+    letterSpacing: letterSpacing,
+  );
 }

@@ -80,6 +80,18 @@ class PriceStatusMigrationResult {
   final int scannedCount;
 }
 
+class AdminUserStatsSnapshot {
+  const AdminUserStatsSnapshot({
+    required this.userCount,
+    required this.totalPriceEntries,
+    required this.totalPoints,
+  });
+
+  final int userCount;
+  final int totalPriceEntries;
+  final int totalPoints;
+}
+
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final PointsService _pointsService = PointsService();
@@ -1634,6 +1646,59 @@ class FirestoreService {
 
   Stream<List<UserModel>> getAllUsers() {
     return _userAdminService.getAllUsers();
+  }
+
+  Stream<List<UserModel>> watchAdminUsersScoped({
+    int limit = 200,
+  }) {
+    final safeLimit = limit < 1 ? 1 : limit;
+    return _usersRef
+        .orderBy('createdAt', descending: true)
+        .limit(safeLimit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(UserModel.fromFirestore).toList(growable: false));
+  }
+
+  Future<int> getAdminUserCountAggregate() async {
+    final snapshot = await _usersRef.count().get();
+    return snapshot.count;
+  }
+
+  Future<AdminUserStatsSnapshot> getAdminUserStatsSnapshot({
+    int batchSize = 400,
+  }) async {
+    final safeBatchSize = batchSize < 50 ? 50 : batchSize;
+    final userCountFuture = getAdminUserCountAggregate();
+    final totalPriceEntriesFuture = _pricesRef.count().get();
+
+    var totalPoints = 0;
+    Query<Map<String, dynamic>> query = _usersRef
+        .orderBy(FieldPath.documentId)
+        .limit(safeBatchSize);
+
+    while (true) {
+      final page = await query.get();
+      if (page.docs.isEmpty) break;
+
+      for (final doc in page.docs) {
+        final data = doc.data();
+        totalPoints += (data['points'] as num?)?.toInt() ?? 0;
+      }
+
+      if (page.docs.length < safeBatchSize) break;
+      query = _usersRef
+          .orderBy(FieldPath.documentId)
+          .startAfterDocument(page.docs.last)
+          .limit(safeBatchSize);
+    }
+
+    final userCount = await userCountFuture;
+    final totalPriceEntries = (await totalPriceEntriesFuture).count;
+    return AdminUserStatsSnapshot(
+      userCount: userCount,
+      totalPriceEntries: totalPriceEntries,
+      totalPoints: totalPoints,
+    );
   }
 
   Future<void> updateUserAdmin(String userId, bool isAdmin) async {
