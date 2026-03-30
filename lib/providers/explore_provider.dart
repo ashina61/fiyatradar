@@ -416,8 +416,7 @@ class ExploreController extends StateNotifier<ExploreState> {
           final dropScore = _clamp01(dropPercent / 30);
           final recencyScore = _clamp01(1 - (recencyMinutes / 1440));
           final heatScore = (0.55 * distScore) + (0.30 * dropScore) + (0.15 * recencyScore);
-          final isOpenTodayMarket = store?.isOpenToday == true;
-          final adjustedHeatScore = isOpenTodayMarket ? heatScore + 0.25 : heatScore;
+          final adjustedHeatScore = heatScore;
 
           final onlineCheapest3 = cheapestCache[price.productId] ?? const [];
           return ExploreFeedItem(
