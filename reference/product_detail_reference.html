@@ -1,2649 +1,1047 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#18100A">
-<title>Komili Natürel Sızma 1L — FiyatRadar</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #FAFAF8;
-  --surface: #FFFFFF;
-  --surface-2: #F5F3F0;
-  --dk: #18100A;
-  --dk-2: #2C2418;
-  --tc: #BF9470;
-  --tc-light: #D4B599;
-  --t1: #18100A;
-  --t2: #5E4A38;
-  --t3: #9E8B78;
-  --line: rgba(24,16,10,0.08);
-  --grn: #27A85A;
-  --grn-bg: rgba(39,168,90,0.1);
-  --red: #E53935;
-  --red-bg: rgba(229,57,53,0.1);
-  --amber: #F59E0B;
-  --amber-bg: rgba(245,158,11,0.1);
-  --orange: #E67E22;
-  
-  /* Market Renkleri */
-  --carrefour: #E30A17;
-  --a101: #E30A17;
-  --bim: #00529B;
-  --migros: #F05A28;
-  --sok: #FDB913;
-  
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-full: 999px;
-  
-  --shadow-sm: 0 2px 8px rgba(24,16,10,0.04);
-  --shadow-md: 0 4px 16px rgba(24,16,10,0.06);
-  --shadow-lg: 0 8px 24px rgba(24,16,10,0.08);
-  
-  --trans: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --trans-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { scroll-behavior: smooth; }
-
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background: var(--bg);
-  color: var(--t1);
-  min-height: 100vh;
-  line-height: 1.5;
-  overflow-x: hidden;
-  padding-bottom: 100px;
-}
-
-/* ════════════════════════════════ ANIMATIONS ════════════════════════════════ */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-
-.animate-fade { animation: fadeIn 0.4s ease both; }
-.animate-up { animation: slideUp 0.5s ease both; }
-.animate-down { animation: slideDown 0.4s ease both; }
-.animate-scale { animation: scaleIn 0.3s ease both; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
-
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
-
-/* ════════════════════════════════ HEADER ════════════════════════════════ */
-.header {
-  background: linear-gradient(180deg, var(--dk) 0%, var(--dk-2) 100%);
-  padding: 16px;
-  border-radius: 0 0 24px 24px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 20px rgba(24,16,10,0.15);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  animation: slideDown 0.5s ease both;
-}
-
-.header__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.header__left, .header__right {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.header__btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--trans);
-  flex-shrink: 0;
-}
-
-.header__btn:active {
-  background: rgba(255,255,255,0.15);
-  transform: scale(0.95);
-}
-
-.header__btn svg {
-  width: 20px;
-  height: 20px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-.header__title {
-  font-size: 16px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.5px;
-  text-align: center;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 8px;
-}
-
-/* ════════════════════════════════ MAIN ════════════════════════════════ */
-.main {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
-/* ════════════════════════════════ ÜRÜN GÖRSEL ════════════════════════════════ */
-.product-hero {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--line);
-  text-align: center;
-  animation: slideUp 0.5s ease 0.1s both;
-}
-
-.product-image-container {
-  position: relative;
-  margin-bottom: 16px;
-}
-
-.product-image {
-  width: 100%;
-  aspect-ratio: 1;
-  max-height: 280px;
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  overflow: hidden;
-  transition: var(--trans);
-}
-
-.product-image:hover {
-  transform: scale(1.02);
-}
-
-.product-image svg {
-  width: 100px;
-  height: 100px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 1.5;
-  animation: pulse 3s ease-in-out infinite;
-}
-
-.product-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.badge {
-  padding: 5px 10px;
-  border-radius: var(--radius-full);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-  animation: scaleIn 0.4s ease both;
-}
-
-.badge:nth-child(1) { animation-delay: 0.2s; }
-.badge:nth-child(2) { animation-delay: 0.3s; }
-
-.badge-last {
-  background: var(--amber);
-  color: #fff;
-}
-
-.badge-verified {
-  background: var(--grn);
-  color: #fff;
-}
-
-.product-name {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--t1);
-  margin-bottom: 6px;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.product-category {
-  font-size: 12px;
-  color: var(--t3);
-  font-weight: 600;
-  margin-bottom: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.product-stats {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  flex-wrap: wrap;
-}
-
-.stat {
-  text-align: center;
-  min-width: 60px;
-  animation: scaleIn 0.4s ease both;
-}
-
-.stat:nth-child(1) { animation-delay: 0.4s; }
-.stat:nth-child(2) { animation-delay: 0.5s; }
-.stat:nth-child(3) { animation-delay: 0.6s; }
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--tc);
-  display: block;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: var(--t3);
-  font-weight: 600;
-}
-
-/* ════════════════════════════════ SON FİYAT KARTI ════════════════════════════════ */
-.last-price-card {
-  background: linear-gradient(135deg, #1a1510 0%, #2C2418 100%);
-  border-radius: 24px;
-  padding: 24px;
-  margin-bottom: 16px;
-  box-shadow: 0 8px 32px rgba(24,16,10,0.2);
-  color: #fff;
-  animation: slideUp 0.5s ease 0.2s both;
-  position: relative;
-  overflow: hidden;
-}
-
-.last-price-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-  animation: shimmer 3s infinite;
-}
-
-.last-price-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.last-price-card__label {
-  background: rgba(191,148,112,0.2);
-  color: var(--tc-light);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.last-price-card__drop {
-  background: rgba(39,168,90,0.15);
-  color: #4ADE80;
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid rgba(39,168,90,0.3);
-}
-
-.last-price-card__drop svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.last-price-card__price {
-  font-size: 48px;
-  font-weight: 900;
-  color: #fff;
-  line-height: 1;
-  margin-bottom: 20px;
-  animation: scaleIn 0.5s ease 0.3s both;
-  font-family: 'Georgia', serif;
-  letter-spacing: -1px;
-}
-
-.last-price-card__price-currency {
-  font-size: 32px;
-  opacity: 0.6;
-  margin-left: 2px;
-}
-
-.last-price-card__divider {
-  height: 1px;
-  background: rgba(255,255,255,0.1);
-  margin-bottom: 20px;
-}
-
-.last-price-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.last-price-card__market {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.last-price-card__market-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--migros);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.last-price-card__market-text {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.last-price-card__user {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.last-price-card__user-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.last-price-card__user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--tc);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--dk);
-}
-
-.last-price-card__user-time {
-  font-size: 11px;
-  color: rgba(255,255,255,0.6);
-}
-
-/* ════════════════════════════════ FİYAT İSTATİSTİKLERİ ════════════════════════════════ */
-.price-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 12px 8px;
-  text-align: center;
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
-  animation: slideUp 0.5s ease both;
-  transition: var(--trans);
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-card:nth-child(1) { animation-delay: 0.3s; }
-.stat-card:nth-child(2) { animation-delay: 0.4s; }
-.stat-card:nth-child(3) { animation-delay: 0.5s; }
-
-.stat-card__icon {
-  width: 28px;
-  height: 28px;
-  margin: 0 auto 6px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stat-card__icon.low { background: var(--grn-bg); }
-.stat-card__icon.high { background: var(--red-bg); }
-.stat-card__icon.avg { background: var(--amber-bg); }
-
-.stat-card__icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-}
-
-.stat-card.low .stat-card__icon { color: var(--grn); }
-.stat-card.high .stat-card__icon { color: var(--red); }
-.stat-card.avg .stat-card__icon { color: var(--amber); }
-
-.stat-card__value {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--t1);
-  margin-bottom: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.stat-card__label {
-  font-size: 9px;
-  color: var(--t3);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-
-/* ════════════════════════════════ FİYAT GİRİŞİ ════════════════════════════════ */
-.price-entry-section {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--line);
-  animation: slideUp 0.5s ease 0.4s both;
-}
-
-.price-entry-section__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.price-entry-section__title {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--t1);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.price-entry-section__title svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.price-entry-history-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--trans);
-  position: relative;
-}
-
-.price-entry-history-btn:active {
-  background: var(--amber-bg);
-  border-color: var(--amber);
-  transform: scale(0.95);
-}
-
-.price-entry-history-btn svg {
-  width: 16px;
-  height: 16px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-.price-entry-history-btn__dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.price-entry-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.price-entry-stat {
-  text-align: center;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  animation: scaleIn 0.4s ease both;
-}
-
-.price-entry-stat:nth-child(1) { animation-delay: 0.5s; }
-.price-entry-stat:nth-child(2) { animation-delay: 0.6s; }
-.price-entry-stat:nth-child(3) { animation-delay: 0.7s; }
-
-.price-entry-stat.correct {
-  background: var(--grn-bg);
-}
-
-.price-entry-stat.wrong {
-  background: var(--red-bg);
-}
-
-.price-entry-stat__number {
-  font-size: 20px;
-  font-weight: 900;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.price-entry-stat.correct .price-entry-stat__number {
-  color: var(--grn);
-}
-
-.price-entry-stat.wrong .price-entry-stat__number {
-  color: var(--red);
-}
-
-.price-entry-stat__label {
-  font-size: 10px;
-  color: var(--t3);
-  font-weight: 600;
-}
-
-.price-entry-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.price-entry-btn {
-  padding: 12px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 800;
-  font-family: inherit;
-  cursor: pointer;
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 2px solid;
-  white-space: nowrap;
-}
-
-.price-entry-btn:active {
-  transform: scale(0.98);
-}
-
-.price-entry-btn--correct {
-  background: var(--grn-bg);
-  border-color: var(--grn);
-  color: var(--grn);
-}
-
-.price-entry-btn--correct svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.price-entry-btn--wrong {
-  background: var(--red-bg);
-  border-color: var(--red);
-  color: var(--red);
-}
-
-.price-entry-btn--wrong svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-}
-
-/* ════════════════════════════════ FİYAT GEÇMİŞİ GRAFİK (DÜZELTİLDİ) ════════════════════════════════ */
-.price-history {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--line);
-  animation: slideUp 0.5s ease 0.5s both;
-}
-
-.price-history__title {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--t1);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.price-history__title svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-.history-periods {
-  display: flex;
-  gap: 6px;
-}
-
-.period-btn {
-  padding: 6px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--t3);
-  cursor: pointer;
-  transition: var(--trans);
-}
-
-.period-btn.active {
-  background: var(--dk);
-  border-color: var(--dk);
-  color: #fff;
-}
-
-/* İyileştirilmiş Grafik Container */
-.chart-detailed {
-  position: relative;
-  height: 240px;
-  margin: 20px 0;
-  padding: 20px 10px 40px;
-  background: linear-gradient(180deg, rgba(245,243,240,0.5) 0%, transparent 100%);
-  border-radius: var(--radius-md);
-  touch-action: none;
-}
-
-.chart-grid {
-  position: absolute;
-  inset: 20px 10px 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
-.chart-grid-line {
-  height: 1px;
-  background: rgba(158,139,122,0.2);
-  border-top: 1px dashed rgba(158,139,122,0.15);
-}
-
-.chart-svg-container {
-  position: relative;
-  height: 100%;
-  width: 100%;
-}
-
-.chart-svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.chart-line {
-  fill: none;
-  stroke: var(--tc);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 2px 4px rgba(191,148,112,0.3));
-}
-
-.chart-area {
-  fill: url(#chartGradient);
-  opacity: 0.4;
-}
-
-.chart-dot {
-  fill: var(--surface);
-  stroke: var(--tc);
-  stroke-width: 2.5;
-  cursor: pointer;
-  transition: var(--trans);
-  pointer-events: all;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.chart-dot:hover, .chart-dot:active {
-  fill: var(--tc);
-  stroke: var(--dk);
-  stroke-width: 3;
-  transform: scale(1.3);
-}
-
-.chart-dot.current {
-  fill: var(--grn);
-  stroke: var(--grn);
-  stroke-width: 3;
-}
-
-.chart-tooltip {
-  position: absolute;
-  background: var(--dk);
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 700;
-  pointer-events: none;
-  opacity: 0;
-  transition: var(--trans);
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  transform: translate(-50%, -100%);
-  margin-top: -10px;
-}
-
-.chart-tooltip.show {
-  opacity: 1;
-}
-
-.chart-tooltip__price {
-  font-size: 16px;
-  margin-bottom: 2px;
-}
-
-.chart-tooltip__date {
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-.chart-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  padding: 0 5px;
-}
-
-.chart-label {
-  font-size: 10px;
-  color: var(--t3);
-  font-weight: 600;
-  text-align: center;
-  flex: 1;
-}
-
-.chart-y-axis {
-  position: absolute;
-  left: 0;
-  top: 20px;
-  bottom: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-right: 8px;
-}
-
-.chart-y-label {
-  font-size: 10px;
-  color: var(--t3);
-  font-weight: 600;
-  text-align: right;
-}
-
-/* ════════════════════════════════ MARKETLER ════════════════════════════════ */
-.section {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--line);
-  animation: slideUp 0.5s ease both;
-}
-
-.section:nth-of-type(5) { animation-delay: 0.6s; }
-.section:nth-of-type(6) { animation-delay: 0.7s; }
-
-.section__title {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--t1);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section__title svg {
-  width: 20px;
-  height: 20px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-.market-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.market-item {
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  border: 2px solid transparent;
-  transition: var(--trans);
-}
-
-.market-item:hover {
-  transform: translateX(4px);
-}
-
-.market-item.best {
-  border-color: var(--grn);
-  background: var(--grn-bg);
-}
-
-.market-item__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  gap: 10px;
-}
-
-.market-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.market-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  font-weight: 800;
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.market-details {
-  flex: 1;
-  min-width: 0;
-}
-
-.market-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--t1);
-  margin-bottom: 3px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.market-badge {
-  font-size: 8px;
-  padding: 2px 5px;
-  background: var(--grn);
-  color: #fff;
-  border-radius: var(--radius-full);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.market-distance {
-  font-size: 10px;
-  color: var(--t3);
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.market-distance svg {
-  width: 10px;
-  height: 10px;
-  stroke: var(--tc);
-  fill: none;
-  flex-shrink: 0;
-}
-
-.market-price-block {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.market-price {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--t1);
-  display: block;
-  margin-bottom: 2px;
-  white-space: nowrap;
-}
-
-.market-price-old {
-  font-size: 11px;
-  color: var(--t3);
-  text-decoration: line-through;
-  white-space: nowrap;
-}
-
-.market-price-diff {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
-  display: inline-block;
-  margin-top: 4px;
-}
-
-.market-price-diff.cheaper {
-  background: var(--grn-bg);
-  color: var(--grn);
-}
-
-.market-price-diff.expensive {
-  background: var(--red-bg);
-  color: var(--red);
-}
-
-.market-added {
-  font-size: 10px;
-  color: var(--t3);
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.market-added svg {
-  width: 10px;
-  height: 10px;
-  stroke: var(--tc);
-  fill: none;
-}
-
-.market-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.btn-market {
-  flex: 1;
-  padding: 9px;
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border: none;
-  white-space: nowrap;
-}
-
-.btn-market:active {
-  transform: scale(0.98);
-}
-
-/* HARİTADA GÖSTER BUTONU - YENİ RENKLER */
-.btn-harita {
-  background: var(--dk);
-  color: #fff;
-}
-
-.btn-harita:hover {
-  background: var(--dk-2);
-}
-
-.btn-harita svg {
-  width: 13px;
-  height: 13px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2.5;
-}
-
-/* ════════════════════════════════ YORUMLAR ════════════════════════════════ */
-.reviews-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  gap: 10px;
-}
-
-.reviews-count {
-  font-size: 12px;
-  color: var(--t3);
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.reviews-count strong {
-  color: var(--t1);
-}
-
-.review-item {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-  animation: fadeIn 0.4s ease both;
-}
-
-.review-item.hidden {
-  display: none;
-}
-
-.review-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.review-item:first-child {
-  padding-top: 0;
-}
-
-.review-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.review-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--tc);
-  flex-shrink: 0;
-}
-
-.review-meta {
-  flex: 1;
-  min-width: 0;
-}
-
-.review-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--t1);
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.review-date {
-  font-size: 10px;
-  color: var(--t3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.review-stars {
-  display: flex;
-  gap: 2px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.star {
-  width: 12px;
-  height: 12px;
-  fill: var(--amber);
-  animation: scaleIn 0.3s ease both;
-}
-
-.star:nth-child(1) { animation-delay: 0.1s; }
-.star:nth-child(2) { animation-delay: 0.15s; }
-.star:nth-child(3) { animation-delay: 0.2s; }
-.star:nth-child(4) { animation-delay: 0.25s; }
-.star:nth-child(5) { animation-delay: 0.3s; }
-
-.star.empty {
-  fill: var(--line);
-}
-
-.review-text {
-  font-size: 12px;
-  color: var(--t2);
-  line-height: 1.5;
-  margin-left: 42px;
-  word-wrap: break-word;
-}
-
-.review-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 8px;
-  margin-left: 42px;
-}
-
-.review-action-btn {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--t3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.review-action-btn:hover {
-  background: var(--surface-2);
-  color: var(--t1);
-}
-
-.review-action-btn svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-}
-
-.load-more-reviews {
-  width: 100%;
-  padding: 12px;
-  margin-top: 14px;
-  background: var(--surface-2);
-  border: 2px dashed var(--line);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--tc);
-  cursor: pointer;
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.load-more-reviews:hover {
-  background: var(--surface);
-  border-color: var(--tc);
-  border-style: solid;
-}
-
-.load-more-reviews:active {
-  transform: scale(0.98);
-}
-
-.load-more-reviews svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  transition: var(--trans);
-}
-
-.load-more-reviews:hover svg {
-  transform: translateY(2px);
-}
-
-/* ════════════════════════════════ AKSİYON BUTONLARI ════════════════════════════════ */
-.action-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(180deg, transparent 0%, var(--bg) 30%, var(--bg) 100%);
-  padding: 16px 16px 24px;
-  z-index: 100;
-  animation: slideUp 0.5s ease both;
-}
-
-.action-bar__inner {
-  max-width: 480px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 10px;
-}
-
-.btn {
-  padding: 14px 18px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 800;
-  font-family: inherit;
-  cursor: pointer;
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  white-space: nowrap;
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.btn-secondary {
-  background: var(--surface);
-  color: var(--t1);
-  border: 2px solid var(--line);
-}
-
-.btn-secondary svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--dk) 0%, var(--dk-2) 100%);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(24,16,10,0.3);
-  animation: pulse 2.5s ease-in-out infinite;
-}
-
-.btn-primary:active {
-  animation: none;
-}
-
-.btn-primary svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-/* ════════════════════════════════ MODALS ════════════════════════════════ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: var(--trans);
-  backdrop-filter: blur(4px);
-}
-
-.modal-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.modal {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  width: 90%;
-  max-width: 360px;
-  max-height: 80vh;
-  overflow-y: auto;
-  transform: scale(0.9);
-  transition: var(--trans);
-  box-shadow: var(--shadow-lg);
-}
-
-.modal-overlay.active .modal {
-  transform: scale(1);
-  animation: scaleIn 0.3s ease both;
-}
-
-.modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.modal__title {
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--t1);
-}
-
-.modal__close {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--trans);
-}
-
-.modal__close:active {
-  background: var(--surface-2);
-  transform: scale(0.95);
-}
-
-.modal__close svg {
-  width: 14px;
-  height: 14px;
-  stroke: var(--t3);
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.modal__options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.modal__option {
-  padding: 12px;
-  background: var(--surface-2);
-  border: 2px solid var(--line);
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--t1);
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-
-.modal__option:active {
-  background: var(--red-bg);
-  border-color: var(--red);
-  color: var(--red);
-  transform: scale(0.98);
-}
-
-.modal__footer {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.modal__footer-btn {
-  width: 100%;
-  padding: 12px;
-  background: var(--surface-2);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--t2);
-  cursor: pointer;
-  transition: var(--trans);
-}
-
-.modal__footer-btn:active {
-  transform: scale(0.98);
-}
-
-.history-prices-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.history-price-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--line);
-  animation: slideUp 0.4s ease both;
-}
-
-.history-price-item:nth-child(1) { animation-delay: 0.1s; }
-.history-price-item:nth-child(2) { animation-delay: 0.2s; }
-.history-price-item:nth-child(3) { animation-delay: 0.3s; }
-.history-price-item:nth-child(4) { animation-delay: 0.4s; }
-
-.history-price-item.correct {
-  border-left-color: var(--grn);
-}
-
-.history-price-item.wrong {
-  border-left-color: var(--red);
-}
-
-.history-price-item__date {
-  width: 50px;
-  flex-shrink: 0;
-  text-align: center;
-}
-
-.history-price-item__date-day {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--t1);
-}
-
-.history-price-item__date-month {
-  font-size: 10px;
-  color: var(--t3);
-  text-transform: uppercase;
-}
-
-.history-price-item__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.history-price-item__price {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--t1);
-  margin-bottom: 2px;
-}
-
-.history-price-item__market {
-  font-size: 11px;
-  color: var(--t3);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.history-price-item__market svg {
-  width: 10px;
-  height: 10px;
-  stroke: var(--tc);
-  fill: none;
-}
-
-.history-price-item__user {
-  font-size: 10px;
-  color: var(--t3);
-  margin-top: 2px;
-}
-
-.history-price-item__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.history-verify-btn {
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 700;
-  border: 1px solid;
-  background: transparent;
-  cursor: pointer;
-  transition: var(--trans);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-
-.history-verify-btn:active {
-  transform: scale(0.95);
-}
-
-.history-verify-btn.correct {
-  border-color: var(--grn);
-  color: var(--grn);
-}
-
-.history-verify-btn.correct:active {
-  background: var(--grn-bg);
-}
-
-.history-verify-btn.wrong {
-  border-color: var(--red);
-  color: var(--red);
-}
-
-.history-verify-btn.wrong:active {
-  background: var(--red-bg);
-}
-
-.history-verify-btn svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.history-verify-btn.verified {
-  background: var(--grn);
-  border-color: var(--grn);
-  color: #fff;
-  cursor: default;
-}
-
-.history-verify-btn.verified svg {
-  stroke: #fff;
-}
-
-/* ════════════════════════════════ BACK TO TOP ════════════════════════════════ */
-.back-to-top {
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--dk);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: var(--trans);
-  z-index: 99;
-  box-shadow: 0 4px 16px rgba(24,16,10,0.3);
-}
-
-.back-to-top.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.back-to-top:active {
-  transform: scale(0.95);
-}
-
-.back-to-top svg {
-  width: 20px;
-  height: 20px;
-  stroke: var(--tc);
-  fill: none;
-  stroke-width: 2;
-}
-
-/* ════════════════════════════════ TOAST ════════════════════════════════ */
-.toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-20px);
-  background: var(--dk);
-  color: #fff;
-  padding: 12px 20px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 90%;
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.toast svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--grn);
-  fill: none;
-  stroke-width: 2.5;
-  flex-shrink: 0;
-  animation: bounce 0.5s ease;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#201711" />
+  <title>FiyatRadar · Product Detail</title>
+  <style>
+    :root {
+      --bg: #f3ede6;
+      --bg-2: #efe6dc;
+      --surface: #fffdfa;
+      --surface-soft: #f8f1e9;
+      --ink: #241b14;
+      --ink-soft: #6a5a4c;
+      --ink-mute: #9b8979;
+      --line: rgba(36, 27, 20, 0.12);
+      --line-soft: rgba(36, 27, 20, 0.06);
+      --brand: #bb865e;
+      --brand-deep: #7d5439;
+      --ok: #2d8b57;
+      --ok-soft: rgba(45, 139, 87, 0.12);
+      --warn: #b96f26;
+      --warn-soft: rgba(185, 111, 38, 0.14);
+      --danger: #be4f4f;
+      --danger-soft: rgba(190, 79, 79, 0.12);
+      --r-sm: 10px;
+      --r-md: 16px;
+      --r-lg: 22px;
+      --shadow: 0 12px 28px rgba(36, 27, 20, 0.11);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(circle at 50% -10%, #fff6ec, transparent 45%),
+        linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 220px, #f7f3ef 100%);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding-bottom: 92px;
+    }
+
+    .screen {
+      width: 100%;
+      max-width: 430px;
+      position: relative;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(243, 237, 230, 0.9);
+      backdrop-filter: blur(7px);
+      border-bottom: 1px solid rgba(36, 27, 20, 0.05);
+    }
+
+    .title-mini {
+      font-size: 12px;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+    }
+
+    .action-pair { display: flex; gap: 8px; }
+
+    .icon-btn {
+      width: 37px;
+      height: 37px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+    }
+
+    .content {
+      padding: 10px 14px 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero {
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 128px;
+      gap: 12px;
+      align-items: stretch;
+      min-height: 174px;
+    }
+
+    .hero-meta {
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      width: fit-content;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brand-deep);
+      background: #f1e5d8;
+    }
+
+    .hero h1 {
+      font-size: 19px;
+      line-height: 1.22;
+      margin-top: 6px;
+      letter-spacing: -0.2px;
+    }
+
+    .hero p {
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+      max-width: 95%;
+    }
+
+    .spec-ribbon {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .spec-ribbon span {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+
+    .hero-visual {
+      border-radius: 16px;
+      border: 1px solid rgba(125, 84, 57, 0.22);
+      background:
+        linear-gradient(165deg, #fff6ec 0%, #ecd8c5 57%, #dcc1a6 100%);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-visual::after {
+      content: "fallback asset";
+      position: absolute;
+      bottom: 7px;
+      font-size: 9px;
+      color: #8e7867;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .pack {
+      width: 76px;
+      height: 98px;
+      border-radius: 13px;
+      background: linear-gradient(160deg, #875e43, #694834);
+      box-shadow: 0 14px 20px rgba(36, 27, 20, 0.25);
+      position: relative;
+    }
+
+    .pack::before {
+      content: "FR";
+      position: absolute;
+      left: 50%;
+      top: 44%;
+      transform: translate(-50%, -50%);
+      color: #f9ece0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .pack::after {
+      content: "SKU";
+      position: absolute;
+      left: 50%;
+      top: 68%;
+      transform: translateX(-50%);
+      color: rgba(249, 236, 224, 0.85);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .best-price {
+      border-radius: var(--r-lg);
+      border: 1px solid rgba(125, 84, 57, 0.28);
+      background: linear-gradient(145deg, #fffdfa, #f3e6d9);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: grid;
+      gap: 11px;
+    }
+
+    .price-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .price-main {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .amount {
+      font-size: 38px;
+      line-height: 0.95;
+      font-weight: 850;
+      letter-spacing: -1px;
+      color: #2e2017;
+    }
+
+    .seller-box {
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(36, 27, 20, 0.1);
+      padding: 8px 9px;
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .seller-box strong { font-size: 13px; }
+
+    .note-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px;
+      align-items: start;
+      border-radius: 12px;
+      border: 1px dashed rgba(125, 84, 57, 0.34);
+      background: rgba(255, 255, 255, 0.7);
+      padding: 8px 9px;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .delta-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .delta-line strong {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+    }
+
+    .trust {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .trust-shell {
+      border: 1px solid rgba(36, 27, 20, 0.08);
+      background: linear-gradient(180deg, #fffdfa, #f7eee4);
+      border-radius: 16px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .score-ring {
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: conic-gradient(var(--ok) 0 286deg, rgba(45, 139, 87, 0.18) 286deg 360deg);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .score-ring::before {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      background: #fff9f3;
+      border-radius: 50%;
+      border: 1px solid rgba(36, 27, 20, 0.08);
+    }
+
+    .score-ring span {
+      position: relative;
+      font-size: 21px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .score-ring small {
+      display: block;
+      font-size: 10px;
+      color: var(--ink-soft);
+      text-align: center;
+      margin-top: 2px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .trust-copy h3 {
+      font-size: 14px;
+      margin-bottom: 4px;
+      letter-spacing: -0.1px;
+    }
+
+    .trust-copy p {
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.35;
+    }
+
+    .signals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .signals span {
+      font-size: 11px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .signals .ok-chip {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: rgba(45, 139, 87, 0.22);
+    }
+
+    .signals .warn-chip {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: rgba(185, 111, 38, 0.22);
+    }
+
+    .proof-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid var(--line-soft);
+      border-bottom: 1px solid var(--line-soft);
+      padding: 10px 0;
+      font-size: 12px;
+    }
+
+    .votes {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .votes span {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    .votes .good { color: var(--ok); background: var(--ok-soft); }
+    .votes .bad { color: var(--danger); background: var(--danger-soft); }
+    .votes .all { color: var(--ink-soft); background: #efe6dd; }
+
+    .verify-cta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn.light {
+      background: #f2e5d8;
+      color: #6c4932;
+    }
+
+    .btn.dark {
+      background: #3a281d;
+      color: #fff9f3;
+    }
+
+    .history {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      padding: 13px;
+      display: grid;
+      gap: 11px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-head h2 {
+      font-size: 15px;
+      letter-spacing: -0.2px;
+    }
+
+    .toggle {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 11px;
+      border: 1px solid var(--line);
+      background: #f6eee6;
+      gap: 2px;
+    }
+
+    .toggle button {
+      border: 0;
+      background: transparent;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+
+    .toggle button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 2px 8px rgba(36, 27, 20, 0.1);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .stats div {
+      border-radius: 11px;
+      padding: 8px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
+      display: grid;
+      gap: 3px;
+      min-height: 56px;
+    }
+
+    .stats label {
+      font-size: 10px;
+      color: var(--ink-soft);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .stats strong {
+      font-size: 13px;
+      letter-spacing: -0.1px;
+    }
+
+    .chart-wrap {
+      border-radius: 14px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, #fffdfa, #fcf6ef);
+      height: 190px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #historyChart {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .records {
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .record {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 9px;
+      align-items: center;
+      font-size: 12px;
+      padding: 9px 10px;
+      background: #fffdfa;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .record:last-child { border-bottom: 0; }
+
+    .record .date {
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-soft);
+      font-size: 11px;
+    }
+
+    .record .store {
+      font-weight: 650;
+      letter-spacing: -0.1px;
+    }
+
+    .record .price {
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .compare, .comments {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      padding: 13px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .seller {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      padding: 9px 10px;
+      background: #fffdfa;
+    }
+
+    .seller p {
+      font-size: 11px;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+
+    .seller strong {
+      font-size: 14px;
+      letter-spacing: -0.1px;
+    }
+
+    .comments-feed {
+      display: grid;
+      gap: 7px;
+    }
+
+    .comment {
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      background: #fffdfa;
+      padding: 9px 10px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .comment-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+
+    .comment p {
+      font-size: 12px;
+      color: #47382e;
+      line-height: 1.4;
+    }
+
+    .history-link {
+      border: 0;
+      background: #f1e4d7;
+      color: #6e4933;
+      border-radius: 11px;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .comment-entry {
+      border-radius: 13px;
+      border: 1px solid rgba(36, 27, 20, 0.14);
+      background: linear-gradient(180deg, #fffdfb, #f6ece2);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .tone-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tone-pills button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink-soft);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .entry-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+    }
+
+    .entry-row input {
+      border: 1px solid rgba(36, 27, 20, 0.15);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 12px;
+      background: #fff;
+    }
+
+    .entry-row button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #3b2a1f;
+      color: #fff8f2;
+    }
+
+    .bottom-cta {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      width: min(430px, 100%);
+      padding: 10px 14px 12px;
+      background: linear-gradient(180deg, rgba(247, 243, 239, 0.35), #f7f3ef 40%);
+      backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(36, 27, 20, 0.08);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .bottom-cta button {
+      border: 0;
+      border-radius: 13px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .bottom-cta .primary {
+      color: #fff8f1;
+      background: #3a281d;
+    }
+
+    .bottom-cta .secondary {
+      color: #684632;
+      background: #ecd9c8;
+    }
+
+    @media (max-width: 360px) {
+      .hero { grid-template-columns: 1fr 114px; }
+      .amount { font-size: 33px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .price-main { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
+  <main class="screen">
+    <header class="topbar">
+      <button class="icon-btn" aria-label="Geri">←</button>
+      <div class="title-mini">Product Detail · FiyatRadar</div>
+      <div class="action-pair">
+        <button class="icon-btn" aria-label="Paylaş">⤴</button>
+        <button class="icon-btn" aria-label="Favori">♡</button>
+      </div>
+    </header>
 
-<header class="header">
-  <div class="header__top">
-    <div class="header__left">
-      <button class="header__btn" onclick="history.back()">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-    </div>
-    <h1 class="header__title">Ürün Detayı</h1>
-    <div class="header__right">
-      <button class="header__btn" onclick="shareProduct()">
-        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-      </button>
-      <button class="header__btn" onclick="toggleFavorite(this)">
-        <svg viewBox="0 0 24 24" id="favIcon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-      </button>
-    </div>
-  </div>
-</header>
-
-<main class="main">
-
-  <!-- ÜRÜN GÖRSEL -->
-  <section class="product-hero">
-    <div class="product-image-container">
-      <div class="product-badges">
-        <span class="badge badge-last">📍 Son Fiyat</span>
-        <span class="badge badge-verified">✓ 82 Doğrulama</span>
-      </div>
-      <div class="product-image">
-        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-      </div>
-    </div>
-    <h1 class="product-name">Komili Natürel Sızma Zeytinyağı 1L</h1>
-    <p class="product-category">🍞 Gıda > Yağlar > Zeytinyağı</p>
-    <div class="product-stats">
-      <div class="stat">
-        <span class="stat-value">27</span>
-        <span class="stat-label">Fiyat Girişi</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">6</span>
-        <span class="stat-label">Market</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">24</span>
-        <span class="stat-label">İnceleme</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- SON FİYAT KARTI -->
-  <section class="last-price-card">
-    <div class="last-price-card__header">
-      <div class="last-price-card__label">Son Eklenen Fiyat</div>
-      <div class="last-price-card__drop">
-        <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
-        %29 Düştü
-      </div>
-    </div>
-    <div class="last-price-card__price">
-      129,90<span class="last-price-card__price-currency">₺</span>
-    </div>
-    <div class="last-price-card__divider"></div>
-    <div class="last-price-card__footer">
-      <div class="last-price-card__market">
-        <div class="last-price-card__market-icon">🛒</div>
-        <div class="last-price-card__market-text">Migros (Sancaktepe)</div>
-      </div>
-      <div class="last-price-card__user">
-        <div class="last-price-card__user-name">
-          Ahmet S.
-          <div class="last-price-card__user-avatar">AS</div>
+    <section class="content">
+      <article class="hero">
+        <div class="hero-meta">
+          <div>
+            <span class="chip">Kategori bağımsız ürün</span>
+            <h1>OrbitFlow A6 Teknik Defter · 120 Yaprak</h1>
+            <p>Model eşleşmesi tamamlandı. Varyant doğrulaması: A6, çizgili, 120 yaprak.</p>
+          </div>
+          <div class="spec-ribbon">
+            <span>EAN: 8690•••42</span>
+            <span>Varyant Kilidi</span>
+            <span>SKU Eşleşti</span>
+          </div>
         </div>
-        <div class="last-price-card__user-time">3 saat önce</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FİYAT İSTATİSTİKLERİ -->
-  <section class="price-stats">
-    <div class="stat-card low">
-      <div class="stat-card__icon low">
-        <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
-      </div>
-      <div class="stat-card__value">129,90₺</div>
-      <div class="stat-card__label">En Düşük</div>
-    </div>
-    <div class="stat-card avg">
-      <div class="stat-card__icon avg">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-      </div>
-      <div class="stat-card__value">142,40₺</div>
-      <div class="stat-card__label">Ortalama</div>
-    </div>
-    <div class="stat-card high">
-      <div class="stat-card__icon high">
-        <svg viewBox="0 0 24 24"><polyline points="18 9 12 15 6 9"/></svg>
-      </div>
-      <div class="stat-card__value">149,90₺</div>
-      <div class="stat-card__label">En Yüksek</div>
-    </div>
-  </section>
-
-  <!-- FİYAT GİRİŞİ -->
-  <section class="price-entry-section">
-    <div class="price-entry-section__header">
-      <div class="price-entry-section__title">
-        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        Fiyat Girişi
-      </div>
-      <button class="price-entry-history-btn" onclick="openHistoryModal()" title="Geçmiş fiyatları doğrula">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span class="price-entry-history-btn__dot"></span>
-      </button>
-    </div>
-    <div class="price-entry-stats">
-      <div class="price-entry-stat correct">
-        <span class="price-entry-stat__number">82</span>
-        <span class="price-entry-stat__label">Doğru (94%)</span>
-      </div>
-      <div class="price-entry-stat wrong">
-        <span class="price-entry-stat__number">5</span>
-        <span class="price-entry-stat__label">Yanlış (6%)</span>
-      </div>
-      <div class="price-entry-stat">
-        <span class="price-entry-stat__number">87</span>
-        <span class="price-entry-stat__label">Toplam</span>
-      </div>
-    </div>
-    <div class="price-entry-buttons">
-      <button class="price-entry-btn price-entry-btn--correct" onclick="verifyPrice(true)">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        Fiyat Doğru
-      </button>
-      <button class="price-entry-btn price-entry-btn--wrong" onclick="openWrongModal()">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Fiyat Yanlış
-      </button>
-    </div>
-  </section>
-
-  <!-- FİYAT GEÇMİŞİ GRAFİK (DÜZELTİLDİ) -->
-  <section class="price-history">
-    <div class="price-history__title">
-      <span style="display: flex; align-items: center; gap: 6px;">
-        <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        Fiyat Geçmişi
-      </span>
-      <div class="history-periods">
-        <button class="period-btn">7G</button>
-        <button class="period-btn active">30G</button>
-        <button class="period-btn">90G</button>
-      </div>
-    </div>
-    
-    <div class="chart-detailed" id="chartDetailed">
-      <div class="chart-grid">
-        <div class="chart-grid-line"></div>
-        <div class="chart-grid-line"></div>
-        <div class="chart-grid-line"></div>
-        <div class="chart-grid-line"></div>
-        <div class="chart-grid-line"></div>
-      </div>
-      
-      <div class="chart-y-axis">
-        <span class="chart-y-label">150₺</span>
-        <span class="chart-y-label">145₺</span>
-        <span class="chart-y-label">140₺</span>
-        <span class="chart-y-label">135₺</span>
-        <span class="chart-y-label">130₺</span>
-      </div>
-      
-      <div class="chart-svg-container">
-        <svg class="chart-svg" viewBox="0 0 400 200" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#BF9470" stop-opacity="0.6"/>
-              <stop offset="100%" stop-color="#BF9470" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          
-          <!-- Area fill -->
-          <path class="chart-area" d="M 0,180 L 67,145 L 133,110 L 200,75 L 267,40 L 333,10 L 400,0 L 400,200 L 0,200 Z"/>
-          
-          <!-- Line - smooth curve -->
-          <path class="chart-line" d="M 0,180 C 34,162 50,154 67,145 C 84,136 100,123 133,110 C 166,97 183,86 200,75 C 217,64 233,52 267,40 C 300,28 317,19 333,10 C 350,5 367,2 400,0"/>
-          
-          <!-- Dots - Fiyat değerlerine göre doğru pozisyonlar -->
-          <!-- 151₺ (en yüksek) - en altta (Y=180) -->
-          <circle class="chart-dot" cx="0" cy="180" r="6" data-price="151₺" data-date="1 Mar"/>
-          <!-- 148₺ (Y=145) -->
-          <circle class="chart-dot" cx="67" cy="145" r="6" data-price="148₺" data-date="5 Mar"/>
-          <!-- 145₺ (Y=110) -->
-          <circle class="chart-dot" cx="133" cy="110" r="6" data-price="145₺" data-date="10 Mar"/>
-          <!-- 142₺ (Y=75) -->
-          <circle class="chart-dot" cx="200" cy="75" r="6" data-price="142₺" data-date="15 Mar"/>
-          <!-- 138₺ (Y=40) -->
-          <circle class="chart-dot" cx="267" cy="40" r="6" data-price="138₺" data-date="20 Mar"/>
-          <!-- 134₺ (Y=10) -->
-          <circle class="chart-dot" cx="333" cy="10" r="6" data-price="134₺" data-date="25 Mar"/>
-          <!-- 129,90₺ (en düşük) - en üstte (Y=0) -->
-          <circle class="chart-dot current" cx="400" cy="0" r="7" data-price="129,90₺" data-date="Bugün"/>
-        </svg>
-        
-        <div class="chart-tooltip" id="chartTooltip">
-          <div class="chart-tooltip__price"></div>
-          <div class="chart-tooltip__date"></div>
+        <div class="hero-visual" aria-label="Ürün görseli fallback">
+          <div class="pack"></div>
         </div>
-      </div>
-    </div>
-    
-    <div class="chart-labels">
-      <span class="chart-label">1 Mar</span>
-      <span class="chart-label">5 Mar</span>
-      <span class="chart-label">10 Mar</span>
-      <span class="chart-label">15 Mar</span>
-      <span class="chart-label">20 Mar</span>
-      <span class="chart-label">25 Mar</span>
-      <span class="chart-label">Bugün</span>
-    </div>
-  </section>
+      </article>
 
-  <!-- MARKETLER -->
-  <section class="section">
-    <div class="section__title">
-      <span style="display: flex; align-items: center; gap: 8px;">
-        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        Tüm Marketler
-      </span>
-    </div>
-    
-    <div class="market-list">
-      <div class="market-item best">
-        <div class="market-item__header">
-          <div class="market-info">
-            <div class="market-icon" style="background: var(--carrefour);">C</div>
-            <div class="market-details">
-              <div class="market-name">
-                CarrefourSA
-                <span class="market-badge">En Ucuz</span>
-              </div>
-              <div class="market-distance">
-                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
-                420m • Çekmeköy
-              </div>
+      <article class="best-price">
+        <div class="price-topline">
+          <span>En iyi güncel fiyat</span>
+          <span>son görülme · 18 dk önce</span>
+        </div>
+        <div class="price-main">
+          <div>
+            <div class="amount">₺129,90</div>
+          </div>
+          <div class="seller-box">
+            <span>Satıcı</span>
+            <strong>NovaStore</strong>
+            <span>5 saat içinde 2 kez doğrulandı</span>
+          </div>
+        </div>
+        <div class="delta-line">
+          <span>30 gün ortalamasına göre avantaj</span>
+          <strong>-%8,3</strong>
+        </div>
+        <div class="note-row">
+          <span>📝</span>
+          <span>Kullanıcı notu (opsiyonel): Raf etiketi ve kasa fiyatı aynıydı, promosyon etiketi yoktu.</span>
+        </div>
+      </article>
+
+      <article class="trust">
+        <div class="trust-shell">
+          <div class="score-ring">
+            <div>
+              <span>87</span>
+              <small>/100 güven</small>
             </div>
           </div>
-          <div class="market-price-block">
-            <span class="market-price">129,90₺</span>
-            <span class="market-price-old">151₺</span>
-            <span class="market-price-diff cheaper">Son fiyattan aynı</span>
+          <div class="trust-copy">
+            <h3>Doğrulama çekirdeği</h3>
+            <p>Skor; zaman yakınlığı, oy dengesi ve satıcı geçmiş tutarlılığına göre hesaplanır.</p>
           </div>
         </div>
-        <div class="market-added">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          3 saniye önce eklendi
+        <div class="signals">
+          <span class="ok-chip">+ Son giriş yeni</span>
+          <span class="ok-chip">+ Kullanıcı güvenilir</span>
+          <span class="warn-chip">± Satıcıda volatilite</span>
         </div>
-        <div class="market-actions">
-          <button class="btn-market btn-harita" onclick="openMap('CarrefourSA', 129.90)">
-            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Haritada Göster
-          </button>
-        </div>
-      </div>
-      
-      <div class="market-item">
-        <div class="market-item__header">
-          <div class="market-info">
-            <div class="market-icon" style="background: var(--a101);">A</div>
-            <div class="market-details">
-              <div class="market-name">A101</div>
-              <div class="market-distance">
-                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
-                320m • Merkez
-              </div>
-            </div>
+        <div class="proof-line">
+          <div>
+            <strong>@ayse_fiyatlog</strong><br />
+            <span style="font-size:11px;color:var(--ink-soft);">Fiyatı ekleyen kullanıcı</span>
           </div>
-          <div class="market-price-block">
-            <span class="market-price">134,90₺</span>
-            <span class="market-price-old">149₺</span>
-            <span class="market-price-diff expensive">+5,00₺ pahalı</span>
+          <div class="votes">
+            <span class="good">Doğru 41</span>
+            <span class="bad">Yanlış 3</span>
+            <span class="all">Toplam 44</span>
           </div>
         </div>
-        <div class="market-added">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          2 saat önce eklendi
+        <div class="verify-cta">
+          <button class="btn dark">Fiyat Doğru</button>
+          <button class="btn light">Uyuşmuyor</button>
         </div>
-        <div class="market-actions">
-          <button class="btn-market btn-harita" onclick="openMap('A101', 134.90)">
-            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Haritada Göster
-          </button>
-        </div>
-      </div>
-      
-      <div class="market-item">
-        <div class="market-item__header">
-          <div class="market-info">
-            <div class="market-icon" style="background: var(--bim);">B</div>
-            <div class="market-details">
-              <div class="market-name">BİM</div>
-              <div class="market-distance">
-                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
-                680m • Atatürk Mah.
-              </div>
-            </div>
-          </div>
-          <div class="market-price-block">
-            <span class="market-price">139,90₺</span>
-            <span class="market-price-old">145₺</span>
-            <span class="market-price-diff expensive">+10,00₺ pahalı</span>
+      </article>
+
+      <article class="history">
+        <div class="section-head">
+          <h2>Fiyat Geçmişi</h2>
+          <div class="toggle" role="tablist" aria-label="Aralık seçimi">
+            <button data-range="7" class="active">7G</button>
+            <button data-range="30">30G</button>
+            <button data-range="90">90G</button>
+            <button data-range="all">Tümü</button>
           </div>
         </div>
-        <div class="market-added">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          5 saat önce eklendi
+        <div class="stats">
+          <div><label>Değişim</label><strong id="metricChange">-</strong></div>
+          <div><label>En düşük</label><strong id="metricLow">-</strong></div>
+          <div><label>En yüksek</label><strong id="metricHigh">-</strong></div>
+          <div><label>Ortalama</label><strong id="metricAvg">-</strong></div>
         </div>
-        <div class="market-actions">
-          <button class="btn-market btn-harita" onclick="openMap('BİM', 139.90)">
-            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Haritada Göster
-          </button>
+        <div class="chart-wrap">
+          <canvas id="historyChart" width="360" height="190" aria-label="Fiyat geçmişi çizgi grafiği"></canvas>
         </div>
-      </div>
-      
-      <div class="market-item">
-        <div class="market-item__header">
-          <div class="market-info">
-            <div class="market-icon" style="background: var(--migros);">M</div>
-            <div class="market-details">
-              <div class="market-name">Migros</div>
-              <div class="market-distance">
-                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
-                1.2km • AVM
-              </div>
-            </div>
+        <div class="records" id="recordList"></div>
+      </article>
+
+      <article class="compare">
+        <div class="section-head"><h2>Satıcı Karşılaştırması</h2></div>
+        <div class="seller">
+          <div><strong>NovaStore</strong><p>En iyi fiyat · 18 dk önce</p></div>
+          <strong>₺129,90</strong>
+        </div>
+        <div class="seller">
+          <div><strong>BookSphere</strong><p>2 saat önce güncellendi</p></div>
+          <strong>₺134,50</strong>
+        </div>
+        <div class="seller">
+          <div><strong>TekSepet</strong><p>Bugün doğrulandı</p></div>
+          <strong>₺138,00</strong>
+        </div>
+        <div class="seller">
+          <div><strong>MonoShop</strong><p>Dün güncellendi</p></div>
+          <strong>₺141,25</strong>
+        </div>
+      </article>
+
+      <article class="comments">
+        <div class="section-head"><h2>Yorumlar</h2></div>
+        <div class="comments-feed">
+          <div class="comment">
+            <div class="comment-head"><span>elifk</span><span>22 dk önce</span></div>
+            <p>Fiyat etiketi netti, ürünü kolayca buldum. Aynı model kodunu kontrol ettim.</p>
           </div>
-          <div class="market-price-block">
-            <span class="market-price">144,90₺</span>
-            <span class="market-price-old">155₺</span>
-            <span class="market-price-diff expensive">+15,00₺ pahalı</span>
+          <div class="comment">
+            <div class="comment-head"><span>orhankaya</span><span>3 saat önce</span></div>
+            <p>Kısa süreli kampanya olabilir, akşam tekrar bakmakta fayda var.</p>
           </div>
-        </div>
-        <div class="market-added">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          1 gün önce eklendi
-        </div>
-        <div class="market-actions">
-          <button class="btn-market btn-harita" onclick="openMap('Migros', 144.90)">
-            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Haritada Göster
-          </button>
-        </div>
-      </div>
-      
-      <div class="market-item">
-        <div class="market-item__header">
-          <div class="market-info">
-            <div class="market-icon" style="background: var(--sok); color: #000;">Ş</div>
-            <div class="market-details">
-              <div class="market-name">Şok</div>
-              <div class="market-distance">
-                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
-                890m • Yeni Mah.
-              </div>
-            </div>
-          </div>
-          <div class="market-price-block">
-            <span class="market-price">149,90₺</span>
-            <span class="market-price-old">160₺</span>
-            <span class="market-price-diff expensive">+20,00₺ pahalı</span>
+          <div class="comment">
+            <div class="comment-head"><span>selinm</span><span>dün</span></div>
+            <p>Geçen hafta 145 TL idi, bugün düşmüş görünüyor.</p>
           </div>
         </div>
-        <div class="market-added">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          2 gün önce eklendi
+        <button class="history-link">Önceki yorumları gör</button>
+        <div class="comment-entry">
+          <div class="tone-pills">
+            <button>Fiyat arttı</button>
+            <button>Fiyat aynı</button>
+            <button>Stok sınırlı</button>
+          </div>
+          <div class="entry-row">
+            <input type="text" placeholder="Kısa yorum ekle (opsiyonel)" />
+            <button>Gönder</button>
+          </div>
         </div>
-        <div class="market-actions">
-          <button class="btn-market btn-harita" onclick="openMap('Şok', 149.90)">
-            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Haritada Göster
-          </button>
-        </div>
-      </div>
+      </article>
+    </section>
+
+    <div class="bottom-cta">
+      <button class="primary">+ Fiyat Ekle</button>
+      <button class="secondary">Alarm Kur / Takip Et</button>
     </div>
-  </section>
+  </main>
 
-  <!-- YORUMLAR -->
-  <section class="section">
-    <div class="reviews-header">
-      <div class="section__title" style="margin: 0;">
-        <span style="display: flex; align-items: center; gap: 8px;">
-          <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          Yorumlar
-        </span>
-      </div>
-      <span class="reviews-count"><strong id="visibleReviews">3</strong> / <strong>24</strong> inceleme</span>
-    </div>
-    
-    <div class="review-list" id="reviewList">
-      <div class="review-item">
-        <div class="review-header">
-          <div class="review-avatar">AS</div>
-          <div class="review-meta">
-            <div class="review-name">Ahmet S.</div>
-            <div class="review-date">2 gün önce • CarrefourSA</div>
-          </div>
-          <div class="review-stars">
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star empty" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-        </div>
-        <div class="review-text">
-          Fiyat gerçekten doğru, bugün aldım. Carrefour'da 129.90₺'den satılıyor. İndirimli hali.
-        </div>
-        <div class="review-actions">
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-            Faydalı (12)
-          </button>
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-            Faydasız (1)
-          </button>
-        </div>
-      </div>
-      
-      <div class="review-item">
-        <div class="review-header">
-          <div class="review-avatar" style="color: #00529B; background: #E3F2FD;">ME</div>
-          <div class="review-meta">
-            <div class="review-name">Mehmet E.</div>
-            <div class="review-date">5 gün önce • A101</div>
-          </div>
-          <div class="review-stars">
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-        </div>
-        <div class="review-text">
-          A101'de 134.90₺ gördüm. Biraz daha pahalı ama yakın.
-        </div>
-        <div class="review-actions">
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-            Faydalı (8)
-          </button>
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-            Faydasız (0)
-          </button>
-        </div>
-      </div>
-      
-      <div class="review-item">
-        <div class="review-header">
-          <div class="review-avatar" style="color: #059669; background: #D1FAE5;">ZK</div>
-          <div class="review-meta">
-            <div class="review-name">Zeynep K.</div>
-            <div class="review-date">1 hafta önce • BİM</div>
-          </div>
-          <div class="review-stars">
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star empty" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star empty" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-        </div>
-        <div class="review-text">
-          BİM'de stok yoktu, diğer marketlere bakmanızı öneririm.
-        </div>
-        <div class="review-actions">
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-            Faydalı (5)
-          </button>
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-            Faydasız (2)
-          </button>
-        </div>
-      </div>
+  <script>
+    const series = [
+      { d: "2026-01-02", p: 152.0, s: "NovaStore" },
+      { d: "2026-01-08", p: 149.9, s: "BookSphere" },
+      { d: "2026-01-15", p: 151.4, s: "NovaStore" },
+      { d: "2026-01-23", p: 147.5, s: "TekSepet" },
+      { d: "2026-02-01", p: 145.2, s: "NovaStore" },
+      { d: "2026-02-11", p: 143.8, s: "MonoShop" },
+      { d: "2026-02-20", p: 141.0, s: "BookSphere" },
+      { d: "2026-02-28", p: 139.5, s: "NovaStore" },
+      { d: "2026-03-05", p: 137.8, s: "NovaStore" },
+      { d: "2026-03-10", p: 135.4, s: "TekSepet" },
+      { d: "2026-03-15", p: 134.2, s: "BookSphere" },
+      { d: "2026-03-20", p: 133.0, s: "NovaStore" },
+      { d: "2026-03-24", p: 131.5, s: "NovaStore" },
+      { d: "2026-03-28", p: 130.2, s: "BookSphere" },
+      { d: "2026-03-31", p: 129.9, s: "NovaStore" }
+    ];
 
-      <div class="review-item hidden">
-        <div class="review-header">
-          <div class="review-avatar" style="color: #7C3AED; background: #EDE9FE;">AY</div>
-          <div class="review-meta">
-            <div class="review-name">Ayşe Y.</div>
-            <div class="review-date">2 hafta önce • Şok</div>
-          </div>
-          <div class="review-stars">
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-        </div>
-        <div class="review-text">
-          Şok'ta da benzer fiyatlar var. Kaliteli ürün, tavsiye ederim.
-        </div>
-        <div class="review-actions">
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-            Faydalı (3)
-          </button>
-          <button class="review-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-            Faydasız (0)
-          </button>
-        </div>
-      </div>
-    </div>
+    const chart = document.getElementById("historyChart");
+    const ctx = chart.getContext("2d");
+    const recordList = document.getElementById("recordList");
+    const metricChange = document.getElementById("metricChange");
+    const metricLow = document.getElementById("metricLow");
+    const metricHigh = document.getElementById("metricHigh");
+    const metricAvg = document.getElementById("metricAvg");
 
-    <button class="load-more-reviews" id="loadMoreReviews" onclick="loadMoreReviews()">
-      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-      Tüm Yorumları Göster (21 daha)
-    </button>
-  </section>
+    const today = new Date("2026-03-31T00:00:00");
 
-</main>
-
-<!-- AKSİYON BUTONLARI -->
-<div class="action-bar">
-  <div class="action-bar__inner">
-    <button class="btn btn-secondary" onclick="setPriceAlert()">
-      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      Alarm
-    </button>
-    <button class="btn btn-primary" onclick="goToStore()">
-      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Markete Git
-    </button>
-  </div>
-</div>
-
-<!-- BACK TO TOP -->
-<button class="back-to-top" id="backToTop" onclick="scrollToTop()">
-  <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
-</button>
-
-<!-- YANLIŞ FİYAT MODAL -->
-<div class="modal-overlay" id="wrongModal">
-  <div class="modal">
-    <div class="modal__header">
-      <h3 class="modal__title">Neden yanlış?</h3>
-      <button class="modal__close" onclick="closeWrongModal()">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="modal__options">
-      <div class="modal__option" onclick="submitWrong('price_changed')">💰 Fiyat Değişti</div>
-      <div class="modal__option" onclick="submitWrong('out_of_stock')">📦 Ürün Yok</div>
-      <div class="modal__option" onclick="submitWrong('wrong_product')">🏷️ Yanlış Ürün</div>
-      <div class="modal__option" onclick="submitWrong('expired')">⏰ İndirim Bitti</div>
-    </div>
-  </div>
-</div>
-
-<!-- GEÇMİŞ FİYAT DOĞRULAMA MODAL -->
-<div class="modal-overlay" id="historyModal">
-  <div class="modal">
-    <div class="modal__header">
-      <h3 class="modal__title">🕐 Geçmiş Fiyatları Doğrula</h3>
-      <button class="modal__close" onclick="closeHistoryModal()">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    
-    <div class="history-prices-list">
-      
-      <div class="history-price-item correct">
-        <div class="history-price-item__date">
-          <div class="history-price-item__date-day">15</div>
-          <div class="history-price-item__date-month">Mar</div>
-        </div>
-        <div class="history-price-item__content">
-          <div class="history-price-item__price">129,90₺</div>
-          <div class="history-price-item__market">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            CarrefourSA
-          </div>
-          <div class="history-price-item__user">Ahmet S. ekledi</div>
-        </div>
-        <div class="history-price-item__actions">
-          <button class="history-verify-btn correct verified">
-            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            Doğrulandı
-          </button>
-        </div>
-      </div>
-
-      <div class="history-price-item correct">
-        <div class="history-price-item__date">
-          <div class="history-price-item__date-day">10</div>
-          <div class="history-price-item__date-month">Mar</div>
-        </div>
-        <div class="history-price-item__content">
-          <div class="history-price-item__price">134,90₺</div>
-          <div class="history-price-item__market">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            A101
-          </div>
-          <div class="history-price-item__user">Mehmet E. ekledi</div>
-        </div>
-        <div class="history-price-item__actions">
-          <button class="history-verify-btn correct" onclick="verifyHistoricPrice(this, true)">
-            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            Doğru
-          </button>
-          <button class="history-verify-btn wrong" onclick="verifyHistoricPrice(this, false)">
-            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Yanlış
-          </button>
-        </div>
-      </div>
-
-      <div class="history-price-item wrong">
-        <div class="history-price-item__date">
-          <div class="history-price-item__date-day">05</div>
-          <div class="history-price-item__date-month">Mar</div>
-        </div>
-        <div class="history-price-item__content">
-          <div class="history-price-item__price">145,00₺</div>
-          <div class="history-price-item__market">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            Migros
-          </div>
-          <div class="history-price-item__user">Ayşe K. ekledi</div>
-        </div>
-        <div class="history-price-item__actions">
-          <button class="history-verify-btn correct" onclick="verifyHistoricPrice(this, true)">
-            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            Doğru
-          </button>
-          <button class="history-verify-btn wrong" onclick="verifyHistoricPrice(this, false)">
-            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Yanlış
-          </button>
-        </div>
-      </div>
-
-      <div class="history-price-item correct">
-        <div class="history-price-item__date">
-          <div class="history-price-item__date-day">01</div>
-          <div class="history-price-item__date-month">Mar</div>
-        </div>
-        <div class="history-price-item__content">
-          <div class="history-price-item__price">139,90₺</div>
-          <div class="history-price-item__market">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            BİM
-          </div>
-          <div class="history-price-item__user">Fatma Y. ekledi</div>
-        </div>
-        <div class="history-price-item__actions">
-          <button class="history-verify-btn correct" onclick="verifyHistoricPrice(this, true)">
-            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            Doğru
-          </button>
-          <button class="history-verify-btn wrong" onclick="verifyHistoricPrice(this, false)">
-            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Yanlış
-          </button>
-        </div>
-      </div>
-
-    </div>
-    
-    <div class="modal__footer">
-      <button class="modal__footer-btn" onclick="closeHistoryModal()">Kapat</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast">
-  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-  <span id="toastMsg">Başarılı!</span>
-</div>
-
-<script>
-// Period buttons
-document.querySelectorAll('.period-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-  });
-});
-
-// Chart interactions - Hem mouse hem touch eventleri
-const chartDots = document.querySelectorAll('.chart-dot');
-const chartTooltip = document.getElementById('chartTooltip');
-const chartContainer = document.getElementById('chartDetailed');
-
-// Tooltip gösterme fonksiyonu
-function showTooltip(dot, e) {
-  const price = dot.getAttribute('data-price');
-  const date = dot.getAttribute('data-date');
-  
-  chartTooltip.querySelector('.chart-tooltip__price').textContent = price;
-  chartTooltip.querySelector('.chart-tooltip__date').textContent = date;
-  chartTooltip.classList.add('show');
-  
-  // Pozisyon hesaplama
-  const containerRect = chartContainer.getBoundingClientRect();
-  const dotRect = dot.getBoundingClientRect();
-  
-  // Noktanın container içindeki pozisyonu
-  const relativeX = dotRect.left - containerRect.left + dotRect.width / 2;
-  const relativeY = dotRect.top - containerRect.top;
-  
-  // Tooltip'i noktanın üstünde göster
-  chartTooltip.style.left = relativeX + 'px';
-  chartTooltip.style.top = (relativeY - 10) + 'px';
-}
-
-// Tooltip gizleme fonksiyonu
-function hideTooltip() {
-  chartTooltip.classList.remove('show');
-}
-
-// Her nokta için event listener'lar ekle
-chartDots.forEach(dot => {
-  // Mouse events
-  dot.addEventListener('mouseenter', function(e) {
-    showTooltip(this, e);
-  });
-  
-  dot.addEventListener('mouseleave', function() {
-    hideTooltip();
-  });
-  
-  // Touch events (mobil için)
-  dot.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    showTooltip(this, e);
-  }, { passive: false });
-  
-  dot.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    // Biraz gecikmeli kapat ki kullanıcı tooltip'i görebilsin
-    setTimeout(() => {
-      hideTooltip();
-    }, 2000);
-  }, { passive: false });
-  
-  // Click event (hem mobil hem desktop için)
-  dot.addEventListener('click', function(e) {
-    if (chartTooltip.classList.contains('show')) {
-      hideTooltip();
-    } else {
-      showTooltip(this, e);
-      // 2 saniye sonra otomatik kapat
-      setTimeout(() => {
-        hideTooltip();
-      }, 2000);
+    function filterData(range) {
+      if (range === "all") return [...series];
+      const days = Number(range);
+      const start = new Date(today);
+      start.setDate(start.getDate() - days + 1);
+      return series.filter(item => new Date(item.d + "T00:00:00") >= start);
     }
-  });
-});
 
-// Container dışına tıklayınca tooltip'i kapat
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('.chart-detailed')) {
-    hideTooltip();
-  }
-});
+    function fmt(v) {
+      return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(v);
+    }
 
-// Favorite toggle
-function toggleFavorite(btn) {
-  const icon = document.getElementById('favIcon');
-  const isFilled = icon.getAttribute('fill') === 'var(--red)';
-  
-  if (isFilled) {
-    icon.setAttribute('fill', 'none');
-    icon.setAttribute('stroke', 'var(--tc)');
-    showToast('❤️ Favorilerden çıkarıldı');
-  } else {
-    icon.setAttribute('fill', 'var(--red)');
-    icon.setAttribute('stroke', 'var(--red)');
-    showToast('❤️ Favorilere eklendi');
-  }
-}
+    function buildMetrics(data) {
+      const prices = data.map(i => i.p);
+      const first = prices[0];
+      const last = prices[prices.length - 1];
+      const low = Math.min(...prices);
+      const high = Math.max(...prices);
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const delta = ((last - first) / first) * 100;
 
-// Wrong price modal
-function openWrongModal() {
-  document.getElementById('wrongModal').classList.add('active');
-}
+      metricChange.textContent = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
+      metricChange.style.color = delta <= 0 ? "var(--ok)" : "var(--danger)";
+      metricLow.textContent = fmt(low);
+      metricHigh.textContent = fmt(high);
+      metricAvg.textContent = fmt(avg);
+    }
 
-function closeWrongModal() {
-  document.getElementById('wrongModal').classList.remove('active');
-}
+    function draw(data) {
+      const w = chart.width;
+      const h = chart.height;
+      ctx.clearRect(0, 0, w, h);
 
-function submitWrong(reason) {
-  const reasons = {
-    'price_changed': '💰 Fiyat değişti bildiriminiz alındı',
-    'out_of_stock': '📦 Ürün yok bildiriminiz alındı',
-    'wrong_product': '🏷️ Yanlış ürün bildiriminiz alındı',
-    'expired': '⏰ İndirim bitti bildiriminiz alındı'
-  };
-  
-  closeWrongModal();
-  showToast(reasons[reason]);
-}
+      const padding = { top: 18, right: 16, bottom: 24, left: 20 };
+      const innerW = w - padding.left - padding.right;
+      const innerH = h - padding.top - padding.bottom;
 
-// History prices modal
-function openHistoryModal() {
-  document.getElementById('historyModal').classList.add('active');
-}
+      const values = data.map(i => i.p);
+      const min = Math.min(...values) - 1.5;
+      const max = Math.max(...values) + 1.5;
 
-function closeHistoryModal() {
-  document.getElementById('historyModal').classList.remove('active');
-}
+      ctx.strokeStyle = "rgba(36,27,20,0.08)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) {
+        const y = padding.top + (innerH / 3) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(w - padding.right, y);
+        ctx.stroke();
+      }
 
-function verifyHistoricPrice(btn, isCorrect) {
-  if (btn.classList.contains('verified')) return;
-  
-  if (isCorrect) {
-    btn.parentElement.innerHTML = `
-      <button class="history-verify-btn correct verified">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        Doğrulandı
-      </button>
-    `;
-    showToast('✓ Geçmiş fiyat doğrulandı!');
-  } else {
-    btn.parentElement.innerHTML = `
-      <button class="history-verify-btn wrong verified">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Yanlış Bildirildi
-      </button>
-    `;
-    showToast('⚠️ Yanlış fiyat bildirimi gönderildi');
-  }
-}
+      const points = data.map((item, i) => {
+        const x = padding.left + (i / (data.length - 1 || 1)) * innerW;
+        const y = padding.top + ((max - item.p) / (max - min || 1)) * innerH;
+        return { x, y, ...item };
+      });
 
-// Load more reviews
-function loadMoreReviews() {
-  const hiddenReviews = document.querySelectorAll('.review-item.hidden');
-  const loadMoreBtn = document.getElementById('loadMoreReviews');
-  const visibleCount = document.getElementById('visibleReviews');
-  
-  hiddenReviews.forEach((review, index) => {
-    setTimeout(() => {
-      review.classList.remove('hidden');
-      review.style.animation = `fadeIn 0.4s ease ${index * 0.1}s both`;
-    }, 100);
-  });
-  
-  loadMoreBtn.style.display = 'none';
-  visibleCount.textContent = '24';
-  
-  showToast('📝 Tüm yorumlar yüklendi');
-}
+      const grd = ctx.createLinearGradient(0, padding.top, 0, h - padding.bottom);
+      grd.addColorStop(0, "rgba(45,139,87,0.28)");
+      grd.addColorStop(1, "rgba(45,139,87,0)");
 
-// Back to top
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else {
+          const prev = points[i - 1];
+          const cx = (prev.x + p.x) / 2;
+          ctx.quadraticCurveTo(prev.x, prev.y, cx, (prev.y + p.y) / 2);
+        }
+      });
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, h - padding.bottom);
+      ctx.lineTo(points[0].x, h - padding.bottom);
+      ctx.closePath();
+      ctx.fillStyle = grd;
+      ctx.fill();
 
-// Show/hide back to top button
-window.addEventListener('scroll', () => {
-  const backToTop = document.getElementById('backToTop');
-  if (window.scrollY > 300) {
-    backToTop.classList.add('visible');
-  } else {
-    backToTop.classList.remove('visible');
-  }
-});
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else {
+          const prev = points[i - 1];
+          const cx = (prev.x + p.x) / 2;
+          ctx.quadraticCurveTo(prev.x, prev.y, cx, (prev.y + p.y) / 2);
+        }
+      });
+      ctx.strokeStyle = "#2d8b57";
+      ctx.lineWidth = 2.3;
+      ctx.stroke();
 
-// Actions
-function goToStore() {
-  showToast('📍 CarrefourSA haritada açılıyor...');
-}
+      const dot = points[points.length - 1];
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#2d8b57";
+      ctx.fill();
+    }
 
-function setPriceAlert() {
-  showToast('🔔 Fiyat alarmı kuruldu!');
-}
+    function renderRecords(data) {
+      const rows = [...data].reverse().slice(0, 6).map(item => {
+        const date = new Date(item.d + "T00:00:00").toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
+        return `
+          <div class="record">
+            <span class="date">${date}</span>
+            <span class="store">${item.s}</span>
+            <span class="price">${fmt(item.p)}</span>
+          </div>
+        `;
+      }).join("");
 
-function shareProduct() {
-  showToast('📤 Paylaşım menüsü açıldı');
-}
+      recordList.innerHTML = rows;
+    }
 
-function verifyPrice(isCorrect) {
-  if (isCorrect) {
-    showToast('✓ Fiyatı doğruladığınız için teşekkürler!');
-  }
-}
+    function render(range) {
+      const data = filterData(range);
+      buildMetrics(data);
+      draw(data);
+      renderRecords(data);
+    }
 
-// Toast
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  const toastMsg = document.getElementById('toastMsg');
-  toastMsg.textContent = message;
-  toast.classList.add('show');
-  
-  setTimeout(() => {
-    toast.classList.remove('show');
-  }, 3000);
-}
+    document.querySelectorAll(".toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        render(btn.dataset.range);
+      });
+    });
 
-// Close modals on overlay click
-document.getElementById('wrongModal').addEventListener('click', function(e) {
-  if (e.target === this) closeWrongModal();
-});
-
-document.getElementById('historyModal').addEventListener('click', function(e) {
-  if (e.target === this) closeHistoryModal();
-});
-</script>
+    render("7");
+  </script>
 </body>
 </html>
-
