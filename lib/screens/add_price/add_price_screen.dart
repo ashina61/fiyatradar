@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/category_model.dart';
@@ -21,7 +19,6 @@ import '../../theme/fr_spacing.dart';
 import '../../theme/fr_typography.dart';
 import '../../ui/categories/category_theme.dart';
 import '../../utils/theme.dart';
-import '../../widgets/app_network_image.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../../widgets/premium_pressable.dart';
 
@@ -87,7 +84,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   bool _productCollapsed = false;
   bool _storeCollapsed = false;
   bool _showSuccess = false;
-  XFile? _productPhoto;
   ProviderSubscription<String?>? _errorListener;
   ProviderSubscription<AddPriceState>? _stateListener;
 
@@ -237,11 +233,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     padding: FRSpaceInsets.fromLTRB(16, 16, 16, 24),
                     child: Column(
                       children: [
+                        _buildSelectedProductHero(state),
+                        const SizedBox(height: 18),
                         _buildProductSection(state, notifier),
                         const SizedBox(height: 24),
                         _buildStoreSection(state, notifier),
                         const SizedBox(height: 24),
                         _buildPriceSection(state, notifier),
+                        const SizedBox(height: 14),
+                        _buildValidationHelperBlock(state),
                       ],
                     ),
                   ),
@@ -471,22 +471,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                             )
                           : const SizedBox.shrink(),
                     ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: done
-                          ? Padding(
-                              key: const ValueKey('product-image-row'),
-                              padding: FRSpaceInsets.only(top: 10),
-                              child: _ProductImageRow(
-                                imagePath: _productPhoto?.path,
-                                imageUrl: state.selectedProductImageUrl,
-                                productName: state.productName,
-                                subtitle: state.selectedCategoryName ?? 'Ürün seçildi',
-                                onTapPhoto: _pickProductImage,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
                     const SizedBox(height: 8),
                     _CategoryChips(state: state, notifier: notifier),
                   ],
@@ -502,7 +486,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       key: _storeKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('📍  Nerede gördün?', style: _pjs(size: 13, weight: FontWeight.w900, letterSpacing: -0.15)),
+        Text('🏪  Satıcı seçimi', style: _pjs(size: 13, weight: FontWeight.w900, letterSpacing: -0.15)),
         const SizedBox(height: 10),
         AnimatedSize(
           duration: const Duration(milliseconds: 240),
@@ -523,7 +507,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         Expanded(
                           child: _StoreModeButton(
                             icon: Icons.location_on_outlined,
-                            text: 'Yakınımda',
+                            text: 'Fiziksel Satıcı',
                             on: state.activeTab == 0,
                             onTap: () => notifier.setActiveTab(0),
                           ),
@@ -532,7 +516,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         Expanded(
                           child: _StoreModeButton(
                             icon: Icons.language,
-                            text: 'Online',
+                            text: 'Online Satıcı',
                             on: state.activeTab == 1,
                             onTap: () => notifier.setActiveTab(1),
                           ),
@@ -551,7 +535,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                         onChanged: notifier.setSearchQuery,
                         decoration: InputDecoration(
                           icon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
-                          hintText: 'Mağaza ara...',
+                          hintText: 'Satıcı ara...',
                           hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.textSubtle),
                           border: InputBorder.none,
                         ),
@@ -578,7 +562,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                                   store: store,
                                   selected: selected,
                                   showDivider: idx != state.visibleStores.length - 1,
-                                  showNearestBadge: false,
                                   onTap: () {
                                     notifier.setSelectedStore(store);
                                     Future.delayed(const Duration(milliseconds: 320), () {
@@ -686,24 +669,146 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _storeNoteController,
-                  maxLength: 80,
-                  onChanged: notifier.setStoreNote,
-                  decoration: InputDecoration(
-                    hintText: 'Opsiyonel not: Örn. Taşdelen tarafında gördüm',
-                    hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.textSubtle),
-                    border: InputBorder.none,
-                    isDense: true,
-                    counterText: '',
-                  ),
-                ),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        _buildOptionalNoteBlock(notifier),
       ],
+    );
+  }
+
+  Widget _buildSelectedProductHero(AddPriceState state) {
+    final hasProduct = _hasSelectedProduct(state);
+    final category = state.selectedCategoryName ?? 'Kategori seçilmedi';
+    return Container(
+      width: double.infinity,
+      padding: FRSpaceInsets.all(16),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.xl),
+        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.08), blurRadius: 16, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: FRColors.espresso.withOpacity(0.08),
+              borderRadius: FRRadius.all(FRRadius.lg),
+            ),
+            child: Icon(
+              hasProduct ? Icons.inventory_2_rounded : Icons.search_rounded,
+              color: FRColors.espressoSoft,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Seçili Ürün', style: _pjs(size: 10, weight: FontWeight.w800, color: FRColors.textSubtle, letterSpacing: .4)),
+                const SizedBox(height: 3),
+                Text(
+                  hasProduct ? state.productName : 'Önce ürün seçin',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _pjs(size: 15, weight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(category, style: _pjs(size: 11, weight: FontWeight.w600, color: FRColors.textMutedSoft)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionalNoteBlock(AddPriceNotifier notifier) {
+    return Container(
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.xl),
+        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.06), blurRadius: 14, offset: const Offset(0, 2))],
+      ),
+      padding: FRSpaceInsets.fromLTRB(16, 14, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('📝 Opsiyonel kısa not', style: _pjs(size: 12, weight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text(
+            'Stok, paket tipi veya kampanya gibi kısa bağlam notu ekleyebilirsiniz.',
+            style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle),
+          ),
+          TextField(
+            controller: _storeNoteController,
+            maxLength: 80,
+            onChanged: notifier.setStoreNote,
+            decoration: InputDecoration(
+              hintText: 'Örn: Büyük boy pakette bu fiyat vardı',
+              hintStyle: _pjs(size: 12, weight: FontWeight.w500, color: FRColors.textSubtle),
+              border: InputBorder.none,
+              isDense: true,
+              counterText: '',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValidationHelperBlock(AddPriceState state) {
+    final messages = <String>[];
+    if (!_hasSelectedProduct(state)) {
+      messages.add('Katalogdan ürün seçmeden fiyat gönderemezsiniz.');
+    }
+    if (!_isStoreDone(state)) {
+      messages.add('Fiyatı hangi satıcı için girdiğinizi seçin.');
+    }
+    if (state.price.trim().isEmpty) {
+      messages.add('Fiyat alanı boş bırakılamaz.');
+    } else if (!_isPriceDone(state)) {
+      messages.add('Geçerli format kullanın: 199,90');
+    }
+
+    if (messages.isEmpty) {
+      messages.add('Bilgiler tamam. "Fiyatı Kaydet" ile gönderin.');
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: FRSpaceInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.lg),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: messages
+            .map(
+              (message) => Padding(
+                padding: FRSpaceInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      messages.length == 1 && _isFormReady(state) ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                      size: 14,
+                      color: messages.length == 1 && _isFormReady(state) ? FRColors.success : FRColors.textMutedSoft,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(message, style: _pjs(size: 11.5, weight: FontWeight.w600, color: FRColors.textMutedSoft))),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+      ),
     );
   }
 
@@ -1097,7 +1202,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   String _storeSubtitle(Store store) {
-    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Satıcı');
   }
 
   Future<void> _scanBarcode() async {
@@ -1164,13 +1269,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     }
   }
 
-  Future<void> _pickProductImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (file == null || !mounted) return;
-    setState(() => _productPhoto = file);
-  }
-
   User? _requireAuthenticatedUser(SnackBar authError) {
     final auth = ref.read(authStateProvider).value;
     final user = auth ?? FirebaseAuth.instance.currentUser;
@@ -1185,13 +1283,14 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     notifier.onProductInputChanged('');
     notifier.setCategory(null);
     notifier.setPrice('');
+    notifier.setStoreNote('');
     notifier.setActiveTab(0);
     notifier.setSearchQuery('');
+    _storeNoteController.clear();
     setState(() {
       _productCollapsed = false;
       _storeCollapsed = false;
       _showSuccess = false;
-      _productPhoto = null;
       _activeStep = _AddStep.product;
     });
     _scrollController.animateTo(0, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
@@ -1313,73 +1412,6 @@ class _SummaryRowCard extends StatelessWidget {
   }
 }
 
-class _ProductImageRow extends StatelessWidget {
-  const _ProductImageRow({required this.imagePath, required this.imageUrl, required this.productName, required this.subtitle, required this.onTapPhoto});
-
-  final String? imagePath;
-  final String? imageUrl;
-  final String productName;
-  final String subtitle;
-  final VoidCallback onTapPhoto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.xl),
-        boxShadow: [BoxShadow(color: FRColors.espressoOverlay(0.07), blurRadius: 14, offset: const Offset(0, 2))],
-      ),
-      padding: FRSpaceInsets.fromLTRB(16, 10, 16, 14),
-      child: Row(
-        children: [
-          PremiumPressable(
-            borderRadius: FRRadius.all(FRRadius.lg),
-            onTap: onTapPhoto,
-            child: Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: FRColors.backgroundWarm,
-                borderRadius: FRRadius.all(FRRadius.lg),
-                border: Border.all(color: FRColors.border, width: 1.5),
-              ),
-              child: imagePath != null
-                  ? ClipRRect(
-                      borderRadius: FRRadius.all(FRRadius.mdPlus),
-                      child: Image.file(File(imagePath!), fit: BoxFit.cover),
-                    )
-                  : AppNetworkImage(
-                      imageUrl: imageUrl,
-                      cacheKey: 'add-price-selected-product',
-                      fit: BoxFit.cover,
-                      borderRadius: FRRadius.all(FRRadius.mdPlus),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(productName, maxLines: 1, overflow: TextOverflow.ellipsis, style: _pjs(size: 15, weight: FontWeight.w800, letterSpacing: -0.2)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: _pjs(size: 11, weight: FontWeight.w500, color: FRColors.textSubtle)),
-                const SizedBox(height: 6),
-                PremiumPressable(
-                  borderRadius: FRRadius.all(FRRadius.sm),
-                  onTap: onTapPhoto,
-                  child: Text('+ Fotoğraf ekle', style: _pjs(size: 10, weight: FontWeight.w700, color: FRColors.camel)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _CategoryChips extends StatelessWidget {
   const _CategoryChips({required this.state, required this.notifier});
 
@@ -1465,12 +1497,11 @@ class _StoreModeButton extends StatelessWidget {
 }
 
 class _StoreRow extends StatelessWidget {
-  const _StoreRow({required this.store, required this.selected, required this.showDivider, required this.showNearestBadge, required this.onTap});
+  const _StoreRow({required this.store, required this.selected, required this.showDivider, required this.onTap});
 
   final Store store;
   final bool selected;
   final bool showDivider;
-  final bool showNearestBadge;
   final VoidCallback onTap;
 
   @override
@@ -1509,13 +1540,6 @@ class _StoreRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (showNearestBadge)
-              Container(
-                margin: FRSpaceInsets.only(right: 8),
-                padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: FRColors.successBg(0.10), borderRadius: FRRadius.all(FRRadius.xxs)),
-                child: Text('En Yakın'.toUpperCase(), style: _pjs(size: 8, weight: FontWeight.w900, color: FRColors.success, letterSpacing: .4)),
-              ),
             Container(
               width: 22,
               height: 22,
@@ -1533,7 +1557,7 @@ class _StoreRow extends StatelessWidget {
   }
 
   String _subText(Store store) {
-    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Satıcı');
   }
 
   Color _avatarColor(String text) {
