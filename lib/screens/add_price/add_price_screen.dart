@@ -1202,7 +1202,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   String _storeSubtitle(Store store) {
-    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Satıcı');
   }
 
   Future<void> _scanBarcode() async {
@@ -1283,8 +1283,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     notifier.onProductInputChanged('');
     notifier.setCategory(null);
     notifier.setPrice('');
+    notifier.setStoreNote('');
     notifier.setActiveTab(0);
     notifier.setSearchQuery('');
+    _storeNoteController.clear();
     setState(() {
       _productCollapsed = false;
       _storeCollapsed = false;
@@ -1555,7 +1557,7 @@ class _StoreRow extends StatelessWidget {
   }
 
   String _subText(Store store) {
-    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Market');
+    return store.subtitle ?? (store.isOnline ? 'Online' : 'Fiziksel Satıcı');
   }
 
   Color _avatarColor(String text) {
