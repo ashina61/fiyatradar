@@ -12,6 +12,7 @@ import '../../models/product_detail_api_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_detail_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../screens/add_price/add_price_screen.dart';
 import '../../services/firestore_service.dart';
 import '../../services/product_engagement_service.dart';
 import '../../widgets/app_network_image.dart';
@@ -488,7 +489,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       onBackTap: () => Navigator.maybePop(context),
       onShareTap: () {
         Share.share(
-          '${product.title} ürününü FiyatRadar\'da incele!\n\nEn Ucuz: ${_fmt(product.bestPrice.price)}\nMarket: ${product.bestPrice.store}',
+          '${product.title} ürününü FiyatRadar\'da incele!\n\nEn Ucuz: ${_fmt(product.bestPrice.price)}\nSatıcı: ${product.bestPrice.store}',
         );
       },
       onFavoriteTap: () => _toggleFavorite(product),
@@ -498,6 +499,70 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       onChartDaysChanged: (days) => setState(() => _chartDays = days),
       onCommentSend: () => _submitComment(notifier),
       onAlertTap: () => _openAlertSheet(product),
+      onAddPriceTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AddPriceScreen(initialProductId: product.id),
+          ),
+        );
+      },
+      onViewAllCommentsTap: () => _openAllCommentsSheet(product),
+    );
+  }
+
+  void _openAllCommentsSheet(ProductDetailResponse product) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: FRSpaceInsets.fromLTRB(16, 12, 16, 16),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: FRColors.textSubtle,
+                      borderRadius: FRRadius.all(FRRadius.pill),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Text('Tüm Yorumlar', style: _t(s: 17, w: FontWeight.w800)),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: product.comments.isEmpty
+                        ? Center(child: Text('Henüz yorum yok.', style: _t(s: 13, c: FRColors.textSubtle)))
+                        : ListView.separated(
+                            itemCount: product.comments.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) => _CommentTile(comment: product.comments[index]),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -520,6 +585,8 @@ class _ProductDetailBody extends StatelessWidget {
     required this.onChartDaysChanged,
     required this.onCommentSend,
     required this.onAlertTap,
+    required this.onAddPriceTap,
+    required this.onViewAllCommentsTap,
   });
 
   final ProductDetailResponse product;
@@ -538,6 +605,8 @@ class _ProductDetailBody extends StatelessWidget {
   final ValueChanged<int> onChartDaysChanged;
   final VoidCallback onCommentSend;
   final VoidCallback onAlertTap;
+  final VoidCallback onAddPriceTap;
+  final VoidCallback onViewAllCommentsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -602,8 +671,6 @@ class _ProductDetailBody extends StatelessWidget {
                   const SizedBox(height: 12),
                   _LastPriceHero(product: product),
                   const SizedBox(height: 12),
-                  _StatsRow(product: product),
-                  const SizedBox(height: 12),
                   _VerificationCard(
                     product: product,
                     isSubmitting: state.isSubmittingVote,
@@ -616,6 +683,8 @@ class _ProductDetailBody extends StatelessWidget {
                   _HistoryChartCard(
                     history: state.history,
                     stats: product.stats,
+                    recentPrices: product.recentPrices,
+                    fallbackStoreName: product.bestPrice.store,
                     selectedDays: chartDays,
                     onDaysChanged: onChartDaysChanged,
                   ),
@@ -629,6 +698,7 @@ class _ProductDetailBody extends StatelessWidget {
                     controller: commentController,
                     isSubmitting: state.isSubmittingComment,
                     onSend: onCommentSend,
+                    onViewAllTap: onViewAllCommentsTap,
                   ),
                 ]),
               ),
@@ -639,6 +709,7 @@ class _ProductDetailBody extends StatelessWidget {
       bottomNavigationBar: keyboardOpen
           ? null
           : _BottomActions(
+              onAddPriceTap: onAddPriceTap,
               onAlertTap: onAlertTap,
             ),
     );
@@ -682,80 +753,67 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verifyTotal = product.trust.approveCount + product.trust.rejectCount;
     final category = product.categories.isEmpty ? 'Kategori yok' : product.categories.join(' > ');
 
     return Container(
       decoration: _card(),
-      padding: FRSpaceInsets.all(18),
-      child: Column(
+      padding: FRSpaceInsets.all(14),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: FRColors.surfaceAlt,
-                  borderRadius: FRRadius.all(FRRadius.lg),
-                  border: Border.all(color: FRColors.border),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _pill('Kategori', FRColors.gold),
+                const SizedBox(height: 8),
+                Text(
+                  product.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _t(s: 19, w: FontWeight.w800, h: 1.2),
                 ),
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: FRRadius.all(FRRadius.lg),
-                    child: AppNetworkImage(
-                      imageUrl: product.imageUrl,
-                      cacheKey: 'product_detail_${product.id}',
-                      fit: BoxFit.cover,
-                      errorWidget: const Center(
-                        child: Icon(Icons.image_not_supported_rounded, color: FRColors.textSubtle, size: 38),
-                      ),
-                    ),
+                const SizedBox(height: 6),
+                Text(
+                  category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _t(s: 12, w: FontWeight.w600, c: FRColors.textSubtle),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _miniBadge('${product.priceEntryCount} fiyat girişi'),
+                    _miniBadge('${product.marketPrices.length} satıcı'),
+                    _miniBadge('${product.comments.length} yorum'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 118,
+            decoration: BoxDecoration(
+              color: FRColors.surfaceAlt,
+              borderRadius: FRRadius.all(FRRadius.lg),
+              border: Border.all(color: FRColors.border),
+            ),
+            child: AspectRatio(
+              aspectRatio: 0.82,
+              child: ClipRRect(
+                borderRadius: FRRadius.all(FRRadius.lg),
+                child: AppNetworkImage(
+                  imageUrl: product.imageUrl,
+                  cacheKey: 'product_detail_${product.id}',
+                  fit: BoxFit.cover,
+                  errorWidget: const Center(
+                    child: Icon(Icons.image_not_supported_rounded, color: FRColors.textSubtle, size: 34),
                   ),
                 ),
               ),
-              Positioned(
-                left: 10,
-                top: 10,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _pill('SON FİYAT', FRColors.gold),
-                    const SizedBox(height: 6),
-                    _pill('$verifyTotal doğrulama', FRColors.success),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            product.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: _t(s: 20, w: FontWeight.w800, h: 1.25),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            category,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _t(s: 12, w: FontWeight.w600, c: FRColors.textSubtle),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: FRColors.border)),
-            ),
-            padding: FRSpaceInsets.only(top: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _heroStat('${product.priceEntryCount}', 'Fiyat Girişi'),
-                _heroStat('${product.marketPrices.length}', 'Market'),
-                _heroStat('${product.comments.length}', 'Yorum'),
-                _heroStat('${product.viewCount}', 'Görüntülenme'),
-              ],
             ),
           ),
         ],
@@ -771,13 +829,15 @@ class _HeroSection extends StatelessWidget {
     );
   }
 
-  Widget _heroStat(String value, String label) {
-    return Column(
-      children: [
-        Text(value, style: _t(s: 16, w: FontWeight.w800, c: FRColors.tan)),
-        const SizedBox(height: 2),
-        Text(label, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle)),
-      ],
+  Widget _miniBadge(String label) {
+    return Container(
+      padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FRColors.surfaceAlt,
+        borderRadius: FRRadius.all(FRRadius.pill),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Text(label, style: _t(s: 10, w: FontWeight.w700, c: FRColors.textMuted)),
     );
   }
 }
@@ -789,12 +849,14 @@ class _LastPriceHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = product.stats.highest <= 0 ? product.bestPrice.price : product.stats.highest;
-    final drop = base <= 0 ? 0 : (((base - product.bestPrice.price) / base) * 100).round();
-    final market = product.bestPrice.store;
+    final avg = product.stats.average;
+    final avgDiff = avg <= 0 ? 0 : ((product.bestPrice.price - avg) / avg) * 100;
+    final note = product.marketPrices
+        .map((entry) => entry.userNote?.trim() ?? '')
+        .firstWhere((text) => text.isNotEmpty, orElse: () => '');
 
     return Container(
-      padding: FRSpaceInsets.all(20),
+      padding: FRSpaceInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -816,24 +878,28 @@ class _LastPriceHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
                   color: FRColors.tan.withOpacity(0.2),
                   borderRadius: FRRadius.all(FRRadius.pill),
                 ),
-                child: Text('SON FİYAT KARARI', style: _t(s: 10, w: FontWeight.w700, c: FRColors.tanLight, ls: 0.4)),
+                child: Text('EN İYİ FİYAT', style: _t(s: 10, w: FontWeight.w700, c: FRColors.tanLight, ls: 0.4)),
               ),
               const Spacer(),
-              if (drop > 0)
-                Container(
-                  padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: FRColors.success.withOpacity(0.15),
-                    borderRadius: FRRadius.all(FRRadius.pill),
-                    border: Border.all(color: FRColors.success.withOpacity(0.3)),
+              Container(
+                padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: avgDiff <= 0 ? FRColors.success.withOpacity(0.15) : FRColors.danger.withOpacity(0.15),
+                  borderRadius: FRRadius.all(FRRadius.pill),
+                  border: Border.all(
+                    color: avgDiff <= 0 ? FRColors.success.withOpacity(0.32) : FRColors.danger.withOpacity(0.32),
                   ),
-                  child: Text('%$drop daha düşük', style: _t(s: 11, w: FontWeight.w800, c: FRColors.success)),
                 ),
+                child: Text(
+                  '${avgDiff >= 0 ? '+' : ''}${avgDiff.toStringAsFixed(1)}% ort. fark',
+                  style: _t(s: 11, w: FontWeight.w800, c: avgDiff <= 0 ? FRColors.success : FRColors.danger),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -846,93 +912,39 @@ class _LastPriceHero extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Divider(color: FRColors.white.withOpacity(0.12)),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: FRColors.tan,
-                        borderRadius: FRRadius.all(FRRadius.smPlus),
-                      ),
-                      child: const Center(child: Text('🛒', style: TextStyle(fontSize: 19))),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        market,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _t(s: 13, w: FontWeight.w800, c: FRColors.white),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  product.bestPrice.store,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _t(s: 14, w: FontWeight.w800, c: FRColors.white),
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    product.bestPrice.userName.isEmpty ? 'Anonim kullanıcı' : product.bestPrice.userName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _t(s: 12, w: FontWeight.w700, c: FRColors.white),
-                  ),
-                  Text(product.bestPrice.createdAtLabel, style: _t(s: 11, c: FRColors.white.withOpacity(0.64))),
-                ],
-              ),
+              Text(product.bestPrice.createdAtLabel, style: _t(s: 12, c: FRColors.white.withOpacity(0.68))),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.product});
-
-  final ProductDetailResponse product;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _statCard('En Düşük', product.stats.lowest, FRColors.success, Icons.keyboard_arrow_down_rounded)),
-        const SizedBox(width: 8),
-        Expanded(child: _statCard('Ortalama', product.stats.average, FRColors.gold, Icons.equalizer_rounded)),
-        const SizedBox(width: 8),
-        Expanded(child: _statCard('En Yüksek', product.stats.highest, FRColors.danger, Icons.keyboard_arrow_up_rounded)),
-      ],
-    );
-  }
-
-  Widget _statCard(String label, double value, Color color, IconData icon) {
-    return Container(
-      decoration: _card(),
-      padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Column(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: FRRadius.all(FRRadius.smPlus),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: FRColors.white.withOpacity(0.08),
+                borderRadius: FRRadius.all(FRRadius.md),
+                border: Border.all(color: FRColors.white.withOpacity(0.14)),
+              ),
+              child: Text(
+                'Not: $note',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: _t(s: 12, w: FontWeight.w600, c: FRColors.white.withOpacity(0.88)),
+              ),
             ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(height: 6),
-          Text(_fmt(value), style: _t(s: 13, w: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(label, style: _t(s: 9, w: FontWeight.w600, c: FRColors.textSubtle), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
         ],
       ),
     );
@@ -959,13 +971,12 @@ class _VerificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = product.trust.approveCount + product.trust.rejectCount;
-    final correctPercent = total == 0 ? 0 : ((product.trust.approveCount / total) * 100).round();
-    final wrongPercent = total == 0 ? 0 : 100 - correctPercent;
+    final score = product.trust.scorePercent.clamp(0, 100);
     final selfBlocked = currentUid != null && currentUid == product.bestPrice.userId;
 
     return Container(
       decoration: _card(),
-      padding: FRSpaceInsets.all(18),
+      padding: FRSpaceInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -973,7 +984,7 @@ class _VerificationCard extends StatelessWidget {
             children: [
               const Icon(Icons.verified_user_rounded, size: 19, color: FRColors.tan),
               const SizedBox(width: 8),
-              Expanded(child: Text('Fiyat Doğrulama', style: _t(s: 15, w: FontWeight.w800))),
+              Expanded(child: Text('Güven ve Doğrulama', style: _t(s: 15, w: FontWeight.w800))),
               InkWell(
                 onTap: onHistoryTap,
                 borderRadius: FRRadius.all(FRRadius.md),
@@ -992,14 +1003,64 @@ class _VerificationCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _counter('${product.trust.approveCount}', 'Doğru ($correctPercent%)', FRColors.success, FRColors.successBg(0.10))),
-              const SizedBox(width: 8),
-              Expanded(child: _counter('${product.trust.rejectCount}', 'Yanlış ($wrongPercent%)', FRColors.danger, FRColors.dangerBg(0.10))),
-              const SizedBox(width: 8),
-              Expanded(child: _counter('$total', 'Toplam', FRColors.tan, FRColors.surfaceAlt)),
+              Container(
+                width: 62,
+                height: 62,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: FRColors.success.withOpacity(0.25), width: 5),
+                ),
+                child: Text('$score', style: _t(s: 18, w: FontWeight.w900, c: FRColors.success)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Skor; zaman yakınlığı, oy dengesi ve satıcı geçmiş tutarlılığına göre hesaplanır.',
+                  style: _t(s: 12, w: FontWeight.w600, c: FRColors.textMuted, h: 1.35),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _signalChip('Yeni kayıt', FRColors.success.withOpacity(0.14), FRColors.success),
+              _signalChip('Kullanıcı güven puanı: ${product.bestPrice.userTrustScore}', FRColors.surfaceAlt, FRColors.textMuted),
+              _signalChip(total > 0 ? 'Topluluk etkileşimi var' : 'Henüz oy yok', FRColors.tan.withOpacity(0.12), FRColors.tan),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: FRColors.surfaceAlt,
+              borderRadius: FRRadius.all(FRRadius.md),
+              border: Border.all(color: FRColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Ekleyen: ${product.bestPrice.userName.isEmpty ? 'Anonim kullanıcı' : product.bestPrice.userName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _t(s: 12, w: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('Doğru ${product.trust.approveCount}', style: _t(s: 11, w: FontWeight.w800, c: FRColors.success)),
+                const SizedBox(width: 6),
+                Text('Yanlış ${product.trust.rejectCount}', style: _t(s: 11, w: FontWeight.w800, c: FRColors.danger)),
+                const SizedBox(width: 6),
+                Text('Toplam $total', style: _t(s: 11, w: FontWeight.w700, c: FRColors.textSubtle)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -1031,7 +1092,7 @@ class _VerificationCard extends StatelessWidget {
                     padding: FRSpaceInsets.symmetric(vertical: 13),
                   ),
                   icon: const Icon(Icons.close_rounded, size: 16, color: FRColors.danger),
-                  label: Text('Fiyat Yanlış', style: _t(s: 12, w: FontWeight.w700, c: FRColors.danger)),
+                  label: Text('Uyuşmuyor', style: _t(s: 12, w: FontWeight.w700, c: FRColors.danger)),
                 ),
               ),
             ],
@@ -1046,21 +1107,15 @@ class _VerificationCard extends StatelessWidget {
     );
   }
 
-  Widget _counter(String value, String label, Color color, Color bg) {
+  Widget _signalChip(String text, Color bg, Color fg) {
     return Container(
-      padding: FRSpaceInsets.symmetric(vertical: 10, horizontal: 6),
+      padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: FRRadius.all(FRRadius.md),
-        border: Border.all(color: color.withOpacity(0.2)),
+        borderRadius: FRRadius.all(FRRadius.pill),
+        border: Border.all(color: fg.withOpacity(0.22)),
       ),
-      child: Column(
-        children: [
-          Text(value, style: _t(s: 20, w: FontWeight.w900, c: color)),
-          const SizedBox(height: 2),
-          Text(label, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ],
-      ),
+      child: Text(text, style: _t(s: 10, w: FontWeight.w700, c: fg)),
     );
   }
 }
@@ -1069,22 +1124,35 @@ class _HistoryChartCard extends StatelessWidget {
   const _HistoryChartCard({
     required this.history,
     required this.stats,
+    required this.recentPrices,
+    required this.fallbackStoreName,
     required this.selectedDays,
     required this.onDaysChanged,
   });
 
   final List<PriceHistoryPoint> history;
   final PriceStats stats;
+  final List<RecentPriceEntry> recentPrices;
+  final String fallbackStoreName;
   final int selectedDays;
   final ValueChanged<int> onDaysChanged;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final filtered = history
-        .where((point) => point.reportedAt.isAfter(now.subtract(Duration(days: selectedDays))))
-        .toList();
-    final chartPoints = filtered.isNotEmpty ? filtered : history;
+    final filtered = selectedDays == -1
+        ? history
+        : history.where((point) => point.reportedAt.isAfter(now.subtract(Duration(days: selectedDays)))).toList();
+    final chartPoints = filtered;
+    var change = 0.0;
+    if (chartPoints.length >= 2) {
+      final first = chartPoints.first.price;
+      final last = chartPoints.last.price;
+      if (first > 0) {
+        final raw = ((last - first) / first) * 100;
+        if (raw.isFinite) change = raw;
+      }
+    }
 
     return Container(
       decoration: _card(),
@@ -1100,13 +1168,26 @@ class _HistoryChartCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _segment(label: '7G', days: 7),
-              const SizedBox(width: 8),
               _segment(label: '30G', days: 30),
-              const SizedBox(width: 8),
               _segment(label: '90G', days: 90),
+              _segment(label: 'Tümü', days: -1),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _metric('Değişim', '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}%', change <= 0 ? FRColors.success : FRColors.danger)),
+              const SizedBox(width: 8),
+              Expanded(child: _metric('En Düşük', _fmt(stats.lowest), FRColors.success)),
+              const SizedBox(width: 8),
+              Expanded(child: _metric('En Yüksek', _fmt(stats.highest), FRColors.danger)),
+              const SizedBox(width: 8),
+              Expanded(child: _metric('Ortalama', _fmt(stats.average), FRColors.tan)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1118,17 +1199,63 @@ class _HistoryChartCard extends StatelessWidget {
                   )
                 : _PriceChart(points: chartPoints),
           ),
-          if (chartPoints.isNotEmpty)
-            Padding(
-              padding: FRSpaceInsets.only(top: 8),
-              child: Text(
-                'Son fiyat: ${_fmt(chartPoints.last.price)} • Aralık: ${_fmt(stats.lowest)} - ${_fmt(stats.highest)}',
-                style: _t(s: 11, c: FRColors.textSubtle, w: FontWeight.w600),
-              ),
-            ),
+          const SizedBox(height: 10),
+          if (chartPoints.isEmpty)
+            Text('Geçmiş kayıt bulunamadı.', style: _t(s: 12, c: FRColors.textSubtle))
+          else
+            ...chartPoints.reversed.take(5).map(
+                  (point) {
+                    final matched = _matchRecentEntry(point.price);
+                    final storeName = matched?.storeName.trim().isNotEmpty == true ? matched!.storeName : fallbackStoreName;
+                    final tag = matched?.userName.trim().isNotEmpty == true ? matched!.userName : null;
+
+                    return Container(
+                    margin: FRSpaceInsets.only(bottom: 8),
+                    padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: FRColors.surfaceAlt,
+                      borderRadius: FRRadius.all(FRRadius.md),
+                      border: Border.all(color: FRColors.border),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(point.dateLabel, style: _t(s: 11, w: FontWeight.w700, c: FRColors.textSubtle)),
+                              const SizedBox(height: 2),
+                              Text(storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(s: 12, w: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(_fmt(point.price), style: _t(s: 13, w: FontWeight.w800)),
+                            if (tag != null && tag.isNotEmpty)
+                              Text(tag, style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtle)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                  },
+                ),
         ],
       ),
     );
+  }
+
+  RecentPriceEntry? _matchRecentEntry(double price) {
+    for (final entry in recentPrices) {
+      if ((entry.price - price).abs() < 0.01) {
+        return entry;
+      }
+    }
+    return null;
   }
 
   Widget _segment({required String label, required int days}) {
@@ -1144,6 +1271,25 @@ class _HistoryChartCard extends StatelessWidget {
           border: Border.all(color: selected ? FRColors.espresso : FRColors.border),
         ),
         child: Text(label, style: _t(s: 12, w: FontWeight.w700, c: selected ? FRColors.white : FRColors.textMuted)),
+      ),
+    );
+  }
+
+  Widget _metric(String label, String value, Color color) {
+    return Container(
+      padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: FRColors.surfaceAlt,
+        borderRadius: FRRadius.all(FRRadius.md),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: _t(s: 10, w: FontWeight.w700, c: FRColors.textSubtle)),
+          const SizedBox(height: 2),
+          Text(value, style: _t(s: 12, w: FontWeight.w800, c: color)),
+        ],
       ),
     );
   }
@@ -1291,12 +1437,12 @@ class _MarketListCard extends StatelessWidget {
             children: [
               const Icon(Icons.storefront_rounded, color: FRColors.tan, size: 19),
               const SizedBox(width: 8),
-              Text('Market Karşılaştırması', style: _t(s: 15, w: FontWeight.w800)),
+              Text('Satıcı Karşılaştırması', style: _t(s: 15, w: FontWeight.w800)),
             ],
           ),
           const SizedBox(height: 12),
           if (markets.isEmpty)
-            Text('Karşılaştırılacak market verisi bulunamadı.', style: _t(s: 12, c: FRColors.textSubtle))
+            Text('Karşılaştırılacak satıcı verisi bulunamadı.', style: _t(s: 12, c: FRColors.textSubtle))
           else
             ...markets.map((market) {
               final diff = market.price - best;
@@ -1383,7 +1529,7 @@ class _MarketItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      entry.userNote?.trim().isNotEmpty == true ? entry.userNote!.trim() : (entry.isOnline ? 'Online mağaza' : 'Fiziksel market'),
+                      entry.userNote?.trim().isNotEmpty == true ? entry.userNote!.trim() : (entry.isOnline ? 'Online satıcı' : 'Satıcı kaydı'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _t(s: 11, w: FontWeight.w600, c: FRColors.textSubtle),
@@ -1430,12 +1576,14 @@ class _CommentsCard extends StatelessWidget {
     required this.controller,
     required this.isSubmitting,
     required this.onSend,
+    required this.onViewAllTap,
   });
 
   final List<ProductComment> comments;
   final TextEditingController controller;
   final bool isSubmitting;
   final VoidCallback onSend;
+  final VoidCallback onViewAllTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1461,13 +1609,26 @@ class _CommentsCard extends StatelessWidget {
               child: Text('Henüz yorum yok. İlk yorumu sen yaz.', style: _t(s: 12, c: FRColors.textSubtle)),
             )
           else
-            ...comments.take(5).map(
+            ...comments.take(3).map(
                   (comment) => Padding(
                     padding: FRSpaceInsets.only(bottom: 10),
                     child: _CommentTile(comment: comment),
                   ),
                 ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: comments.isEmpty ? null : onViewAllTap,
+              style: TextButton.styleFrom(
+                padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4),
+                foregroundColor: FRColors.tan,
+              ),
+              icon: const Icon(Icons.history_rounded, size: 16),
+              label: Text('Önceki yorumları gör', style: _t(s: 12, w: FontWeight.w700, c: FRColors.tan)),
+            ),
+          ),
+          const SizedBox(height: 4),
           Container(
             decoration: BoxDecoration(
               color: FRColors.surfaceAlt,
@@ -1570,9 +1731,10 @@ class _CommentTile extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.onAlertTap});
+  const _BottomActions({required this.onAlertTap, required this.onAddPriceTap});
 
   final VoidCallback onAlertTap;
+  final VoidCallback onAddPriceTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1602,13 +1764,27 @@ class _BottomActions extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
+              child: ElevatedButton.icon(
+                onPressed: onAddPriceTap,
+                icon: const Icon(Icons.add_rounded, size: 16, color: FRColors.white),
+                label: Text('Fiyat Ekle', style: _t(s: 13, w: FontWeight.w800, c: FRColors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FRColors.espresso,
+                  shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
+                  padding: FRSpaceInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
               child: OutlinedButton.icon(
                 onPressed: onAlertTap,
                 icon: const Icon(Icons.notifications_none_rounded, size: 16),
-                label: Text('Alarm Kur', style: _t(s: 13, w: FontWeight.w700)),
+                label: Text('Alarm / Takip', style: _t(s: 13, w: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: FRColors.border),
                   shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.smPlus)),
+                  padding: FRSpaceInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
