@@ -147,9 +147,8 @@ service cloud.firestore {
       // Legacy NotificationCenter / PriceDropWatcher path
       match /inAppNotifications/{notificationId} {
         allow read: if isAdmin() || isOwner(uid);
-        // Legacy compat: only read + read-state updates.
-        allow create, delete: if false;
-        allow update: if isAdmin() || isOwner(uid);
+        // Legacy compat: no runtime writes.
+        allow create, update, delete: if false;
       }
     }
 
@@ -170,9 +169,8 @@ service cloud.firestore {
     // Legacy path used by older notification-center items.
     match /notifications/{uid}/items/{itemId} {
       allow read: if isAdmin() || isOwner(uid);
-      // Legacy compat: keep read-state updates only.
-      allow create, delete: if false;
-      allow update: if isAdmin() || isOwner(uid);
+      // Legacy compat: no runtime writes.
+      allow create, update, delete: if false;
     }
 
     match /products/{productId} {
