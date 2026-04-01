@@ -14,7 +14,6 @@ import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../widgets/banner_card.dart';
 import '../../widgets/editor_choice_widgets.dart';
 import '../../widgets/home_product_card.dart';
 import '../../widgets/market_badge.dart';
@@ -52,8 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
-    final topUsersAsync = ref.watch(homeTopUsersProvider);
-    final todaysNewUsersAsync = ref.watch(todaysNewUsersCountProvider);
     final unreadCount = ref.watch(unreadCountProvider);
 
     final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
@@ -94,18 +91,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: _buildCategories(context, categoriesAsync.valueOrNull ?? const []),
-              ),
-              const SliverToBoxAdapter(
-                child: PremiumBannerSection(),
-              ),
-              SliverToBoxAdapter(
-                child: _buildInsightGrid(
-                  latestPrices,
-                  todaysNewUsersAsync.valueOrNull ?? 0,
-                ),
-              ),
-              SliverToBoxAdapter(
                 child: _buildTrendProducts(
                   context,
                   trendingProducts,
@@ -115,18 +100,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               SliverToBoxAdapter(
+                child: _buildLatestPrices(latestPrices),
+              ),
+              SliverToBoxAdapter(child: _buildFooter(context)),
+              SliverToBoxAdapter(
+                child: _buildCategories(
+                  context,
+                  categoriesAsync.valueOrNull ?? const [],
+                ),
+              ),
+              SliverToBoxAdapter(
                 child: _buildEditorChoice(
                   context,
                   editorPickProduct,
                 ),
               ),
-              SliverToBoxAdapter(
-                child: _buildLatestPrices(latestPrices),
-              ),
-              SliverToBoxAdapter(
-                child: _buildLeaders(topUsersAsync.valueOrNull ?? const []),
-              ),
-              SliverToBoxAdapter(child: _buildFooter(context)),
             ],
           ),
         ],
@@ -468,119 +456,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-
-  Widget _buildInsightGrid(
-    List<PriceModel> latestPrices,
-    int todaysNewUsers,
-  ) {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final tomorrowStart = todayStart.add(const Duration(days: 1));
-
-    final todaysPriceEntries = latestPrices.where((price) {
-      final dt = price.reportedAt;
-      return !dt.isBefore(todayStart) && dt.isBefore(tomorrowStart);
-    }).length;
-
-    return Padding(
-      padding: FRSpaceInsets.insightSection,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(title: 'Bugünün Özeti', action: 'Tüm Analizler'),
-          const SizedBox(height: FRSpacing.xsPlus),
-          GridView.count(
-            primary: false,
-            padding: EdgeInsets.zero,
-            crossAxisCount: 2,
-            crossAxisSpacing: FRSpacing.mdPlus,
-            mainAxisSpacing: FRSpacing.smPlus,
-            physics: const NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            childAspectRatio: 1.0,
-            children: [
-              _insightCard(
-                icon: Icons.price_change_rounded,
-                iconBg: FRColors.sapphireSurface,
-                iconColor: FRColors.sapphire,
-                label: 'BUGÜN GİRİLEN FİYAT',
-                value: '$todaysPriceEntries',
-                meta: 'Bugün sisteme eklenen toplam fiyat bildirimi sayısı.',
-              ),
-              _insightCard(
-                icon: Icons.person_add_alt_1_rounded,
-                iconBg: FRColors.successSurface,
-                iconColor: FRColors.success,
-                label: 'BUGÜN KAYDOLAN',
-                value: '$todaysNewUsers',
-                meta: 'Bugün uygulamaya yeni kayıt olan kullanıcı sayısı.',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _insightCard({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String label,
-    required String value,
-    required String meta,
-  }) {
-    return Container(
-      padding: FRSpaceInsets.insightCard,
-      decoration: _cardDecoration(radius: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: iconBg, borderRadius: FRRadius.mdRadius),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(height: FRSpacing.md),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: FRColors.textMuted,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: FRSpacing.xsPlus),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w900,
-              color: FRColors.espressoSoft,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: FRSpacing.sm),
-          Text(
-            meta,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: FRColors.textMuted,
-              height: 1.32,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTrendProducts(
     BuildContext context,
@@ -959,122 +834,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildLeaders(List<UserModel> users) {
-    if (users.isEmpty) return const SizedBox.shrink();
-
-    final leaders = [...users]
-      ..sort((a, b) {
-        final byPoints = b.points.compareTo(a.points);
-        if (byPoints != 0) return byPoints;
-        final byTrust = b.trustScorePercent.compareTo(a.trustScorePercent);
-        if (byTrust != 0) return byTrust;
-        return b.priceEntries.compareTo(a.priceEntries);
-      });
-
-    final topLeaders = leaders.take(2).toList();
-
-    return Padding(
-      padding: FRSpaceInsets.sectionXxlTop,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(title: 'Öne Çıkan Avcılar', action: 'Liderlik'),
-          const SizedBox(height: FRSpacing.lg),
-          ...topLeaders.asMap().entries.map((entry) {
-            final rank = entry.key + 1;
-            final user = entry.value;
-
-            return Container(
-              margin: FRSpaceInsets.bottomMd,
-              padding: FRSpaceInsets.allLg,
-              decoration: _cardDecoration(radius: 20),
-              child: Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      borderRadius: FRRadius.mdPlusRadius,
-                      gradient: rank == 1
-                          ? const LinearGradient(
-                              colors: [FRColors.camelStrong, FRColors.camelDeep],
-                            )
-                          : const LinearGradient(
-                              colors: [FRColors.silver, FRColors.silverDeep],
-                            ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _initials(user.username.trim().isNotEmpty ? user.username : user.preferredDisplayName),
-                      style: const TextStyle(
-                        color: FRColors.surface,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: FRSpacing.mdPlus),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.username.trim().isNotEmpty ? user.username : user.preferredDisplayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: FRSpacing.xxs),
-                        Text(
-                          'Bu hafta ${user.priceEntries} doğrulanmış fiyat',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: FRColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        FRSpaceInsets.horizontalMdVerticalSm,
-                    decoration: BoxDecoration(
-                      color: FRColors.studio,
-                      borderRadius: FRRadius.mdRadius,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '%${user.trustScorePercent}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: FRColors.espressoSoft,
-                          ),
-                        ),
-                        const Text(
-                          'GÜVEN',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: FRColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFooter(BuildContext context) {
     return Padding(
       padding: FRSpaceInsets.footer,
@@ -1122,29 +881,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  PremiumPressable(
-                    borderRadius: FRRadius.mdPlusRadius,
-                    onTap: () async {
-                      final barcode = await BarcodeScannerSheet.scan(context);
-                      if (!mounted || barcode == null || barcode.trim().isEmpty) {
-                        return;
-                      }
-                      ref.read(searchQueryProvider.notifier).state = barcode.trim();
-                      ref.read(currentTabProvider.notifier).state = 1;
-                    },
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: FRColors.camelStrong,
-                        borderRadius: FRRadius.mdPlusRadius,
-                      ),
-                      child: const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: FRColors.espressoSoft,
-                      ),
                     ),
                   ),
                 ],
@@ -1255,53 +991,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Icons.category_rounded;
   }
 
-  String _initials(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((e) => e.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return 'FR';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
-  }
-}
-
-class _TrendBadge extends StatelessWidget {
-  const _TrendBadge({required this.changePercent});
-
-  final double changePercent;
-
-  @override
-  Widget build(BuildContext context) {
-    final isUp = changePercent > 0;
-    final color = isUp ? FRColors.danger : FRColors.success;
-    final bgColor = isUp ? FRColors.dangerSurface : FRColors.successSurface;
-    final arrow = isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded;
-
-    return Container(
-      padding: FRSpaceInsets.trendBadge,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: FRRadius.smPlusRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(arrow, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '%${changePercent.abs().toStringAsFixed(1)}',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _PopularBadge extends StatelessWidget {
