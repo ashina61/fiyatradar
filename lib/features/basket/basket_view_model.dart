@@ -12,7 +12,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../services/cart_comparison_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/location_service.dart';
 import 'basket_pricing.dart';
 import 'cart_comparison_state.dart';
 import 'basket_repository.dart';
@@ -33,13 +32,11 @@ class BasketViewModel extends ChangeNotifier {
   BasketViewModel({
     required this.firestoreService,
     required this.repository,
-    required this.locationService,
     this.comparisonService = const CartComparisonService(),
   });
 
   final FirestoreService firestoreService;
   final BasketRepository repository;
-  final LocationService locationService;
   final CartComparisonService comparisonService;
 
   StreamSubscription<List<Map<String, dynamic>>>? _basketSubscription;
@@ -57,7 +54,6 @@ class BasketViewModel extends ChangeNotifier {
   CartComparisonState comparisonState = const CartComparisonState.idle();
   Map<String, PriceModel?> latestProductPrices = {};
   Set<String> unverifiedPriceItemKeys = {};
-  bool hasLocationPermission = false;
   String? calculationNotice;
   Map<String, String> marketNames = {};
   int lastPriceDocumentCount = 0;
@@ -109,7 +105,6 @@ class BasketViewModel extends ChangeNotifier {
     comparisonResult = null;
     latestProductPrices = {};
     unverifiedPriceItemKeys = {};
-    hasLocationPermission = false;
     calculationNotice = null;
     marketNames = {};
     lastPriceDocumentCount = 0;
@@ -327,15 +322,12 @@ class BasketViewModel extends ChangeNotifier {
       unverifiedPriceItemKeys = fetchResult.unverifiedPriceItemKeys;
 
       final stores = availableStores;
-      final position = await locationService.getCurrentPosition();
-      hasLocationPermission = position != null;
       comparisonResult = comparisonService.compare(
         items: items,
         productMap: productMap,
         latestPricesByItem: fetchResult.latestPricesByItem,
         marketNames: marketNames,
         stores: stores,
-        userPosition: position,
         allowedMarketIds: selectedStoreIds.isEmpty ? null : selectedStoreIds,
       );
       calculationNotice = comparisonResult?.notice;
@@ -401,7 +393,6 @@ final basketViewModelProvider =
   final viewModel = BasketViewModel(
     firestoreService: firestore,
     repository: BasketRepository(),
-    locationService: LocationService(),
   );
 
   ref.listen<String?>(authUidProvider, (previous, next) {
