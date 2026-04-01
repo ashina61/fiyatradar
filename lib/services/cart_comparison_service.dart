@@ -1,5 +1,3 @@
-import 'package:geolocator/geolocator.dart';
-
 import '../models/basket_item_model.dart';
 import '../models/price_model.dart';
 import '../models/product_model.dart';
@@ -70,10 +68,8 @@ class CartComparisonService {
     required Map<String, Map<String, PriceModel>> latestPricesByItem,
     required Map<String, String> marketNames,
     required List<StoreModel> stores,
-    Position? userPosition,
     Set<String>? allowedMarketIds,
   }) {
-    final _ = userPosition;
     final storeById = {for (final store in stores) store.id: store};
     final allMarketIds = <String>{
       for (final marketMap in latestPricesByItem.values) ...marketMap.keys,
