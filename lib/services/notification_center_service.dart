@@ -22,15 +22,19 @@ class NotificationCenterItem {
   ) {
     final data = doc.data();
     final createdAtRaw = data['createdAt'];
-    final metaDataRaw = data['metaData'];
-    final metaData = metaDataRaw is Map<String, dynamic>
-        ? metaDataRaw
-        : <String, dynamic>{};
+    final metaDataRaw = data['metaData'] ?? data['meta'] ?? data['data'];
+    final metaData =
+        metaDataRaw is Map ? Map<String, dynamic>.from(metaDataRaw) : <String, dynamic>{};
     return NotificationCenterItem(
       id: doc.id,
       title: (data['title'] ?? 'Bildirim').toString(),
       body: (data['message'] ?? data['body'] ?? '').toString(),
-      productId: (data['productId'] ?? metaData['productId'] ?? '').toString(),
+      productId: (data['productId'] ??
+              metaData['productId'] ??
+              metaData['productID'] ??
+              data['itemId'] ??
+              '')
+          .toString(),
       isRead: data['isRead'] == true || data['read'] == true,
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : null,
     );
