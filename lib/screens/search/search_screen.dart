@@ -3,14 +3,53 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../services/firestore_service.dart';
 import '../../theme/fr_foundation.dart';
-import '../actual/actuals_screen.dart';
 import '../add_price/add_price_screen.dart';
 import '../product/product_detail_screen.dart';
+
+class _SearchCatalogArgs {
+  const _SearchCatalogArgs({
+    required this.query,
+    required this.selectedCategory,
+  });
+
+  final String query;
+  final String selectedCategory;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _SearchCatalogArgs &&
+        other.query == query &&
+        other.selectedCategory == selectedCategory;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, selectedCategory);
+}
+
+final _searchCatalogResultsProvider =
+    FutureProvider.autoDispose.family<List<ProductModel>, _SearchCatalogArgs>((ref, args) async {
+  final query = args.query.trim();
+  if (query.isEmpty) return const [];
+
+  final all = await ref.watch(catalogServiceProvider).searchProducts(query, limit: 50);
+  final selectedCategory = args.selectedCategory.trim();
+  if (selectedCategory.isEmpty || selectedCategory.toLowerCase() == 'tumu') {
+    return all;
+  }
+
+  final normalizedSelected = selectedCategory.toLowerCase();
+  return all.where((product) {
+    return product.categories.any(
+      (category) => category.trim().toLowerCase() == normalizedSelected,
+    );
+  }).toList(growable: false);
+});
 
 TextStyle _jakarta({
   double size = 14,
@@ -130,12 +169,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateCategory(value),
                         ),
                         const SizedBox(height: 16),
-                        _ActualLinkCard(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => const ActualsScreen()),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
                         Text('Ürünler', style: _serif(size: 20, letterSpacing: -0.3)),
                         const SizedBox(height: 12),
                         _FilterChips(
@@ -161,8 +194,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 16),
-                        _LiveRadarSection(items: allProducts),
                         const SizedBox(height: 16),
                         _FollowedProductsSection(
                           items: allProducts.where((item) => _isFavorite(ref, item.product.id)).toList(),
@@ -1075,6 +1106,15 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(exploreControllerProvider);
+    final searchQuery = _controller.text.trim();
+    final searchResultsAsync = ref.watch(
+      _searchCatalogResultsProvider(
+        _SearchCatalogArgs(
+          query: searchQuery,
+          selectedCategory: state.selectedCategory,
+        ),
+      ),
+    );
     return Scaffold(
       backgroundColor: FRColors.backgroundWarm,
       appBar: AppBar(
@@ -1100,24 +1140,67 @@ class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
           ),
         ),
       ),
-      body: ListView.builder(
-        padding: FRSpaceInsets.allLg,
-        itemCount: state.items.length,
-        itemBuilder: (context, index) {
-          final item = state.items[index];
-          return ListTile(
-            tileColor: FRColors.surfaceSoft,
-            shape: RoundedRectangleBorder(borderRadius: FRRadius.mdPlusRadius, side: const BorderSide(color: FRColors.border)),
-            contentPadding: FRSpaceInsets.horizontalMdVerticalXs,
-            title: Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
-            subtitle: Text(
-              item.storeName,
-              style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle),
+      body: searchResultsAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: FRColors.tan),
+        ),
+        error: (_, __) => Center(
+          child: Padding(
+            padding: FRSpaceInsets.allLg,
+            child: Text(
+              'Arama sonuçları yüklenemedi.',
+              style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
             ),
-            trailing: Text('${item.displayPrice.toStringAsFixed(2)}₺', style: _serif(size: 16)),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => ProductDetailScreen(productId: item.product.id)),
-            ),
+          ),
+        ),
+        data: (results) {
+          if (searchQuery.isEmpty) {
+            return Center(
+              child: Text(
+                'Ürün, marka veya barkod ara...',
+                style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
+              ),
+            );
+          }
+          if (results.isEmpty) {
+            return Center(
+              child: Text(
+                'Sonuç bulunamadı.',
+                style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: FRSpaceInsets.allLg,
+            itemCount: results.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final product = results[index];
+              return ListTile(
+                tileColor: FRColors.surfaceSoft,
+                shape: RoundedRectangleBorder(
+                  borderRadius: FRRadius.mdPlusRadius,
+                  side: const BorderSide(color: FRColors.border),
+                ),
+                contentPadding: FRSpaceInsets.horizontalMdVerticalXs,
+                title: Text(
+                  product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _jakarta(size: 13, weight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  product.brand,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded, color: FRColors.textSubtle),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => ProductDetailScreen(productId: product.id)),
+                ),
+              );
+            },
           );
         },
       ),
