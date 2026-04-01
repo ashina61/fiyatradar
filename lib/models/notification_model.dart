@@ -63,10 +63,11 @@ class NotificationItem {
       case 'alarm':
         return 'alarm';
       case 'new_price':
+        return 'new_price';
       case 'level_up':
         return 'level_up';
       default:
-        return 'system';
+        return value.trim().isEmpty ? 'system' : value;
     }
   }
 
