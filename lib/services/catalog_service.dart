@@ -108,13 +108,14 @@ class CatalogService {
     );
   }
 
-  Future<List<ProductModel>> searchProducts(String query) async {
+  Future<List<ProductModel>> searchProducts(String query, {int limit = 50}) async {
     final normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery.isEmpty) return const [];
+    final safeLimit = limit < 1 ? 1 : limit;
 
     final byKeywordSnapshot = await _productsRef
         .where('searchKeywords', arrayContains: normalizedQuery)
-        .limit(20)
+        .limit(safeLimit)
         .get();
 
     QuerySnapshot<Map<String, dynamic>> byPrefixSnapshot;
@@ -123,7 +124,7 @@ class CatalogService {
           .where('name_lowercase', isGreaterThanOrEqualTo: normalizedQuery)
           .where('name_lowercase', isLessThan: '$normalizedQuery\uf8ff')
           .orderBy('name_lowercase')
-          .limit(20)
+          .limit(safeLimit)
           .get();
     } catch (_) {
       byPrefixSnapshot = await _productsRef.limit(0).get();
@@ -149,12 +150,12 @@ class CatalogService {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
     if (results.isNotEmpty) {
-      return results.take(20).toList(growable: false);
+      return results.take(safeLimit).toList(growable: false);
     }
 
     final barcodeSnapshot = await _productsRef
         .where('barcode', isEqualTo: query.trim())
-        .limit(20)
+        .limit(safeLimit)
         .get();
     return barcodeSnapshot.docs
         .map(ProductModel.fromFirestore)
