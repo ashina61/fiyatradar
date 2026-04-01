@@ -35,16 +35,8 @@ class NotificationService {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _globalPrimaryRef =>
-      _firestore.collection('inAppNotifications');
-  CollectionReference<Map<String, dynamic>> get _globalLegacyRef =>
-      _firestore.collection('notifications');
   CollectionReference<Map<String, dynamic>> _userNotificationsRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('notifications');
-  CollectionReference<Map<String, dynamic>> _userInboxRef(String userId) =>
-      _firestore.collection('users').doc(userId).collection('inbox');
-  DocumentReference<Map<String, dynamic>> _userMetaRef(String userId) =>
-      _firestore.collection('users').doc(userId);
 
   void _log(String message) {
     if (!_debugLogs || !kDebugMode) return;
@@ -218,55 +210,6 @@ class NotificationService {
 
   Future<void> markAllRead(String userId) => markAllAsRead(userId);
   Future<void> markAllNotificationsAsRead(String userId) => markAllAsRead(userId);
-
-  Future<void> migrateLegacyToInboxIfNeeded(String userId) async {
-    final metaDoc = await _userMetaRef(userId).get();
-    final meta = metaDoc.data()?['meta'];
-    final migrated = meta is Map<String, dynamic> && meta['notificationsMigrated'] == true;
-    if (migrated) return;
-
-    final legacyGlobal = await SafeQueryBuilder.safeWhere(
-      _globalLegacyRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).get();
-    final primaryGlobal = await SafeQueryBuilder.safeWhere(
-      _globalPrimaryRef,
-      'userId',
-      userId,
-      expectedType: String,
-    ).get();
-    final legacyUserNotifications = await _userNotificationsRef(userId).get();
-    final legacyUserInbox = await _userInboxRef(userId).get();
-
-    final allDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[
-      ...legacyGlobal.docs,
-      ...primaryGlobal.docs,
-      ...legacyUserNotifications.docs,
-      ...legacyUserInbox.docs,
-    ];
-
-    final deduped = <String, NotificationItem>{};
-    for (final doc in allDocs) {
-      final item = NotificationItem.fromFirestoreDoc(doc);
-      final eventId = item.metaData['eventId']?.toString();
-      final key = (eventId != null && eventId.isNotEmpty)
-          ? 'event:$eventId'
-          : 'legacy:${doc.reference.path}';
-      deduped.putIfAbsent(key, () => item);
-    }
-
-    final batch = _firestore.batch();
-    for (final item in deduped.values) {
-      final ref = _userNotificationsRef(userId).doc(item.id);
-      batch.set(ref, item.copyWith(id: ref.id).toFirestore(), SetOptions(merge: true));
-    }
-    batch.set(_userMetaRef(userId), {
-      'meta': {'notificationsMigrated': true}
-    }, SetOptions(merge: true));
-    await batch.commit();
-  }
 
   Future<void> deleteNotification(String notificationId) async {
     final docs = await _firestore

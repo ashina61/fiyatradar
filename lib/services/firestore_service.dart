@@ -144,10 +144,6 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _productsRef => _firestore.collection('products');
   CollectionReference<Map<String, dynamic>> get _pricesRef => _firestore.collection('priceReports');
   CollectionReference<Map<String, dynamic>> get _commentsRef => _firestore.collection('comments');
-  CollectionReference<Map<String, dynamic>> get _notificationsRef =>
-      _firestore.collection('inAppNotifications');
-  CollectionReference<Map<String, dynamic>> get _legacyNotificationsRef =>
-      _firestore.collection('notifications');
   CollectionReference<Map<String, dynamic>> get _bannersRef => _firestore.collection('banners');
   CollectionReference<Map<String, dynamic>> get _campaignBasketsRef => _firestore.collection('campaignBaskets');
   CollectionReference<Map<String, dynamic>> get _usersRef => _firestore.collection('users');
@@ -1682,10 +1678,6 @@ class FirestoreService {
 
   Future<void> markRead(String userId, String notificationId) async {
     return _notificationService.markRead(userId, notificationId);
-  }
-
-  Future<void> migrateLegacyToInboxIfNeeded(String userId) async {
-    return _notificationService.migrateLegacyToInboxIfNeeded(userId);
   }
 
   Future<void> markAllNotificationsAsRead(String userId) async {

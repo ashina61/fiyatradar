@@ -52,7 +52,6 @@ final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref)
         return Stream<List<NotificationItem>>.value(const <NotificationItem>[]);
       }
       final firestore = ref.watch(firestoreServiceProvider);
-      unawaited(firestore.migrateLegacyToInboxIfNeeded(user.uid));
       return firestore.getNotifications(user.uid);
     },
     loading: () => Stream<List<NotificationItem>>.value(const <NotificationItem>[]),
