@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/category_model.dart';
+import '../models/category_model.dart';
 import 'premium_pressable.dart';
 
 class CategoryTileV3 extends StatelessWidget {
