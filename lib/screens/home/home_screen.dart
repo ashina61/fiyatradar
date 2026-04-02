@@ -8,6 +8,7 @@ import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../pages/notification_center_page.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
@@ -29,7 +30,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
-    final userAsync = ref.watch(userModelStreamProvider);
+    final userAsync = ref.watch(currentUserProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final unreadCount = ref.watch(unreadCountProvider);
@@ -477,10 +478,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     borderRadius: FRRadius.all(FRRadius.md),
                     border: Border.all(color: FRColors.border),
                   ),
-                  child: item.imageUrl?.isNotEmpty == true
+                  child: (((item.photoUrl ?? '').trim().isNotEmpty)
+                          ? item.photoUrl!
+                          : (item.images.isNotEmpty ? item.images.first : ''))
+                      .isNotEmpty
                       ? ClipRRect(
                           borderRadius: FRRadius.all(FRRadius.md),
-                          child: CachedNetworkImage(imageUrl: item.imageUrl!, fit: BoxFit.cover),
+                          child: CachedNetworkImage(
+                            imageUrl: ((item.photoUrl ?? '').trim().isNotEmpty)
+                                ? item.photoUrl!
+                                : (item.images.isNotEmpty ? item.images.first : ''),
+                            fit: BoxFit.cover,
+                          ),
                         )
                       : const Icon(Icons.category_outlined, size: 22, color: FRColors.tan),
                 ),

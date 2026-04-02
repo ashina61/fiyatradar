@@ -876,7 +876,7 @@ class _HeroSection extends StatelessWidget {
                     const Icon(Icons.star_rounded, size: 14, color: FRColors.tan),
                     const SizedBox(width: 4),
                     Text(
-                      '${product.stats.averageRating > 0 ? product.stats.averageRating.toStringAsFixed(1) : 'Yeni'}',
+                      '${product.stats.average > 0 ? product.stats.average.toStringAsFixed(1) : 'Yeni'}',
                       style: _t(s: 12, w: FontWeight.w700, c: FRColors.tan),
                     ),
                     const SizedBox(width: 6),
