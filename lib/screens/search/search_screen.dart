@@ -1,115 +1,25 @@
-import 'dart:math' as math;
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/price_model.dart';
 import '../../models/product_model.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/explore_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../theme/fr_foundation.dart';
-import '../add_price/add_price_screen.dart';
+import '../../utils/formatters.dart';
+import '../../widgets/barcode_scanner_sheet.dart';
 import '../product/product_detail_screen.dart';
-
-class _SearchCatalogArgs {
-  const _SearchCatalogArgs({
-    required this.query,
-    required this.selectedCategory,
-  });
-
-  final String query;
-  final String selectedCategory;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is _SearchCatalogArgs &&
-        other.query == query &&
-        other.selectedCategory == selectedCategory;
-  }
-
-  @override
-  int get hashCode => Object.hash(query, selectedCategory);
-}
-
-final _searchCatalogResultsProvider =
-    FutureProvider.autoDispose.family<List<ProductModel>, _SearchCatalogArgs>((ref, args) async {
-  final query = args.query.trim();
-  if (query.isEmpty) return const [];
-
-  final all = await ref.watch(catalogServiceProvider).searchProducts(query, limit: 50);
-  final selectedCategory = args.selectedCategory.trim();
-  if (selectedCategory.isEmpty || selectedCategory.toLowerCase() == 'tumu') {
-    return all;
-  }
-
-  final normalizedSelected = selectedCategory.toLowerCase();
-  return all.where((product) {
-    return product.categories.any(
-      (category) => category.trim().toLowerCase() == normalizedSelected,
-    );
-  }).toList(growable: false);
-});
-
-TextStyle _jakarta({
-  double size = 14,
-  FontWeight weight = FontWeight.w500,
-  Color color = FRColors.textPrimary,
-  FontStyle? style,
-  double? height,
-  double? letterSpacing,
-  TextDecoration? decoration,
-}) {
-  return FRTypography.bodyMd.copyWith(
-    fontFamily: FRTypography.fontFamily,
-    fontSize: size,
-    color: color,
-    fontWeight: weight,
-    fontStyle: style,
-    height: height,
-    letterSpacing: letterSpacing,
-    decoration: decoration,
-  );
-}
-
-TextStyle _serif({
-  double size = 20,
-  Color color = FRColors.textPrimary,
-  double? height,
-  double? letterSpacing,
-}) {
-  return FRTypography.serifDisplay.copyWith(
-    fontSize: size,
-    color: color,
-    height: height,
-    letterSpacing: letterSpacing,
-  );
-}
-
-String? _extractLocationLabel(String? address) {
-  if (address == null || address.trim().isEmpty) return null;
-  final parts = address
-      .split(',')
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return null;
-
-  final neighborhood = parts.first;
-  final normalized = neighborhood.toLowerCase();
-  if (normalized.endsWith('mah.') || normalized.endsWith('mah')) {
-    return neighborhood;
-  }
-
-  if (normalized.contains('mah')) {
-    return neighborhood;
-  }
-
-  return '$neighborhood Mah.';
-}
+import '../main_screen.dart';
+import '../../theme/fr_colors.dart';
+import '../../theme/fr_radius.dart';
+import '../../theme/fr_spacing.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({
+    super.key,
+    this.initialQuery,
+  });
+
+  final String? initialQuery;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -117,245 +27,230 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
-  final _marketFilters = const ['Tümü', 'A101', 'ŞOK', 'BİM'];
+  final _focusNode = FocusNode();
 
-  String _selectedMarket = 'Tümü';
+  String? _selectedCategory;
+  int _sortBy = 0; // 0: Best Price, 1: Newest, 2: Highest Trust
+  bool _showOnlyDiscounted = false;
+  bool _showOnlyHighTrust = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery?.trim() ?? '';
+    if (initial.isNotEmpty) {
+      _searchController.text = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(searchQueryProvider.notifier).state = initial;
+      });
+    }
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(exploreControllerProvider);
-    final allProducts = state.items;
-    final products = _selectedMarket == 'Tümü'
-        ? allProducts
-        : allProducts.where((e) => _matchesMarket(e.storeName)).toList();
-    final primaryItem = products.isNotEmpty ? products.first : allProducts.isNotEmpty ? allProducts.first : null;
-    final fallbackLocation = primaryItem == null
-        ? null
-        : primaryItem.neighborhoodLabel != '—'
-        ? primaryItem.neighborhoodLabel
-        : primaryItem.locationLabel;
-    final locationLabel = _extractLocationLabel(state.userLocation?.address) ?? fallbackLocation;
+    final query = _searchController.text.trim();
+    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
+    final searchResultsAsync = ref.watch(searchResultsProvider);
+    final latestPrices = ref.watch(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
+
+    final latestByProduct = _latestPriceByProduct(latestPrices);
+    final rawResults = searchResultsAsync.valueOrNull ?? const <ProductModel>[];
+    final filtered = _applyFilters(
+      rawResults,
+      categoryName: _selectedCategory,
+      showOnlyDiscounted: _showOnlyDiscounted,
+      showOnlyHighTrust: _showOnlyHighTrust,
+    );
+    final results = _sortResults(filtered, _sortBy, latestByProduct);
 
     return Scaffold(
-      backgroundColor: FRColors.background,
+      backgroundColor: FRColors.surfaceSoft,
+      appBar: _buildAppBar(context),
       body: SafeArea(
         bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            _buildSearchInput(context),
+            _buildFilterSystem(context, categories),
+            _buildResultsHeader(context, results.length),
+            if (searchResultsAsync.isLoading)
+              _buildLoadingState()
+            else if (results.isEmpty)
+              _buildEmptyState(context, query)
+            else
+              _buildResultsList(context, results, latestByProduct),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNav(context),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: FRColors.surfaceSoft,
+      elevation: 0,
+      toolbarHeight: 56,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        color: FRColors.textPrimary,
+        onPressed: () => Navigator.maybePop(context),
+      ),
+      title: const Text(
+        'Ara',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: FRColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchInput(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.fromLTRB(16, 12, 16, 12),
         child: Container(
-          color: FRColors.backgroundWarm,
-          child: Column(
-            children: [
-              _Header(
-                controller: _searchController,
-                locationLabel: locationLabel,
-                onSearchTap: () => _openSearchExperience(context),
+          decoration: BoxDecoration(
+            color: FRColors.surface,
+            borderRadius: FRRadius.all(FRRadius.xl),
+            border: Border.all(color: FRColors.border),
+          ),
+          child: TextField(
+            controller: _searchController,
+            focusNode: _focusNode,
+            decoration: InputDecoration(
+              hintText: 'Ürün, marka veya kategori ara...',
+              hintStyle: const TextStyle(
+                color: FRColors.textSubtle,
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: FRSpaceInsets.verticalXl,
-                  child: Padding(
-                    padding: FRSpaceInsets.screenBody,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _CategoryCapsuleChips(
-                          categories: state.categories,
-                          selected: state.selectedCategory,
-                          onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateCategory(value),
-                        ),
-                        const SizedBox(height: 16),
-                        Text('Ürünler', style: _serif(size: 20, letterSpacing: -0.3)),
-                        const SizedBox(height: 12),
-                        _FilterChips(
-                          items: _marketFilters,
-                          selected: _selectedMarket,
-                          marketDots: true,
-                          onChanged: (v) => setState(() => _selectedMarket = v),
-                        ),
-                        const SizedBox(height: 12),
-                        if (state.loading)
-                          const Padding(
-                            padding: FRSpaceInsets.verticalXxl,
-                            child: Center(child: CircularProgressIndicator(color: FRColors.tan)),
-                          )
-                        else if (products.isEmpty)
-                          _emptySignals()
-                        else
-                          _ProductGrid(
-                            products: products,
-                            onTapItem: (item) => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => ProductDetailScreen(productId: item.product.id),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                        _FollowedProductsSection(
-                          items: allProducts.where((item) => _isFavorite(ref, item.product.id)).toList(),
-                          onTapItem: (item) => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => ProductDetailScreen(productId: item.product.id),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _FooterCta(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => const AddPriceScreen()),
-                          ),
-                        ),
-                        const SizedBox(height: 120),
-                      ],
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: FRColors.tan,
+                size: 22,
+              ),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 20),
+                      color: FRColors.textMuted,
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(searchQueryProvider.notifier).state = '';
+                        setState(() {});
+                        _focusNode.requestFocus();
+                      },
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                      color: FRColors.textMuted,
+                      onPressed: () async {
+                        final barcode = await BarcodeScannerSheet.scan(context);
+                        if (!mounted || barcode == null || barcode.trim().isEmpty) return;
+                        _searchController.text = barcode.trim();
+                        ref.read(searchQueryProvider.notifier).state = barcode.trim();
+                        setState(() {});
+                      },
                     ),
-                  ),
-                ),
-              ),
-            ],
+              border: InputBorder.none,
+              contentPadding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (value) {
+              ref.read(searchQueryProvider.notifier).state = value.trim();
+              _focusNode.unfocus();
+              setState(() {});
+            },
+            onChanged: (value) {
+              ref.read(searchQueryProvider.notifier).state = value.trim();
+              setState(() {});
+            },
           ),
         ),
       ),
     );
   }
 
-
-  void _openSearchExperience(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _ExploreSearchRoute(initialQuery: _searchController.text),
-      ),
-    );
-  }
-
-  Widget _emptySignals() {
-    return Container(
-      decoration: BoxDecoration(
-        color: FRColors.surfaceSoft,
-        borderRadius: FRRadius.xxlRadius,
-        border: Border.all(color: FRColors.border),
-      ),
-      padding: FRSpaceInsets.allLg,
-      child: Text(
-        'Seçilen filtrede ürün yok.',
-        style: _jakarta(size: 12, weight: FontWeight.w700, color: FRColors.textSubtle),
-      ),
-    );
-  }
-
-  bool _matchesMarket(String storeName) {
-    final normalizedStore = storeName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9çğıöşü]'), '');
-    final normalizedSelected = _selectedMarket.toLowerCase().replaceAll(RegExp(r'[^a-z0-9çğıöşü]'), '');
-    if (normalizedSelected == 'a101') {
-      return normalizedStore.contains('a101');
-    }
-    return normalizedStore.contains(normalizedSelected);
-  }
-
-  bool _isFavorite(WidgetRef ref, String productId) {
-    final override = ref.watch(favoriteOverrideProvider(productId));
-    final fromStream = ref.watch(isFavoriteProvider(productId)).valueOrNull ?? false;
-    return override ?? fromStream;
-  }
-}
-
-class _ProductGrid extends StatelessWidget {
-  const _ProductGrid({required this.products, required this.onTapItem});
-
-  final List<ExploreFeedItem> products;
-  final ValueChanged<ExploreFeedItem> onTapItem;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.58,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, i) => _ProductCard(item: products[i], onTap: () => onTapItem(products[i])),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.controller,
-    required this.onSearchTap,
-    required this.locationLabel,
-  });
-
-  final TextEditingController controller;
-  final VoidCallback onSearchTap;
-  final String? locationLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: FRColors.espresso,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(FRRadius.xxxl)),
-        boxShadow: [BoxShadow(color: FRColors.shadowMedium, blurRadius: 24, offset: Offset(0, 10))],
-      ),
-      padding: FRSpaceInsets.header,
+  Widget _buildFilterSystem(BuildContext context, List<dynamic> categories) {
+    return SliverToBoxAdapter(
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(child: Text('Keşfet.', style: _serif(size: 32, color: Colors.white, height: 1, letterSpacing: -0.5))),
-              Container(
-                constraints: const BoxConstraints(maxWidth: 168),
-                padding: FRSpaceInsets.horizontalMdVerticalXs,
-                decoration: BoxDecoration(
-                  color: FRColors.white.withOpacity(0.08),
-                  borderRadius: FRRadius.smPlusRadius,
-                  border: Border.all(color: FRColors.tan.withOpacity(0.2)),
-                ),
-                child: Text(
-                  (locationLabel == null || locationLabel!.trim().isEmpty) ? 'Konum bulunamadı' : locationLabel!.trim(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _jakarta(size: 11, weight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 48,
-            child: GestureDetector(
-              onTap: onSearchTap,
-              child: AbsorbPointer(
-                child: TextField(
-                  controller: controller,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Ürün, marka veya barkod ara...',
-                    hintStyle: _jakarta(size: 14, weight: FontWeight.w400, color: FRColors.textSubtle, style: FontStyle.italic),
-                    prefixIcon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
-                    suffixIcon: Padding(
-                      padding: FRSpaceInsets.allSm,
-                      child: Container(
-                        decoration: BoxDecoration(color: FRColors.backgroundWarm, borderRadius: FRRadius.smPlusRadius),
-                        child: const Icon(Icons.qr_code_2_rounded, size: 16, color: FRColors.espresso),
+          Padding(
+            padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildCategoryChip(
+                    label: 'Tümü',
+                    icon: Icons.grid_view_rounded,
+                    isActive: _selectedCategory == null,
+                    onTap: () => setState(() => _selectedCategory = null),
+                  ),
+                  const SizedBox(width: 6),
+                  ...categories.take(8).map(
+                    (cat) => Padding(
+                      padding: FRSpaceInsets.only(left: 6),
+                      child: _buildCategoryChip(
+                        label: (cat.title ?? cat.name ?? 'Kategori').toString(),
+                        icon: _getCategoryIcon((cat.title ?? cat.name ?? '').toString()),
+                        isActive: _selectedCategory == (cat.title ?? cat.name ?? '').toString(),
+                        onTap: () => setState(() => _selectedCategory = (cat.title ?? cat.name ?? '').toString()),
                       ),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: FRRadius.lgRadius,
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: FRSpaceInsets.verticalMdPlus,
                   ),
-                ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildUtilityChip(
+                    label: 'En İyi Fiyat',
+                    icon: Icons.sort_rounded,
+                    isActive: _sortBy == 0,
+                    onTap: () => setState(() => _sortBy = 0),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildUtilityChip(
+                    label: 'En Yeni',
+                    icon: Icons.access_time_rounded,
+                    isActive: _sortBy == 1,
+                    onTap: () => setState(() => _sortBy = 1),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildUtilityChip(
+                    label: 'Yüksek Güven',
+                    icon: Icons.verified_user_rounded,
+                    isActive: _showOnlyHighTrust,
+                    onTap: () => setState(() => _showOnlyHighTrust = !_showOnlyHighTrust),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildUtilityChip(
+                    label: 'İndirimli',
+                    icon: Icons.trending_down_rounded,
+                    isActive: _showOnlyDiscounted,
+                    onTap: () => setState(() => _showOnlyDiscounted = !_showOnlyDiscounted),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildAlertChip(context),
+                ],
               ),
             ),
           ),
@@ -363,867 +258,669 @@ class _Header extends StatelessWidget {
       ),
     );
   }
-}
 
-class _CategoryCapsuleChips extends StatelessWidget {
-  const _CategoryCapsuleChips({required this.categories, required this.selected, required this.onChanged});
-
-  final List<String> categories;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final label = categories[index] == 'Tumu' ? 'Tümü' : categories[index];
-          final isSelected = categories[index].toLowerCase() == selected.toLowerCase();
-          return GestureDetector(
-            onTap: () => onChanged(categories[index]),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: FRSpaceInsets.chip,
-              decoration: BoxDecoration(
-                color: isSelected ? FRColors.espresso : FRColors.surfaceSoft,
-                borderRadius: FRRadius.pillRadius,
-                border: Border.all(color: isSelected ? FRColors.espresso : FRColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: isSelected ? FRColors.espresso.withOpacity(0.15) : Colors.black.withOpacity(0.02),
-                    blurRadius: isSelected ? 14 : 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Text(label, style: _jakarta(size: 12, weight: FontWeight.w800, color: isSelected ? Colors.white : FRColors.textMuted)),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ActualLinkCard extends StatelessWidget {
-  const _ActualLinkCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget _buildCategoryChip({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
       onTap: onTap,
-      child: Container(
+      borderRadius: FRRadius.all(FRRadius.pill),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          borderRadius: FRRadius.xxlRadius,
-          gradient: const LinearGradient(colors: [FRColors.espresso, FRColors.espressoSoft]),
-          boxShadow: const [BoxShadow(color: FRColors.shadowMedium, blurRadius: 30, offset: Offset(0, 10))],
+          color: isActive ? FRColors.tan : FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.pill),
+          border: Border.all(
+            color: isActive ? FRColors.tan : FRColors.border,
+          ),
         ),
-        padding: FRSpaceInsets.allXl,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Aktüel Fırsatlar', style: _serif(size: 22, color: Colors.white, letterSpacing: -0.3)),
-                  const SizedBox(height: 4),
-                  Text('BİM, A-101 Canlı Stok Takibi', style: _jakarta(size: 12, color: FRColors.white.withOpacity(0.6))),
-                ],
-              ),
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? FRColors.surface : FRColors.textMuted,
             ),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: FRColors.tan.withOpacity(0.15),
-                borderRadius: FRRadius.mdPlusRadius,
-                border: Border.all(color: FRColors.tan.withOpacity(0.2)),
+            const SizedBox(width: FRSpacing.xsPlus),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isActive ? FRColors.surface : FRColors.textPrimary,
               ),
-              child: const Icon(Icons.chevron_right_rounded, size: 20, color: FRColors.tan),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _FilterChips extends StatelessWidget {
-  const _FilterChips({required this.items, required this.selected, required this.onChanged, this.compact = false, this.marketDots = false});
-
-  final List<String> items;
-  final String selected;
-  final bool compact;
-  final bool marketDots;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: compact ? 36 : 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final label = items[i];
-          final active = label == selected;
-          return GestureDetector(
-            onTap: () => onChanged(label),
-            child: Container(
-              padding: FRSpaceInsets.symmetric(horizontal: compact ? FRSpacing.mdPlus : FRSpacing.lg, vertical: compact ? FRSpacing.sm : FRSpacing.smPlus),
-              decoration: BoxDecoration(
-                color: active ? FRColors.espresso : FRColors.surfaceSoft,
-                borderRadius: FRRadius.pillRadius,
-                border: Border.all(color: active ? FRColors.espresso : FRColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: active ? FRColors.espresso.withOpacity(0.15) : Colors.black.withOpacity(0.02),
-                    blurRadius: active ? 16 : 10,
-                    offset: active ? const Offset(0, 6) : const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (marketDots) ...[
-                    Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _marketColor(label))),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(
-                    label,
-                    style: _jakarta(size: compact ? 11 : 12, weight: FontWeight.w800, color: active ? Colors.white : FRColors.textMuted),
-                  ),
-                ],
+  Widget _buildUtilityChip({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRadius.all(FRRadius.md),
+      child: Container(
+        padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? FRColors.surfaceAlt : FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.md),
+          border: Border.all(
+            color: isActive ? FRColors.tan : FRColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isActive ? FRColors.tan : FRColors.textMuted,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isActive ? FRColors.tan : FRColors.textPrimary,
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
-}
 
-class _ProductCard extends ConsumerStatefulWidget {
-  const _ProductCard({required this.item, required this.onTap});
-
-  final ExploreFeedItem item;
-  final VoidCallback onTap;
-
-  @override
-  ConsumerState<_ProductCard> createState() => _ProductCardState();
-}
-
-class _ProductCardState extends ConsumerState<_ProductCard> {
-  bool _justAddedToCart = false;
-  bool _isAddingToCart = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = ref.watch(authStateProvider).valueOrNull;
-    final override = ref.watch(favoriteOverrideProvider(widget.item.product.id));
-    final isFavorite = override ?? (ref.watch(isFavoriteProvider(widget.item.product.id)).valueOrNull ?? false);
-    final changePercent = widget.item.priceChangePercent;
-    final old = (changePercent != null && changePercent < 0 && (100 + changePercent) > 0)
-        ? widget.item.displayPrice / (1 + (changePercent / 100))
-        : null;
-    final hasOld = old != null && old > widget.item.displayPrice;
-    final showOnline = widget.item.isPrimaryOnlineCheapest;
-    final distance = widget.item.distanceLabel ?? '${100 + math.Random(widget.item.product.id.hashCode).nextInt(500)}m';
-
-    return GestureDetector(
-      onTap: widget.onTap,
+  Widget _buildAlertChip(BuildContext context) {
+    return InkWell(
+      onTap: () => _showAlertSetup(context),
+      borderRadius: FRRadius.all(FRRadius.md),
       child: Container(
+        padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: FRColors.surfaceSoft,
-          borderRadius: FRRadius.xxlRadius,
-          border: Border.all(color: FRColors.border),
-          boxShadow: const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 20, offset: Offset(0, 8))],
+          color: FRColors.surface,
+          borderRadius: FRRadius.all(FRRadius.md),
+          border: Border.all(color: FRColors.tan),
         ),
-        child: Column(
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              height: 160,
-              decoration: const BoxDecoration(
-                color: FRColors.background,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(FRRadius.xxl)),
-                border: Border(bottom: BorderSide(color: FRColors.border)),
+            Icon(
+              Icons.notifications_none_rounded,
+              size: 14,
+              color: FRColors.tan,
+            ),
+            SizedBox(width: 5),
+            Text(
+              'Alarm Kur',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: FRColors.tan,
               ),
-              padding: FRSpaceInsets.allSm,
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.center,
-                    child: Image.network(
-                      widget.item.product.effectiveImage ?? '',
-                      fit: BoxFit.contain,
-                      width: 100,
-                      height: 100,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle),
-                    ),
-                  ),
-                  Positioned(top: 4, left: 4, child: _PriceChangeIndicator(item: widget.item)),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: () async {
-                            if (user == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Favorilere eklemek için giriş yapmalısın.')),
-                              );
-                              return;
-                            }
-                            final next = !isFavorite;
-                            ref.read(favoriteOverrideProvider(widget.item.product.id).notifier).state = next;
-                            await ref.read(firestoreServiceProvider).toggleFavorite(
-                              uid: user.uid,
-                              productId: widget.item.product.id,
-                              payload: {'productName': widget.item.product.name, 'imageUrl': widget.item.product.effectiveImage},
-                            );
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [BoxShadow(color: FRColors.shadowSoft, blurRadius: 10, offset: Offset(0, 4))],
-                            ),
-                            child: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, size: 14, color: isFavorite ? FRColors.danger : FRColors.textSubtle),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        GestureDetector(
-                          onTap: () async {
-                            if (user == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Sepete eklemek için giriş yapmalısın.')),
-                              );
-                              return;
-                            }
-                            if (_isAddingToCart) return;
-                            setState(() => _isAddingToCart = true);
-                            await ref.read(firestoreServiceProvider).upsertBasketItem(
-                              userId: user.uid,
-                              productId: widget.item.product.id,
-                              quantity: 1,
-                              lastKnownPrice: widget.item.displayPrice,
-                              includeLastKnownPrice: true,
-                            );
-                            if (!context.mounted) return;
-                            setState(() {
-                              _isAddingToCart = false;
-                              _justAddedToCart = true;
-                            });
-                            Future<void>.delayed(const Duration(milliseconds: 1200), () {
-                              if (!mounted) return;
-                              setState(() => _justAddedToCart = false);
-                            });
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [BoxShadow(color: FRColors.shadowSoft, blurRadius: 10, offset: Offset(0, 4))],
-                            ),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              child: _justAddedToCart
-                                  ? const Icon(
-                                      Icons.check_rounded,
-                                      key: ValueKey('added'),
-                                      size: 16,
-                                      color: FRColors.success,
-                                    )
-                                  : Icon(
-                                      _isAddingToCart ? Icons.more_horiz_rounded : Icons.add,
-                                      key: const ValueKey('add'),
-                                      size: 16,
-                                      color: FRColors.textMuted,
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultsHeader(BuildContext context, int count) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.fromLTRB(16, 8, 16, 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            RichText(
+              text: TextSpan(
+                text: '$count ',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: FRColors.tan,
+                ),
+                children: const [
+                  TextSpan(
+                    text: 'sonuç bulundu',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: FRColors.textSubtle,
                     ),
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: FRSpaceInsets.productCard,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            InkWell(
+              onTap: () => _showSortOptions(context),
+              borderRadius: FRRadius.all(FRRadius.md),
+              child: Container(
+                padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: FRColors.surface,
+                  borderRadius: FRRadius.all(FRRadius.md),
+                  border: Border.all(color: FRColors.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(widget.item.product.brand.toUpperCase(), style: _jakarta(size: 9, weight: FontWeight.w900, color: FRColors.tan, letterSpacing: 0.6)),
-                    const SizedBox(height: 4),
-                    Text(widget.item.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800, height: 1.3)),
-                    const Spacer(),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('${widget.item.displayPrice.toStringAsFixed(2).replaceAll('.', ',')}₺', style: _serif(size: 22, height: 1)),
-                        const SizedBox(width: 6),
-                        if (hasOld)
-                          Text(
-                            '${old.toStringAsFixed(2).replaceAll('.', ',')}₺',
-                            style: _jakarta(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle, decoration: TextDecoration.lineThrough),
-                          ),
-                      ],
+                    const Icon(Icons.sort_rounded, size: 14, color: FRColors.textMuted),
+                    const SizedBox(width: 5),
+                    Text(
+                      _getSortLabel(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: FRColors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-            Container(
-              padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.md, vertical: FRSpacing.smPlus),
-              decoration: const BoxDecoration(
-                color: FRColors.whiteMuted,
-                border: Border(top: BorderSide(color: FRColors.border, style: BorderStyle.solid)),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(FRRadius.xxl)),
-              ),
-              child: Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _marketColor(widget.item.storeName))),
-                  const SizedBox(width: 4),
-                  Expanded(child: Text(widget.item.storeName, style: _jakarta(size: 10, weight: FontWeight.w800, color: FRColors.textMuted))),
-                  const SizedBox(width: 4),
-                  Icon(showOnline ? Icons.public : Icons.location_on_outlined, size: 10, color: FRColors.textSubtle),
-                  const SizedBox(width: 3),
-                  Text(showOnline ? 'Online' : distance, style: _jakarta(size: 9, weight: FontWeight.w700, color: FRColors.textSubtle)),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _FollowedProductsSection extends StatelessWidget {
-  const _FollowedProductsSection({required this.items, required this.onTapItem});
-
-  final List<ExploreFeedItem> items;
-  final ValueChanged<ExploreFeedItem> onTapItem;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionBox(
-      child: Column(
-        children: [
-          const _SectionHead(title: 'Takip Ettiğim Ürünler'),
-          if (items.isEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Henüz favori ürün eklemedin. Ürün kartındaki kalp ikonuyla takip etmeye başlayabilirsin.',
-                style: _jakarta(size: 12, weight: FontWeight.w600, color: FRColors.textSubtle),
-              ),
-            )
-          else
-            Column(
-              children: items
-                  .take(6)
-                  .map(
-                    (item) => _FollowedProductRow(
-                      item: item,
-                      onTap: () => onTapItem(item),
-                    ),
-                  )
-                  .toList(),
-            ),
-        ],
-      ),
-    );
+  String _getSortLabel() {
+    switch (_sortBy) {
+      case 0:
+        return 'En İyi Fiyat';
+      case 1:
+        return 'En Yeni';
+      case 2:
+        return 'Yüksek Güven';
+      default:
+        return 'Sırala';
+    }
   }
-}
 
-class _LiveRadarSection extends StatelessWidget {
-  const _LiveRadarSection({required this.items});
-
-  final List<ExploreFeedItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final latest = [...items]..sort((a, b) => b.price.createdAt.compareTo(a.price.createdAt));
-    final top = latest.take(4).toList();
-
-    return _SectionBox(
-      child: Column(
-        children: [
-          const _SectionHead(
-            title: 'Canlı Radar Akışı',
-            leading: _LiveStatusDot(),
+  Widget _buildResultsList(
+    BuildContext context,
+    List<ProductModel> results,
+    Map<String, PriceModel> latestByProduct,
+  ) {
+    return SliverPadding(
+      padding: FRSpaceInsets.symmetric(horizontal: 16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildResultRow(
+            context,
+            results[index],
+            latestByProduct: latestByProduct,
           ),
-          if (top.isEmpty)
-            Padding(
-              padding: FRSpaceInsets.symmetric(vertical: FRSpacing.md),
-              child: Text('Henüz canlı fiyat akışı yok.', style: _jakarta(size: 12, weight: FontWeight.w700, color: FRColors.textSubtle)),
-            )
-          else
-            ...top.asMap().entries.map(
-              (entry) {
-                final item = entry.value;
-                final showDivider = entry.key != top.length - 1;
-                final marketLine = item.storeName;
-                final subtitle = '$marketLine • ${_timeAgo(item.price.createdAt)}';
-                return _contrib(
-                  _avatarFromName(item.product.name),
-                  item.product.name,
-                  subtitle,
-                  '${item.displayPrice.toStringAsFixed(0)}₺',
-                  inverse: entry.key.isOdd,
-                  showDivider: showDivider,
-                );
-              },
-            ),
-        ],
+          childCount: results.length,
+        ),
       ),
     );
   }
 
-  String _avatarFromName(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
-    if (parts.isEmpty) return 'FR';
-    if (parts.length == 1) return parts.first.substring(0, math.min(2, parts.first.length)).toUpperCase();
-    return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
-  }
+  Widget _buildResultRow(
+    BuildContext context,
+    ProductModel item, {
+    required Map<String, PriceModel> latestByProduct,
+  }) {
+    final productId = item.id;
+    final productName = item.name;
+    final productImage = item.effectiveImage;
+    final latestPrice = latestByProduct[productId];
+    final price = latestPrice?.price ?? item.lastPrice ?? 0;
+    final storeName = latestPrice?.storeName ?? item.lastStore ?? 'Mağaza';
+    final timeAgo = _formatTimeAgo(latestPrice?.createdAt ?? item.updatedAt ?? item.createdAt);
+    final trustScore = latestPrice?.trustPercent ?? ((item.priceEntryCount >= 10 ? 92 : item.priceEntryCount >= 5 ? 82 : 72));
+    final priceChangePercent = _computePriceChangeForProduct(item.id);
 
-  String _timeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'şimdi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    if (diff.inHours < 24) return '${diff.inHours} sa önce';
-    return '${diff.inDays} gün önce';
-  }
-
-  Widget _contrib(String avatar, String title, String subtitle, String price, {bool inverse = false, bool showDivider = true}) {
     return Container(
-      padding: FRSpaceInsets.verticalMdPlus,
+      margin: FRSpaceInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        border: showDivider ? const Border(bottom: BorderSide(color: FRColors.border, style: BorderStyle.solid)) : null,
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.lg),
+        border: Border.all(color: FRColors.border),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: inverse ? FRColors.tan : FRColors.background,
-              borderRadius: FRRadius.mdRadius,
-              border: Border.all(color: FRColors.border),
-            ),
-            alignment: Alignment.center,
-            child: Text(avatar, style: _jakarta(size: 14, weight: FontWeight.w800, color: inverse ? FRColors.espresso : FRColors.tan)),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: FRRadius.all(FRRadius.lg),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: FRSpaceInsets.all(14),
+            child: Row(
               children: [
-                Text(title, style: _jakarta(size: 13, weight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(subtitle, style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: FRColors.surfaceAlt,
+                    borderRadius: FRRadius.all(FRRadius.md),
+                    border: Border.all(color: FRColors.border),
+                  ),
+                  child: productImage != null && productImage.toString().isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: FRRadius.all(FRRadius.md),
+                          child: CachedNetworkImage(
+                            imageUrl: productImage.toString(),
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => const Icon(
+                              Icons.category_outlined,
+                              size: 28,
+                              color: FRColors.tan,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.category_outlined, size: 28, color: FRColors.tan),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        productName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: FRColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.store_outlined, size: 11, color: FRColors.textSubtle),
+                          const SizedBox(width: 4),
+                          Text(
+                            storeName,
+                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '• $timeAgo',
+                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text(
+                            formatTRY(price),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: FRColors.tan,
+                            ),
+                          ),
+                          if (priceChangePercent != null && priceChangePercent.abs() >= 1)
+                            Container(
+                              margin: FRSpaceInsets.only(left: 6),
+                              padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: priceChangePercent <= 0 ? FRColors.successSurface : FRColors.dangerSurface,
+                                borderRadius: FRRadius.all(FRRadius.sm),
+                              ),
+                              child: Text(
+                                '${priceChangePercent <= 0 ? '↓' : '↑'} ${priceChangePercent.abs().toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: priceChangePercent <= 0 ? FRColors.success : FRColors.danger,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: trustScore >= 90
+                            ? FRColors.successSurface
+                            : trustScore >= 75
+                                ? FRColors.surfaceAlt
+                                : FRColors.dangerSurface,
+                        borderRadius: FRRadius.all(FRRadius.sm),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.shield_rounded,
+                            size: 10,
+                            color: trustScore >= 90
+                                ? FRColors.success
+                                : trustScore >= 75
+                                    ? FRColors.textMuted
+                                    : FRColors.danger,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$trustScore%',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: trustScore >= 90
+                                  ? FRColors.success
+                                  : trustScore >= 75
+                                      ? FRColors.textMuted
+                                      : FRColors.danger,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildQuickActionButton(
+                          icon: Icons.bookmark_outline_rounded,
+                          onTap: () => _addToWatchlist(context, productId),
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.notifications_none_rounded,
+                          onTap: () => _setPriceAlert(context, productId),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(price, style: _serif(size: 20)),
-        ],
+        ),
       ),
     );
   }
-}
 
-class _FollowedProductRow extends StatelessWidget {
-  const _FollowedProductRow({required this.item, required this.onTap});
-
-  final ExploreFeedItem item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final image = item.product.effectiveImage ?? '';
-    return GestureDetector(
+  Widget _buildQuickActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: FRRadius.all(FRRadius.sm),
       child: Container(
-        margin: FRSpaceInsets.bottomSmPlus,
-        padding: FRSpaceInsets.allSmPlus,
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
-          color: FRColors.background,
-          borderRadius: FRRadius.lgRadius,
+          color: FRColors.surfaceAlt,
+          borderRadius: FRRadius.all(FRRadius.sm),
           border: Border.all(color: FRColors.border),
         ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: FRRadius.smPlusRadius,
-              child: Container(
-                width: 44,
-                height: 44,
-                color: FRColors.background,
-                child: image.isEmpty
-                    ? const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle, size: 18)
-                    : Image.network(image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: FRColors.textSubtle, size: 18)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _jakarta(size: 13, weight: FontWeight.w800)),
-                  Text(item.storeName, style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text('${item.displayPrice.toStringAsFixed(2).replaceAll('.', ',')}₺', style: _jakarta(size: 13, weight: FontWeight.w800)),
-          ],
+        child: Icon(icon, size: 14, color: FRColors.textMuted),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.symmetric(vertical: 48),
+        child: const Center(
+          child: CircularProgressIndicator(color: FRColors.tan),
         ),
       ),
     );
   }
-}
 
-class _FooterCta extends StatelessWidget {
-  const _FooterCta({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: FRRadius.xxlRadius,
-        gradient: const LinearGradient(colors: [FRColors.espresso, FRColors.espressoSoft]),
-        border: Border.all(color: FRColors.tan.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(color: FRColors.shadowStrong, blurRadius: 30, offset: Offset(0, 10))],
-      ),
-      padding: FRSpaceInsets.allXxl,
-      child: Column(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: FRColors.tan.withOpacity(0.1),
-              borderRadius: FRRadius.lgRadius,
-              border: Border.all(color: FRColors.tan.withOpacity(0.25)),
-            ),
-            child: const Icon(Icons.add_circle_outline, size: 26, color: FRColors.tan),
-          ),
-          const SizedBox(height: 14),
-          Text('Fiyat Ekle, Puan Kazan', style: _jakarta(size: 20, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
-          const SizedBox(height: 8),
-          Text(
-            'Raflardaki güncel fiyatları okut, Radar Puanları toplayarak Premium ödüllerin kilidini aç.',
-            style: _jakarta(size: 11, weight: FontWeight.w500, color: FRColors.white.withOpacity(0.6), height: 1.5),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onTap,
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                padding: FRSpaceInsets.button,
-                shape: RoundedRectangleBorder(borderRadius: FRRadius.mdPlusRadius),
-                backgroundColor: FRColors.tan,
-                foregroundColor: FRColors.espresso,
+  Widget _buildEmptyState(BuildContext context, String query) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.symmetric(vertical: 64),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: FRColors.surfaceAlt,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.search_off_rounded,
+                  size: 32,
+                  color: FRColors.textMuted,
+                ),
               ),
-              child: Text('Hemen Başla', style: _jakarta(size: 14, weight: FontWeight.w800, color: FRColors.espresso)),
-            ),
+              const SizedBox(height: 16),
+              Text(
+                query.isEmpty ? 'Arama yapın' : '"$query" için sonuç bulunamadı',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: FRColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                query.isEmpty ? 'Ürün, marka veya kategori arayın' : 'Farklı bir arama deneyin',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: FRColors.textSubtle,
+                ),
+              ),
+              if (query.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(searchQueryProvider.notifier).state = '';
+                    _focusNode.requestFocus();
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.clear_rounded, size: 16),
+                  label: const Text('Aramayı Temizle'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FRColors.tan,
+                    foregroundColor: FRColors.surface,
+                  ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-}
 
-class _SectionBox extends StatelessWidget {
-  const _SectionBox({required this.child});
+  Widget _buildBottomNav(BuildContext context) {
+    final currentIndex = ref.watch(currentTabProvider).clamp(0, 3);
 
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: FRColors.surfaceSoft,
-        borderRadius: FRRadius.xxlRadius,
-        border: Border.all(color: FRColors.border),
-        boxShadow: const [BoxShadow(color: FRColors.shadowSoft, blurRadius: 20, offset: Offset(0, 8))],
-      ),
-      padding: FRSpaceInsets.allLgPlus,
-      child: child,
+    return BottomNavigationBar(
+      currentIndex: currentIndex,
+      onTap: (index) => ref.read(currentTabProvider.notifier).state = index,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: FRColors.surface.withOpacity(0.97),
+      selectedItemColor: FRColors.tan,
+      unselectedItemColor: FRColors.textSubtle,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Ana Sayfa'),
+        BottomNavigationBarItem(icon: Icon(Icons.search_rounded), label: 'Ara'),
+        BottomNavigationBarItem(icon: Icon(Icons.add_circle_rounded), label: 'Ekle'),
+        BottomNavigationBarItem(icon: Icon(Icons.list_rounded), label: 'Liste'),
+      ],
     );
   }
-}
 
-class _SectionHead extends StatelessWidget {
-  const _SectionHead({required this.title, this.action, this.onActionTap, this.leading});
+  IconData _getCategoryIcon(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('market') || lower.contains('gıda')) {
+      return Icons.shopping_cart_rounded;
+    }
+    if (lower.contains('tekno') || lower.contains('elektronik')) {
+      return Icons.laptop_mac_rounded;
+    }
+    if (lower.contains('kozmetik') || lower.contains('bakım')) {
+      return Icons.face_retouching_natural_rounded;
+    }
+    if (lower.contains('hobi') || lower.contains('spor')) {
+      return Icons.sports_esports_rounded;
+    }
+    return Icons.category_rounded;
+  }
 
-  final String title;
-  final String? action;
-  final VoidCallback? onActionTap;
-  final Widget? leading;
+  String _formatTimeAgo(DateTime createdAt) {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}d';
+    if (diff.inHours < 24) return '${diff.inHours}s';
+    return '${diff.inDays}g';
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: FRSpaceInsets.bottomLg,
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 8)],
-          Expanded(child: Text(title, style: _serif(size: 20, letterSpacing: -0.3))),
-          if (action != null)
-            GestureDetector(
-              onTap: onActionTap,
-              child: Text(action!, style: _jakarta(size: 12, weight: FontWeight.w800, color: FRColors.tan)),
-            ),
-        ],
-      ),
+  void _showAlertSetup(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Alarm ayarları yakında eklenecek.')),
     );
   }
-}
 
-class _LiveStatusDot extends StatefulWidget {
-  const _LiveStatusDot();
-
-  @override
-  State<_LiveStatusDot> createState() => _LiveStatusDotState();
-}
-
-class _LiveStatusDotState extends State<_LiveStatusDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1800),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final pulse = 0.9 + (math.sin(_controller.value * 2 * math.pi).abs() * 0.35);
-        return Transform.scale(
-          scale: pulse,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: FRColors.success),
-            
+  void _showSortOptions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.sell_outlined),
+                title: const Text('En İyi Fiyat'),
+                onTap: () {
+                  setState(() => _sortBy = 0);
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.access_time_rounded),
+                title: const Text('En Yeni'),
+                onTap: () {
+                  setState(() => _sortBy = 1);
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shield_outlined),
+                title: const Text('Yüksek Güven'),
+                onTap: () {
+                  setState(() => _sortBy = 2);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
           ),
         );
       },
     );
   }
-}
 
-class _PriceChangeIndicator extends StatelessWidget {
-  const _PriceChangeIndicator({required this.item});
-
-  final ExploreFeedItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final raw = item.priceChangePercent ?? -item.dropPercent;
-    final isDrop = raw < 0;
-    final color = isDrop ? FRColors.success : FRColors.danger;
-    final icon = isDrop ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
-    return Container(
-      padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.sm, vertical: FRSpacing.xs),
-      decoration: BoxDecoration(
-        color: isDrop ? FRColors.success.withOpacity(0.12) : FRColors.danger.withOpacity(0.12),
-        border: Border.all(
-          color: isDrop ? FRColors.success.withOpacity(0.25) : FRColors.danger.withOpacity(0.25),
-        ),
-        borderRadius: FRRadius.smRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(
-            '%${raw.abs().toStringAsFixed(1)}',
-            style: _jakarta(size: 10, weight: FontWeight.w800, color: color),
-          ),
-        ],
-      ),
+  void _addToWatchlist(BuildContext context, String productId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Takip listesine eklendi.')),
     );
   }
-}
 
-class _ExploreSearchRoute extends ConsumerStatefulWidget {
-  const _ExploreSearchRoute({required this.initialQuery});
-
-  final String initialQuery;
-
-  @override
-  ConsumerState<_ExploreSearchRoute> createState() => _ExploreSearchRouteState();
-}
-
-class _ExploreSearchRouteState extends ConsumerState<_ExploreSearchRoute> {
-  late final TextEditingController _controller = TextEditingController(text: widget.initialQuery);
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(exploreControllerProvider.notifier).updateSearchQuery(widget.initialQuery));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    ref.read(exploreControllerProvider.notifier).updateSearchQuery('');
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(exploreControllerProvider);
-    final searchQuery = _controller.text.trim();
-    final searchResultsAsync = ref.watch(
-      _searchCatalogResultsProvider(
-        _SearchCatalogArgs(
-          query: searchQuery,
-          selectedCategory: state.selectedCategory,
-        ),
-      ),
-    );
-    return Scaffold(
-      backgroundColor: FRColors.backgroundWarm,
-      appBar: AppBar(
-        backgroundColor: FRColors.backgroundWarm,
-        elevation: 0,
-        titleSpacing: 0,
-        title: Padding(
-          padding: FRSpaceInsets.rightLg,
-          child: TextField(
-            controller: _controller,
-            autofocus: true,
-            onChanged: (value) => ref.read(exploreControllerProvider.notifier).updateSearchQuery(value),
-            decoration: InputDecoration(
-              hintText: 'Ürün, marka veya barkod ara...',
-              prefixIcon: const Icon(Icons.search, size: 18, color: FRColors.textSubtle),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: FRRadius.mdPlusRadius,
-                  borderSide: BorderSide.none,
-                ),
-            ),
-          ),
-        ),
-      ),
-      body: searchResultsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: FRColors.tan),
-        ),
-        error: (_, __) => Center(
-          child: Padding(
-            padding: FRSpaceInsets.allLg,
-            child: Text(
-              'Arama sonuçları yüklenemedi.',
-              style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
-            ),
-          ),
-        ),
-        data: (results) {
-          if (searchQuery.isEmpty) {
-            return Center(
-              child: Text(
-                'Ürün, marka veya barkod ara...',
-                style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
-              ),
-            );
-          }
-          if (results.isEmpty) {
-            return Center(
-              child: Text(
-                'Sonuç bulunamadı.',
-                style: _jakarta(size: 13, weight: FontWeight.w700, color: FRColors.textSubtle),
-              ),
-            );
-          }
-          return ListView.separated(
-            padding: FRSpaceInsets.allLg,
-            itemCount: results.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final product = results[index];
-              return ListTile(
-                tileColor: FRColors.surfaceSoft,
-                shape: RoundedRectangleBorder(
-                  borderRadius: FRRadius.mdPlusRadius,
-                  side: const BorderSide(color: FRColors.border),
-                ),
-                contentPadding: FRSpaceInsets.horizontalMdVerticalXs,
-                title: Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _jakarta(size: 13, weight: FontWeight.w800),
-                ),
-                subtitle: Text(
-                  product.brand,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _jakarta(size: 11, weight: FontWeight.w600, color: FRColors.textSubtle),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded, color: FRColors.textSubtle),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => ProductDetailScreen(productId: product.id)),
-                ),
-              );
-            },
-          );
-        },
-      ),
+  void _setPriceAlert(BuildContext context, String productId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fiyat alarmı kurma ekranı yakında eklenecek.')),
     );
   }
-}
 
-Color _marketColor(String market) {
-  switch (market.toLowerCase()) {
-    case 'a-101':
-    case 'a101':
-      return FRColors.danger;
-    case 'bi̇m':
-    case 'bim':
-      return FRColors.gold;
-    case 'trendyol':
-      return FRColors.camel;
-    case 'şok':
-    case 'sok':
-      return FRColors.mapBlue;
-    case 'tümü':
-      return FRColors.espresso;
-    default:
-      return FRColors.textSubtle;
+  Map<String, PriceModel> _latestPriceByProduct(List<PriceModel> prices) {
+    final map = <String, PriceModel>{};
+    for (final price in prices) {
+      final existing = map[price.productId];
+      if (existing == null || price.reportedAt.isAfter(existing.reportedAt)) {
+        map[price.productId] = price;
+      }
+    }
+    return map;
+  }
+
+  List<ProductModel> _applyFilters(
+    List<ProductModel> results, {
+    required String? categoryName,
+    required bool showOnlyDiscounted,
+    required bool showOnlyHighTrust,
+  }) {
+    return results.where((product) {
+      if (categoryName != null && categoryName.isNotEmpty) {
+        final byCategory = product.categories.any((c) => c.toLowerCase() == categoryName.toLowerCase());
+        if (!byCategory) return false;
+      }
+
+      final delta = _computePriceChangeForProduct(product.id);
+      if (showOnlyDiscounted && !(delta != null && delta < 0)) return false;
+      if (showOnlyHighTrust && product.priceEntryCount < 5) return false;
+
+      return true;
+    }).toList(growable: false);
+  }
+
+  List<ProductModel> _sortResults(
+    List<ProductModel> results,
+    int sortBy,
+    Map<String, PriceModel> latestByProduct,
+  ) {
+    final sorted = [...results];
+    switch (sortBy) {
+      case 0:
+        sorted.sort((a, b) {
+          final aPrice = latestByProduct[a.id]?.price ?? a.lastPrice ?? double.infinity;
+          final bPrice = latestByProduct[b.id]?.price ?? b.lastPrice ?? double.infinity;
+          return aPrice.compareTo(bPrice);
+        });
+        break;
+      case 1:
+        sorted.sort((a, b) {
+          final aDate = latestByProduct[a.id]?.reportedAt ?? a.updatedAt ?? a.createdAt;
+          final bDate = latestByProduct[b.id]?.reportedAt ?? b.updatedAt ?? b.createdAt;
+          return bDate.compareTo(aDate);
+        });
+        break;
+      case 2:
+        sorted.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  }
+
+  double? _computePriceChangeForProduct(String productId) {
+    final latestPrices = ref.read(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
+    final productPrices = latestPrices.where((p) => p.productId == productId).toList()
+      ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+    if (productPrices.length < 2) return null;
+    final latest = productPrices[0].price;
+    final prev = productPrices[1].price;
+    if (prev <= 0) return null;
+    return ((latest - prev) / prev) * 100;
   }
 }

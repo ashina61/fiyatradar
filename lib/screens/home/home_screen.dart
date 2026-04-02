@@ -1,26 +1,19 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../models/category_model.dart';
+import '../../models/notification_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../pages/notification_center_page.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-import '../../widgets/editor_choice_widgets.dart';
-import '../../widgets/home_product_card.dart';
-import '../../widgets/market_badge.dart';
-import '../../widgets/premium_pressable.dart';
 import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
-import '../points/points_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../../theme/fr_colors.dart';
 import '../../theme/fr_radius.dart';
@@ -34,913 +27,687 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  Future<void> _launchAffiliateLink(String url) async {
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userModelStreamProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final trendingAsync = ref.watch(trendingProductsProvider);
     final latestPricesAsync = ref.watch(latestPricesProvider);
+    final trendingAsync = ref.watch(trendingProductsProvider);
     final unreadCount = ref.watch(unreadCountProvider);
+    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
+    final watchlistProducts = ref.watch(savedProductsProvider).valueOrNull ?? const <ProductModel>[];
 
-    final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
     final latestPrices = latestPricesAsync.valueOrNull ?? const <PriceModel>[];
-    final editorPickAsync = ref.watch(editorPickProductsProvider);
-    final editorPickProduct = editorPickAsync.valueOrNull?.isNotEmpty == true
-        ? editorPickAsync.valueOrNull!.first
-        : null;
+    final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
+    final priceChangeByProduct = _computePriceChangeByProduct(latestPrices);
+    NotificationItem? triggeredAlert;
+    for (final item in notifications) {
+      if (!item.isRead && (item.productId ?? '').trim().isNotEmpty) {
+        triggeredAlert = item;
+        break;
+      }
+    }
 
     return Scaffold(
-      backgroundColor: FRColors.background,
-      body: Stack(
-        children: [
-          Positioned(
-            top: 220,
-            right: -90,
-            child: _ambientBlob(
-              size: 200,
-              color: FRColors.borderStrong,
-            ),
-          ),
-          Positioned(
-            bottom: 160,
-            left: -72,
-            child: _ambientBlob(
-              size: 180,
-              color: FRColors.espressoOverlay(0.10),
-            ),
-          ),
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: _buildHeader(
-                  context,
-                  userAsync.valueOrNull,
-                  unreadCount,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _buildTrendProducts(
-                  context,
-                  trendingProducts,
-                  latestPrices,
-                  userAsync.valueOrNull?.savedProducts.toSet() ??
-                      const <String>{},
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _buildLatestPrices(latestPrices),
-              ),
-              SliverToBoxAdapter(child: _buildFooter(context)),
-              SliverToBoxAdapter(
-                child: _buildCategories(
-                  context,
-                  categoriesAsync.valueOrNull ?? const [],
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _buildEditorChoice(
-                  context,
-                  editorPickProduct,
-                ),
-              ),
-            ],
-          ),
-        ],
+      backgroundColor: FRColors.surfaceSoft,
+      appBar: _buildAppBar(context, userAsync.valueOrNull, unreadCount),
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildSearchHero(context),
+            if (triggeredAlert != null) _buildPriorityAlert(context, triggeredAlert),
+            if (watchlistProducts.isNotEmpty) _buildPersonalSummary(context, watchlistProducts),
+            _buildLiveFeedSection(context, latestPrices, priceChangeByProduct),
+            if (trendingProducts.isNotEmpty) _buildTrendSection(context, trendingProducts),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        ),
       ),
+      floatingActionButton: _buildFab(context),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  Widget _ambientBlob({required double size, required Color color}) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
+  PreferredSizeWidget _buildAppBar(BuildContext context, UserModel? user, int unreadCount) {
+    final displayName = user?.username.trim().isNotEmpty == true
+        ? user!.username.trim()
+        : (user?.preferredDisplayName ?? 'Kullanıcı');
+
+    return AppBar(
+      backgroundColor: FRColors.surfaceSoft,
+      elevation: 0,
+      toolbarHeight: 72,
+      titleSpacing: 16,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            _greetingByHour(),
+            style: const TextStyle(
+              fontSize: 11,
+              letterSpacing: 0.5,
+              fontWeight: FontWeight.w500,
+              color: FRColors.textSubtle,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.textMuted),
+          ),
+          const SizedBox(height: 2),
+          RichText(
+            text: const TextSpan(
+              text: 'Fiyat',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: FRColors.textPrimary,
+              ),
+              children: [
+                TextSpan(
+                  text: 'Radar',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: FRColors.tan,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        _buildIconButton(
+          icon: Icons.notifications_outlined,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
+          ),
+          badge: unreadCount > 0,
+        ),
+        const SizedBox(width: 4),
+        _buildIconButton(
+          icon: Icons.person_outline,
+          onTap: () => ref.read(currentTabProvider.notifier).state = 4,
+        ),
+        const SizedBox(width: 12),
+      ],
+    );
+  }
+
+  Widget _buildIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    bool badge = false,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: FRRadius.all(FRRadius.md),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: FRRadius.all(FRRadius.md),
+              border: Border.all(color: FRColors.border),
+            ),
+            child: Icon(icon, size: 18, color: FRColors.textMuted),
+          ),
+        ),
+        if (badge)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: FRColors.danger,
+                shape: BoxShape.circle,
+                border: Border.all(color: FRColors.surfaceSoft, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSearchHero(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.fromLTRB(16, 8, 16, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: FRColors.surface,
+            borderRadius: FRRadius.all(FRRadius.xl),
+            border: Border.all(color: FRColors.border),
+          ),
+          child: InkWell(
+            borderRadius: FRRadius.all(FRRadius.xl),
+            onTap: () => ref.read(currentTabProvider.notifier).state = 1,
+            child: Padding(
+              padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, color: FRColors.tan, size: 22),
+                  const SizedBox(width: FRSpacing.md),
+                  const Expanded(
+                    child: Text(
+                      'Ürün, marka veya kategori ara...',
+                      style: TextStyle(
+                        color: FRColors.textSubtle,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () async {
+                      final barcode = await BarcodeScannerSheet.scan(context);
+                      if (!mounted || barcode == null || barcode.trim().isEmpty) return;
+                      ref.read(searchQueryProvider.notifier).state = barcode.trim();
+                      ref.read(currentTabProvider.notifier).state = 1;
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: FRColors.surfaceAlt,
+                        borderRadius: FRRadius.all(FRRadius.md),
+                        border: Border.all(color: FRColors.border),
+                      ),
+                      child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: FRColors.textMuted),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, UserModel? user, int unreadCount) {
-    final topPadding = MediaQuery.paddingOf(context).top;
-    final displayName = user?.username.trim().isNotEmpty == true ? user!.username.trim() : (user?.preferredDisplayName ?? 'Radar Kullanıcısı');
-    final points = user?.points ?? 0;
-
-    return Padding(
-      padding: FRSpaceInsets.bottomXl,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: FRSpaceInsets.headerWithTop(topPadding, bottom: FRSpacing.heroHeaderBottom),
-            decoration: BoxDecoration(
-              color: FRColors.espressoSoft,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(FRRadius.hero),
-                bottomRight: Radius.circular(FRRadius.hero),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: FRColors.espressoOverlay(0.20),
-                  blurRadius: 30,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                PremiumPressable(
-                  borderRadius: FRRadius.lgRadius,
-                  onTap: () => ref.read(currentTabProvider.notifier).state = 4,
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    padding: FRSpaceInsets.allXxs,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: FRColors.camelStrong, width: 1.5),
-                      borderRadius: FRRadius.lgRadius,
+  Widget _buildPriorityAlert(BuildContext context, NotificationItem alert) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FRColors.gold.withOpacity(0.08), FRColors.gold.withOpacity(0.02)],
+          ),
+          borderRadius: FRRadius.all(FRRadius.xl),
+          border: Border.all(color: FRColors.gold.withOpacity(0.3)),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: FRRadius.all(FRRadius.xl),
+            onTap: (alert.productId ?? '').toString().trim().isEmpty
+                ? null
+                : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: alert.productId!)),
                     ),
-                    child: ClipRRect(
-                      borderRadius: FRRadius.mdRadius,
-                      child: user?.photoUrl != null
-                          ? CachedNetworkImage(imageUrl: user!.photoUrl!, fit: BoxFit.cover)
-                          : Container(
-                              color: FRColors.studio,
-                              alignment: Alignment.center,
-                              child: Text(
-                                displayName.characters.first.toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: FRColors.espressoSoft,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: FRSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Padding(
+              padding: FRSpaceInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
+                      Container(
+                        padding: FRSpaceInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: FRColors.gold,
+                          borderRadius: FRRadius.all(FRRadius.pill),
+                        ),
+                        child: const Icon(Icons.notifications_active_rounded, size: 14, color: FRColors.white),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        _greetingByHour(),
+                        alert.type == 'price_alert' ? 'Hedef Fiyata Ulaşıldı' : 'Bildirim',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    (alert.productName ?? alert.title ?? 'Ürün').toString(),
+                    style: const TextStyle(fontSize: 13, color: FRColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    (alert.message ?? 'Fiyat bildirimi mevcut').toString(),
+                    style: const TextStyle(fontSize: 11, color: FRColors.textMuted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalSummary(BuildContext context, List<ProductModel> watchlist) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [FRColors.surface, FRColors.surfaceSoft],
+          ),
+          borderRadius: FRRadius.all(FRRadius.xl),
+          border: Border.all(color: FRColors.border),
+        ),
+        child: Padding(
+          padding: FRSpaceInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.star_rounded, size: 14, color: FRColors.tan),
+                      SizedBox(width: 5),
+                      Text(
+                        'Takip Listem',
                         style: TextStyle(
                           fontSize: 11,
-                          letterSpacing: 1,
                           fontWeight: FontWeight.w600,
-                          color: FRColors.camelStrong,
-                        ),
-                      ),
-                      const SizedBox(height: FRSpacing.xxs),
-                      Text(
-                        displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: FRColors.surface,
+                          color: FRColors.textMuted,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ],
                   ),
-                ),
-                PremiumPressable(
-                  borderRadius: FRRadius.pillRadius,
-                  onTap: () => Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (_) => const PointsScreen())),
-                  child: Container(
-                    padding:
-                        FRSpaceInsets.pointsChip,
-                    decoration: BoxDecoration(
-                      color: FRColors.white.withOpacity(0.08),
-                      border: Border.all(color: FRColors.white.withOpacity(0.1)),
-                      borderRadius: FRRadius.pillRadius,
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.stars_rounded,
-                            color: FRColors.camelStrong, size: 16),
-                        const SizedBox(width: FRSpacing.xsPlus),
-                        Text(
-                          formatCompactCount(points),
-                          style: const TextStyle(
-                            color: FRColors.camelStrong,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: FRSpacing.sm),
-                PremiumPressable(
-                  borderRadius: FRRadius.mdPlusRadius,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
-                  ),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: FRColors.white.withOpacity(0.05),
-                      borderRadius: FRRadius.mdPlusRadius,
-                      border: Border.all(color: FRColors.white.withOpacity(0.1)),
-                    ),
-                    child: Stack(
-                      children: [
-                        const Center(
-                          child: Icon(
-                            Icons.notifications_rounded,
-                            color: FRColors.surface,
-                            size: 20,
-                          ),
-                        ),
-                        if (unreadCount > 0)
-                          const Positioned(
-                            right: 11,
-                            top: 11,
-                            child: CircleAvatar(
-                              radius: 3,
-                              backgroundColor: FRColors.danger,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: FRSpacing.xxl,
-            right: FRSpacing.xxl,
-            bottom: -FRSpacing.xxl,
-            child: PremiumPressable(
-              borderRadius: FRRadius.xlRadius,
-              onTap: () => ref.read(currentTabProvider.notifier).state = 1,
-              child: Container(
-                padding: FRSpaceInsets.searchBar,
-                decoration: BoxDecoration(
-                  color: FRColors.surface,
-                  borderRadius: FRRadius.xlRadius,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: FRColors.shadowMedium,
-                      blurRadius: 35,
-                      offset: Offset(0, 15),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search_rounded,
-                        color: FRColors.textMuted, size: 22),
-                    const SizedBox(width: FRSpacing.md),
-                    const Expanded(
-                      child: Text(
-                        'Ürün, marka veya mağaza ara...',
-                        style: TextStyle(
-                          color: FRColors.textSubtle,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    PremiumPressable(
-                      borderRadius: FRRadius.mdPlusRadius,
-                      onTap: () async {
-                        final barcode = await BarcodeScannerSheet.scan(context);
-                        if (!mounted || barcode == null || barcode.trim().isEmpty) {
-                          return;
-                        }
-                        ref.read(searchQueryProvider.notifier).state = barcode.trim();
-                        ref.read(currentTabProvider.notifier).state = 1;
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: FRColors.studio,
-                          borderRadius: FRRadius.mdPlusRadius,
-                        ),
-                        child: const Icon(
-                          Icons.qr_code_scanner_rounded,
-                          color: FRColors.espressoSoft,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategories(BuildContext context, List<CategoryModel> categories) {
-    final selectedCategory = ref.watch(selectedCategoryFilterProvider);
-
-    return Padding(
-      padding: FRSpaceInsets.sectionTop,
-      child: SizedBox(
-        height: 46,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              _categoryPill(
-                title: 'Tümü',
-                icon: Icons.grid_view_rounded,
-                isActive: selectedCategory == 'Tumu',
-                onTap: () {
-                  ref.read(selectedCategoryFilterProvider.notifier).state = 'Tumu';
-                  ref.read(selectedCategoryIdProvider.notifier).state = null;
-                  ref.read(currentTabProvider.notifier).state = 1;
-                },
-              ),
-              ...categories.map(
-                (item) => Padding(
-                  padding: FRSpaceInsets.leftSmPlus,
-                  child: _categoryPill(
-                    title: item.title,
-                    icon: _categoryIcon(item.title),
-                    isActive: selectedCategory == item.title,
-                    onTap: () {
-                      ref.read(selectedCategoryFilterProvider.notifier).state = item.title;
-                      ref.read(selectedCategoryIdProvider.notifier).state = item.id;
-                      ref.read(currentTabProvider.notifier).state = 1;
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _categoryPill({
-    required String title,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return PremiumPressable(
-      borderRadius: FRRadius.pillRadius,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: FRSpaceInsets.categoryPill,
-        decoration: BoxDecoration(
-          color: isActive ? FRColors.espressoSoft : FRColors.surface,
-          borderRadius: FRRadius.pillRadius,
-          border: Border.all(
-            color: isActive ? FRColors.espressoSoft : FRColors.border,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isActive ? FRColors.espressoOverlay(0.17) : FRColors.shadowSoft,
-              blurRadius: isActive ? 16 : 12,
-              offset: Offset(0, FRSpacing.xs),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isActive ? FRColors.surface : FRColors.textMuted,
-            ),
-            const SizedBox(width: FRSpacing.xsPlus),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: isActive ? FRColors.surface : FRColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildTrendProducts(
-    BuildContext context,
-    List<ProductModel> products,
-    List<PriceModel> latestPrices,
-    Set<String> savedProducts,
-  ) {
-    if (products.isEmpty) return const SizedBox.shrink();
-    final trendByProduct = _resolveTrendByProduct(latestPrices);
-
-    return Padding(
-      padding: FRSpaceInsets.topXxxlPlus,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: FRSpaceInsets.horizontalXxl,
-            child: _sectionTitle(
-              title: 'Trend Ürünler',
-              action: 'Tümünü Gör',
-              badge: const _PopularBadge(),
-            ),
-          ),
-          const SizedBox(height: FRSpacing.lg),
-          SizedBox(
-            height: 258,
-            child: ListView.separated(
-              padding: FRSpaceInsets.horizontalXxl,
-              scrollDirection: Axis.horizontal,
-              itemBuilder: (context, index) {
-                final product = products[index];
-                final hasPrice = (product.lastPrice ?? 0) > 0;
-                final trend = trendByProduct[product.id];
-                final hasReliableTrend = trend != null && trend.isFinite && trend.abs() >= 0.1;
-
-                return HomeProductCard(
-                  product: product,
-                  width: 174,
-                  trendPercent: hasReliableTrend ? trend : null,
-                  isPriceRising: (trend ?? 0) > 0,
-                  isSaved: savedProducts.contains(product.id),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(productId: product.id),
-                    ),
-                  ),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(width: FRSpacing.md),
-              itemCount: products.length,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditorChoice(BuildContext context, ProductModel? product) {
-    if (product == null) return const SizedBox.shrink();
-    final hasPrice = (product.lastPrice ?? 0) > 0;
-    final affiliateUrl = product.preferredAffiliateUrl;
-    final hasAffiliate = affiliateUrl != null && affiliateUrl.isNotEmpty;
-
-    return Padding(
-      padding: FRSpaceInsets.sectionXxlTop,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            title: 'Editörün Seçimi',
-            badge: const ApprovedBadge(),
-          ),
-          const SizedBox(height: FRSpacing.lg),
-          PremiumPressable(
-            borderRadius: FRRadius.xxlRadius,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProductDetailScreen(productId: product.id),
-              ),
-            ),
-            child: Container(
-              height: 160,
-              decoration: BoxDecoration(
-                color: FRColors.espressoSoft,
-                borderRadius: FRRadius.xxlRadius,
-                border: Border.all(color: FRColors.borderStrong),
-                boxShadow: const [
-                  BoxShadow(
-                    color: FRColors.shadowMedium,
-                    blurRadius: 28,
-                    offset: Offset(0, 14),
+                  Text(
+                    '${watchlist.length} ürün',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.tan),
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 6,
-                    child: Padding(
-                      padding: FRSpaceInsets.allXl,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 12),
+              ...watchlist.take(2).map(
+                    (item) => Padding(
+                      padding: FRSpaceInsets.only(bottom: 10),
+                      child: Row(
                         children: [
-                          Text(
-                            product.brand.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: FRColors.camelStrong,
-                              fontWeight: FontWeight.w800,
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: FRColors.surfaceAlt,
+                              borderRadius: FRRadius.all(FRRadius.md),
+                              border: Border.all(color: FRColors.border),
+                            ),
+                            child: const Icon(Icons.bookmark_outline_rounded, size: 20, color: FRColors.tan),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(height: FRSpacing.xsPlus),
+                          const SizedBox(width: 8),
                           Text(
-                            product.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: FRColors.surface,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: FRSpacing.md),
-                          Text(
-                            hasPrice
-                                ? formatTRY(product.lastPrice ?? 0)
-                                : 'Fiyat bilgisi bekleniyor',
-                            style: TextStyle(
-                              color: hasPrice
-                                  ? FRColors.surface
-                                  : FRColors.white.withOpacity(0.7),
-                              fontSize: hasPrice ? 22 : 13,
-                              fontWeight:
-                                  hasPrice ? FontWeight.w900 : FontWeight.w600,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(height: FRSpacing.sm),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                MarketActionButton(
-                                  label: (product.lastStore ?? '').trim().isNotEmpty
-                                      ? product.lastStore!.trim()
-                                      : 'Trendyol Market',
-                                  onTap: hasAffiliate ? () => _launchAffiliateLink(affiliateUrl) : null,
-                                ),
-                                if (hasAffiliate) ...[
-                                  const SizedBox(height: FRSpacing.smPlus),
-                                  PremiumPressable(
-                                    borderRadius: FRRadius.lgPlusRadius,
-                                    onTap: () => _launchAffiliateLink(affiliateUrl),
-                                    child: Container(
-                                      padding: FRSpaceInsets.ctaChip,
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            FRColors.ivory,
-                                            FRColors.camel,
-                                          ],
-                                        ),
-                                        borderRadius: FRRadius.lgPlusRadius,
-                                        border: Border.all(color: FRColors.goldGlowSoft.withOpacity(0.85)),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: FRColors.espressoOverlay(0.20),
-                                            blurRadius: 16,
-                                            offset: Offset(0, 8),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'Satın Al',
-                                            style: TextStyle(
-                                              color: FRColors.espressoSoft,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                          const SizedBox(width: FRSpacing.xsPlus),
-                                          const Icon(
-                                            Icons.open_in_new_rounded,
-                                            size: 15,
-                                            color: FRColors.espressoSoft,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                            (item.lastPrice ?? 0) > 0 ? formatTRY(item.lastPrice ?? 0) : '-',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FRColors.textMuted),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: FRColors.white.withOpacity(0.03),
-                        border: Border(
-                          left:
-                              BorderSide(color: FRColors.white.withOpacity(0.05)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveFeedSection(
+    BuildContext context,
+    List<PriceModel> prices,
+    Map<String, double> priceChangeByProduct,
+  ) {
+    return SliverPadding(
+      padding: FRSpaceInsets.fromLTRB(16, 20, 16, 16),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.bolt_rounded, size: 16, color: FRColors.tan),
+                  SizedBox(width: 7),
+                  Text('Canlı Fiyatlar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FRColors.textPrimary)),
+                ],
+              ),
+              TextButton(
+                onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
+                child: const Text('Tümü', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (prices.isEmpty)
+            _buildEmptyFeed()
+          else
+            ...prices.take(5).map(
+                  (price) => _buildLiveFeedItem(
+                    context,
+                    price,
+                    priceChangePercent: priceChangeByProduct[price.productId],
+                  ),
+                ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildEmptyFeed() {
+    return Container(
+      padding: FRSpaceInsets.symmetric(vertical: 24),
+      child: const Center(
+        child: Text(
+          'Henüz canlı fiyat yok.\nİlk fiyatı sen ekle!',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: FRColors.textSubtle, height: 1.4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveFeedItem(
+    BuildContext context,
+    PriceModel item, {
+    double? priceChangePercent,
+  }) {
+    final productId = item.productId.trim().isNotEmpty ? item.productId.trim() : null;
+
+    return Container(
+      margin: FRSpaceInsets.only(bottom: 9),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.lg),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: FRRadius.all(FRRadius.lg),
+          onTap: productId != null
+              ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
+                  )
+              : null,
+          child: Padding(
+            padding: FRSpaceInsets.all(13),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: FRColors.surfaceAlt,
+                    borderRadius: FRRadius.all(FRRadius.md),
+                    border: Border.all(color: FRColors.border),
+                  ),
+                  child: item.imageUrl?.isNotEmpty == true
+                      ? ClipRRect(
+                          borderRadius: FRRadius.all(FRRadius.md),
+                          child: CachedNetworkImage(imageUrl: item.imageUrl!, fit: BoxFit.cover),
+                        )
+                      : const Icon(Icons.category_outlined, size: 22, color: FRColors.tan),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.productName ?? 'Ürün',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.store_outlined, size: 11, color: FRColors.textSubtle),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.storeName ?? 'Mağaza',
+                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '• ${_formatTimeAgo(item.createdAt)}',
+                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatTRY(item.price),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: FRColors.tan),
+                    ),
+                    if (priceChangePercent != null && priceChangePercent.abs() >= 1)
+                      Container(
+                        margin: FRSpaceInsets.only(top: 4),
+                        padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: priceChangePercent <= 0 ? FRColors.successSurface : FRColors.dangerSurface,
+                          borderRadius: FRRadius.all(FRRadius.sm),
                         ),
-                        borderRadius: BorderRadius.horizontal(
-                          right: Radius.circular(FRRadius.xxl),
+                        child: Text(
+                          '${priceChangePercent <= 0 ? '↓' : '↑'} ${priceChangePercent.abs().toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: priceChangePercent <= 0 ? FRColors.success : FRColors.danger,
+                          ),
                         ),
                       ),
-                      child: Padding(
-                        padding: FRSpaceInsets.allXxl,
-                        child: Center(
-                          child: CachedNetworkImage(
-                            imageUrl: product.effectiveImage ?? '',
-                            fit: BoxFit.contain,
-                            errorWidget: (_, __, ___) => const Icon(
-                              Icons.image_not_supported_rounded,
-                              color: FRColors.textMuted,
-                            ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime createdAt) {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}d';
+    if (diff.inHours < 24) return '${diff.inHours}s';
+    return '${diff.inDays}g';
+  }
+
+  Widget _buildTrendSection(BuildContext context, List<ProductModel> products) {
+    return SliverPadding(
+      padding: FRSpaceInsets.fromLTRB(16, 8, 16, 24),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.explore_rounded, size: 16, color: FRColors.tan),
+                  SizedBox(width: 7),
+                  Text('Seçkiler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FRColors.textPrimary)),
+                ],
+              ),
+              TextButton(
+                onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
+                child: const Text('Keşfet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: products.length > 5 ? 5 : products.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 13),
+              itemBuilder: (context, index) => _buildTrendCard(context, products[index]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildTrendCard(BuildContext context, ProductModel product) {
+    return Container(
+      width: 155,
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: FRRadius.all(FRRadius.xl),
+        border: Border.all(color: FRColors.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: FRRadius.all(FRRadius.xl),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product.id)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: FRColors.surfaceAlt,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    ),
+                    child: product.effectiveImage != null && product.effectiveImage!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                            child: CachedNetworkImage(imageUrl: product.effectiveImage!, fit: BoxFit.cover),
+                          )
+                        : const Center(
+                            child: Icon(Icons.category_outlined, size: 42, color: FRColors.tan),
                           ),
+                  ),
+                  Positioned(
+                    top: 7,
+                    left: 7,
+                    child: Container(
+                      padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: FRRadius.all(FRRadius.pill),
+                      ),
+                      child: Text(
+                        _getTrendBadge(product),
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLatestPrices(List<PriceModel> prices) {
-    if (prices.isEmpty) return const SizedBox.shrink();
-    final rows = prices.take(5).toList();
-
-    return Padding(
-      padding: FRSpaceInsets.sectionXxlTop,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(title: 'Son Eklenen Fiyatlar', action: 'Tümünü Gör'),
-          const SizedBox(height: FRSpacing.lg),
-          Container(
-            padding: FRSpaceInsets.latestListContainer,
-            decoration: _cardDecoration(radius: 24),
-            child: Column(
-              children: [
-                for (int i = 0; i < rows.length; i++)
-                  Container(
-                    padding: FRSpaceInsets.verticalLg,
-                    decoration: BoxDecoration(
-                      border: i == rows.length - 1
-                          ? null
-                          : const Border(
-                              bottom: BorderSide(color: FRColors.border),
-                            ),
+              Padding(
+                padding: FRSpaceInsets.all(11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: _latestPriceRow(context, rows[i]),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _latestPriceRow(BuildContext context, PriceModel item) {
-    final verificationDelta = item.upVotes - item.downVotes;
-    final iconBg = verificationDelta == 0
-        ? FRColors.studio
-        : verificationDelta > 0
-            ? FRColors.successSurface
-            : FRColors.dangerSurface;
-    final iconFg = verificationDelta == 0
-        ? FRColors.textMuted
-        : verificationDelta > 0
-            ? FRColors.success
-            : FRColors.danger;
-
-    final verificationText = verificationDelta == 0
-        ? 'Yeni'
-        : verificationDelta > 0
-            ? 'Doğrulama +$verificationDelta'
-            : 'İtiraz ${verificationDelta.abs()}';
-
-    final productId = item.productId.trim().isNotEmpty ? item.productId.trim() : null;
-
-    final row = Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration:
-              BoxDecoration(color: iconBg, borderRadius: FRRadius.mdRadius),
-          child: Icon(
-            verificationDelta == 0
-                ? Icons.drag_handle_rounded
-                : verificationDelta > 0
-                    ? Icons.thumb_up_alt_rounded
-                    : Icons.thumb_down_alt_rounded,
-            color: iconFg,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: FRSpacing.mdPlus),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.productName ?? 'Ürün',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: FRSpacing.xxs),
-              Text(
-                '${item.storeName ?? 'Mağaza'} • ${item.userName ?? item.reporterName ?? 'Sistem'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: FRColors.textMuted,
-                  fontWeight: FontWeight.w600,
+                    const SizedBox(height: 3),
+                    Text(
+                      (product.lastPrice ?? 0) > 0 ? formatTRY(product.lastPrice ?? 0) : 'Fiyat bilgisi yok',
+                      style: const TextStyle(fontSize: 10, color: FRColors.textSubtle, height: 1.4),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              formatTRY(item.price),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: FRColors.espressoSoft,
-              ),
-            ),
-            const SizedBox(height: FRSpacing.xxs),
-            Text(
-              verificationText,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: iconFg,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-
-    if (productId == null) return row;
-    return PremiumPressable(
-      borderRadius: FRRadius.mdPlusRadius,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(productId: productId),
-        ),
-      ),
-      child: row,
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    return Padding(
-      padding: FRSpaceInsets.footer,
-      child: Column(
-        children: [
-          PremiumPressable(
-            borderRadius: FRRadius.xlRadius,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AddPriceScreen()),
-            ),
-            child: Container(
-              padding: FRSpaceInsets.allXl,
-              decoration: BoxDecoration(
-                color: FRColors.espressoSoft,
-                borderRadius: FRRadius.xlRadius,
-                border: Border.all(color: FRColors.borderStrong),
-                boxShadow: const [
-                  BoxShadow(
-                    color: FRColors.shadowMedium,
-                    blurRadius: 30,
-                    offset: Offset(0, 14),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Fiyat Ekle, Puan Kazan!',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: FRColors.surface,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Topluluğa katıl ve radarın gücünü artır.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: FRColors.whiteMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _sectionTitle({
-    required String title,
-    String? action,
-    Widget? badge,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: FRColors.textPrimary,
-              ),
-            ),
-            if (badge != null) ...[
-              const SizedBox(width: 10),
-              badge,
-            ],
-          ],
-        ),
-        if (action != null)
-          Text(
-            action,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: FRColors.camelStrong,
-            ),
-          ),
-      ],
+  Widget _buildFab(BuildContext context) {
+    return FloatingActionButton(
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddPriceScreen()),
+      ),
+      backgroundColor: FRColors.tan,
+      foregroundColor: FRColors.espresso,
+      elevation: 4,
+      shape: const CircleBorder(),
+      child: const Icon(Icons.add_rounded, size: 24),
     );
   }
 
-  BoxDecoration _cardDecoration({double radius = 20}) {
-    return BoxDecoration(
-      color: FRColors.surface,
-      borderRadius: FRRadius.all(radius),
-      border: Border.all(color: FRColors.border),
-      boxShadow: const [
-        BoxShadow(
-          color: FRColors.shadowSoft,
-          blurRadius: 15,
-          offset: Offset(0, 5),
-        ),
+  Widget _buildBottomNav(BuildContext context) {
+    final currentIndex = ref.watch(currentTabProvider);
+    final clamped = currentIndex.clamp(0, 3);
+
+    return BottomNavigationBar(
+      currentIndex: clamped,
+      onTap: (index) => ref.read(currentTabProvider.notifier).state = index,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: FRColors.surface.withOpacity(0.97),
+      selectedItemColor: FRColors.tan,
+      unselectedItemColor: FRColors.textSubtle,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Ana Sayfa'),
+        BottomNavigationBarItem(icon: Icon(Icons.search_rounded), label: 'Ara'),
+        BottomNavigationBarItem(icon: Icon(Icons.add_circle_rounded), label: 'Ekle'),
+        BottomNavigationBarItem(icon: Icon(Icons.list_rounded), label: 'Liste'),
       ],
     );
   }
@@ -953,75 +720,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return 'İyi geceler';
   }
 
-  Map<String, double> _resolveTrendByProduct(List<PriceModel> latestPrices) {
+  Map<String, double> _computePriceChangeByProduct(List<PriceModel> prices) {
     final grouped = <String, List<PriceModel>>{};
-    for (final price in latestPrices) {
-      final id = price.productId.trim();
-      if (id.isEmpty) continue;
-      grouped.putIfAbsent(id, () => <PriceModel>[]).add(price);
+    for (final price in prices) {
+      grouped.putIfAbsent(price.productId, () => <PriceModel>[]).add(price);
     }
 
-    final trendMap = <String, double>{};
-    grouped.forEach((productId, prices) {
-      if (prices.length < 2) return;
-      prices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      final current = prices[0].price;
-      final previous = prices[1].price;
-      if (previous <= 0) return;
-      trendMap[productId] = ((current - previous) / previous) * 100;
-    });
-
-    return trendMap;
+    final result = <String, double>{};
+    for (final entry in grouped.entries) {
+      if (entry.value.length < 2) continue;
+      final sorted = [...entry.value]..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
+      final latest = sorted.first.price;
+      final previous = sorted[1].price;
+      if (previous <= 0) continue;
+      result[entry.key] = ((latest - previous) / previous) * 100;
+    }
+    return result;
   }
 
-  IconData _categoryIcon(String title) {
-    final lower = title.toLowerCase();
-    if (lower.contains('market') || lower.contains('gıda')) {
-      return Icons.shopping_cart_rounded;
+  String _getTrendBadge(ProductModel product) {
+    if (product.priceEntryCount <= 2) return 'YENİ';
+    if (product.isEditorPick) {
+      return 'FIRSAT';
     }
-    if (lower.contains('tekno') || lower.contains('elektronik')) {
-      return Icons.laptop_mac_rounded;
-    }
-    if (lower.contains('kozmetik') || lower.contains('bakım')) {
-      return Icons.face_retouching_natural_rounded;
-    }
-    if (lower.contains('hobi') || lower.contains('spor')) {
-      return Icons.sports_esports_rounded;
-    }
-    return Icons.category_rounded;
-  }
-
-}
-
-class _PopularBadge extends StatelessWidget {
-  const _PopularBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: FRSpaceInsets.popularBadge,
-      decoration: BoxDecoration(
-        color: FRColors.camelOverlay(0.15),
-        borderRadius: FRRadius.xsRadius,
-      ),
-      child: const Row(
-        children: [
-          Icon(
-            Icons.local_fire_department_rounded,
-            size: 12,
-            color: FRColors.camelStrong,
-          ),
-          SizedBox(width: 4),
-          Text(
-            'POPÜLER',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              color: FRColors.camelStrong,
-            ),
-          ),
-        ],
-      ),
-    );
+    return 'TREND';
   }
 }

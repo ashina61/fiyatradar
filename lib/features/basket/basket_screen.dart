@@ -14,9 +14,9 @@ import 'widgets/basket_sticky_bar.dart';
 
 /// DEPRECATED: Legacy basket surface kept only for compatibility.
 ///
-/// Canonical production cart flow is `CartScreenV2` + `CartResultTab`.
+/// Canonical production cart flow is `CartScreen` (V10) + `CartResultTab`.
 /// Do not add new product logic into this screen.
-@Deprecated('Use CartScreenV2 as the canonical production cart surface.')
+@Deprecated('Use CartScreen as the canonical production cart surface.')
 class BasketScreen extends ConsumerStatefulWidget {
   const BasketScreen({super.key});
 
