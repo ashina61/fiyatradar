@@ -937,11 +937,19 @@ class _LastPriceHero extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              FRBadgeChip(
-                label: '${avgDiff >= 0 ? '+' : ''}${avgDiff.toStringAsFixed(1)}% ort. fark',
-                backgroundColor: avgDiff <= 0 ? FRColors.successBgMuted : FRColors.danger.withOpacity(0.15),
-                foregroundColor: avgDiff <= 0 ? FRColors.successMuted : FRColors.danger,
-                borderColor: avgDiff <= 0 ? FRColors.successMuted.withOpacity(0.32) : FRColors.danger.withOpacity(0.32),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: FRBadgeChip(
+                      label: '${avgDiff >= 0 ? '+' : ''}${avgDiff.toStringAsFixed(1)}% ort. fark',
+                      backgroundColor: avgDiff <= 0 ? FRColors.successBgMuted : FRColors.danger.withOpacity(0.15),
+                      foregroundColor: avgDiff <= 0 ? FRColors.successMuted : FRColors.danger,
+                      borderColor: avgDiff <= 0 ? FRColors.successMuted.withOpacity(0.32) : FRColors.danger.withOpacity(0.32),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1132,7 +1140,7 @@ class _VerificationCard extends StatelessWidget {
               _buildTrustItem(
                 icon: Icons.people_outline,
                 title: 'Kaynak',
-                subtitle: '${product.marketPrices.length} farklı platform',
+                subtitle: '${product.marketPrices.length} farklı kaynak',
               ),
             ],
           ),
@@ -1576,7 +1584,7 @@ class _MarketListCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const FRSectionHeader(
-            title: 'Diğer Platformlar',
+            title: 'Diğer Kaynaklar',
             icon: Icons.store_outlined,
             trailing: Text(
               'Tümünü Gör',
@@ -1674,7 +1682,7 @@ class _MarketItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  entry.userNote?.trim().isNotEmpty == true ? entry.userNote!.trim() : (entry.isOnline ? 'Online platform' : 'Fiyat kaydı'),
+                  entry.userNote?.trim().isNotEmpty == true ? entry.userNote!.trim() : (entry.isOnline ? 'Online kaynak' : 'Fiyat kaydı'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _t(s: 10, w: FontWeight.w600, c: FRColors.textSubtleDark),
@@ -1744,10 +1752,14 @@ class _CommentsCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text('Topluluk Görüşü', style: _t(s: 13, w: FontWeight.w700, c: FRColors.textPrimaryDark)),
               const Spacer(),
-              GestureDetector(
-                onTap: onViewAllTap,
+              TextButton(
+                onPressed: onViewAllTap,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
                 child: Text(
-                  'Tümü',
+                  'Detay',
                   style: _t(s: 11, w: FontWeight.w600, c: FRColors.tan),
                 ),
               ),
