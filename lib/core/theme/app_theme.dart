@@ -18,7 +18,7 @@ class AppTheme {
     );
 
     return base.copyWith(
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
