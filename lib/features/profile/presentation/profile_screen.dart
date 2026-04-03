@@ -1,102 +1,85 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/constants/app_radius.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const settings = [
-      'Bildirimler',
-      'Konum',
-      'Karanlık Mod',
-      'Hakkında',
-      'Gizlilik',
-      'FAQ',
-      'Güncelleme Geçmişi',
-      'Admin Linkleri',
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             children: [
+              // Avatar
               Container(
-                width: 84,
-                height: 84,
-                decoration: const BoxDecoration(
-                  color: AppColors.tan,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    'FK',
-                    style: TextStyle(
-                      color: AppColors.bgPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 26,
-                    ),
-                  ),
-                ),
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(color: AppColors.tan.withOpacity(0.3), shape: BoxShape.circle, border: Border.all(color: AppColors.tan, width: 2)),
+                child: const Center(child: Text('FK', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: AppColors.tan))),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              const Text(
-                'Fatih Kaya',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: 16),
+
+              // İsim
+              const Text('Fatih Kaya', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              const SizedBox(height: 8),
+
+              // Level Badge
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Text(
-                  'Level 18 • Elite',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(border: Border.all(color: AppColors.textSecondary), borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: const Text('Level 18 • Elite', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              ),
+              const SizedBox(height: 24),
+
+              // İstatistikler
+              Row(
+                children: [
+                  _buildStatBox('482', 'Fiyat'),
+                  const SizedBox(width: 12),
+                  _buildStatBox('137', 'Doğrulama'),
+                  const SizedBox(width: 12),
+                  _buildStatBox('96', 'Yorum'),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // XP Progress
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('XP Progress', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    const SizedBox(height: 10),
+                    Container(height: 6, decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(AppRadius.full)), child: Row(children: [Container(width: 200, height: 6, decoration: BoxDecoration(color: AppColors.tan, borderRadius: BorderRadius.circular(AppRadius.full)))])),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const _StatsRow(),
-              const SizedBox(height: AppSpacing.lg),
-              const _XpProgressCard(),
-              const SizedBox(height: AppSpacing.lg),
-              ...settings.map((item) => _SettingItem(label: item)),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
+              const SizedBox(height: 16),
+
+              // Ayar Listesi
+              _buildSettingItem('Bildirimler'),
+              _buildSettingItem('Konum'),
+              _buildSettingItem('Karanlık Mod'),
+              _buildSettingItem('Hakkında'),
+              _buildSettingItem('Gizlilik'),
+              _buildSettingItem('FAQ'),
+              _buildSettingItem('Güncelleme Geçmişi'),
+              _buildSettingItem('Admin Linkleri'),
+              const SizedBox(height: 24),
+
+              // Çıkış Butonu
+              Container(
                 width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.danger,
-                    foregroundColor: AppColors.bgPrimary,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text(
-                    'Çıkış Yap',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: const Color(0xFFD48A8A), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                child: const Center(child: Text('Çıkış Yap', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white))),
               ),
             ],
           ),
@@ -104,117 +87,34 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: _StatCard(text: '482 Fiyat')),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(child: _StatCard(text: '137 Doğrulama')),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(child: _StatCard(text: '96 Yorum')),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.md,
-        horizontal: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
+  Widget _buildStatBox(String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+        child: Column(
+          children: [
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSubtle)),
+          ],
         ),
-        textAlign: TextAlign.center,
       ),
     );
   }
-}
 
-class _XpProgressCard extends StatelessWidget {
-  const _XpProgressCard();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSettingItem(String title) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'XP Progress',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            child: const LinearProgressIndicator(
-              value: 0.74,
-              minHeight: AppSpacing.sm,
-              backgroundColor: AppColors.surfaceAlt,
-              color: AppColors.tan,
-            ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textSubtle, size: 20),
         ],
-      ),
-    );
-  }
-}
-
-class _SettingItem extends StatelessWidget {
-  const _SettingItem({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ListTile(
-        title: Text(
-          label,
-          style: const TextStyle(color: AppColors.textPrimary),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: AppColors.textSecondary,
-        ),
       ),
     );
   }

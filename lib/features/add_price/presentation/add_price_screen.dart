@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/constants/app_radius.dart';
 
 class AddPriceScreen extends StatelessWidget {
   const AddPriceScreen({super.key});
@@ -11,350 +11,124 @@ class AddPriceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.lg,
-            AppSpacing.xl,
-            120,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'Fiyat Ekle',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
+          onPressed: () => context.pop(),
+        ),
+        title: const Text('Fiyat Ekle', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Ürün Seçimi
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+              child: Row(
+                children: [
+                  Expanded(child: Text('Apple Watch SE 2. Nesil', style: const TextStyle(fontSize: 15, color: AppColors.textPrimary))),
+                  Text('Değiştir', style: TextStyle(color: AppColors.tan, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // XP Banner
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: AppColors.successBg, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.success.withOpacity(0.3))),
+              child: const Text('Bu fiyatı eklersen +24 XP ve +1 Trust kazanırsın.', style: TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+            ),
+            const SizedBox(height: 24),
+
+            // Fiyat Kaynağı
+            const Text('Fiyat Kaynağı', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: 'Trendyol',
+                  isExpanded: true,
+                  dropdownColor: AppColors.surface,
+                  items: ['Trendyol', 'Hepsiburada', 'Amazon', 'N11'].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: AppColors.textPrimary)))).toList(),
+                  onChanged: (_) {},
                 ),
               ),
-              SizedBox(height: AppSpacing.lg),
-              _ProductSummary(),
-              SizedBox(height: AppSpacing.md),
-              _XpBanner(),
-              SizedBox(height: AppSpacing.lg),
-              _FieldLabel('Fiyat Kaynağı'),
-              SizedBox(height: AppSpacing.sm),
-              _SourceDropdown(),
-              SizedBox(height: AppSpacing.md),
-              _FieldLabel('Fiyat (₺)'),
-              SizedBox(height: AppSpacing.sm),
-              _PriceInput(),
-              SizedBox(height: AppSpacing.md),
-              _FieldLabel('Not'),
-              SizedBox(height: AppSpacing.sm),
-              _NoteInput(),
-              SizedBox(height: AppSpacing.md),
-              _ValidationBox(),
-              SizedBox(height: AppSpacing.lg),
-              _ScoreGrid(),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+
+            // Fiyat
+            const Text('Fiyat (₺)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              height: 100,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+              child: const TextField(style: TextStyle(fontSize: 20, color: AppColors.textPrimary), decoration: InputDecoration(border: InputBorder.none, hintText: '0,00', hintStyle: TextStyle(color: AppColors.textSubtle))),
+            ),
+            const SizedBox(height: 24),
+
+            // Not
+            const Text('Not', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+              child: const TextField(maxLines: 3, style: TextStyle(fontSize: 15, color: AppColors.textPrimary), decoration: InputDecoration(border: InputBorder.none, hintText: 'Opsiyonel notlar', hintStyle: TextStyle(color: AppColors.textSubtle))),
+            ),
+            const SizedBox(height: 16),
+
+            // Doğrulama Kutusu
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.tan.withOpacity(0.5))),
+              child: const Text('Doğrulama: URL veya ekran görüntüsü eklemek güven skorunu artırır.', style: TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+            ),
+            const SizedBox(height: 16),
+
+            // 4 Kutu Grid
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 2.2,
+              children: [
+                _buildTrustBox('Kaynak Kalitesi +2'),
+                _buildTrustBox('Hız +1'),
+                _buildTrustBox('Tutarlılık +3'),
+                _buildTrustBox('Topluluk +1'),
+              ],
+            ),
+          ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.sm,
-            AppSpacing.xl,
-            AppSpacing.lg,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.tan,
-                foregroundColor: AppColors.bgPrimary,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                ),
-              ),
-              onPressed: () {},
-              child: const Text(
-                'Fiyatı Gönder',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, AppColors.bgPrimary.withOpacity(0.95)]),
+        ),
+        child: ElevatedButton(
+          onPressed: () {},
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.tan, foregroundColor: AppColors.bgPrimary, minimumSize: const Size(double.infinity, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)), elevation: 0),
+          child: const Text('Fiyatı Gönder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         ),
       ),
     );
   }
-}
 
-class _ProductSummary extends StatelessWidget {
-  const _ProductSummary();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTrustBox(String text) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: const Icon(
-              Icons.watch_rounded,
-              color: AppColors.tan,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          const Expanded(
-            child: Text(
-              'Apple Watch SE 2. Nesil',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {},
-            child: const Text(
-              'Değiştir',
-              style: TextStyle(
-                color: AppColors.tan,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _XpBanner extends StatelessWidget {
-  const _XpBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.bannerPositive,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: const Text(
-        'Bu fiyatı eklersen +24 XP ve +1 Trust kazanırsın.',
-        style: TextStyle(
-          color: AppColors.bgPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _SourceDropdown extends StatefulWidget {
-  const _SourceDropdown();
-
-  @override
-  State<_SourceDropdown> createState() => _SourceDropdownState();
-}
-
-class _SourceDropdownState extends State<_SourceDropdown> {
-  String source = 'Trendyol';
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: source,
-      dropdownColor: AppColors.surface,
-      iconEnabledColor: AppColors.textSecondary,
-      style: const TextStyle(color: AppColors.textPrimary),
-      items: ['Trendyol', 'Hepsiburada', 'Amazon']
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-          .toList(),
-      onChanged: (value) => setState(() => source = value ?? source),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.tan),
-        ),
-      ),
-    );
-  }
-}
-
-class _PriceInput extends StatelessWidget {
-  const _PriceInput();
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      keyboardType: TextInputType.number,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 28,
-        fontWeight: FontWeight.w800,
-      ),
-      decoration: InputDecoration(
-        prefixText: '₺ ',
-        prefixStyle: const TextStyle(
-          color: AppColors.tan,
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-        ),
-        hintText: '0,00',
-        hintStyle: const TextStyle(color: AppColors.textSubtle),
-        filled: true,
-        fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.lg,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          borderSide: const BorderSide(color: AppColors.tan),
-        ),
-      ),
-    );
-  }
-}
-
-class _NoteInput extends StatelessWidget {
-  const _NoteInput();
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      maxLines: 3,
-      style: const TextStyle(color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: 'Opsiyonel notlar',
-        hintStyle: const TextStyle(color: AppColors.textSubtle),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.tan),
-        ),
-      ),
-    );
-  }
-}
-
-class _ValidationBox extends StatelessWidget {
-  const _ValidationBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.warning),
-      ),
-      child: const Text(
-        'Doğrulama: URL veya ekran görüntüsü eklemek güven skorunu artırır.',
-        style: TextStyle(color: AppColors.textSecondary),
-      ),
-    );
-  }
-}
-
-class _ScoreGrid extends StatelessWidget {
-  const _ScoreGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    const cells = [
-      'Kaynak Kalitesi +2',
-      'Hız +1',
-      'Tutarlılık +3',
-      'Topluluk +1',
-    ];
-
-    return GridView.builder(
-      itemCount: cells.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: AppSpacing.sm,
-        mainAxisSpacing: AppSpacing.sm,
-        childAspectRatio: 2.4,
-      ),
-      itemBuilder: (_, index) {
-        return Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Text(
-            cells[index],
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        );
-      },
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
+      child: Center(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary))),
     );
   }
 }
