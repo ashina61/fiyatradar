@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_radius.dart';
+import '../../../core/constants/app_spacing.dart';
 
 class HomeScreen extends StatelessWidget {
-  // Simüle edilmiş kullanıcı adı (gerçek app'te auth provider'dan gelecek)
-  static const String userName = 'Fatih';
-
   const HomeScreen({super.key});
+
+  static const String userName = 'Fatih';
 
   @override
   Widget build(BuildContext context) {
@@ -22,60 +22,51 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSpacing.sm),
-              Text(
+              const Text(
                 'Merhaba,',
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               Text(
                 '$userName 👋',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-
-              // Arama Çubuğu
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(AppRadius.xl),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(
-                      Icons.search_rounded,
-                      color: AppColors.textSubtle,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    Icon(Icons.search_rounded, color: AppColors.textSubtle, size: 22),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(
                       child: Text(
                         'Ürün, market veya kategori ara',
                         style: TextStyle(color: AppColors.textSubtle, fontSize: 15),
                       ),
                     ),
-                    const Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: AppColors.textSubtle,
-                      size: 22,
-                    ),
+                    Icon(Icons.qr_code_scanner_rounded, color: AppColors.textSubtle, size: 22),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpacing.xxl),
-
-              // Canlı Fiyatlar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: const [
+                  const Row(
+                    children: [
                       Icon(Icons.bolt_rounded, color: AppColors.tan, size: 20),
-                      SizedBox(width: 8),
+                      SizedBox(width: AppSpacing.sm),
                       Text(
                         'Canlı Fiyatlar',
                         style: TextStyle(
@@ -99,14 +90,13 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-
               _buildFeedItem(
                 context,
                 'Şampuan Pro',
                 '2 dk önce • Trendyol',
                 '₺189',
                 Icons.water_drop_rounded,
-                Colors.teal,
+                AppColors.itemTeal,
               ),
               _buildFeedItem(
                 context,
@@ -114,7 +104,7 @@ class HomeScreen extends StatelessWidget {
                 '5 dk önce • Hepsiburada',
                 '₺329',
                 Icons.coffee_rounded,
-                Colors.orange,
+                AppColors.itemOrange,
               ),
               _buildFeedItem(
                 context,
@@ -122,16 +112,13 @@ class HomeScreen extends StatelessWidget {
                 '9 dk önce • Amazon',
                 '₺1.299',
                 Icons.headphones_rounded,
-                Colors.grey,
+                AppColors.itemGray,
               ),
-
               const SizedBox(height: AppSpacing.xxl),
-
-              // Seçkiler (Gradient Kartlar)
-              Row(
-                children: const [
+              const Row(
+                children: [
                   Icon(Icons.auto_awesome_rounded, color: AppColors.tan, size: 20),
-                  SizedBox(width: 8),
+                  SizedBox(width: AppSpacing.sm),
                   Text(
                     'Seçkiler',
                     style: TextStyle(
@@ -143,24 +130,22 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-
               SizedBox(
                 height: 140,
                 child: Row(
-                  children: [
-                    _buildSelectionCard('Haftanın\nFırsatı', const [
-                      Color(0xFFB8956A),
-                      Color(0xFF8A6A4A),
-                    ]),
-                    const SizedBox(width: AppSpacing.md),
-                    _buildSelectionCard('Doğrulanmış\nDüşüşler', const [
-                      Color(0xFF6B8A7A),
-                      Color(0xFF4A6B5A),
-                    ]),
+                  children: const [
+                    _SelectionCard(
+                      title: 'Haftanın\nFırsatı',
+                      colors: [AppColors.gradientGoldStart, AppColors.gradientGoldEnd],
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    _SelectionCard(
+                      title: 'Doğrulanmış\nDüşüşler',
+                      colors: [AppColors.gradientGreenStart, AppColors.gradientGreenEnd],
+                    ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 100),
             ],
           ),
@@ -168,12 +153,11 @@ class HomeScreen extends StatelessWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
         child: FloatingActionButton.extended(
           onPressed: () => context.push('/add-price'),
           backgroundColor: AppColors.tan,
           foregroundColor: AppColors.bgPrimary,
-          elevation: 6,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.full),
           ),
@@ -195,8 +179,8 @@ class HomeScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/detail'),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        padding: const EdgeInsets.all(AppSpacing.lg - 2),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -213,7 +197,7 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Icon(icon, color: iconColor, size: 24),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpacing.lg - 2),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +210,7 @@ class HomeScreen extends StatelessWidget {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     meta,
                     style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
@@ -247,11 +231,19 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildSelectionCard(String text, List<Color> colors) {
+class _SelectionCard extends StatelessWidget {
+  const _SelectionCard({required this.title, required this.colors});
+
+  final String title;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: colors,
@@ -265,13 +257,13 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: Colors.white70, size: 24),
+            const Icon(Icons.auto_awesome_rounded, color: AppColors.textPrimary, size: 24),
             Text(
-              text,
+              title,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
           ],
