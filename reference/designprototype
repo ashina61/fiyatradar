@@ -2,9 +2,9 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiyatRadar V10 — Complete Prototype</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FiyatRadar V10 — Complete Working Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -19,6 +19,8 @@
             --tan: #C4A57B;
             --success: #8A9A8B;
             --success-bg: rgba(138, 154, 139, 0.1);
+            --warning: #B58B7A;
+            --danger: #A67B7B;
             --radius-md: 10px;
             --radius-lg: 14px;
             --radius-xl: 18px;
@@ -26,7 +28,7 @@
             --shadow-md: 0 2px 6px rgba(0,0,0,0.18);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body {
             font-family: 'Inter', sans-serif;
@@ -46,6 +48,8 @@
             box-shadow: 0 0 0 14px #12100E, 0 25px 100px rgba(0,0,0,0.5);
             overflow: hidden;
             position: relative;
+            display: flex;
+            flex-direction: column;
             transform: scale(0.92);
         }
 
@@ -53,9 +57,17 @@
             display: none;
             flex-direction: column;
             height: 100%;
+            background: var(--bg-primary);
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity 0.3s, transform 0.3s;
         }
 
-        .screen.active { display: flex; }
+        .screen.active {
+            display: flex;
+            opacity: 1;
+            transform: translateX(0);
+        }
 
         .status-bar {
             height: 44px;
@@ -67,27 +79,541 @@
             font-size: 14px;
             font-weight: 600;
             flex-shrink: 0;
+            background: rgba(26,22,20,0.9);
+            backdrop-filter: blur(20px);
         }
 
         .app-bar {
             padding: 16px 24px;
             background: var(--bg-primary);
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .app-bar-title {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 800;
             color: var(--text-primary);
+            flex: 1;
         }
 
-        .app-bar-title span { color: var(--tan); }
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .icon-btn:hover {
+            color: var(--tan);
+            border-color: var(--tan);
+        }
 
         .screen-content {
             flex: 1;
             overflow-y: auto;
+            scrollbar-width: none;
         }
 
+        .screen-content::-webkit-scrollbar { display: none; }
+
+        /* Profile Screen */
+        .profile-header {
+            padding: 32px 24px 24px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, transparent 100%);
+        }
+
+        .profile-avatar {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--surface-alt), var(--surface));
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            border: 3px solid var(--tan);
+            position: relative;
+        }
+
+        .profile-avatar .online-dot {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--success);
+            border: 3px solid var(--bg-primary);
+        }
+
+        .profile-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .profile-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--tan);
+            color: var(--bg-primary);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            margin-bottom: 12px;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--tan);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-subtle);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .xp-section {
+            margin: 0 24px 24px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+        }
+
+        .xp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .xp-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .xp-current {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--tan);
+        }
+
+        .xp-bar {
+            height: 8px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--tan), var(--tan));
+            border-radius: var(--radius-full);
+            width: 75%;
+        }
+
+        .xp-hint {
+            font-size: 10px;
+            color: var(--text-subtle);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Settings Sections */
+        .settings-section {
+            margin: 0 24px 24px;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-item:hover {
+            background: var(--surface-alt);
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--tan);
+            font-size: 18px;
+            margin-right: 14px;
+        }
+
+        .settings-info {
+            flex: 1;
+        }
+
+        .settings-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .settings-desc {
+            font-size: 11px;
+            color: var(--text-subtle);
+        }
+
+        .settings-arrow {
+            color: var(--text-subtle);
+            font-size: 16px;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            width: 50px;
+            height: 28px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-full);
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: var(--tan);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(22px);
+        }
+
+        /* FAQ Section */
+        .faq-item {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .faq-question {
+            padding: 18px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .faq-question:hover {
+            background: var(--surface-alt);
+        }
+
+        .faq-answer {
+            padding: 0 16px 18px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: none;
+        }
+
+        .faq-answer.show {
+            display: block;
+        }
+
+        .faq-icon {
+            color: var(--tan);
+            transition: transform 0.2s;
+        }
+
+        .faq-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        /* Update History */
+        .update-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .update-item:last-child {
+            border-bottom: none;
+        }
+
+        .update-version {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--tan);
+            margin-bottom: 6px;
+        }
+
+        .update-date {
+            font-size: 11px;
+            color: var(--text-subtle);
+            margin-bottom: 10px;
+        }
+
+        .update-changes {
+            list-style: none;
+        }
+
+        .update-changes li {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .update-changes li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: var(--tan);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .badge-new {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .badge-hot {
+            background: rgba(181, 139, 122, 0.15);
+            color: var(--warning);
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            height: 72px;
+            background: rgba(42, 37, 34, 0.97);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-subtle);
+            cursor: pointer;
+            padding: 8px 16px;
+        }
+
+        .nav-item.active {
+            color: var(--tan);
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            height: 52px;
+            border-radius: var(--radius-lg);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--tan);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.92;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--tan);
+        }
+
+        .btn-danger {
+            background: rgba(166, 123, 123, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(166, 123, 123, 0.3);
+        }
+
+        /* Admin Panel */
+        .admin-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 0 24px 24px;
+        }
+
+        .admin-stat-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .admin-stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--tan);
+            margin-bottom: 4px;
+        }
+
+        .admin-stat-label {
+            font-size: 11px;
+            color: var(--text-subtle);
+            font-weight: 600;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            padding: 13px 22px;
+            border-radius: var(--radius-full);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            backdrop-filter: blur(20px);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast i {
+            color: var(--tan);
+            font-size: 16px;
+        }
+
+        /* Navigation Helpers */
+        .nav-helpers {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            z-index: 1000;
+            max-width: 600px;
+            justify-content: center;
+        }
+
+        .nav-helper-btn {
+            background: rgba(26, 26, 23, 0.95);
+            border: 2px solid var(--tan);
+            border-radius: var(--radius-lg);
+            padding: 8px 14px;
+            color: var(--tan);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-helper-btn:hover {
+            background: var(--tan);
+            color: var(--bg-primary);
+        }
+
+        /* Search Input */
         .search-input-wrapper {
             margin: 0 24px 16px;
             background: var(--surface);
@@ -108,26 +634,7 @@
             outline: none;
         }
 
-        .section { padding: 0 24px 24px; }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-
-        .section-title i { color: var(--tan); }
-
+        /* Live Feed Item */
         .live-feed-item {
             background: var(--surface);
             border-radius: var(--radius-lg);
@@ -137,6 +644,11 @@
             display: flex;
             align-items: center;
             gap: 14px;
+            cursor: pointer;
+        }
+
+        .live-feed-item:hover {
+            background: var(--surface-alt);
         }
 
         .product-image {
@@ -174,6 +686,7 @@
             color: var(--tan);
         }
 
+        /* Trend Card */
         .trend-scroll {
             display: flex;
             gap: 13px;
@@ -187,6 +700,11 @@
             background: var(--surface);
             border-radius: var(--radius-xl);
             border: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .trend-card:hover {
+            border-color: var(--tan);
         }
 
         .trend-image {
@@ -214,6 +732,7 @@
             color: var(--text-subtle);
         }
 
+        /* FAB */
         .fab {
             position: absolute;
             bottom: 90px;
@@ -229,32 +748,7 @@
             box-shadow: 0 4px 12px rgba(196, 165, 123, 0.3);
         }
 
-        .bottom-nav {
-            height: 72px;
-            background: rgba(42, 37, 34, 0.97);
-            border-top: 1px solid var(--border);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            color: var(--text-subtle);
-            cursor: pointer;
-        }
-
-        .nav-item.active { color: var(--tan); }
-
-        .nav-icon { font-size: 20px; }
-
-        .nav-label { font-size: 10px; font-weight: 600; }
-
-        /* Cart Screen Specific */
+        /* Cart Screen */
         .summary-card {
             margin: 16px;
             padding: 18px;
@@ -314,6 +808,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
+            color: var(--text-secondary);
         }
 
         .toggle-option.active {
@@ -326,6 +821,11 @@
             border-radius: var(--radius-lg);
             border: 1px solid var(--border);
             margin: 0 16px 10px;
+            cursor: pointer;
+        }
+
+        .cart-item:hover {
+            border-color: var(--tan);
         }
 
         .cart-item-header {
@@ -376,37 +876,8 @@
             background: linear-gradient(180deg, transparent, rgba(26, 22, 20, 0.95));
         }
 
-        .btn-primary {
-            width: 100%;
-            height: 52px;
-            background: var(--tan);
-            color: var(--bg-primary);
-            border: none;
-            border-radius: var(--radius-lg);
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        .action-bar .btn {
             margin-bottom: 10px;
-        }
-
-        .btn-secondary {
-            width: 100%;
-            height: 48px;
-            background: transparent;
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
 
         .microcopy {
@@ -417,31 +888,196 @@
             line-height: 1.45;
         }
 
-        /* Navigation Helpers */
-        .nav-helpers {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+        /* Product Detail Specific */
+        .detail-hero {
+            padding: 24px;
+            text-align: center;
+        }
+
+        .detail-image {
+            width: 160px;
+            height: 160px;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            margin: 0 auto 16px;
             display: flex;
-            gap: 8px;
-            z-index: 1000;
-        }
-
-        .nav-helper-btn {
-            background: rgba(26, 26, 23, 0.95);
-            border: 2px solid var(--tan);
-            border-radius: var(--radius-lg);
-            padding: 8px 16px;
+            align-items: center;
+            justify-content: center;
+            font-size: 72px;
             color: var(--tan);
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
+            border: 1px solid var(--border);
         }
 
-        .nav-helper-btn:hover {
+        .detail-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .detail-meta {
+            font-size: 13px;
+            color: var(--text-subtle);
+            margin-bottom: 10px;
+        }
+
+        .detail-rating {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--surface);
+            padding: 5px 11px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .best-price-card {
+            margin: 0 24px 16px;
+            background: linear-gradient(135deg, var(--surface-alt), var(--surface));
+            border: 1px solid rgba(196, 165, 123, 0.25);
+            border-radius: var(--radius-xl);
+            padding: 22px;
+            position: relative;
+        }
+
+        .best-price-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--tan), var(--tan));
+        }
+
+        .trust-block {
+            margin: 0 24px 20px;
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            border: 1px solid var(--border);
+        }
+
+        .trust-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .trust-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--surface-alt);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--tan);
+            font-size: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .contributor-spotlight {
+            margin: 0 24px 20px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-lg);
+            padding: 14px 18px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-container {
+            margin: 0 24px 20px;
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-bars {
+            height: 100px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 5px;
+            padding-top: 10px;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: var(--surface-alt);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .chart-bar.active {
             background: var(--tan);
-            color: var(--bg-primary);
+        }
+
+        .seller-list {
+            margin: 0 24px 20px;
+        }
+
+        .seller-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .seller-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Add Price Specific */
+        .motivation-banner {
+            margin-bottom: 16px;
+            padding: 14px;
+            background: linear-gradient(135deg, rgba(196, 165, 123, 0.06), rgba(196, 165, 123, 0.02));
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(196, 165, 123, 0.25);
+        }
+
+        .validation-box {
+            margin-bottom: 16px;
+            padding: 10px 12px;
+            background: rgba(138, 154, 139, 0.1);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(138, 154, 139, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .trust-impact {
+            margin-bottom: 24px;
+            padding: 14px;
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+        }
+
+        .trust-impact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .impact-item {
+            padding: 10px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            text-align: center;
         }
     </style>
 </head>
@@ -455,22 +1091,22 @@
             <span>🔋</span>
         </div>
 
-        <div class="app-bar">
+        <div style="padding: 16px 24px;">
             <div style="margin-bottom: 2px; font-size: 11px; font-weight: 500; color: var(--text-subtle);">Merhaba, Mehmet</div>
-            <div class="app-bar-title">Fiyat<span>Radar</span></div>
+            <div style="font-size: 24px; font-weight: 800; color: var(--text-primary);">Fiyat<span style="color: var(--tan);">Radar</span></div>
         </div>
 
         <div class="search-input-wrapper">
             <i class="fas fa-search" style="color: var(--tan); font-size: 18px;"></i>
-            <input type="text" class="search-input" placeholder="Ürün, marka veya kategori ara...">
-            <i class="fas fa-qrcode" style="color: var(--text-subtle); font-size: 18px; cursor: pointer;"></i>
+            <input type="text" class="search-input" placeholder="Ürün, marka veya kategori ara..." onclick="showScreen('search-screen')">
+            <i class="fas fa-qrcode" style="color: var(--text-subtle); font-size: 18px; cursor: pointer;" onclick="showToast('Barkod tara')"></i>
         </div>
 
         <div class="screen-content">
-            <div class="section">
-                <div class="section-header">
-                    <div class="section-title"><i class="fas fa-bolt"></i> Canlı Fiyatlar</div>
-                    <div style="font-size: 12px; font-weight: 600; color: var(--tan); cursor: pointer;">Tümü</div>
+            <div style="padding: 0 24px 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 16px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 7px;"><i class="fas fa-bolt" style="color: var(--tan);"></i> Canlı Fiyatlar</div>
+                    <div style="font-size: 12px; font-weight: 600; color: var(--tan); cursor: pointer;" onclick="showScreen('search-screen')">Tümü</div>
                 </div>
                 
                 <div class="live-feed-item" onclick="showScreen('detail-screen')">
@@ -501,11 +1137,8 @@
                 </div>
             </div>
 
-            <div class="section">
-                <div class="section-header">
-                    <div class="section-title"><i class="fas fa-compass"></i> Seçkiler</div>
-                </div>
-                
+            <div style="padding: 0 24px 24px;">
+                <div style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 7px;"><i class="fas fa-compass" style="color: var(--tan);"></i> Seçkiler</div>
                 <div class="trend-scroll">
                     <div class="trend-card" onclick="showScreen('detail-screen')">
                         <div class="trend-image">💻</div>
@@ -547,9 +1180,9 @@
                 <i class="fas fa-plus-circle nav-icon"></i>
                 <span class="nav-label">Ekle</span>
             </div>
-            <div class="nav-item" onclick="showScreen('cart-screen')">
-                <i class="fas fa-list nav-icon"></i>
-                <span class="nav-label">Liste</span>
+            <div class="nav-item" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
             </div>
         </div>
     </div>
@@ -561,30 +1194,31 @@
             <span>🔋</span>
         </div>
 
-        <div class="app-bar" style="display: flex; align-items: center; gap: 12px;">
+        <div class="app-bar">
             <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('home-screen')"></i>
-            <div class="app-bar-title" style="font-size: 18px;">Ara</div>
+            <div class="app-bar-title">Ara</div>
+            <div style="width: 36px;"></div>
         </div>
 
         <div class="search-input-wrapper">
             <i class="fas fa-search" style="color: var(--tan); font-size: 18px;"></i>
             <input type="text" class="search-input" value="kablosuz kulaklık" placeholder="Ürün, marka veya kategori ara...">
-            <i class="fas fa-times" style="color: var(--text-subtle); font-size: 18px; cursor: pointer;"></i>
+            <i class="fas fa-times" style="color: var(--text-subtle); font-size: 18px; cursor: pointer;" onclick="this.previousElementSibling.value = ''"></i>
         </div>
 
         <div class="screen-content">
             <div style="padding: 0 24px 8px; display: flex; gap: 6px; overflow-x: auto;">
-                <div style="padding: 7px 14px; background: var(--tan); color: var(--bg-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap;">Tümü</div>
-                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border);">Elektronik</div>
-                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border);">Gıda</div>
-                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border);">Kitap</div>
+                <div style="padding: 7px 14px; background: var(--tan); color: var(--bg-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer;">Tümü</div>
+                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border); cursor: pointer;">Elektronik</div>
+                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border); cursor: pointer;">Gıda</div>
+                <div style="padding: 7px 14px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-full); font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid var(--border); cursor: pointer;">Kitap</div>
             </div>
 
             <div style="padding: 8px 24px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-size: 12px; color: var(--text-subtle);"><strong style="color: var(--tan);">128</strong> sonuç bulundu</div>
             </div>
 
-            <div class="section" style="padding-top: 0;">
+            <div style="padding: 0 24px 24px;">
                 <div class="live-feed-item" onclick="showScreen('detail-screen')">
                     <div class="product-image">🎧</div>
                     <div class="product-info">
@@ -627,9 +1261,9 @@
                 <i class="fas fa-plus-circle nav-icon"></i>
                 <span class="nav-label">Ekle</span>
             </div>
-            <div class="nav-item" onclick="showScreen('cart-screen')">
-                <i class="fas fa-list nav-icon"></i>
-                <span class="nav-label">Liste</span>
+            <div class="nav-item" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
             </div>
         </div>
     </div>
@@ -641,27 +1275,26 @@
             <span>🔋</span>
         </div>
 
-        <div class="app-bar" style="display: flex; align-items: center; gap: 12px;">
+        <div class="app-bar">
             <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('home-screen')"></i>
-            <div style="flex: 1;"></div>
-            <i class="fas fa-share-alt" style="color: var(--text-secondary); font-size: 20px; cursor: pointer; margin-right: 12px;"></i>
-            <i class="fas fa-bookmark" style="color: var(--text-secondary); font-size: 20px; cursor: pointer;"></i>
+            <div class="app-bar-title" style="flex: 1;"></div>
+            <i class="fas fa-share-alt" style="color: var(--text-secondary); font-size: 20px; cursor: pointer; margin-right: 12px;" onclick="showToast('Paylaşım linki kopyalandı!')"></i>
+            <i class="fas fa-bookmark" style="color: var(--text-secondary); font-size: 20px; cursor: pointer;" onclick="showToast('Listeye eklendi!')"></i>
         </div>
 
         <div class="screen-content">
-            <div style="text-align: center; padding: 24px;">
-                <div style="width: 160px; height: 160px; background: var(--surface); border-radius: var(--radius-xl); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 72px; border: 1px solid var(--border);">🎧</div>
-                <div style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Sony WH-1000XM5</div>
-                <div style="font-size: 13px; color: var(--text-subtle); margin-bottom: 10px;">Sony • Elektronik</div>
-                <div style="display: inline-flex; align-items: center; gap: 5px; background: var(--surface); padding: 5px 11px; border-radius: var(--radius-full); border: 1px solid var(--border); font-size: 12px; color: var(--text-secondary);">
+            <div class="detail-hero">
+                <div class="detail-image">🎧</div>
+                <div class="detail-title">Sony WH-1000XM5</div>
+                <div class="detail-meta">Sony • Elektronik</div>
+                <div class="detail-rating">
                     <i class="fas fa-star" style="color: var(--tan);"></i>
                     <strong style="color: var(--tan);">4.3</strong>
                     <span>• 128 yorum</span>
                 </div>
             </div>
 
-            <div style="margin: 0 24px 16px; background: linear-gradient(135deg, var(--surface-alt), var(--surface)); border: 1px solid rgba(196, 165, 123, 0.25); border-radius: var(--radius-xl); padding: 22px; position: relative;">
-                <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--tan), var(--tan));"></div>
+            <div class="best-price-card">
                 <div style="font-size: 11px; color: var(--tan); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
                     <i class="fas fa-crown"></i> En İyi Fiyat
                 </div>
@@ -675,16 +1308,16 @@
                     <i class="fas fa-check-circle"></i> Doğrulandı
                 </div>
                 <div style="display: flex; gap: 8px; margin-top: 14px;">
-                    <button style="flex: 1; height: 38px; background: var(--tan); color: var(--bg-primary); border: none; border-radius: var(--radius-md); font-size: 12px; font-weight: 600; cursor: pointer;">
+                    <button style="flex: 1; height: 38px; background: var(--tan); color: var(--bg-primary); border: none; border-radius: var(--radius-md); font-size: 12px; font-weight: 600; cursor: pointer;" onclick="showToast('Listeye eklendi!')">
                         <i class="fas fa-star"></i> Listeye Ekle
                     </button>
-                    <button style="flex: 1; height: 38px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 12px; font-weight: 600; cursor: pointer;">
+                    <button style="flex: 1; height: 38px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 12px; font-weight: 600; cursor: pointer;" onclick="showToast('Alarm kuruldu!')">
                         <i class="fas fa-bell"></i> Alarm
                     </button>
                 </div>
             </div>
 
-            <div style="margin: 0 24px 20px; background: var(--surface); border-radius: var(--radius-lg); padding: 18px; border: 1px solid var(--border);">
+            <div class="trust-block">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
                     <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                         <i class="fas fa-shield-alt" style="color: var(--success);"></i> Güven Analizi
@@ -694,30 +1327,30 @@
                         <span style="font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600;">Güvenilir</span>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <div style="width: 28px; height: 28px; background: var(--surface-alt); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--tan); font-size: 12px; border: 1px solid var(--border);"><i class="fas fa-check"></i></div>
+                <div class="trust-grid">
+                    <div class="trust-item">
+                        <div class="trust-icon"><i class="fas fa-check"></i></div>
                         <div>
                             <div style="font-size: 11px; font-weight: 600; color: var(--text-primary);">Doğrulanmış</div>
                             <div style="font-size: 10px; color: var(--text-subtle); line-height: 1.35;">Topluluk onayı</div>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <div style="width: 28px; height: 28px; background: var(--surface-alt); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--tan); font-size: 12px; border: 1px solid var(--border);"><i class="fas fa-bolt"></i></div>
+                    <div class="trust-item">
+                        <div class="trust-icon"><i class="fas fa-bolt"></i></div>
                         <div>
                             <div style="font-size: 11px; font-weight: 600; color: var(--text-primary);">Canlı Veri</div>
                             <div style="font-size: 10px; color: var(--text-subtle); line-height: 1.35;">Son 5 dakika</div>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <div style="width: 28px; height: 28px; background: var(--surface-alt); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--tan); font-size: 12px; border: 1px solid var(--border);"><i class="fas fa-chart-line"></i></div>
+                    <div class="trust-item">
+                        <div class="trust-icon"><i class="fas fa-chart-line"></i></div>
                         <div>
                             <div style="font-size: 11px; font-weight: 600; color: var(--text-primary);">Trend</div>
                             <div style="font-size: 10px; color: var(--text-subtle); line-height: 1.35;">Ortalamadan %12 düşük</div>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <div style="width: 28px; height: 28px; background: var(--surface-alt); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--tan); font-size: 12px; border: 1px solid var(--border);"><i class="fas fa-users"></i></div>
+                    <div class="trust-item">
+                        <div class="trust-icon"><i class="fas fa-users"></i></div>
                         <div>
                             <div style="font-size: 11px; font-weight: 600; color: var(--text-primary);">Kaynak</div>
                             <div style="font-size: 10px; color: var(--text-subtle); line-height: 1.35;">12 farklı platform</div>
@@ -726,7 +1359,7 @@
                 </div>
             </div>
 
-            <div style="margin: 0 24px 20px; background: var(--surface-alt); border-radius: var(--radius-lg); padding: 14px 18px; border: 1px solid var(--border);">
+            <div class="contributor-spotlight">
                 <div style="font-size: 11px; font-weight: 600; color: var(--text-subtle); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">BU FİYATI EKLEYEN</div>
                 <div style="display: flex; align-items: center; gap: 11px;">
                     <div style="width: 36px; height: 36px; background: linear-gradient(135deg, var(--surface-alt), var(--surface)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; border: 1px solid var(--border);">👨</div>
@@ -737,11 +1370,11 @@
                             <span>• %96 Güven</span>
                         </div>
                     </div>
-                    <div style="font-size: 11px; color: var(--tan); font-weight: 600; cursor: pointer;">+ Takip</div>
+                    <div style="font-size: 11px; color: var(--tan); font-weight: 600; cursor: pointer;" onclick="showToast('Kullanıcı takip edildi!')">+ Takip</div>
                 </div>
             </div>
 
-            <div style="margin: 0 24px 20px; background: var(--surface); border-radius: var(--radius-lg); padding: 18px; border: 1px solid var(--border);">
+            <div class="chart-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                     <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">30 Günlük Değişim</div>
                     <div style="display: flex; gap: 5px;">
@@ -750,23 +1383,23 @@
                         <button style="background: none; border: none; color: var(--text-subtle); font-size: 10px; font-weight: 600; padding: 5px 9px; cursor: pointer;">90G</button>
                     </div>
                 </div>
-                <div style="height: 100px; display: flex; align-items: flex-end; justify-content: space-between; gap: 5px; padding-top: 10px;">
-                    <div style="flex: 1; background: var(--surface-alt); border-radius: 3px 3px 0 0; height: 40%;"></div>
-                    <div style="flex: 1; background: var(--surface-alt); border-radius: 3px 3px 0 0; height: 55%;"></div>
-                    <div style="flex: 1; background: var(--surface-alt); border-radius: 3px 3px 0 0; height: 45%;"></div>
-                    <div style="flex: 1; background: var(--surface-alt); border-radius: 3px 3px 0 0; height: 70%;"></div>
-                    <div style="flex: 1; background: var(--surface-alt); border-radius: 3px 3px 0 0; height: 60%;"></div>
-                    <div style="flex: 1; background: var(--tan); border-radius: 3px 3px 0 0; height: 80%;"></div>
+                <div class="chart-bars">
+                    <div class="chart-bar" style="height: 40%;"></div>
+                    <div class="chart-bar" style="height: 55%;"></div>
+                    <div class="chart-bar" style="height: 45%;"></div>
+                    <div class="chart-bar" style="height: 70%;"></div>
+                    <div class="chart-bar" style="height: 60%;"></div>
+                    <div class="chart-bar active" style="height: 80%;"></div>
                 </div>
             </div>
 
-            <div style="margin: 0 24px 20px;">
+            <div class="seller-list">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                     <div style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Diğer Platformlar</div>
                     <div style="font-size: 12px; color: var(--tan); font-weight: 600; cursor: pointer;">Tümünü Gör</div>
                 </div>
                 
-                <div style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div class="seller-item">
                     <div style="display: flex; align-items: center; gap: 11px;">
                         <div style="width: 36px; height: 36px; background: var(--surface-alt); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--tan); border: 1px solid var(--border);">H</div>
                         <div>
@@ -780,7 +1413,7 @@
                     </div>
                 </div>
 
-                <div style="padding: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+                <div class="seller-item">
                     <div style="display: flex; align-items: center; gap: 11px;">
                         <div style="width: 36px; height: 36px; background: var(--surface-alt); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--tan); border: 1px solid var(--border);">A</div>
                         <div>
@@ -800,7 +1433,7 @@
 
         <div style="padding: 14px 24px 18px; background: linear-gradient(180deg, transparent, var(--bg-primary));">
             <div style="display: flex; gap: 10px;">
-                <button style="flex: 1; height: 48px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: 13px; font-weight: 600; cursor: pointer;">
+                <button style="flex: 1; height: 48px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: 13px; font-weight: 600; cursor: pointer;" onclick="showToast('Alarm kuruldu!')">
                     <i class="fas fa-bell"></i> Alarm
                 </button>
                 <button style="flex: 1; height: 48px; background: var(--tan); color: var(--bg-primary); border: none; border-radius: var(--radius-lg); font-size: 13px; font-weight: 600; cursor: pointer;" onclick="showScreen('add-price-screen')">
@@ -822,9 +1455,9 @@
                 <i class="fas fa-plus-circle nav-icon"></i>
                 <span class="nav-label">Ekle</span>
             </div>
-            <div class="nav-item" onclick="showScreen('cart-screen')">
-                <i class="fas fa-list nav-icon"></i>
-                <span class="nav-label">Liste</span>
+            <div class="nav-item" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
             </div>
         </div>
     </div>
@@ -836,10 +1469,10 @@
             <span>🔋</span>
         </div>
 
-        <div class="app-bar" style="display: flex; align-items: center; gap: 12px;">
+        <div class="app-bar">
             <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('detail-screen')"></i>
-            <div class="app-bar-title" style="font-size: 18px;">Fiyat Bildir</div>
-            <div style="width: 20px;"></div>
+            <div class="app-bar-title">Fiyat Bildir</div>
+            <div style="width: 36px;"></div>
         </div>
 
         <div style="padding: 12px 24px; background: var(--surface-alt); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
@@ -848,11 +1481,11 @@
                 <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Sony WH-1000XM5</div>
                 <div style="font-size: 11px; color: var(--text-subtle);">Elektronik • Kablosuz Kulaklık</div>
             </div>
-            <div style="font-size: 12px; color: var(--tan); font-weight: 600; cursor: pointer;">Değiştir</div>
+            <div style="font-size: 12px; color: var(--tan); font-weight: 600; cursor: pointer;" onclick="showToast('Ürün değiştirme')">Değiştir</div>
         </div>
 
         <div class="screen-content" style="padding: 16px;">
-            <div style="margin-bottom: 16px; padding: 14px; background: linear-gradient(135deg, rgba(196, 165, 123, 0.06), rgba(196, 165, 123, 0.02)); border-radius: var(--radius-lg); border: 1px solid rgba(196, 165, 123, 0.25);">
+            <div class="motivation-banner">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
                     <div style="width: 28px; height: 28px; background: linear-gradient(135deg, var(--tan), var(--tan)); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><i class="fas fa-trending-up" style="font-size: 14px; color: var(--bg-primary);"></i></div>
                     <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Level 13'e 25 XP kaldı</div>
@@ -899,25 +1532,25 @@
                 </div>
             </div>
 
-            <div style="margin-bottom: 16px; padding: 10px 12px; background: rgba(138, 154, 139, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(138, 154, 139, 0.3); display: flex; align-items: center; gap: 8px;">
+            <div class="validation-box">
                 <i class="fas fa-check-circle" style="color: var(--success); font-size: 16px;"></i>
                 <span style="font-size: 12px; font-weight: 600; color: var(--success);">Fiyat makul aralıkta</span>
             </div>
 
-            <div style="margin-bottom: 24px; padding: 14px; background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div class="trust-impact">
                 <div style="font-size: 11px; font-weight: 600; color: var(--text-subtle); margin-bottom: 10px; letter-spacing: 0.5px;">BU KATKI İLE</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                    <div style="padding: 10px; background: var(--surface-alt); border-radius: var(--radius-md); border: 1px solid var(--border); text-align: center;">
+                <div class="trust-impact-grid">
+                    <div class="impact-item">
                         <i class="fas fa-star" style="color: var(--tan); font-size: 16px; margin-bottom: 4px;"></i>
                         <div style="font-size: 16px; font-weight: 700; color: var(--tan);">+5</div>
                         <div style="font-size: 9px; color: var(--text-subtle); font-weight: 600; letter-spacing: 0.3px;">XP</div>
                     </div>
-                    <div style="padding: 10px; background: var(--surface-alt); border-radius: var(--radius-md); border: 1px solid var(--border); text-align: center;">
+                    <div class="impact-item">
                         <i class="fas fa-shield-alt" style="color: var(--tan); font-size: 16px; margin-bottom: 4px;"></i>
                         <div style="font-size: 16px; font-weight: 700; color: var(--tan);">+2</div>
                         <div style="font-size: 9px; color: var(--text-subtle); font-weight: 600; letter-spacing: 0.3px;">Güven</div>
                     </div>
-                    <div style="padding: 10px; background: var(--surface-alt); border-radius: var(--radius-md); border: 1px solid var(--border); text-align: center;">
+                    <div class="impact-item">
                         <i class="fas fa-medal" style="color: var(--tan); font-size: 16px; margin-bottom: 4px;"></i>
                         <div style="font-size: 16px; font-weight: 700; color: var(--tan);">1</div>
                         <div style="font-size: 9px; color: var(--text-subtle); font-weight: 600; letter-spacing: 0.3px;">Rozet</div>
@@ -927,7 +1560,7 @@
         </div>
 
         <div style="padding: 12px 24px 18px; background: linear-gradient(180deg, transparent, rgba(26, 22, 20, 0.95));">
-            <button style="width: 100%; height: 52px; background: var(--tan); color: var(--bg-primary); border: none; border-radius: var(--radius-lg); font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <button style="width: 100%; height: 52px; background: var(--tan); color: var(--bg-primary); border: none; border-radius: var(--radius-lg); font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="showToast('✅ Fiyat başarıyla eklendi!'); setTimeout(() => showScreen('home-screen'), 1500)">
                 <i class="fas fa-paper-plane"></i> Fiyatı Gönder
             </button>
             <div style="text-align: center; font-size: 10px; color: var(--text-subtle); margin-top: 12px; line-height: 1.45;">Katkınız topluluk tarafından doğrulanacaktır.</div>
@@ -946,9 +1579,9 @@
                 <i class="fas fa-plus-circle nav-icon"></i>
                 <span class="nav-label">Ekle</span>
             </div>
-            <div class="nav-item" onclick="showScreen('cart-screen')">
-                <i class="fas fa-list nav-icon"></i>
-                <span class="nav-label">Liste</span>
+            <div class="nav-item" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
             </div>
         </div>
     </div>
@@ -960,10 +1593,10 @@
             <span>🔋</span>
         </div>
 
-        <div class="app-bar" style="display: flex; align-items: center; gap: 12px;">
+        <div class="app-bar">
             <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('home-screen')"></i>
-            <div class="app-bar-title" style="font-size: 18px; flex: 1;">Karşılaştırma</div>
-            <i class="fas fa-trash-alt" style="color: var(--text-secondary); font-size: 20px; cursor: pointer;"></i>
+            <div class="app-bar-title">Karşılaştırma</div>
+            <i class="fas fa-trash-alt" style="color: var(--text-secondary); font-size: 20px; cursor: pointer;" onclick="showToast('Liste temizlendi')"></i>
         </div>
 
         <div class="screen-content">
@@ -1067,10 +1700,10 @@
         </div>
 
         <div class="action-bar">
-            <button class="btn-primary" onclick="alert('Platform linkleri açılıyor...')">
+            <button class="btn btn-primary" onclick="showToast('Platform linkleri açılıyor...')">
                 <i class="fas fa-external-link-alt"></i> Platform'lara Git
             </button>
-            <button class="btn-secondary">
+            <button class="btn btn-secondary" onclick="showToast('Liste paylaşıldı!')">
                 <i class="fas fa-share-alt"></i> Listeyi Paylaş
             </button>
             <div class="microcopy">Fiyatlar platformlarda değişebilir. Son fiyatları platformda kontrol edin.</div>
@@ -1095,6 +1728,447 @@
             </div>
         </div>
     </div>
+
+    <!-- PROFILE SCREEN -->
+    <div class="screen" id="profile-screen">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>🔋</span>
+        </div>
+
+        <div class="app-bar">
+            <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('home-screen')"></i>
+            <div class="app-bar-title">Profil</div>
+            <i class="fas fa-cog" style="color: var(--text-secondary); font-size: 20px; cursor: pointer;" onclick="showScreen('settings-screen')"></i>
+        </div>
+
+        <div class="screen-content">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    👤
+                    <div class="online-dot"></div>
+                </div>
+                <div class="profile-name">Mehmet Yılmaz</div>
+                <div class="profile-level"><i class="fas fa-crown"></i> Level 12</div>
+                <div style="font-size: 11px; color: var(--text-subtle);">Üye: Mart 2024</div>
+
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">47</div>
+                        <div class="stat-label">Fiyat</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">Doğrulama</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">8</div>
+                        <div class="stat-label">Yorum</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xp-section">
+                <div class="xp-header">
+                    <div class="xp-label">Level 13 İlerlemesi</div>
+                    <div class="xp-current">750 / 1000 XP</div>
+                </div>
+                <div class="xp-bar">
+                    <div class="xp-fill"></div>
+                </div>
+                <div class="xp-hint">3 katkı daha yaparsan Level 13 olacaksın!</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-item" onclick="showScreen('update-history-screen')">
+                    <div class="settings-icon"><i class="fas fa-history"></i></div>
+                    <div class="settings-info">
+                        <div class="settings-label">Güncelleme Geçmişi</div>
+                        <div class="settings-desc">Son fiyat güncellemelerin</div>
+                    </div>
+                    <i class="fas fa-chevron-right settings-arrow"></i>
+                </div>
+                <div class="settings-item" onclick="showScreen('admin-screen')">
+                    <div class="settings-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="settings-info">
+                        <div class="settings-label">Admin Panel</div>
+                        <div class="settings-desc">İstatistikler ve yönetim</div>
+                    </div>
+                    <i class="fas fa-chevron-right settings-arrow"></i>
+                </div>
+                <div class="settings-item" onclick="showScreen('faq-screen')">
+                    <div class="settings-icon"><i class="fas fa-question-circle"></i></div>
+                    <div class="settings-info">
+                        <div class="settings-label">Sıkça Sorulan Sorular</div>
+                        <div class="settings-desc">Yardım ve destek</div>
+                    </div>
+                    <i class="fas fa-chevron-right settings-arrow"></i>
+                </div>
+            </div>
+
+            <div style="padding: 0 24px 24px;">
+                <button class="btn btn-danger" onclick="showToast('Çıkış yapıldı')">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış Yap
+                </button>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="showScreen('home-screen')">
+                <i class="fas fa-home nav-icon"></i>
+                <span class="nav-label">Ana Sayfa</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('search-screen')">
+                <i class="fas fa-search nav-icon"></i>
+                <span class="nav-label">Ara</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('add-price-screen')">
+                <i class="fas fa-plus-circle nav-icon"></i>
+                <span class="nav-label">Ekle</span>
+            </div>
+            <div class="nav-item active" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS SCREEN -->
+    <div class="screen" id="settings-screen">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>🔋</span>
+        </div>
+
+        <div class="app-bar">
+            <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('profile-screen')"></i>
+            <div class="app-bar-title">Ayarlar</div>
+            <div style="width: 36px;"></div>
+        </div>
+
+        <div class="screen-content">
+            <div style="padding: 0 24px 24px;">
+                <div class="settings-section">
+                    <div class="settings-item">
+                        <div class="settings-icon"><i class="fas fa-bell"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Bildirimler</div>
+                            <div class="settings-desc">Fiyat alarmı ve güncellemeler</div>
+                        </div>
+                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Konum</div>
+                            <div class="settings-desc">Yakındaki fiyatlar</div>
+                        </div>
+                        <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-item">
+                        <div class="settings-icon"><i class="fas fa-moon"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Karanlık Mod</div>
+                            <div class="settings-desc">Göz dostu tema</div>
+                        </div>
+                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-icon"><i class="fas fa-globe"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Dil</div>
+                            <div class="settings-desc">Türkçe</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-item" onclick="showToast('Hakkında açılıyor...')">
+                        <div class="settings-icon"><i class="fas fa-info-circle"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Hakkında</div>
+                            <div class="settings-desc">FiyatRadar V10.0</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                    <div class="settings-item" onclick="showToast('Gizlilik politikası açılıyor...')">
+                        <div class="settings-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Gizlilik Politikası</div>
+                            <div class="settings-desc">Verileriniz güvende</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="showScreen('home-screen')">
+                <i class="fas fa-home nav-icon"></i>
+                <span class="nav-label">Ana Sayfa</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('search-screen')">
+                <i class="fas fa-search nav-icon"></i>
+                <span class="nav-label">Ara</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('add-price-screen')">
+                <i class="fas fa-plus-circle nav-icon"></i>
+                <span class="nav-label">Ekle</span>
+            </div>
+            <div class="nav-item active" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ SCREEN -->
+    <div class="screen" id="faq-screen">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>🔋</span>
+        </div>
+
+        <div class="app-bar">
+            <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('profile-screen')"></i>
+            <div class="app-bar-title">Sıkça Sorulan Sorular</div>
+            <div style="width: 36px;"></div>
+        </div>
+
+        <div class="screen-content">
+            <div class="settings-section" style="margin: 24px 24px 24px;">
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        FiyatRadar nedir?
+                        <i class="fas fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-answer">
+                        FiyatRadar, topluluk tabanlı bir fiyat karşılaştırma platformudur. Kullanıcılar fiyat ekler, en iyi fiyatları bulur ve güvenilir fiyat bilgilerine erişir.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Nasıl fiyat eklerim?
+                        <i class="fas fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-answer">
+                        Ana sayfadan + butonuna tıklayın, ürünü seçin, platformu ve fiyatı girin. Katkınız topluluk tarafından doğrulanacaktır.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Fiyat alarmı nasıl kurulur?
+                        <i class="fas fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-answer">
+                        Ürün detay sayfasında "Alarm Kur" butonuna tıklayın. Hedef fiyatınızı girin, fiyat düştüğünde bildirim alacaksınız.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Güven puanı nasıl hesaplanır?
+                        <i class="fas fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-answer">
+                        Güven puanı; eklediğiniz fiyat sayısı, doğrulama oranı ve topluluk oylamalarına göre hesaplanır. Aktif katkı sağlayarak puanınızı artırabilirsiniz.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Ücretsiz mi?
+                        <i class="fas fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-answer">
+                        Evet, FiyatRadar tamamen ücretsizdir. Premium özellikler gelecekte eklenebilir ancak temel özellikler her zaman ücretsiz kalacaktır.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="showScreen('home-screen')">
+                <i class="fas fa-home nav-icon"></i>
+                <span class="nav-label">Ana Sayfa</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('search-screen')">
+                <i class="fas fa-search nav-icon"></i>
+                <span class="nav-label">Ara</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('add-price-screen')">
+                <i class="fas fa-plus-circle nav-icon"></i>
+                <span class="nav-label">Ekle</span>
+            </div>
+            <div class="nav-item active" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPDATE HISTORY SCREEN -->
+    <div class="screen" id="update-history-screen">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>🔋</span>
+        </div>
+
+        <div class="app-bar">
+            <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('profile-screen')"></i>
+            <div class="app-bar-title">Güncelleme Geçmişi</div>
+            <div style="width: 36px;"></div>
+        </div>
+
+        <div class="screen-content">
+            <div class="settings-section" style="margin: 24px 24px 24px;">
+                <div class="update-item">
+                    <div class="update-version">V10.0 <span class="badge badge-new">YENİ</span></div>
+                    <div class="update-date">15 Ocak 2025</div>
+                    <ul class="update-changes">
+                        <li>Tam V10 redesign — premium dark tema</li>
+                        <li>Cart karşılaştırma aracı eklendi</li>
+                        <li>Trust Block ile güven analizi</li>
+                        <li>Platform dağılımı görünümü</li>
+                        <li>Performans iyileştirmeleri</li>
+                    </ul>
+                </div>
+                <div class="update-item">
+                    <div class="update-version">V9.5</div>
+                    <div class="update-date">8 Ocak 2025</div>
+                    <ul class="update-changes">
+                        <li>Search ekranı iyileştirildi</li>
+                        <li>Filtre sistemi güncellendi</li>
+                        <li>Hata düzeltmeleri</li>
+                    </ul>
+                </div>
+                <div class="update-item">
+                    <div class="update-version">V9.0</div>
+                    <div class="update-date">1 Ocak 2025</div>
+                    <ul class="update-changes">
+                        <li>Product Detail V2</li>
+                        <li>Yorum sistemi eklendi</li>
+                        <li>Fiyat geçmişi grafiği</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="showScreen('home-screen')">
+                <i class="fas fa-home nav-icon"></i>
+                <span class="nav-label">Ana Sayfa</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('search-screen')">
+                <i class="fas fa-search nav-icon"></i>
+                <span class="nav-label">Ara</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('add-price-screen')">
+                <i class="fas fa-plus-circle nav-icon"></i>
+                <span class="nav-label">Ekle</span>
+            </div>
+            <div class="nav-item active" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN SCREEN -->
+    <div class="screen" id="admin-screen">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>🔋</span>
+        </div>
+
+        <div class="app-bar">
+            <i class="fas fa-arrow-left" style="color: var(--text-primary); font-size: 20px; cursor: pointer;" onclick="showScreen('profile-screen')"></i>
+            <div class="app-bar-title">Admin Panel</div>
+            <div style="width: 36px;"></div>
+        </div>
+
+        <div class="screen-content">
+            <div class="admin-stats">
+                <div class="admin-stat-card">
+                    <div class="admin-stat-value">15.2K</div>
+                    <div class="admin-stat-label">Ürün</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-value">8.4K</div>
+                    <div class="admin-stat-label">Kullanıcı</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-value">47.8K</div>
+                    <div class="admin-stat-label">Fiyat</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-value">94%</div>
+                    <div class="admin-stat-label">Doğruluk</div>
+                </div>
+            </div>
+
+            <div style="padding: 0 24px 24px;">
+                <div class="settings-section">
+                    <div class="settings-item" onclick="showToast('Fiyat onayları açılıyor...')">
+                        <div class="settings-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Fiyat Onayları</div>
+                            <div class="settings-desc">12 bekleyen onay</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                    <div class="settings-item" onclick="showToast('Kullanıcı yönetimi açılıyor...')">
+                        <div class="settings-icon"><i class="fas fa-users"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Kullanıcı Yönetimi</div>
+                            <div class="settings-desc">Topluluk moderasyonu</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                    <div class="settings-item" onclick="showToast('Raporlar açılıyor...')">
+                        <div class="settings-icon"><i class="fas fa-chart-bar"></i></div>
+                        <div class="settings-info">
+                            <div class="settings-label">Raporlar</div>
+                            <div class="settings-desc">Detaylı analizler</div>
+                        </div>
+                        <i class="fas fa-chevron-right settings-arrow"></i>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="showToast('Veriler yenilendi')">
+                    <i class="fas fa-sync-alt"></i> Verileri Yenile
+                </button>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="showScreen('home-screen')">
+                <i class="fas fa-home nav-icon"></i>
+                <span class="nav-label">Ana Sayfa</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('search-screen')">
+                <i class="fas fa-search nav-icon"></i>
+                <span class="nav-label">Ara</span>
+            </div>
+            <div class="nav-item" onclick="showScreen('add-price-screen')">
+                <i class="fas fa-plus-circle nav-icon"></i>
+                <span class="nav-label">Ekle</span>
+            </div>
+            <div class="nav-item active" onclick="showScreen('profile-screen')">
+                <i class="fas fa-user nav-icon"></i>
+                <span class="nav-label">Profil</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast">
+    <i class="fas fa-check-circle"></i>
+    <span id="toast-msg">Message</span>
 </div>
 
 <!-- Navigation Helpers -->
@@ -1102,19 +2176,29 @@
     <button class="nav-helper-btn" onclick="showScreen('home-screen')">Home</button>
     <button class="nav-helper-btn" onclick="showScreen('search-screen')">Search</button>
     <button class="nav-helper-btn" onclick="showScreen('detail-screen')">Detail</button>
-    <button class="nav-helper-btn" onclick="showScreen('add-price-screen')">Add</button>
+    <button class="nav-helper-btn" onclick="showScreen('add-price-screen')">Add Price</button>
     <button class="nav-helper-btn" onclick="showScreen('cart-screen')">Cart</button>
+    <button class="nav-helper-btn" onclick="showScreen('profile-screen')">Profile</button>
+    <button class="nav-helper-btn" onclick="showScreen('settings-screen')">Settings</button>
+    <button class="nav-helper-btn" onclick="showScreen('faq-screen')">FAQ</button>
+    <button class="nav-helper-btn" onclick="showScreen('update-history-screen')">Updates</button>
+    <button class="nav-helper-btn" onclick="showScreen('admin-screen')">Admin</button>
 </div>
 
 <script>
     function showScreen(screenId) {
+        // Hide all screens
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        
+        // Show target screen
         document.getElementById(screenId).classList.add('active');
         
+        // Update bottom nav
         const navMap = {
             'home-screen': 0,
             'search-screen': 1,
             'add-price-screen': 2,
+            'profile-screen': 3,
             'cart-screen': 3
         };
         
@@ -1123,11 +2207,36 @@
                 item.classList.toggle('active', navMap[screenId] === i);
             });
         });
+        
+        // Scroll to top
+        const screen = document.getElementById(screenId);
+        const content = screen.querySelector('.screen-content');
+        if (content) content.scrollTop = 0;
+    }
+
+    function toggleSwitch(element) {
+        element.classList.toggle('active');
+        showToast(element.classList.contains('active') ? 'Açık' : 'Kapalı');
+    }
+
+    function toggleFaq(element) {
+        const answer = element.nextElementSibling;
+        const icon = element.querySelector('.faq-icon');
+        answer.classList.toggle('show');
+        icon.classList.toggle('rotated');
     }
 
     function toggleCombination(element) {
         document.querySelectorAll('.toggle-option').forEach(opt => opt.classList.remove('active'));
         element.classList.add('active');
+        showToast(element.textContent.trim() + ' seçildi');
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-msg').innerText = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
     }
 </script>
 
