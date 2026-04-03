@@ -12,6 +12,8 @@ import '../../providers/user_provider.dart';
 import '../../theme/fr_colors.dart';
 import '../../theme/fr_radius.dart';
 import '../../theme/fr_spacing.dart';
+import '../../widgets/fr_button.dart';
+import '../../widgets/fr_surface_card.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({
@@ -61,7 +63,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final product = _cachedProduct;
 
     return Scaffold(
-      backgroundColor: FRColors.surfaceSoft,
+      backgroundColor: FRColors.bgPrimary,
       appBar: _buildAppBar(context),
       body: SafeArea(
         bottom: false,
@@ -77,11 +79,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildMotivationBanner(context),
-                      _buildSourceField(),
-                      const SizedBox(height: 16),
-                      _buildPriceField(),
-                      const SizedBox(height: 16),
-                      _buildNoteField(),
+                      FRSurfaceCard(
+                        color: FRColors.bgSecondary,
+                        borderColor: FRColors.borderDark,
+                        shadow: const <BoxShadow>[],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildSourceField(),
+                            const SizedBox(height: 16),
+                            _buildPriceField(),
+                            const SizedBox(height: 16),
+                            _buildNoteField(),
+                          ],
+                        ),
+                      ),
                       if (_priceController.text.isNotEmpty) _buildValidationHint(),
                       _buildTrustImpactPreview(),
                       const SizedBox(height: 24),
@@ -99,12 +111,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: FRColors.surfaceSoft,
+      backgroundColor: FRColors.bgPrimary,
       elevation: 0,
       toolbarHeight: 56,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-        color: FRColors.textPrimary,
+        color: FRColors.textPrimaryDark,
         onPressed: () => Navigator.maybePop(context),
       ),
       title: const Text(
@@ -112,7 +124,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w800,
-          color: FRColors.textPrimary,
+          color: FRColors.textPrimaryDark,
         ),
       ),
       centerTitle: false,
@@ -123,76 +135,78 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final category = product.categories.isNotEmpty ? product.categories.first : 'Kategori';
 
     return Container(
-      padding: FRSpaceInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        border: Border(bottom: BorderSide(color: FRColors.border)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: FRColors.surfaceAlt,
-              borderRadius: FRRadius.all(FRRadius.md),
-              border: Border.all(color: FRColors.border),
-            ),
-            child: product.effectiveImage != null && product.effectiveImage!.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: FRRadius.all(FRRadius.md),
-                    child: CachedNetworkImage(
-                      imageUrl: product.effectiveImage!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => const Icon(
-                        Icons.category_outlined,
-                        size: 26,
-                        color: FRColors.tan,
+      margin: FRSpaceInsets.fromLTRB(16, 0, 16, 12),
+      child: FRSurfaceCard(
+        padding: FRSpaceInsets.fromLTRB(14, 12, 14, 12),
+        color: FRColors.bgSecondary,
+        borderColor: FRColors.borderDark,
+        shadow: const <BoxShadow>[],
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: FRColors.surfaceAltDark,
+                borderRadius: FRRadius.all(FRRadius.md),
+                border: Border.all(color: FRColors.borderDark),
+              ),
+              child: product.effectiveImage != null && product.effectiveImage!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: FRRadius.all(FRRadius.md),
+                      child: CachedNetworkImage(
+                        imageUrl: product.effectiveImage!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => const Icon(
+                          Icons.category_outlined,
+                          size: 26,
+                          color: FRColors.tan,
+                        ),
                       ),
-                    ),
-                  )
-                : const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: FRColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${product.brand} • $category',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: FRColors.textSubtle,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                    )
+                  : const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
             ),
-          ),
-          TextButton(
-            onPressed: () => _changeProduct(context),
-            child: const Text(
-              'Değiştir',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: FRColors.tan,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: FRColors.textPrimaryDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${product.brand} • $category',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: FRColors.textSubtleDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            TextButton(
+              onPressed: () => _changeProduct(context),
+              child: const Text(
+                'Değiştir',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: FRColors.tanLight,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -202,19 +216,12 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     final points = userModel?.points ?? 0;
     final progress = (points % 100).toDouble();
 
-    return Container(
+    return FRSurfaceCard(
       margin: FRSpaceInsets.only(bottom: 16),
       padding: FRSpaceInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            FRColors.tan.withOpacity(0.06),
-            FRColors.tan.withOpacity(0.02),
-          ],
-        ),
-        borderRadius: FRRadius.all(FRRadius.lg),
-        border: Border.all(color: FRColors.tan.withOpacity(0.25)),
-      ),
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -230,18 +237,18 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                   borderRadius: FRRadius.all(FRRadius.pill),
                 ),
                 child: const Icon(
-                  Icons.trending_up_rounded,
+                  Icons.verified_rounded,
                   size: 14,
-                  color: FRColors.espresso,
+                  color: FRColors.bgPrimary,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                'Sonraki seviyeye ${100 - progress.toInt()} puan kaldı',
+                '${100 - progress.toInt()} puan sonra yeni katkı seviyesi',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: FRColors.textPrimary,
+                  color: FRColors.textPrimaryDark,
                 ),
               ),
             ],
@@ -250,7 +257,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           Container(
             height: 5,
             decoration: BoxDecoration(
-              color: FRColors.surfaceAlt,
+              color: FRColors.surfaceAltDark,
               borderRadius: FRRadius.all(FRRadius.pill),
             ),
             child: FractionallySizedBox(
@@ -268,10 +275,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           ),
           const SizedBox(height: 7),
           const Text(
-            'Bu katkı +5 XP • +2 Güven puanı',
+            'Katkın fiyat güvenini güçlendirir.',
             style: TextStyle(
               fontSize: 11,
-              color: FRColors.textSubtle,
+              color: FRColors.textSubtleDark,
             ),
           ),
           const SizedBox(height: 10),
@@ -280,8 +287,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               _buildRewardChip('+5 XP', Icons.star_rounded),
               const SizedBox(width: 8),
               _buildRewardChip('+2 Güven', Icons.shield_rounded),
-              const SizedBox(width: 8),
-              _buildRewardChip('Rozet', Icons.emoji_events_rounded),
             ],
           ),
         ],
@@ -293,9 +298,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
     return Container(
       padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: FRColors.surfaceAlt,
+        color: FRColors.surfaceAltDark,
         borderRadius: FRRadius.all(FRRadius.sm),
-        border: Border.all(color: FRColors.border),
+        border: Border.all(color: FRColors.borderDark),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -324,26 +329,28 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: FRColors.textPrimary,
+            color: FRColors.textPrimaryDark,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: FRColors.surface,
+            color: FRColors.surfaceDark,
             borderRadius: FRRadius.all(FRRadius.lg),
-            border: Border.all(color: FRColors.border),
+            border: Border.all(color: FRColors.borderDark),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedSource,
+              dropdownColor: FRColors.surfaceDark,
+              iconEnabledColor: FRColors.textSecondaryDark,
               isExpanded: true,
               hint: const Padding(
                 padding: EdgeInsets.all(14),
                 child: Text(
-                  'Platform seçin...',
+                  'Fiyat gördüğün yeri seç...',
                   style: TextStyle(
-                    color: FRColors.textSubtle,
+                    color: FRColors.textSubtleDark,
                     fontSize: 15,
                   ),
                 ),
@@ -358,7 +365,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                           source,
                           style: const TextStyle(
                             fontSize: 15,
-                            color: FRColors.textPrimary,
+                            color: FRColors.textPrimaryDark,
                           ),
                         ),
                       ),
@@ -374,10 +381,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Fiyatı hangi platformda gördün?',
+          'Fiyatı gördüğün mağaza / platform kaynağı',
           style: TextStyle(
             fontSize: 10,
-            color: FRColors.textSubtle,
+            color: FRColors.textSubtleDark,
           ),
         ),
       ],
@@ -393,15 +400,15 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: FRColors.textPrimary,
+            color: FRColors.textPrimaryDark,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: FRColors.surface,
+            color: FRColors.surfaceDark,
             borderRadius: FRRadius.all(FRRadius.lg),
-            border: Border.all(color: FRColors.border),
+            border: Border.all(color: FRColors.borderDark),
           ),
           child: TextField(
             controller: _priceController,
@@ -410,7 +417,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             decoration: const InputDecoration(
               hintText: '0,00',
               hintStyle: TextStyle(
-                color: FRColors.textSubtle,
+                color: FRColors.textSubtleDark,
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
               ),
@@ -431,7 +438,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w700,
-              color: FRColors.textPrimary,
+              color: FRColors.textPrimaryDark,
             ),
             textAlign: TextAlign.right,
             onChanged: (_) => _validateForm(),
@@ -439,10 +446,10 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Güncel fiyatı girin',
+          'Yalnızca fiyat girmen yeterli',
           style: TextStyle(
             fontSize: 10,
-            color: FRColors.textSubtle,
+            color: FRColors.textSubtleDark,
           ),
         ),
       ],
@@ -454,45 +461,45 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Not',
+          'Kısa Not (Opsiyonel)',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: FRColors.textPrimary,
+            color: FRColors.textPrimaryDark,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: FRColors.surface,
+            color: FRColors.surfaceDark,
             borderRadius: FRRadius.all(FRRadius.lg),
-            border: Border.all(color: FRColors.border),
+            border: Border.all(color: FRColors.borderDark),
           ),
           child: TextField(
             controller: _noteController,
             maxLines: 2,
             decoration: const InputDecoration(
-              hintText: 'Kampanyalı fiyat, indirim, stok durumu... (opsiyonel)',
+              hintText: 'Örn: kampanyalı etiket, kasada görülen fiyat...',
               hintStyle: TextStyle(
-                color: FRColors.textSubtle,
-                fontSize: 15,
+                color: FRColors.textSubtleDark,
+                fontSize: 14,
               ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.all(14),
             ),
             style: const TextStyle(
-              fontSize: 15,
-              color: FRColors.textPrimary,
+              fontSize: 14,
+              color: FRColors.textPrimaryDark,
             ),
             onChanged: (_) => _validateForm(),
           ),
         ),
         const SizedBox(height: 4),
         const Text(
-          'Ek bilgi eklemek istersen (isteğe bağlı)',
+          'Kısa bağlam bırakmak istersen',
           style: TextStyle(
             fontSize: 10,
-            color: FRColors.textSubtle,
+            color: FRColors.textSubtleDark,
           ),
         ),
       ],
@@ -508,9 +515,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         margin: FRSpaceInsets.only(top: 12, bottom: 8),
         padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: FRColors.gold.withOpacity(0.1),
+          color: FRColors.goldBg(0.12),
           borderRadius: FRRadius.all(FRRadius.md),
-          border: Border.all(color: FRColors.gold.withOpacity(0.3)),
+          border: Border.all(color: FRColors.gold.withOpacity(0.35)),
         ),
         child: const Row(
           children: [
@@ -536,9 +543,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       margin: FRSpaceInsets.only(top: 12, bottom: 8),
       padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isReasonable ? FRColors.success.withOpacity(0.1) : FRColors.gold.withOpacity(0.1),
+        color: isReasonable ? FRColors.successBgMuted : FRColors.goldBg(0.12),
         borderRadius: FRRadius.all(FRRadius.md),
-        border: Border.all(color: isReasonable ? FRColors.success.withOpacity(0.3) : FRColors.gold.withOpacity(0.3)),
+        border: Border.all(color: isReasonable ? FRColors.successMuted.withOpacity(0.35) : FRColors.gold.withOpacity(0.35)),
       ),
       child: Row(
         children: [
@@ -564,23 +571,21 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildTrustImpactPreview() {
-    return Container(
+    return FRSurfaceCard(
       margin: FRSpaceInsets.only(top: 8),
       padding: FRSpaceInsets.all(14),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
-        border: Border.all(color: FRColors.border),
-      ),
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Bu Katkı İle',
+            'Katkı Etkisi',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: FRColors.textSubtle,
+              color: FRColors.textSubtleDark,
               letterSpacing: 0.5,
             ),
           ),
@@ -590,8 +595,6 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               _buildImpactItem('+5', 'XP', Icons.star_rounded),
               const SizedBox(width: 10),
               _buildImpactItem('+2', 'Güven', Icons.shield_rounded),
-              const SizedBox(width: 10),
-              _buildImpactItem('1', 'Rozet', Icons.emoji_events_rounded),
             ],
           ),
         ],
@@ -604,9 +607,9 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       child: Container(
         padding: FRSpaceInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: FRColors.surfaceAlt,
+          color: FRColors.surfaceAltDark,
           borderRadius: FRRadius.all(FRRadius.md),
-          border: Border.all(color: FRColors.border),
+          border: Border.all(color: FRColors.borderDark),
         ),
         child: Column(
           children: [
@@ -625,7 +628,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
               style: const TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
-                color: FRColors.textSubtle,
+                color: FRColors.textSubtleDark,
                 letterSpacing: 0.3,
               ),
             ),
@@ -636,54 +639,35 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
   }
 
   Widget _buildSubmitSection(BuildContext context) {
-    return Container(
-      padding: FRSpaceInsets.fromLTRB(16, 12, 16, 18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.transparent, FRColors.surfaceSoft.withOpacity(0.95)],
-        ),
-      ),
+    return FRSurfaceCard(
+      margin: FRSpaceInsets.fromLTRB(16, 8, 16, 16),
+      padding: FRSpaceInsets.fromLTRB(14, 12, 14, 14),
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
       child: Column(
         children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSubmitting || !_isFormValid() ? null : () => _submitPrice(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FRColors.tan,
-                foregroundColor: FRColors.espresso,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: FRRadius.all(FRRadius.lg)),
-                elevation: 0,
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.espresso),
-                    )
-                  : const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.send_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Fiyatı Gönder',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
+          _isSubmitting
+              ? const SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.tan),
+                  ),
+                )
+              : FRButton.primary(
+                  expanded: true,
+                  label: 'Fiyat Kaydını Gönder',
+                  icon: Icons.send_rounded,
+                  onPressed: _isFormValid() ? () => _submitPrice(context) : null,
+                ),
           const SizedBox(height: 12),
           const Text(
             'Katkınız topluluk tarafından doğrulanacaktır.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
-              color: FRColors.textSubtle,
+              color: FRColors.textSubtleDark,
               height: 1.45,
             ),
           ),

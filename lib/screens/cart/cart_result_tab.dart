@@ -8,6 +8,8 @@ import '../../theme/fr_colors.dart';
 import '../../theme/fr_radius.dart';
 import '../../theme/fr_spacing.dart';
 import '../../theme/fr_typography.dart';
+import '../../widgets/fr_button.dart';
+import '../../widgets/fr_surface_card.dart';
 
 class CartResultTab extends StatelessWidget {
   const CartResultTab({
@@ -165,7 +167,7 @@ class _SuccessState extends StatefulWidget {
 }
 
 class _SuccessStateState extends State<_SuccessState> {
-  double _scrollOffset = 0;
+  _ComparisonMode _mode = _ComparisonMode.mixed;
 
   @override
   Widget build(BuildContext context) {
@@ -182,116 +184,354 @@ class _SuccessStateState extends State<_SuccessState> {
         return a.totalPrice.compareTo(b.totalPrice);
       });
 
-    final minTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a < b ? a : b);
-    final maxTotal = markets.map((e) => e.totalPrice).reduce((a, b) => a > b ? a : b);
-
-    // KAZANÇ HESAPLAMASI: İkinci sıradaki market ile birinci sıradaki marketin farkı
-    double calculatedSaving = 0;
-    if (markets.length > 1) {
-      calculatedSaving = markets[1].totalPrice - best.totalPrice;
-    } else {
-      calculatedSaving = maxTotal - best.totalPrice;
+    final mixed = _buildBestMixedLines(markets);
+    final hasMixed = mixed.isComplete && mixed.lines.isNotEmpty;
+    if (!hasMixed && _mode == _ComparisonMode.mixed) {
+      _mode = _ComparisonMode.singlePlatform;
     }
+    final selectedLines = _mode == _ComparisonMode.mixed ? mixed.lines : _singlePlatformLines(best);
+    final activeTotal = selectedLines.fold<double>(0, (sum, line) => sum + line.total);
+    final referenceTotal = _mode == _ComparisonMode.mixed ? best.totalPrice : mixed.total;
+    final savings = (referenceTotal - activeTotal).clamp(0, double.infinity);
+    final savingsPercent = referenceTotal > 0 ? ((savings / referenceTotal) * 100) : 0;
+    final distribution = _groupByPlatform(selectedLines);
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification.metrics.axis == Axis.vertical) {
-          setState(() => _scrollOffset = notification.metrics.pixels.clamp(0, 220));
-        }
-        return false;
-      },
+    return Container(
+      color: FRColors.bgPrimary,
       child: ListView(
-        padding: FRSpaceInsets.fromLTRB(FRSpacing.xxl, FRSpacing.lg, FRSpacing.xxl, 120), // Alt bar için boşluk
+        padding: FRSpaceInsets.fromLTRB(FRSpacing.lg, FRSpacing.mdPlus, FRSpacing.lg, 32),
         children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 14 * (1 - value)), child: child)),
-            child: _HeroCard(
-              best: best, 
-              totalProducts: state.missingProducts.length + best.lines.length, 
-              scrollFactor: _scrollOffset, 
-              savingAmount: calculatedSaving, // Dinamik kazanç gönderiliyor
+          _buildTopBar(),
+          const SizedBox(height: 12),
+          _buildSummaryCard(
+            total: activeTotal,
+            referenceTotal: referenceTotal,
+            savings: savings,
+            savingsPercent: savingsPercent,
+            selectedLines: selectedLines,
+            platformCount: distribution.length,
+          ),
+          const SizedBox(height: 12),
+          _buildCombinationToggle(hasMixed),
+          const SizedBox(height: 12),
+          ...selectedLines.map(_buildItemRow),
+          const SizedBox(height: 12),
+          _buildPlatformDistribution(distribution),
+          const SizedBox(height: 14),
+          _buildBottomActionBar(markets),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return FRSurfaceCard(
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
+      padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.mdPlus, vertical: FRSpacing.smPlus),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_graph_rounded, size: 18, color: FRColors.tanLight),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Karşılaştırma Sonucu',
+              style: _t(color: FRColors.textPrimaryDark, fontWeight: FontWeight.w700),
             ),
           ),
-          const SizedBox(height: 25),
-          Text(
-            'Alternatif Marketler',
-            style: _t(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: FRColors.espressoSoft,
-            ),
-          ),
-          if (widget.selectedStoreNames.isNotEmpty) ...[
-            const SizedBox(height: 6),
+          if (widget.selectedStoreNames.isNotEmpty)
             Text(
-              'Seçili mağazalar: ${widget.selectedStoreNames.join(', ')}',
-              style: _t(
-                color: FRColors.textMuted,
-                fontSize: 12,
+              '${widget.selectedStoreNames.length} kaynak',
+              style: _t(color: FRColors.textSecondaryDark, fontSize: 12),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required double total,
+    required double referenceTotal,
+    required double savings,
+    required double savingsPercent,
+    required List<_ResultLine> selectedLines,
+    required int platformCount,
+  }) {
+    return FRSurfaceCard(
+      color: FRColors.surfaceDark,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
+      padding: FRSpaceInsets.all(FRSpacing.lg),
+      child: Column(
+        children: [
+          Text('EN İYİ KOMBİNASYON', style: _t(fontSize: 11, color: FRColors.textSubtleDark, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(formatTRY(total), style: _t(fontSize: 34, color: FRColors.textPrimaryDark, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text('Referans toplam: ${formatTRY(referenceTotal)}', style: _t(fontSize: 12, color: FRColors.textSecondaryDark)),
+          if (savings > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.md, vertical: FRSpacing.xsPlus),
+              decoration: BoxDecoration(
+                color: FRColors.successBgMuted,
+                borderRadius: FRRadius.pillRadius,
+                border: Border.all(color: FRColors.successMuted.withOpacity(0.35)),
+              ),
+              child: Text(
+                '${formatTRY(savings)} tahmini tasarruf (%${savingsPercent.toStringAsFixed(0)})',
+                style: _t(fontSize: 12, fontWeight: FontWeight.w700, color: FRColors.successMuted),
               ),
             ),
           ],
-          const SizedBox(height: 15),
-          Container(
-            decoration: BoxDecoration(
-              color: FRColors.white,
-              borderRadius: FRRadius.xxlRadius,
-              border: Border.all(color: FRColors.camelDeep.withOpacity(0.05)),
-            ),
-            child: Column(
-              children: markets.asMap().entries.map((entry) {
-                  return TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: Duration(milliseconds: 320 + (entry.key * 40)),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => Opacity(opacity: value, child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child)),
-                    child: _PremiumMarketRowCard(
-                      market: entry.value, 
-                      bestMarket: best, // Ürün kıyaslaması için Şampiyon marketi gönderiyoruz
-                      rank: entry.key + 1, 
-                      minTotal: minTotal, 
-                      maxTotal: maxTotal
-                    ),
-                  );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 25),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final text = _buildShareText(markets.take(3).toList());
-                    await Clipboard.setData(ClipboardData(text: text));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sonuç panoya kopyalandı.')));
-                  },
-                  icon: const Icon(Icons.content_copy_rounded, color: FRColors.camelDeep),
-                  label: Text('Kopyala', style: _t(color: FRColors.camelDeep)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: FRColors.camelDeep),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => Share.share(_buildShareText(markets.take(3).toList())),
-                  icon: const Icon(Icons.share_rounded),
-                  label: const Text('Paylaş'),
-                  style: FilledButton.styleFrom(backgroundColor: FRColors.camelDeep),
-                ),
-              ),
-            ],
+          const SizedBox(height: 10),
+          Text(
+            '$platformCount platform • ${selectedLines.length} fiyat kaydı',
+            style: _t(fontSize: 11, color: FRColors.textSubtleDark),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildCombinationToggle(bool hasMixed) {
+    Widget option({required String label, required IconData icon, required _ComparisonMode mode, required bool enabled}) {
+      final selected = _mode == mode;
+      return Expanded(
+        child: InkWell(
+          onTap: enabled ? () => setState(() => _mode = mode) : null,
+          borderRadius: FRRadius.mdRadius,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: FRSpaceInsets.symmetric(vertical: FRSpacing.smPlus),
+            decoration: BoxDecoration(
+              color: selected ? FRColors.tan : Colors.transparent,
+              borderRadius: FRRadius.mdRadius,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: selected ? FRColors.bgPrimary : FRColors.textSecondaryDark),
+                const SizedBox(width: 6),
+                Text(label, style: _t(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? FRColors.bgPrimary : FRColors.textSecondaryDark)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return FRSurfaceCard(
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
+      padding: FRSpaceInsets.all(4),
+      child: Row(
+        children: [
+          option(label: 'En İyi Karışık', icon: Icons.layers_rounded, mode: _ComparisonMode.mixed, enabled: hasMixed),
+          option(label: 'Tek Platform', icon: Icons.storefront_rounded, mode: _ComparisonMode.singlePlatform, enabled: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemRow(_ResultLine line) {
+    return Padding(
+      padding: FRSpaceInsets.only(bottom: FRSpacing.sm),
+      child: FRSurfaceCard(
+        color: FRColors.surfaceDark,
+        borderColor: FRColors.borderDark,
+        shadow: const <BoxShadow>[],
+        padding: FRSpaceInsets.all(FRSpacing.md),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('${line.quantity}x ${line.productName}', style: _t(color: FRColors.textPrimaryDark, fontWeight: FontWeight.w600)),
+                ),
+                Text(formatTRY(line.total), style: _t(color: FRColors.tanLight, fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(color: FRColors.tan, borderRadius: FRRadius.smRadius),
+                  alignment: Alignment.center,
+                  child: Text(line.platformName.isEmpty ? '?' : line.platformName.substring(0, 1).toUpperCase(), style: _t(color: FRColors.bgPrimary, fontSize: 11, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(line.platformName, style: _t(fontSize: 12, color: FRColors.textSecondaryDark))),
+                Container(
+                  padding: FRSpaceInsets.symmetric(horizontal: FRSpacing.xsPlus, vertical: FRSpacing.xxs + 1),
+                  decoration: BoxDecoration(
+                    borderRadius: FRRadius.smRadius,
+                    color: line.isVerified ? FRColors.successBgMuted : FRColors.surfaceAltDark,
+                    border: Border.all(color: line.isVerified ? FRColors.successMuted.withOpacity(0.35) : FRColors.borderDark),
+                  ),
+                  child: Text(line.isVerified ? 'Doğrulandı' : 'Topluluk', style: _t(fontSize: 10, color: line.isVerified ? FRColors.successMuted : FRColors.textSubtleDark, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformDistribution(Map<String, List<_ResultLine>> distribution) {
+    return FRSurfaceCard(
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Platform Dağılımı', style: _t(color: FRColors.textPrimaryDark, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          ...distribution.entries.map((entry) {
+            final total = entry.value.fold<double>(0, (sum, line) => sum + line.total);
+            return Padding(
+              padding: FRSpaceInsets.only(bottom: FRSpacing.sm),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(color: FRColors.surfaceAltDark, borderRadius: FRRadius.mdRadius),
+                    alignment: Alignment.center,
+                    child: Text(entry.key.isEmpty ? '?' : entry.key.substring(0, 1).toUpperCase(), style: _t(color: FRColors.tanLight, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('${entry.key} • ${entry.value.length} kayıt', style: _t(fontSize: 12, color: FRColors.textSecondaryDark))),
+                  Text(formatTRY(total), style: _t(fontSize: 13, color: FRColors.textPrimaryDark, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(List<CartMarketResultSummary> markets) {
+    return FRSurfaceCard(
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
+      child: Column(
+        children: [
+          FRButton.primary(
+            expanded: true,
+            label: 'Karşılaştırma Özetini Paylaş',
+            icon: Icons.share_rounded,
+            onPressed: () => Share.share(_buildShareText(markets.take(3).toList())),
+          ),
+          const SizedBox(height: 8),
+          FRButton.secondary(
+            expanded: true,
+            label: 'Özeti Kopyala',
+            icon: Icons.content_copy_rounded,
+            onPressed: () async {
+              final text = _buildShareText(markets.take(3).toList());
+              await Clipboard.setData(ClipboardData(text: text));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Karşılaştırma özeti panoya kopyalandı.')));
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Fiyat kaynakları değişebilir. Son fiyatı ilgili platformda yeniden kontrol edin.',
+            textAlign: TextAlign.center,
+            style: _t(fontSize: 10, color: FRColors.textSubtleDark),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _ComparisonMode { mixed, singlePlatform }
+
+class _MixedResult {
+  const _MixedResult({required this.lines, required this.total, required this.isComplete});
+  final List<_ResultLine> lines;
+  final double total;
+  final bool isComplete;
+}
+
+class _ResultLine {
+  const _ResultLine({
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.total,
+    required this.platformName,
+    required this.isVerified,
+  });
+
+  final String productId;
+  final String productName;
+  final int quantity;
+  final double total;
+  final String platformName;
+  final bool isVerified;
+}
+
+List<_ResultLine> _singlePlatformLines(CartMarketResultSummary best) {
+  return best.lines
+      .map(
+        (line) => _ResultLine(
+          productId: line.productId,
+          productName: line.productName,
+          quantity: line.quantity,
+          total: line.lineTotal,
+          platformName: best.storeName,
+          isVerified: line.isVerified,
+        ),
+      )
+      .toList();
+}
+
+_MixedResult _buildBestMixedLines(List<CartMarketResultSummary> markets) {
+  final bestPerProduct = <String, _ResultLine>{};
+  final products = <String>{};
+
+  for (final market in markets) {
+    for (final line in market.lines) {
+      products.add(line.productId);
+      final candidate = _ResultLine(
+        productId: line.productId,
+        productName: line.productName,
+        quantity: line.quantity,
+        total: line.lineTotal,
+        platformName: market.storeName,
+        isVerified: line.isVerified,
+      );
+      final previous = bestPerProduct[line.productId];
+      if (previous == null || candidate.total < previous.total) {
+        bestPerProduct[line.productId] = candidate;
+      }
+    }
+  }
+
+  final lines = bestPerProduct.values.toList()
+    ..sort((a, b) => a.productName.compareTo(b.productName));
+  final total = lines.fold<double>(0, (sum, line) => sum + line.total);
+  final isComplete = products.isNotEmpty && products.length == lines.length;
+  return _MixedResult(lines: lines, total: total, isComplete: isComplete);
+}
+
+Map<String, List<_ResultLine>> _groupByPlatform(List<_ResultLine> lines) {
+  final grouped = <String, List<_ResultLine>>{};
+  for (final line in lines) {
+    grouped.putIfAbsent(line.platformName, () => <_ResultLine>[]).add(line);
+  }
+  return grouped;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
