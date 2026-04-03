@@ -446,7 +446,8 @@ class ProductDetailScreen extends StatelessWidget {
 
 // --- HELPER WIDGETS ---
 
-class _TrustItem extends StatelessWidget {  final IconData icon;
+class _TrustItem extends StatelessWidget {
+  final IconData icon;
   final String title;
   final String subtitle;
   const _TrustItem({required this.icon, required this.title, required this.subtitle});
@@ -476,8 +477,8 @@ class _TrustItem extends StatelessWidget {  final IconData icon;
               Text(subtitle, style: const TextStyle(fontSize: 10, color: AppColors.textSubtle, height: 1.35)),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -569,8 +570,8 @@ class _SellerItem extends StatelessWidget {
               Text(diff, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success)),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
