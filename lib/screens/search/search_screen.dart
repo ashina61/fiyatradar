@@ -117,7 +117,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
           Text(
-            'Fiyat lookup',
+            'Canlı fiyat karşılaştırması',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -327,12 +327,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: FRRadius.all(FRRadius.md),
+      borderRadius: FRRadius.all(FRRadius.pill),
       child: Container(
-        padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
+        padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isActive ? FRColors.surfaceAltDark : FRColors.bgSecondary,
-          borderRadius: FRRadius.all(FRRadius.md),
+          borderRadius: FRRadius.all(FRRadius.pill),
           border: Border.all(
             color: isActive ? FRColors.tanLight : FRColors.borderDark,
           ),
@@ -363,12 +363,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildAlertChip(BuildContext context) {
     return InkWell(
       onTap: () => _showAlertSetup(context),
-      borderRadius: FRRadius.all(FRRadius.md),
+      borderRadius: FRRadius.all(FRRadius.pill),
       child: Container(
-        padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
+        padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: FRColors.bgSecondary,
-          borderRadius: FRRadius.all(FRRadius.md),
+          borderRadius: FRRadius.all(FRRadius.pill),
           border: Border.all(color: FRColors.tanLight),
         ),
         child: const Row(
@@ -658,12 +658,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           Icon(icon, size: 10, color: FRColors.textSecondaryDark),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: FRColors.textSecondaryDark,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 108),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: FRColors.textSecondaryDark,
+              ),
             ),
           ),
         ],
@@ -711,7 +716,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  query.isEmpty ? 'Arama yapın' : '"$query" için sonuç bulunamadı',
+                  query.isEmpty ? 'Aramaya başla' : '"$query" için sonuç bulamadık',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -720,7 +725,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  query.isEmpty ? 'Ürün, marka veya kategori arayın' : 'Farklı bir arama deneyin',
+                  query.isEmpty ? 'Ürün, marka veya kategori yazabilirsin' : 'Farklı bir kelimeyle tekrar dene',
                   style: const TextStyle(
                     fontSize: 12,
                     color: FRColors.textSubtleDark,

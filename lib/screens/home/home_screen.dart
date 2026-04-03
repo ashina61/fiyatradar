@@ -186,7 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Fiyat ara, karşılaştır, karar ver',
+                'Hızlıca ara, fiyatları karşılaştır',
                 style: TextStyle(
                   color: FRColors.textPrimary,
                   fontSize: 13,
@@ -218,7 +218,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ),
-                      GestureDetector(
+                      InkWell(
+                        borderRadius: FRRadius.all(FRRadius.md),
                         onTap: () async {
                           final barcode = await BarcodeScannerSheet.scan(context);
                           if (!mounted || barcode == null || barcode.trim().isEmpty) return;
@@ -226,8 +227,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ref.read(currentTabProvider.notifier).state = 1;
                         },
                         child: Container(
-                          width: 34,
-                          height: 34,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: FRColors.surface,
                             borderRadius: FRRadius.all(FRRadius.md),
@@ -285,7 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: FRSpaceInsets.symmetric(vertical: 24),
       child: const Center(
         child: Text(
-          'Henüz canlı fiyat yok.\nİlk fiyatı sen ekle!',
+          'Henüz canlı fiyat kaydı yok.\nAkışı başlatmak için ilk katkıyı sen yap.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: FRColors.textSubtle, height: 1.4),
         ),
@@ -427,14 +428,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Fiyat güncellemesi ekleyerek akışı canlı tut.',
+                  'Katkı yap, fiyat akışını güncel tut.',
                   style: TextStyle(fontSize: 12, color: FRColors.textMuted, fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 8),
               FRButton.secondary(
-                label: 'Ekle',
-                height: 34,
+                label: 'Katkı Yap',
+                height: 40,
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const AddPriceScreen()),

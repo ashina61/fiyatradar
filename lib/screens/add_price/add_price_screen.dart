@@ -299,7 +299,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
       padding: FRSpaceInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: FRColors.surfaceAltDark,
-        borderRadius: FRRadius.all(FRRadius.sm),
+        borderRadius: FRRadius.all(FRRadius.pill),
         border: Border.all(color: FRColors.borderDark),
       ),
       child: Row(
@@ -381,7 +381,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Fiyatı gördüğün mağaza / platform kaynağı',
+          'Fiyatı gördüğün mağaza veya uygulama',
           style: TextStyle(
             fontSize: 10,
             color: FRColors.textSubtleDark,
@@ -446,7 +446,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Yalnızca fiyat girmen yeterli',
+          'Sadece fiyat girmen yeterli',
           style: TextStyle(
             fontSize: 10,
             color: FRColors.textSubtleDark,
@@ -496,7 +496,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Kısa bağlam bırakmak istersen',
+          'İstersen kısa bir not ekleyebilirsin',
           style: TextStyle(
             fontSize: 10,
             color: FRColors.textSubtleDark,
@@ -657,7 +657,7 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
                 )
               : FRButton.primary(
                   expanded: true,
-                  label: 'Fiyat Kaydını Gönder',
+                  label: 'Fiyatı Gönder',
                   icon: Icons.send_rounded,
                   onPressed: _isFormValid() ? () => _submitPrice(context) : null,
                 ),

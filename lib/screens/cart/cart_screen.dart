@@ -398,6 +398,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 Expanded(
                   child: Text(
                     item.platformName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -465,7 +467,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Platform Dağılımı',
+            'Kaynak Dağılımı',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -576,7 +578,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   Icon(Icons.open_in_new_rounded, size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Platform\'lara Git',
+                    'Kaynaklara Git',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -596,7 +598,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: FRColors.textPrimary,
                 side: const BorderSide(color: FRColors.border),
-                minimumSize: const Size(double.infinity, 48),
+                minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                   borderRadius: FRRadius.all(FRRadius.lg),
                 ),
@@ -605,7 +607,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Fiyatlar platformlarda değişebilir. Son fiyatları platformda kontrol edin.',
+            'Fiyatlar kaynaklarda değişebilir. Son fiyatı ilgili kaynaktan kontrol et.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
