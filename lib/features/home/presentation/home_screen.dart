@@ -101,6 +101,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
 
               _buildFeedItem(
+                context,
                 'Şampuan Pro',
                 '2 dk önce • Trendyol',
                 '₺189',
@@ -108,6 +109,7 @@ class HomeScreen extends StatelessWidget {
                 Colors.teal,
               ),
               _buildFeedItem(
+                context,
                 'Kahve Çekirdeği',
                 '5 dk önce • Hepsiburada',
                 '₺329',
@@ -115,6 +117,7 @@ class HomeScreen extends StatelessWidget {
                 Colors.orange,
               ),
               _buildFeedItem(
+                context,
                 'Kablosuz Kulaklık',
                 '9 dk önce • Amazon',
                 '₺1.299',
@@ -182,61 +185,65 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildFeedItem(
+    BuildContext context,
     String title,
     String meta,
     String price,
     IconData icon,
     Color iconColor,
   ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(AppRadius.md),
+    return GestureDetector(
+      onTap: () => context.push('/detail'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  meta,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    meta,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            price,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AppColors.tan,
+            Text(
+              price,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: AppColors.tan,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
