@@ -12,6 +12,7 @@ import '../main_screen.dart';
 import '../../theme/fr_colors.dart';
 import '../../theme/fr_radius.dart';
 import '../../theme/fr_spacing.dart';
+import '../../widgets/fr_surface_card.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({
@@ -71,7 +72,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final results = _sortResults(filtered, _sortBy, latestByProduct);
 
     return Scaffold(
-      backgroundColor: FRColors.surfaceSoft,
+      backgroundColor: FRColors.bgPrimary,
       appBar: _buildAppBar(context),
       body: SafeArea(
         bottom: false,
@@ -96,21 +97,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: FRColors.surfaceSoft,
+      backgroundColor: FRColors.bgPrimary,
       elevation: 0,
       toolbarHeight: 56,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-        color: FRColors.textPrimary,
+        color: FRColors.textPrimaryDark,
         onPressed: () => Navigator.maybePop(context),
       ),
-      title: const Text(
-        'Ara',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          color: FRColors.textPrimary,
-        ),
+      title: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ara',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: FRColors.textPrimaryDark,
+            ),
+          ),
+          Text(
+            'Fiyat lookup',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: FRColors.textSubtleDark,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -119,31 +133,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return SliverToBoxAdapter(
       child: Padding(
         padding: FRSpaceInsets.fromLTRB(16, 12, 16, 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: FRColors.surface,
-            borderRadius: FRRadius.all(FRRadius.xl),
-            border: Border.all(color: FRColors.border),
-          ),
+        child: FRSurfaceCard(
+          color: FRColors.bgSecondary,
+          borderColor: FRColors.borderDark,
+          shadow: const <BoxShadow>[],
+          padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 4),
           child: TextField(
             controller: _searchController,
             focusNode: _focusNode,
             decoration: InputDecoration(
               hintText: 'Ürün, marka veya kategori ara...',
               hintStyle: const TextStyle(
-                color: FRColors.textSubtle,
+                color: FRColors.textSubtleDark,
                 fontWeight: FontWeight.w500,
                 fontSize: 15,
               ),
               prefixIcon: const Icon(
                 Icons.search_rounded,
-                color: FRColors.tan,
+                color: FRColors.tanLight,
                 size: 22,
               ),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 20),
-                      color: FRColors.textMuted,
+                      color: FRColors.textSecondaryDark,
                       onPressed: () {
                         _searchController.clear();
                         ref.read(searchQueryProvider.notifier).state = '';
@@ -153,7 +166,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     )
                   : IconButton(
                       icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                      color: FRColors.textMuted,
+                      color: FRColors.textSecondaryDark,
                       onPressed: () async {
                         final barcode = await BarcodeScannerSheet.scan(context);
                         if (!mounted || barcode == null || barcode.trim().isEmpty) return;
@@ -164,6 +177,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
               border: InputBorder.none,
               contentPadding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            style: const TextStyle(
+              color: FRColors.textPrimaryDark,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
             textInputAction: TextInputAction.search,
             onSubmitted: (value) {
@@ -272,10 +290,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         duration: const Duration(milliseconds: 180),
         padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.tan : FRColors.surface,
+          color: isActive ? FRColors.tan : FRColors.bgSecondary,
           borderRadius: FRRadius.all(FRRadius.pill),
           border: Border.all(
-            color: isActive ? FRColors.tan : FRColors.border,
+            color: isActive ? FRColors.tan : FRColors.borderDark,
           ),
         ),
         child: Row(
@@ -284,7 +302,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Icon(
               icon,
               size: 16,
-              color: isActive ? FRColors.surface : FRColors.textMuted,
+              color: isActive ? FRColors.bgPrimary : FRColors.textSecondaryDark,
             ),
             const SizedBox(width: FRSpacing.xsPlus),
             Text(
@@ -292,7 +310,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isActive ? FRColors.surface : FRColors.textPrimary,
+                color: isActive ? FRColors.bgPrimary : FRColors.textPrimaryDark,
               ),
             ),
           ],
@@ -313,10 +331,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Container(
         padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.surfaceAlt : FRColors.surface,
+          color: isActive ? FRColors.surfaceAltDark : FRColors.bgSecondary,
           borderRadius: FRRadius.all(FRRadius.md),
           border: Border.all(
-            color: isActive ? FRColors.tan : FRColors.border,
+            color: isActive ? FRColors.tanLight : FRColors.borderDark,
           ),
         ),
         child: Row(
@@ -325,7 +343,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Icon(
               icon,
               size: 14,
-              color: isActive ? FRColors.tan : FRColors.textMuted,
+              color: isActive ? FRColors.tanLight : FRColors.textSecondaryDark,
             ),
             const SizedBox(width: 5),
             Text(
@@ -333,7 +351,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isActive ? FRColors.tan : FRColors.textPrimary,
+                color: isActive ? FRColors.tanLight : FRColors.textPrimaryDark,
               ),
             ),
           ],
@@ -349,9 +367,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Container(
         padding: FRSpaceInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: FRColors.surface,
+          color: FRColors.bgSecondary,
           borderRadius: FRRadius.all(FRRadius.md),
-          border: Border.all(color: FRColors.tan),
+          border: Border.all(color: FRColors.tanLight),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -359,7 +377,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Icon(
               Icons.notifications_none_rounded,
               size: 14,
-              color: FRColors.tan,
+              color: FRColors.tanLight,
             ),
             SizedBox(width: 5),
             Text(
@@ -367,7 +385,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: FRColors.tan,
+                color: FRColors.tanLight,
               ),
             ),
           ],
@@ -389,7 +407,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: FRColors.tan,
+                  color: FRColors.tanLight,
                 ),
                 children: const [
                   TextSpan(
@@ -397,7 +415,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: FRColors.textSubtle,
+                      color: FRColors.textSubtleDark,
                     ),
                   ),
                 ],
@@ -409,21 +427,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Container(
                 padding: FRSpaceInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: FRColors.surface,
+                  color: FRColors.bgSecondary,
                   borderRadius: FRRadius.all(FRRadius.md),
-                  border: Border.all(color: FRColors.border),
+                  border: Border.all(color: FRColors.borderDark),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.sort_rounded, size: 14, color: FRColors.textMuted),
+                    const Icon(Icons.sort_rounded, size: 14, color: FRColors.textSecondaryDark),
                     const SizedBox(width: 5),
                     Text(
                       _getSortLabel(),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: FRColors.textPrimary,
+                        color: FRColors.textPrimaryDark,
                       ),
                     ),
                   ],
@@ -483,14 +501,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final timeAgo = _formatTimeAgo(latestPrice?.createdAt ?? item.updatedAt ?? item.createdAt);
     final trustScore = latestPrice?.trustPercent ?? ((item.priceEntryCount >= 10 ? 92 : item.priceEntryCount >= 5 ? 82 : 72));
     final priceChangePercent = _computePriceChangeForProduct(item.id);
+    final freshness = _freshnessLabel(timeAgo);
 
-    return Container(
+    return FRSurfaceCard(
       margin: FRSpaceInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
-        border: Border.all(color: FRColors.border),
-      ),
+      color: FRColors.bgSecondary,
+      borderColor: FRColors.borderDark,
+      shadow: const <BoxShadow>[],
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -504,12 +521,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
-                    color: FRColors.surfaceAlt,
+                    color: FRColors.surfaceAltDark,
                     borderRadius: FRRadius.all(FRRadius.md),
-                    border: Border.all(color: FRColors.border),
+                    border: Border.all(color: FRColors.borderDark),
                   ),
                   child: productImage != null && productImage.toString().isNotEmpty
                       ? ClipRRect(
@@ -536,25 +553,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: FRColors.textPrimary,
+                          color: FRColors.textPrimaryDark,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
                         children: [
-                          const Icon(Icons.store_outlined, size: 11, color: FRColors.textSubtle),
-                          const SizedBox(width: 4),
-                          Text(
-                            storeName,
-                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '• $timeAgo',
-                            style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
-                          ),
+                          _signalChip(Icons.storefront_outlined, storeName),
+                          _signalChip(Icons.schedule_rounded, freshness),
+                          _signalChip(Icons.shield_rounded, '$trustScore%'),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -565,7 +576,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: FRColors.tan,
+                              color: FRColors.tanLight,
                             ),
                           ),
                           if (priceChangePercent != null && priceChangePercent.abs() >= 1)
@@ -596,12 +607,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     Container(
                       padding: FRSpaceInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: trustScore >= 90
-                            ? FRColors.successSurface
-                            : trustScore >= 75
-                                ? FRColors.surfaceAlt
-                                : FRColors.dangerSurface,
+                        color: trustScore >= 90 ? FRColors.successBgMuted : FRColors.surfaceAltDark,
                         borderRadius: FRRadius.all(FRRadius.sm),
+                        border: Border.all(
+                          color: trustScore >= 90 ? FRColors.successMuted.withOpacity(0.35) : FRColors.borderDark,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -609,11 +619,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           Icon(
                             Icons.shield_rounded,
                             size: 10,
-                            color: trustScore >= 90
-                                ? FRColors.success
-                                : trustScore >= 75
-                                    ? FRColors.textMuted
-                                    : FRColors.danger,
+                            color: trustScore >= 90 ? FRColors.successMuted : FRColors.textSecondaryDark,
                           ),
                           const SizedBox(width: 3),
                           Text(
@@ -621,31 +627,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: trustScore >= 90
-                                  ? FRColors.success
-                                  : trustScore >= 75
-                                      ? FRColors.textMuted
-                                      : FRColors.danger,
+                              color: trustScore >= 90 ? FRColors.successMuted : FRColors.textSecondaryDark,
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildQuickActionButton(
-                          icon: Icons.bookmark_outline_rounded,
-                          onTap: () => _addToWatchlist(context, productId),
-                        ),
-                        const SizedBox(width: 6),
-                        _buildQuickActionButton(
-                          icon: Icons.notifications_none_rounded,
-                          onTap: () => _setPriceAlert(context, productId),
-                        ),
-                      ],
-                    ),
+                    const Icon(Icons.chevron_right_rounded, color: FRColors.textSubtleDark),
                   ],
                 ),
               ],
@@ -656,32 +645,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildQuickActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: FRRadius.all(FRRadius.sm),
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: FRColors.surfaceAlt,
-          borderRadius: FRRadius.all(FRRadius.sm),
-          border: Border.all(color: FRColors.border),
-        ),
-        child: Icon(icon, size: 14, color: FRColors.textMuted),
+  Widget _signalChip(IconData icon, String label) {
+    return Container(
+      padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: FRColors.surfaceAltDark,
+        borderRadius: FRRadius.all(FRRadius.sm),
+        border: Border.all(color: FRColors.borderDark),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: FRColors.textSecondaryDark),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: FRColors.textSecondaryDark,
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  String _freshnessLabel(String rawAge) => '$rawAge önce';
 
   Widget _buildLoadingState() {
     return SliverToBoxAdapter(
       child: Padding(
         padding: FRSpaceInsets.symmetric(vertical: 48),
         child: const Center(
-          child: CircularProgressIndicator(color: FRColors.tan),
+          child: CircularProgressIndicator(color: FRColors.tanLight),
         ),
       ),
     );
@@ -690,59 +687,64 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildEmptyState(BuildContext context, String query) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: FRSpaceInsets.symmetric(vertical: 64),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: FRColors.surfaceAlt,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.search_off_rounded,
-                  size: 32,
-                  color: FRColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                query.isEmpty ? 'Arama yapın' : '"$query" için sonuç bulunamadı',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: FRColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                query.isEmpty ? 'Ürün, marka veya kategori arayın' : 'Farklı bir arama deneyin',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: FRColors.textSubtle,
-                ),
-              ),
-              if (query.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(searchQueryProvider.notifier).state = '';
-                    _focusNode.requestFocus();
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.clear_rounded, size: 16),
-                  label: const Text('Aramayı Temizle'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FRColors.tan,
-                    foregroundColor: FRColors.surface,
+        padding: FRSpaceInsets.symmetric(vertical: 64, horizontal: 16),
+        child: FRSurfaceCard(
+          color: FRColors.bgSecondary,
+          borderColor: FRColors.borderDark,
+          shadow: const <BoxShadow>[],
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    color: FRColors.surfaceAltDark,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.search_off_rounded,
+                    size: 32,
+                    color: FRColors.textSecondaryDark,
                   ),
                 ),
+                const SizedBox(height: 16),
+                Text(
+                  query.isEmpty ? 'Arama yapın' : '"$query" için sonuç bulunamadı',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: FRColors.textPrimaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  query.isEmpty ? 'Ürün, marka veya kategori arayın' : 'Farklı bir arama deneyin',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: FRColors.textSubtleDark,
+                  ),
+                ),
+                if (query.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(searchQueryProvider.notifier).state = '';
+                      _focusNode.requestFocus();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.clear_rounded, size: 16),
+                    label: const Text('Aramayı Temizle'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: FRColors.tanLight,
+                      foregroundColor: FRColors.bgPrimary,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -756,9 +758,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       currentIndex: currentIndex,
       onTap: (index) => ref.read(currentTabProvider.notifier).state = index,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: FRColors.surface.withOpacity(0.97),
-      selectedItemColor: FRColors.tan,
-      unselectedItemColor: FRColors.textSubtle,
+      backgroundColor: FRColors.bgSecondary,
+      selectedItemColor: FRColors.tanLight,
+      unselectedItemColor: FRColors.textSubtleDark,
       showSelectedLabels: true,
       showUnselectedLabels: true,
       items: const [
@@ -837,18 +839,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         );
       },
-    );
-  }
-
-  void _addToWatchlist(BuildContext context, String productId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Takip listesine eklendi.')),
-    );
-  }
-
-  void _setPriceAlert(BuildContext context, String productId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fiyat alarmı kurma ekranı yakında eklenecek.')),
     );
   }
 
