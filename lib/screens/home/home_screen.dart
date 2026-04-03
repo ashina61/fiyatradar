@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/notification_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../models/user_model.dart';
@@ -10,9 +9,11 @@ import '../../pages/notification_center_page.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/fr_button.dart';
+import '../../widgets/fr_section_header.dart';
+import '../../widgets/fr_surface_card.dart';
 import '../add_price/add_price_screen.dart';
 import '../main_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -34,19 +35,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final latestPricesAsync = ref.watch(latestPricesProvider);
     final trendingAsync = ref.watch(trendingProductsProvider);
     final unreadCount = ref.watch(unreadCountProvider);
-    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
-    final watchlistProducts = ref.watch(savedProductsProvider).valueOrNull ?? const <ProductModel>[];
 
     final latestPrices = latestPricesAsync.valueOrNull ?? const <PriceModel>[];
     final trendingProducts = trendingAsync.valueOrNull ?? const <ProductModel>[];
     final priceChangeByProduct = _computePriceChangeByProduct(latestPrices);
-    NotificationItem? triggeredAlert;
-    for (final item in notifications) {
-      if (!item.isRead && (item.productId ?? '').trim().isNotEmpty) {
-        triggeredAlert = item;
-        break;
-      }
-    }
 
     return Scaffold(
       backgroundColor: FRColors.surfaceSoft,
@@ -56,10 +48,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSearchHero(context),
-            if (triggeredAlert != null) _buildPriorityAlert(context, triggeredAlert),
-            if (watchlistProducts.isNotEmpty) _buildPersonalSummary(context, watchlistProducts),
+            _buildSearchEntry(context),
             _buildLiveFeedSection(context, latestPrices, priceChangeByProduct),
+            _buildContributionEntry(context),
             if (trendingProducts.isNotEmpty) _buildTrendSection(context, trendingProducts),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
@@ -183,204 +174,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSearchHero(BuildContext context) {
+  Widget _buildSearchEntry(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: FRSpaceInsets.fromLTRB(16, 8, 16, 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: FRColors.surface,
-            borderRadius: FRRadius.all(FRRadius.xl),
-            border: Border.all(color: FRColors.border),
-          ),
-          child: InkWell(
-            borderRadius: FRRadius.all(FRRadius.xl),
-            onTap: () => ref.read(currentTabProvider.notifier).state = 1,
-            child: Padding(
-              padding: FRSpaceInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded, color: FRColors.tan, size: 22),
-                  const SizedBox(width: FRSpacing.md),
-                  const Expanded(
-                    child: Text(
-                      'Ürün, marka veya kategori ara...',
-                      style: TextStyle(
-                        color: FRColors.textSubtle,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () async {
-                      final barcode = await BarcodeScannerSheet.scan(context);
-                      if (!mounted || barcode == null || barcode.trim().isEmpty) return;
-                      ref.read(searchQueryProvider.notifier).state = barcode.trim();
-                      ref.read(currentTabProvider.notifier).state = 1;
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: FRColors.surfaceAlt,
-                        borderRadius: FRRadius.all(FRRadius.md),
-                        border: Border.all(color: FRColors.border),
-                      ),
-                      child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: FRColors.textMuted),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriorityAlert(BuildContext context, NotificationItem alert) {
-    return SliverToBoxAdapter(
-      child: Container(
-        margin: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [FRColors.gold.withOpacity(0.08), FRColors.gold.withOpacity(0.02)],
-          ),
-          borderRadius: FRRadius.all(FRRadius.xl),
-          border: Border.all(color: FRColors.gold.withOpacity(0.3)),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: FRRadius.all(FRRadius.xl),
-            onTap: (alert.productId ?? '').toString().trim().isEmpty
-                ? null
-                : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: alert.productId!)),
-                    ),
-            child: Padding(
-              padding: FRSpaceInsets.all(15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: FRSpaceInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: FRColors.gold,
-                          borderRadius: FRRadius.all(FRRadius.pill),
-                        ),
-                        child: const Icon(Icons.notifications_active_rounded, size: 14, color: FRColors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        alert.type == 'price_alert' ? 'Hedef Fiyata Ulaşıldı' : 'Bildirim',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    (alert.productName ?? alert.title ?? 'Ürün').toString(),
-                    style: const TextStyle(fontSize: 13, color: FRColors.textPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    (alert.message ?? 'Fiyat bildirimi mevcut').toString(),
-                    style: const TextStyle(fontSize: 11, color: FRColors.textMuted),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonalSummary(BuildContext context, List<ProductModel> watchlist) {
-    return SliverToBoxAdapter(
-      child: Container(
-        margin: FRSpaceInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [FRColors.surface, FRColors.surfaceSoft],
-          ),
-          borderRadius: FRRadius.all(FRRadius.xl),
-          border: Border.all(color: FRColors.border),
-        ),
-        child: Padding(
-          padding: FRSpaceInsets.all(17),
+        padding: FRSpaceInsets.fromLTRB(16, 8, 16, 16),
+        child: FRSurfaceCard(
+          radius: FRRadius.xl,
+          padding: FRSpaceInsets.all(14),
+          shadow: const [],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.star_rounded, size: 14, color: FRColors.tan),
-                      SizedBox(width: 5),
-                      Text(
-                        'Takip Listem',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: FRColors.textMuted,
-                          letterSpacing: 0.6,
+              const Text(
+                'Fiyat ara, karşılaştır, karar ver',
+                style: TextStyle(
+                  color: FRColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: FRRadius.all(FRRadius.lg),
+                onTap: () => ref.read(currentTabProvider.notifier).state = 1,
+                child: Container(
+                  padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: FRColors.surfaceAlt,
+                    borderRadius: FRRadius.all(FRRadius.lg),
+                    border: Border.all(color: FRColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search_rounded, color: FRColors.tan, size: 21),
+                      const SizedBox(width: FRSpacing.md),
+                      const Expanded(
+                        child: Text(
+                          'Ürün, marka veya kategori ara...',
+                          style: TextStyle(
+                            color: FRColors.textSubtle,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          final barcode = await BarcodeScannerSheet.scan(context);
+                          if (!mounted || barcode == null || barcode.trim().isEmpty) return;
+                          ref.read(searchQueryProvider.notifier).state = barcode.trim();
+                          ref.read(currentTabProvider.notifier).state = 1;
+                        },
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: FRColors.surface,
+                            borderRadius: FRRadius.all(FRRadius.md),
+                            border: Border.all(color: FRColors.border),
+                          ),
+                          child: const Icon(Icons.qr_code_scanner_rounded, size: 17, color: FRColors.textMuted),
                         ),
                       ),
                     ],
                   ),
-                  Text(
-                    '${watchlist.length} ürün',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.tan),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
-              ...watchlist.take(2).map(
-                    (item) => Padding(
-                      padding: FRSpaceInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: FRColors.surfaceAlt,
-                              borderRadius: FRRadius.all(FRRadius.md),
-                              border: Border.all(color: FRColors.border),
-                            ),
-                            child: const Icon(Icons.bookmark_outline_rounded, size: 20, color: FRColors.tan),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            (item.lastPrice ?? 0) > 0 ? formatTRY(item.lastPrice ?? 0) : '-',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FRColors.textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
             ],
           ),
         ),
@@ -394,24 +253,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Map<String, double> priceChangeByProduct,
   ) {
     return SliverPadding(
-      padding: FRSpaceInsets.fromLTRB(16, 20, 16, 16),
+      padding: FRSpaceInsets.fromLTRB(16, 4, 16, 14),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.bolt_rounded, size: 16, color: FRColors.tan),
-                  SizedBox(width: 7),
-                  Text('Canlı Fiyatlar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FRColors.textPrimary)),
-                ],
-              ),
-              TextButton(
-                onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
-                child: const Text('Tümü', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
-              ),
-            ],
+          FRSectionHeader(
+            title: 'Canlı Fiyat Akışı',
+            icon: Icons.bolt_rounded,
+            trailing: TextButton(
+              onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
+              child: const Text('Ara', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
+            ),
           ),
           const SizedBox(height: 12),
           if (prices.isEmpty)
@@ -451,11 +302,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       margin: FRSpaceInsets.only(bottom: 9),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
-        border: Border.all(color: FRColors.border),
-      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -466,8 +312,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
                   )
               : null,
-          child: Padding(
+          child: FRSurfaceCard(
+            radius: FRRadius.lg,
             padding: FRSpaceInsets.all(13),
+            shadow: const [],
             child: Row(
               children: [
                 Container(
@@ -557,6 +405,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildContributionEntry(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: FRSpaceInsets.fromLTRB(16, 0, 16, 8),
+        child: FRSurfaceCard(
+          radius: FRRadius.lg,
+          padding: FRSpaceInsets.fromLTRB(14, 12, 12, 12),
+          shadow: const [],
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: FRColors.surfaceAlt,
+                  borderRadius: FRRadius.all(FRRadius.md),
+                ),
+                child: const Icon(Icons.add_chart_rounded, size: 17, color: FRColors.tan),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Fiyat güncellemesi ekleyerek akışı canlı tut.',
+                  style: TextStyle(fontSize: 12, color: FRColors.textMuted, fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FRButton.secondary(
+                label: 'Ekle',
+                height: 34,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddPriceScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatTimeAgo(DateTime createdAt) {
     final diff = DateTime.now().difference(createdAt);
     if (diff.inSeconds < 60) return '${diff.inSeconds}s';
@@ -567,24 +457,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildTrendSection(BuildContext context, List<ProductModel> products) {
     return SliverPadding(
-      padding: FRSpaceInsets.fromLTRB(16, 8, 16, 24),
+      padding: FRSpaceInsets.fromLTRB(16, 10, 16, 24),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.explore_rounded, size: 16, color: FRColors.tan),
-                  SizedBox(width: 7),
-                  Text('Seçkiler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FRColors.textPrimary)),
-                ],
-              ),
-              TextButton(
-                onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
-                child: const Text('Keşfet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
-              ),
-            ],
+          FRSectionHeader(
+            title: 'Trend Ürünler',
+            icon: Icons.explore_rounded,
+            trailing: TextButton(
+              onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
+              child: const Text('Keşfet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FRColors.tan)),
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
