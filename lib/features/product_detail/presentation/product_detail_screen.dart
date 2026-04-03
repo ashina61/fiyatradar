@@ -19,12 +19,12 @@ class ProductDetailScreen extends StatelessWidget {
         backgroundColor: AppColors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
-          onPressed: () => context.pop(),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: AppColors.textPrimary,
+            size: 20,
           ),
+          onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
