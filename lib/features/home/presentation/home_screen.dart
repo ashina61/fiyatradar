@@ -1,189 +1,274 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_spacing.dart';
+import '../../core/constants/app_radius.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/state/user_state.dart';
+class HomeScreen extends StatelessWidget {
+  // Simüle edilmiş kullanıcı adı (gerçek app'te auth provider'dan gelecek)
+  static const String userName = 'Fatih';
 
-class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userName = ref.watch(userNameProvider);
-    final liveItems = [
-      ('🧴', 'Şampuan Pro', '₺189', '2 dk önce • Trendyol'),
-      ('☕', 'Kahve Çekirdeği', '₺329', '5 dk önce • Hepsiburada'),
-      ('🎧', 'Kablosuz Kulaklık', '₺1.299', '9 dk önce • Amazon'),
-    ];
-
-    final picks = ['Haftanın Fırsatı', 'Doğrulanan Düşüşler', 'Topluluk Seçimi'];
-
-    return SafeArea(
-      child: Scaffold(
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push('/add-price'),
-          backgroundColor: AppColors.tan,
-          label: const Text('Ekle'),
-          icon: const Icon(Icons.add),
-        ),
-        body: SingleChildScrollView(
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Header(userName: userName),
-              const SizedBox(height: AppSpacing.lg),
-              _SearchBar(onTap: () => context.push('/search')),
-              const SizedBox(height: AppSpacing.xl),
-              const _SectionTitle(title: 'Canlı Fiyatlar'),
-              const SizedBox(height: AppSpacing.md),
-              ...liveItems.map((item) => _LivePriceTile(item: item)),
-              const SizedBox(height: AppSpacing.xl),
-              const _SectionTitle(title: 'Seçkiler'),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (_, index) => _PickCard(title: picks[index]),
-                  separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-                  itemCount: picks.length,
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Merhaba,',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              Text(
+                '$userName 👋',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
                 ),
               ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Arama Çubuğu
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textSubtle,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Ürün, market veya kategori ara',
+                        style: TextStyle(color: AppColors.textSubtle, fontSize: 15),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: AppColors.textSubtle,
+                      size: 22,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+
+              // Canlı Fiyatlar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.bolt_rounded, color: AppColors.tan, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Canlı Fiyatlar',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/search'),
+                    child: const Text(
+                      'Tümü',
+                      style: TextStyle(
+                        color: AppColors.tan,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              _buildFeedItem(
+                'Şampuan Pro',
+                '2 dk önce • Trendyol',
+                '₺189',
+                Icons.water_drop_rounded,
+                Colors.teal,
+              ),
+              _buildFeedItem(
+                'Kahve Çekirdeği',
+                '5 dk önce • Hepsiburada',
+                '₺329',
+                Icons.coffee_rounded,
+                Colors.orange,
+              ),
+              _buildFeedItem(
+                'Kablosuz Kulaklık',
+                '9 dk önce • Amazon',
+                '₺1.299',
+                Icons.headphones_rounded,
+                Colors.grey,
+              ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // Seçkiler (Gradient Kartlar)
+              Row(
+                children: const [
+                  Icon(Icons.auto_awesome_rounded, color: AppColors.tan, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Seçkiler',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              SizedBox(
+                height: 140,
+                child: Row(
+                  children: [
+                    _buildSelectionCard('Haftanın\nFırsatı', const [
+                      Color(0xFFB8956A),
+                      Color(0xFF8A6A4A),
+                    ]),
+                    const SizedBox(width: AppSpacing.md),
+                    _buildSelectionCard('Doğrulanmış\nDüşüşler', const [
+                      Color(0xFF6B8A7A),
+                      Color(0xFF4A6B5A),
+                    ]),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.userName});
-
-  final String userName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Merhaba,', style: TextStyle(color: AppColors.textSecondary)),
-        const SizedBox(height: AppSpacing.xs),
-        Text(userName, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
-      ],
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.search, color: AppColors.textSecondary),
-            SizedBox(width: AppSpacing.md),
-            Text('Ürün, market veya kategori ara', style: TextStyle(color: AppColors.textSecondary)),
-          ],
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: FloatingActionButton.extended(
+          onPressed: () => context.push('/add-price'),
+          backgroundColor: AppColors.tan,
+          foregroundColor: AppColors.bgPrimary,
+          elevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.full),
+          ),
+          label: const Text('Ekle', style: TextStyle(fontWeight: FontWeight.w700)),
+          icon: const Icon(Icons.add_rounded),
         ),
       ),
     );
   }
-}
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600));
-  }
-}
-
-class _LivePriceTile extends StatelessWidget {
-  const _LivePriceTile({required this.item});
-
-  final (String, String, String, String) item;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/detail'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Text(item.$1, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(item.$4, style: const TextStyle(color: AppColors.textSecondary)),
-                ],
-              ),
-            ),
-            Text(item.$3, style: const TextStyle(color: AppColors.tan, fontWeight: FontWeight.w700)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PickCard extends StatelessWidget {
-  const _PickCard({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildFeedItem(
+    String title,
+    String meta,
+    String price,
+    IconData icon,
+    Color iconColor,
+  ) {
     return Container(
-      width: 190,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.surfaceAlt, AppColors.surface],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Icon(Icons.auto_awesome, color: AppColors.tan),
-          const SizedBox(height: AppSpacing.lg),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  meta,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            price,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppColors.tan,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionCard(String text, List<Color> colors) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: Colors.white70, size: 24),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
