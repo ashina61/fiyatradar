@@ -545,7 +545,8 @@ class _SellerItem extends StatelessWidget {
         children: [
           Container(
             width: 36,
-            height: 36,            decoration: BoxDecoration(
+            height: 36,
+            decoration: BoxDecoration(
               color: AppColors.surfaceAlt,
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.border),
@@ -571,7 +572,7 @@ class _SellerItem extends StatelessWidget {
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
