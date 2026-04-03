@@ -9,6 +9,18 @@ import 'package:flutter/material.dart';
 class FRColors {
   const FRColors._();
 
+  // Reference prototype core palette (design extraction).
+  static const Color bgPrimary = Color(0xFF1A1614);
+  static const Color bgSecondary = Color(0xFF24201D);
+  static const Color surfaceDark = Color(0xFF2A2522);
+  static const Color surfaceAltDark = Color(0xFF312C29);
+  static const Color borderDark = Color(0x663D3633);
+  static const Color textPrimaryDark = Color(0xF5FAF6F2);
+  static const Color textSecondaryDark = Color(0xADD2C8BE);
+  static const Color textSubtleDark = Color(0x6BC9BFB8);
+  static const Color successMuted = Color(0xFF8A9A8B);
+  static const Color successBgMuted = Color(0x1A8A9A8B);
+
   static const Color espresso = Color(0xFF18100A);
   static const Color espressoSoft = Color(0xFF2C2418);
   static const Color tan = Color(0xFFBF9470);
