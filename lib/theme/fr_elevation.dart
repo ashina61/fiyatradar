@@ -17,4 +17,8 @@ class FRElevation {
   static const List<BoxShadow> strong = [
     BoxShadow(color: FRColors.shadowStrong, blurRadius: 22, offset: Offset(0, 8)),
   ];
+
+  static const List<BoxShadow> refCard = [
+    BoxShadow(color: Color(0x2E000000), blurRadius: 6, offset: Offset(0, 2)),
+  ];
 }

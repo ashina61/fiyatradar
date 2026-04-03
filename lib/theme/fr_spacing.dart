@@ -19,6 +19,10 @@ class FRSpacing {
   static const double xxxlPlus = 36;
   static const double heroHeaderBottom = 50;
   static const double footerBottomInset = 160;
+  static const double refPhoneGutter = 24;
+  static const double refSectionGap = 20;
+  static const double refCardGap = 16;
+  static const double refCompactGap = 12;
 
   static const EdgeInsets page = EdgeInsets.symmetric(horizontal: xxl, vertical: lg);
   static const EdgeInsets card = EdgeInsets.all(lg);

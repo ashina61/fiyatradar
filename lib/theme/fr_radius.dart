@@ -21,6 +21,9 @@ class FRRadius {
   static const double hero = 32;
   static const double heroXl = 36;
   static const double pill = 999;
+  static const double refMd = 10;
+  static const double refLg = 14;
+  static const double refXl = 18;
 
   static const BorderRadius xxsRadius = BorderRadius.all(Radius.circular(xxs));
   static const BorderRadius xsRadius = BorderRadius.all(Radius.circular(xs));
