@@ -571,7 +571,7 @@ class _SellerItem extends StatelessWidget {
               Text(diff, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success)),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
