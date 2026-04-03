@@ -1,57 +1,160 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_spacing.dart';
+import '../../core/constants/app_radius.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
-import '../../../core/constants/app_spacing.dart';
-
-class SearchScreen extends StatelessWidget {
+class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
+  @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController _controller = TextEditingController();
+  bool _hasSearched = false;
+  final List<Map<String, String>> _results = [
+    {'title': 'Bluetooth Hoparlör', 'meta': 'Amazon • 1 dk önce', 'price': '₺899'},
+    {'title': 'Protein Tozu', 'meta': 'Trendyol • 4 dk önce', 'price': '₺749'},
+    {'title': 'Airfryer', 'meta': 'Hepsiburada • 10 dk önce', 'price': '₺2.599'},
+  ];
+
+  void _search() {
+    setState(() => _hasSearched = true);
+    FocusScope.of(context).unfocus();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filters = ['Market', 'Elektronik', 'Gıda', 'Bakım', 'Ev'];
-    final results = [
-      ('Bluetooth Hoparlör', '₺899', 'Amazon', '1 dk önce'),
-      ('Protein Tozu', '₺749', 'Trendyol', '4 dk önce'),
-      ('Airfryer', '₺2.599', 'Hepsiburada', '10 dk önce'),
-    ];
-
-    return SafeArea(
-      child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            const SliverAppBar(
-              pinned: true,
-              title: Text('Ara'),
-              backgroundColor: AppColors.bgPrimary,
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'Ara',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _StickySearchDelegate(),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
                   children: [
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (_, index) => _FilterChip(label: filters[index]),
-                        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-                        itemCount: filters.length,
+                    const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textSubtle,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Ürün, marka, platform',
+                          hintStyle: TextStyle(color: AppColors.textSubtle),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) => _search(),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    ...results.map((result) => _ResultTile(result: result)),
-                    if (results.isEmpty) ...[
-                      const SizedBox(height: AppSpacing.xl),
-                      const _EmptyState(),
-                    ],
+                    if (_controller.text.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => _controller.clear(),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textSubtle,
+                          size: 20,
+                        ),
+                      ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                children: ['Market', 'Elektronik', 'Gıda', 'Bakım', 'Ev']
+                    .map(
+                      (cat) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(cat),
+                          selected: false,
+                          onSelected: (_) {},
+                          backgroundColor: AppColors.surface,
+                          selectedColor: AppColors.tan,
+                          side: BorderSide.none,
+                          labelStyle: const TextStyle(color: AppColors.textPrimary),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: _hasSearched && _results.isNotEmpty
+                    ? _results.map((item) => _buildResultItem(item)).toList()
+                    : [
+                        const SizedBox(height: 40),
+                        Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            children: const [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 48,
+                                color: AppColors.textSubtle,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Aradığınız kriterde sonuç bulunamadı.',
+                                style: TextStyle(
+                                  color: AppColors.textSubtle,
+                                  fontSize: 15,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
               ),
             ),
           ],
@@ -59,119 +162,60 @@ class SearchScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _StickySearchDelegate extends SliverPersistentHeaderDelegate {
-  @override
-  double get maxExtent => 84;
-
-  @override
-  double get minExtent => 84;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget _buildResultItem(Map<String, String> item) {
     return Container(
-      color: AppColors.bgPrimary,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const TextField(
-          decoration: InputDecoration(
-            hintText: 'Ürün veya marka ara...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-            icon: Icon(Icons.search, color: AppColors.textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => false;
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(label),
-    );
-  }
-}
-
-class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.result});
-
-  final (String, String, String, String) result;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          const Icon(Icons.inventory_2_outlined, color: AppColors.tan),
-          const SizedBox(width: AppSpacing.md),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(
+              Icons.shopping_bag_rounded,
+              color: AppColors.tan,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(result.$1),
-                const SizedBox(height: AppSpacing.xs),
-                Text('${result.$3} • ${result.$4}', style: const TextStyle(color: AppColors.textSecondary)),
+                Text(
+                  item['title']!,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item['meta']!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
+                ),
               ],
             ),
           ),
-          Text(result.$2, style: const TextStyle(color: AppColors.tan, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.search_off_rounded, color: AppColors.textSecondary),
-          SizedBox(height: AppSpacing.sm),
-          Text('Aradığınız kriterde sonuç bulunamadı.', style: TextStyle(color: AppColors.textSecondary)),
+          Text(
+            item['price']!,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppColors.tan,
+            ),
+          ),
         ],
       ),
     );
