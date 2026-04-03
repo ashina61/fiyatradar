@@ -46,8 +46,10 @@ class SearchScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     ...results.map((result) => _ResultTile(result: result)),
-                    const SizedBox(height: AppSpacing.xl),
-                    const _EmptyState(),
+                    if (results.isEmpty) ...[
+                      const SizedBox(height: AppSpacing.xl),
+                      const _EmptyState(),
+                    ],
                   ],
                 ),
               ),
@@ -80,9 +82,12 @@ class _StickySearchDelegate extends SliverPersistentHeaderDelegate {
         ),
         child: const TextField(
           decoration: InputDecoration(
-            hintText: 'Ara: ürün, marka, platform',
+            hintText: 'Ürün veya marka ara...',
             border: InputBorder.none,
-            hintStyle: TextStyle(color: AppColors.textSecondary),
+            hintStyle: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+            ),
             icon: Icon(Icons.search, color: AppColors.textSecondary),
           ),
         ),

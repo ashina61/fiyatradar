@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/state/user_state.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userName = ref.watch(userNameProvider);
     final liveItems = [
       ('🧴', 'Şampuan Pro', '₺189', '2 dk önce • Trendyol'),
       ('☕', 'Kahve Çekirdeği', '₺329', '5 dk önce • Hepsiburada'),
@@ -31,7 +34,7 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _Header(),
+              _Header(userName: userName),
               const SizedBox(height: AppSpacing.lg),
               _SearchBar(onTap: () => context.push('/search')),
               const SizedBox(height: AppSpacing.xl),
@@ -59,16 +62,18 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.userName});
+
+  final String userName;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Merhaba,', style: TextStyle(color: AppColors.textSecondary)),
-        SizedBox(height: AppSpacing.xs),
-        Text('FiyatRadar', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+        const Text('Merhaba,', style: TextStyle(color: AppColors.textSecondary)),
+        const SizedBox(height: AppSpacing.xs),
+        Text(userName, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
       ],
     );
   }
@@ -164,7 +169,11 @@ class _PickCard extends StatelessWidget {
       width: 190,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
+        gradient: const LinearGradient(
+          colors: [AppColors.surfaceAlt, AppColors.surface],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
       ),
