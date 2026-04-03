@@ -15,14 +15,20 @@ class AddPriceScreen extends StatelessWidget {
         bottomNavigationBar: Container(
           color: AppColors.surfaceAlt,
           padding: const EdgeInsets.all(AppSpacing.lg),
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.tan,
-              foregroundColor: AppColors.bgPrimary,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            ),
-            onPressed: () {},
-            child: const Text('Fiyatı Gönder'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.tan,
+                  foregroundColor: AppColors.bgPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+                onPressed: () {},
+                child: const Text('Fiyatı Gönder'),
+              ),
+              const SizedBox(height: 80),
+            ],
           ),
         ),
         body: SingleChildScrollView(
@@ -52,6 +58,7 @@ class AddPriceScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.lg),
               const _TrustImpactGrid(),
               const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: 80),
             ],
           ),
         ),
