@@ -8,7 +8,7 @@ class FRBadgeChip extends StatelessWidget {
     required this.label,
     this.icon,
     this.backgroundColor = FRColors.surfaceAlt,
-    this.foregroundColor = FRColors.textSecondary,
+    this.foregroundColor = FRColors.textSecondaryDark,
     this.borderColor = FRColors.border,
     this.padding = const EdgeInsets.symmetric(horizontal: FRSpacing.md, vertical: FRSpacing.xsPlus),
   });
