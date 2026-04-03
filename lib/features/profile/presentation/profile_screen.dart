@@ -9,37 +9,94 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ['Bildirimler', 'Konum', 'Karanlık Mod', 'Hakkında', 'Gizlilik'];
-    final links = ['FAQ', 'Güncelleme Geçmişi', 'Admin Linkleri'];
+    const settings = [
+      'Bildirimler',
+      'Konum',
+      'Karanlık Mod',
+      'Hakkında',
+      'Gizlilik',
+      'FAQ',
+      'Güncelleme Geçmişi',
+      'Admin Linkleri',
+    ];
 
-    return SafeArea(
-      child: Scaffold(
-        body: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: SafeArea(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             children: [
-              const CircleAvatar(radius: 42, backgroundColor: AppColors.tan, child: Text('FK', style: TextStyle(color: AppColors.bgPrimary))),
+              Container(
+                width: 84,
+                height: 84,
+                decoration: const BoxDecoration(
+                  color: AppColors.tan,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Text(
+                    'FK',
+                    style: TextStyle(
+                      color: AppColors.bgPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 26,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpacing.sm),
-              const Text('Fatih Kaya', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const Text(
+                'Fatih Kaya',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: AppSpacing.xs),
-              const Chip(label: Text('Level 18 • Elite'), backgroundColor: AppColors.surfaceAlt),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Text(
+                  'Level 18 • Elite',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpacing.lg),
               const _StatsRow(),
               const SizedBox(height: AppSpacing.lg),
-              const _XpProgress(),
+              const _XpProgressCard(),
               const SizedBox(height: AppSpacing.lg),
-              ...settings.map((item) => _ListTileItem(label: item)),
-              const SizedBox(height: AppSpacing.md),
-              ...links.map((item) => _ListTileItem(label: item)),
+              ...settings.map((item) => _SettingItem(label: item)),
               const SizedBox(height: AppSpacing.lg),
-              Container(
+              SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.danger,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    foregroundColor: AppColors.bgPrimary,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  onPressed: () {},
+                  child: const Text(
+                    'Çıkış Yap',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
-                child: const Center(child: Text('Çıkış Yap', style: TextStyle(color: AppColors.bgPrimary, fontWeight: FontWeight.w700))),
               ),
             ],
           ),
@@ -56,43 +113,48 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        Expanded(child: _StatCard(label: 'Fiyat', value: '482')),
+        Expanded(child: _StatCard(text: '482 Fiyat')),
         SizedBox(width: AppSpacing.sm),
-        Expanded(child: _StatCard(label: 'Doğrulama', value: '137')),
+        Expanded(child: _StatCard(text: '137 Doğrulama')),
         SizedBox(width: AppSpacing.sm),
-        Expanded(child: _StatCard(label: 'Yorum', value: '96')),
+        Expanded(child: _StatCard(text: '96 Yorum')),
       ],
     );
   }
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({required this.text});
 
-  final String label;
-  final String value;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.md,
+        horizontal: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
-          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
-        ],
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }
 }
 
-class _XpProgress extends StatelessWidget {
-  const _XpProgress();
+class _XpProgressCard extends StatelessWidget {
+  const _XpProgressCard();
 
   @override
   Widget build(BuildContext context) {
@@ -102,11 +164,18 @@ class _XpProgress extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('XP Progress'),
+          const Text(
+            'XP Progress',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: AppSpacing.sm),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.full),
@@ -123,8 +192,8 @@ class _XpProgress extends StatelessWidget {
   }
 }
 
-class _ListTileItem extends StatelessWidget {
-  const _ListTileItem({required this.label});
+class _SettingItem extends StatelessWidget {
+  const _SettingItem({required this.label});
 
   final String label;
 
@@ -135,10 +204,17 @@ class _ListTileItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
       ),
       child: ListTile(
-        title: Text(label),
-        trailing: const Icon(Icons.chevron_right_rounded),
+        title: Text(
+          label,
+          style: const TextStyle(color: AppColors.textPrimary),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }

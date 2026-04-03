@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_radius.dart';
+import '../../../core/constants/app_spacing.dart';
 
 class ProductDetailScreen extends StatelessWidget {
-  final String productId;
   const ProductDetailScreen({super.key, this.productId = ''});
+
+  final String productId;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
+      extendBody: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
           onPressed: () => context.pop(),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+          ),
         ),
         actions: [
           IconButton(
@@ -469,8 +476,8 @@ class _TrustItem extends StatelessWidget {  final IconData icon;
               Text(subtitle, style: const TextStyle(fontSize: 10, color: AppColors.textSubtle, height: 1.35)),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
