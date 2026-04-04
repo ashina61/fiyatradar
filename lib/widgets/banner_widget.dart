@@ -178,7 +178,7 @@ class _PorscheBannerCard extends StatelessWidget {
                   // Dinamik Rozet
                   if (banner.badgeText != null && banner.badgeText!.isNotEmpty)
                     Container(
-                      margin: const EdgeInsets.bottom: 10,
+                      margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: isSponsor ? FRColors.camel.withOpacity(0.25) : FRColors.camel.withOpacity(0.15),
@@ -251,7 +251,7 @@ class _PorscheBannerCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        (banner.ctaText ?? 'KEŞFET').toUpperCase(),
+                        (banner.buttonText.isEmpty ? 'KEŞFET' : banner.buttonText).toUpperCase(),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
