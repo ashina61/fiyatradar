@@ -15,6 +15,9 @@ class BannerModel {
   final int order;
   final DateTime? createdAt;
 
+  // Backward-compatible alias used by legacy banner widgets.
+  String get ctaText => buttonText;
+
   BannerModel({
     required this.id,
     required this.title,

@@ -98,8 +98,7 @@ class _PorscheBannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = banner.imageUrl != null && banner.imageUrl!.isNotEmpty;
-    // Modelinde isSponsor bool yoksa burayı false yap geç
-    final isSponsor = banner.isSponsor ?? false; 
+    final isSponsor = banner.isSponsor;
     
 
     return GestureDetector(
