@@ -12,6 +12,15 @@ buildscript {
     }
 }
 
+ext {
+    flutter = [
+        compileSdkVersion: 35,
+        targetSdkVersion : 35,
+        minSdkVersion    : 23,
+        ndkVersion       : '26.3.11579264'
+    ]
+}
+
 allprojects {
     repositories {
         google()
