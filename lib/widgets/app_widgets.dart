@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
@@ -50,7 +49,7 @@ class AppTopBar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(AppSpace.md),
                 decoration: _surface(),
-                child: const FaIcon(FontAwesomeIcons.chevronLeft, color: AppColors.textPrimary, size: 14),
+                child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 14),
               ),
             ),
           if (showBack) const SizedBox(width: AppSpace.md),
@@ -78,7 +77,7 @@ class SearchInputField extends StatelessWidget {
         decoration: _surface(),
         child: Row(
           children: [
-            const FaIcon(FontAwesomeIcons.magnifyingGlass, color: AppColors.tan, size: 16),
+            const Icon(Icons.search, color: AppColors.tan, size: 16),
             const SizedBox(width: AppSpace.md),
             Expanded(
               child: Text(
@@ -154,7 +153,7 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton.icon(
       onPressed: onTap,
-      icon: icon == null ? const SizedBox.shrink() : FaIcon(icon, size: 14),
+      icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 14),
       label: Text(label),
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 52),
@@ -234,7 +233,7 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SurfaceCard(
         child: Column(children: [
-          const FaIcon(FontAwesomeIcons.radar, color: AppColors.textSubtle),
+          const Icon(Icons.radar, color: AppColors.textSubtle),
           const SizedBox(height: AppSpace.md),
           Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpace.sm),

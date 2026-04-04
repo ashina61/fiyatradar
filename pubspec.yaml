@@ -67,7 +67,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_logo.png
-    - assets/icons/categories/
     - assets/fiyatradar_marketler.json
     - assets/fiyatradar_urunler.json
 flutter_launcher_icons:

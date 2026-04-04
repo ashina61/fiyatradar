@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/state/user_state.dart';
 import '../core/theme/app_colors.dart';
@@ -25,10 +24,10 @@ class SettingsScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               children: [
-                _item('Bildirimler', FontAwesomeIcons.bell, trailing: Switch(value: enabled, onChanged: (v) => ref.read(isNotificationEnabledProvider.notifier).state = v)),
-                _item('Sıkça Sorulan Sorular', FontAwesomeIcons.circleQuestion, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FaqScreen()))),
-                _item('Güncelleme Geçmişi', FontAwesomeIcons.clockRotateLeft, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()))),
-                _item('Admin Panel', FontAwesomeIcons.chartLine, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen()))),
+                _item('Bildirimler', Icons.notifications_outlined, trailing: Switch(value: enabled, onChanged: (v) => ref.read(isNotificationEnabledProvider.notifier).state = v)),
+                _item('Sıkça Sorulan Sorular', Icons.help_outline, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FaqScreen()))),
+                _item('Güncelleme Geçmişi', Icons.history, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateHistoryScreen()))),
+                _item('Admin Panel', Icons.show_chart, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen()))),
               ],
             ),
           ),
@@ -45,10 +44,10 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppColors.radiusLg), border: Border.all(color: AppColors.border)),
         child: Row(children: [
-          FaIcon(icon, size: 14, color: AppColors.tan),
+          Icon(icon, size: 14, color: AppColors.tan),
           const SizedBox(width: 12),
           Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary))),
-          trailing ?? const FaIcon(FontAwesomeIcons.chevronRight, size: 12, color: AppColors.textSubtle),
+          trailing ?? const Icon(Icons.chevron_right, size: 12, color: AppColors.textSubtle),
         ]),
       ),
     );

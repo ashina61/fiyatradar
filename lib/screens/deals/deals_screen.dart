@@ -11,8 +11,9 @@ import '../../providers/actual_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
 
+final _stockReportReward = PointsService.pointValues['stock_report'] ?? 0;
+
 class DealsScreen extends ConsumerWidget {
-  static final _stockReportReward = PointsService.pointValues['stock_report'] ?? 0;
 
   const DealsScreen({super.key});
 
