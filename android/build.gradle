@@ -5,6 +5,16 @@ allprojects {
     }
 }
 
+// Compatibility shim for older Flutter Android plugins (for example
+// geolocator_android 4.x) that still read SDK versions from `project.flutter`.
+ext {
+    flutter = [
+        compileSdkVersion: 35,
+        minSdkVersion    : 23,
+        targetSdkVersion : 35,
+    ]
+}
+
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
