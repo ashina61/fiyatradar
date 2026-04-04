@@ -50,7 +50,6 @@ dependencies:
   url_launcher: ^6.3.1
   share_plus: ^10.0.2
   fl_chart: ^0.69.2
-  font_awesome_flutter: ^10.10.0
 
   # Navigation
   go_router: ^13.2.0
