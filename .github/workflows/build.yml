@@ -31,11 +31,6 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.4'
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -48,13 +43,6 @@ jobs:
 
       - name: Flutter analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: Regenerate Gradle wrapper
-        run: |
-          cd android
-          gradle wrapper --gradle-version 8.4
-          chmod +x gradlew
-          cd ..
 
       - name: Build debug APK
         env:
