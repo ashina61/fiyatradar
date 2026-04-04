@@ -1,23 +1,221 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/theme/app_theme.dart';
-import 'screens/main_layout.dart';
+import 'app_router.dart';
+import 'providers/app_start_provider.dart';
+import 'providers/firebase_init_provider.dart';
+import 'providers/notification_provider.dart';
+import 'theme/fr_colors.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/main_screen.dart';
 
-void main() {
-  runApp(const ProviderScope(child: FiyatRadarApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('tr_TR', null);
+
+  Object? firebaseInitError;
+
+  try {
+    await Firebase.initializeApp();
+    await FirebaseAuth.instance.setLanguageCode('tr');
+    firebaseInitializedNotifier.value = true;
+  } catch (error, stackTrace) {
+    firebaseInitializedNotifier.value = false;
+    firebaseInitError = error;
+    debugPrint('Firebase initialization failed: $error');
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'main',
+        context: ErrorDescription('while initializing Firebase'),
+      ),
+    );
+  }
+
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
+  runApp(
+    ProviderScope(
+      child: FiyatRadarApp(
+        showOnboarding: !onboardingComplete,
+        firebaseInitError: firebaseInitError,
+      ),
+    ),
+  );
 }
 
-class FiyatRadarApp extends StatelessWidget {
-  const FiyatRadarApp({super.key});
+class FiyatRadarApp extends StatefulWidget {
+  const FiyatRadarApp({
+    super.key,
+    required this.showOnboarding,
+    this.firebaseInitError,
+  });
+
+  final bool showOnboarding;
+  final Object? firebaseInitError;
+
+  @override
+  State<FiyatRadarApp> createState() => _FiyatRadarAppState();
+}
+
+class _FiyatRadarAppState extends State<FiyatRadarApp> {
+  late final GoRouter _router =
+      buildAppRouter(showOnboarding: widget.showOnboarding);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: FRColors.camel,
+      brightness: Brightness.light,
+      primary: FRColors.camel,
+      secondary: FRColors.espresso,
+      surface: FRColors.surfaceSoft,
+      error: FRColors.danger,
+    ).copyWith(
+      onPrimary: FRColors.white,
+      onSecondary: FRColors.white,
+      onSurface: FRColors.textPrimary,
+      surface: FRColors.surfaceSoft,
+    );
+
+    final theme = ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      primaryColor: FRColors.camel,
+      scaffoldBackgroundColor: FRColors.background,
+      canvasColor: FRColors.surfaceSoft,
+      cardColor: FRColors.surface,
+      fontFamily: 'Outfit',
+    );
+
+    if (widget.firebaseInitError != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Fiyat Radar',
+        theme: theme,
+        home: const FirebaseInitErrorScreen(),
+      );
+    }
+
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'FiyatRadar V10',
-      theme: AppTheme.darkTheme,
-      home: const MainLayout(),
+      title: 'Fiyat Radar',
+      theme: theme,
+      routerConfig: _router,
+    );
+  }
+}
+
+class AppStartGate extends ConsumerWidget {
+  const AppStartGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(notificationBootstrapProvider);
+    final appStartState = ref.watch(appStartStateProvider);
+
+    switch (appStartState) {
+      case AppStartState.loading:
+        return const _ExecutiveSplashScreen();
+      case AppStartState.login:
+        return const LoginScreen();
+      case AppStartState.authenticated:
+        return const MainScreen();
+    }
+  }
+}
+
+
+class _ExecutiveSplashScreen extends StatelessWidget {
+  const _ExecutiveSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FRColors.background,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [FRColors.backgroundWarm, FRColors.background],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: FRColors.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: FRColors.camel.withOpacity(0.22)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FRColors.espresso.withOpacity(0.08),
+                      blurRadius: 28,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(FRColors.gold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'FiyatRadar hazırlanıyor',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: FRColors.espresso,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Veriler yükleniyor, lütfen bekleyin.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: FRColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FirebaseInitErrorScreen extends StatelessWidget {
+  const FirebaseInitErrorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Sunucu bağlantı hatası, lütfen tekrar deneyin.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 }

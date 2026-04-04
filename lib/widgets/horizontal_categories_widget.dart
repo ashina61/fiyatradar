@@ -1,0 +1,154 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/category_model.dart';
+import '../models/category_theme.dart';
+import '../providers/product_provider.dart';
+import '../utils/material_icon_resolver.dart';
+import '../screens/main_screen.dart';
+
+class HorizontalCategoriesWidget extends ConsumerWidget {
+  const HorizontalCategoriesWidget({super.key});
+
+  static const Color _softBeige = Color(0xFFF5EBE1);
+  static const Color _darkBrown = Color(0xFF6B4226);
+  static const Color _accentBrown = Color(0xFFAF6B3E);
+
+  static final List<CategoryModel> _fallbackCategories =
+      CategoryThemeCatalog.themes
+          .where((theme) => theme.id != 'diger')
+          .map<CategoryModel>(
+            (theme) => CategoryModel(
+              documentId: theme.id,
+              id: theme.id,
+              title: theme.title,
+              isActive: true,
+              canonicalId: theme.id,
+              sort: theme.sortOrder,
+              iconAssetPath: theme.iconAssetPath,
+              iconName: 'category',
+            ),
+          )
+          .toList(growable: false);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categories = ref.watch(orderedCategoriesProvider);
+    final visibleCategories =
+        categories.isNotEmpty ? categories : _fallbackCategories;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _CategoriesHeader(),
+        const SizedBox(height: 15),
+        SizedBox(
+          height: 108,
+          child: ScrollConfiguration(
+            behavior:
+                ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: visibleCategories.length,
+              itemBuilder: (context, index) {
+                final category = visibleCategories[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == visibleCategories.length - 1 ? 0 : 20,
+                  ),
+                  child: _CategoryItemView(category: category),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoriesHeader extends StatelessWidget {
+  const _CategoriesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(left: 16, right: 20),
+      child: Row(
+        children: [
+          _AccentLine(),
+          SizedBox(width: 12),
+          Text(
+            'Kategoriler',
+            style: TextStyle(
+              color: HorizontalCategoriesWidget._darkBrown,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccentLine extends StatelessWidget {
+  const _AccentLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 4,
+      height: 24,
+      decoration: BoxDecoration(
+        color: HorizontalCategoriesWidget._accentBrown,
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+}
+
+class _CategoryItemView extends ConsumerWidget {
+  const _CategoryItemView({required this.category});
+
+  final CategoryModel category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(selectedCategoryFilterProvider.notifier).state = category.title;
+        ref.read(selectedCategoryIdProvider.notifier).state = category.id;
+        ref.read(currentTabProvider.notifier).state = 1;
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 65,
+            height: 65,
+            decoration: const BoxDecoration(
+              color: HorizontalCategoriesWidget._softBeige,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              materialIconFromName(category.iconName),
+              color: HorizontalCategoriesWidget._darkBrown,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            category.title,
+            style: const TextStyle(
+              color: HorizontalCategoriesWidget._darkBrown,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
