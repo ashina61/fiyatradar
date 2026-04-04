@@ -103,6 +103,11 @@ class PriceModel {
   DateTime get createdAt => reportedAt;
   String? get productBarcode => barcode;
   bool get isActive => status == 'active';
+  String? get imageUrl {
+    if (photoUrl != null && photoUrl!.isNotEmpty) return photoUrl;
+    if (images.isNotEmpty && images.first.isNotEmpty) return images.first;
+    return null;
+  }
 
   double get verificationRate {
     final total = upVotes + downVotes;

@@ -10,6 +10,7 @@ import '../../pages/notification_center_page.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../add_price/add_price_screen.dart';

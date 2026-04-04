@@ -206,6 +206,7 @@ class PriceStats {
   final double lowest;
   final double average;
   final double highest;
+  double get averageRating => average;
 
   factory PriceStats.fromJson(Map<String, dynamic> json) {
     return PriceStats(
