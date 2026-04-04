@@ -41,23 +41,23 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate clean Gradle wrapper outside Android project
+      - name: Generate Gradle wrapper at runtime
         run: |
+          set -euo pipefail
           rm -rf /tmp/gradle-wrapper-bootstrap
           mkdir -p /tmp/gradle-wrapper-bootstrap
           cd /tmp/gradle-wrapper-bootstrap
 
-          cat > settings.gradle <<'EOF'
+          cat > settings.gradle <<'GRADLE_SETTINGS'
           rootProject.name = 'wrapper-bootstrap'
-          EOF
+          GRADLE_SETTINGS
 
-          cat > build.gradle <<'EOF'
+          cat > build.gradle <<'GRADLE_BUILD'
           tasks.register("noop")
-          EOF
+          GRADLE_BUILD
 
-          gradle wrapper --gradle-version 8.4
+          gradle wrapper --gradle-version 8.4 --no-validate-url
 
-          mkdir -p "$GITHUB_WORKSPACE/android/gradle/wrapper"
           cp gradlew "$GITHUB_WORKSPACE/android/gradlew"
           cp gradlew.bat "$GITHUB_WORKSPACE/android/gradlew.bat"
           cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.jar"
@@ -66,29 +66,13 @@ jobs:
       - name: Make wrapper executable
         run: chmod +x android/gradlew
 
-      - name: Verify wrapper
-        run: |
-          test -f android/gradlew
-          test -f android/gradle/wrapper/gradle-wrapper.jar
-          test -f android/gradle/wrapper/gradle-wrapper.properties
-          ./android/gradlew --version
-
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Flutter analyze (non-blocking for infos/warnings)
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Ensure missing asset folders do not fail build
-        run: mkdir -p assets/icons/categories
-
       - name: Build debug APK
-        env:
-          GRADLE_OPTS: >-
-            -Dorg.gradle.daemon=false
-            -Dkotlin.compiler.execution.strategy=in-process
-            -Dfile.encoding=UTF-8
-            -Dorg.gradle.jvmargs=-Xmx4g
         run: flutter build apk --debug
 
       - name: Upload APK artifact

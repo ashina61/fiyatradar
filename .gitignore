@@ -102,3 +102,6 @@ local.properties
 
 # Android gradle
 android/.gradle/
+
+# Runtime-generated in CI
+android/gradle/wrapper/gradle-wrapper.jar
