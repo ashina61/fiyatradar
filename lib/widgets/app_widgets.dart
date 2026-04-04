@@ -2,44 +2,60 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
 
 class StatusBar extends StatelessWidget {
   const StatusBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 44,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('9:41', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            FaIcon(FontAwesomeIcons.batteryFull, size: 14, color: AppColors.textPrimary),
-          ],
-        ),
+    return const SizedBox(height: 8);
+  }
+}
+
+class AppScaffoldShell extends StatelessWidget {
+  const AppScaffoldShell({super.key, required this.body, this.bottomBar});
+  final Widget body;
+  final Widget? bottomBar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppColors.gradientMain),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(child: body),
+        bottomNavigationBar: bottomBar,
       ),
     );
   }
 }
 
 class AppTopBar extends StatelessWidget {
-  const AppTopBar({super.key, required this.title, this.trailing, this.onBack});
+  const AppTopBar({super.key, required this.title, this.trailing, this.onBack, this.showBack = false});
   final String title;
   final Widget? trailing;
   final VoidCallback? onBack;
+  final bool showBack;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.fromLTRB(AppSpace.xl, AppSpace.lg, AppSpace.xl, AppSpace.md),
       child: Row(
         children: [
-          InkWell(onTap: onBack ?? () => Navigator.of(context).maybePop(), child: const FaIcon(FontAwesomeIcons.arrowLeft, color: AppColors.textPrimary, size: 18)),
-          const SizedBox(width: 12),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary))),
-          trailing ?? const SizedBox(width: 18),
+          if (showBack)
+            InkWell(
+              onTap: onBack ?? () => Navigator.of(context).maybePop(),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpace.md),
+                decoration: _surface(),
+                child: const FaIcon(FontAwesomeIcons.chevronLeft, color: AppColors.textPrimary, size: 14),
+              ),
+            ),
+          if (showBack) const SizedBox(width: AppSpace.md),
+          Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineMedium)),
+          trailing ?? const SizedBox.shrink(),
         ],
       ),
     );
@@ -54,24 +70,23 @@ class SearchInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppColors.radiusXl),
-          border: Border.all(color: AppColors.border),
-        ),
+        margin: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.lg),
+        decoration: _surface(),
         child: Row(
           children: [
             const FaIcon(FontAwesomeIcons.magnifyingGlass, color: AppColors.tan, size: 16),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpace.md),
             Expanded(
-              child: Text(value ?? hint, style: TextStyle(fontSize: 15, color: value == null ? AppColors.textSecondary : AppColors.textPrimary)),
+              child: Text(
+                value ?? hint,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: value == null ? AppColors.textSubtle : AppColors.textPrimary),
+              ),
             ),
-            const FaIcon(FontAwesomeIcons.qrcode, color: AppColors.textSubtle, size: 16),
+            const SignalChip(label: 'Canlı'),
           ],
         ),
       ),
@@ -89,35 +104,44 @@ class LiveFeedItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppColors.radiusLg),
-          border: Border.all(color: AppColors.border),
+      child: SurfaceCard(
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(AppRadius.sm)),
+              alignment: Alignment.center,
+              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(meta, style: Theme.of(context).textTheme.labelMedium),
+                ],
+              ),
+            ),
+            Text(price, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.goldFog)),
+          ],
         ),
-        child: Row(children: [
-          Container(
-            width: 50,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(AppColors.radiusMd)),
-            child: Text(emoji, style: const TextStyle(fontSize: 22)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-            const SizedBox(height: 4),
-            Text(meta, style: const TextStyle(fontSize: 10, color: AppColors.textSubtle)),
-          ])),
-          Text(price, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.tan)),
-        ]),
       ),
     );
   }
+}
+
+class SurfaceCard extends StatelessWidget {
+  const SurfaceCard({super.key, required this.child, this.padding = const EdgeInsets.all(AppSpace.lg)});
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) => Container(padding: padding, decoration: _surface(), child: child);
 }
 
 class PrimaryButton extends StatelessWidget {
@@ -128,24 +152,134 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppColors.tan, borderRadius: BorderRadius.circular(AppColors.radiusLg)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              FaIcon(icon!, size: 14, color: AppColors.bgPrimary),
-              const SizedBox(width: 8),
-            ],
-            Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.bgPrimary)),
-          ],
-        ),
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: icon == null ? const SizedBox.shrink() : FaIcon(icon, size: 14),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 52),
+        backgroundColor: AppColors.tan,
+        foregroundColor: AppColors.bgPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
       ),
     );
   }
 }
+
+class SignalChip extends StatelessWidget {
+  const SignalChip({super.key, required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+        decoration: BoxDecoration(color: AppColors.success.withOpacity(0.18), borderRadius: BorderRadius.circular(AppRadius.pill)),
+        child: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.success)),
+      );
+}
+
+class BadgeChip extends StatelessWidget {
+  const BadgeChip({super.key, required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+        decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(AppRadius.pill), border: Border.all(color: AppColors.border)),
+        child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+      );
+}
+
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({super.key, required this.title, this.action});
+  final String title;
+  final String? action;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpace.xl, AppSpace.xl, AppSpace.xl, AppSpace.md),
+        child: Row(children: [
+          Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+          if (action != null) Text(action!, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.goldFog)),
+        ]),
+      );
+}
+
+class PriceListRow extends StatelessWidget {
+  const PriceListRow({super.key, required this.title, required this.subtitle, required this.price});
+  final String title;
+  final String subtitle;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) => SurfaceCard(
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppSpace.xs),
+              Text(subtitle, style: Theme.of(context).textTheme.labelMedium),
+            ]),
+          ),
+          Text(price, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.goldFog)),
+        ]),
+      );
+}
+
+class EmptyState extends StatelessWidget {
+  const EmptyState({super.key, required this.title, required this.detail});
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => SurfaceCard(
+        child: Column(children: [
+          const FaIcon(FontAwesomeIcons.radar, color: AppColors.textSubtle),
+          const SizedBox(height: AppSpace.md),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpace.sm),
+          Text(detail, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+        ]),
+      );
+}
+
+class BottomActionBar extends StatelessWidget {
+  const BottomActionBar({super.key, required this.primaryLabel, required this.onPrimaryTap, this.secondaryLabel, this.onSecondaryTap});
+  final String primaryLabel;
+  final VoidCallback onPrimaryTap;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondaryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      decoration: BoxDecoration(color: AppColors.bgSecondary, border: Border(top: BorderSide(color: AppColors.border.withOpacity(0.7)))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PrimaryButton(label: primaryLabel, onTap: onPrimaryTap),
+          if (secondaryLabel != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            OutlinedButton(
+              onPressed: onSecondaryTap,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              ),
+              child: Text(secondaryLabel!),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+BoxDecoration _surface() => BoxDecoration(
+      color: AppColors.surface.withOpacity(0.95),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      border: Border.all(color: AppColors.border.withOpacity(0.85)),
+      boxShadow: AppElevation.card,
+    );
