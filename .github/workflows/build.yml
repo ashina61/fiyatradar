@@ -29,10 +29,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.4
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -41,30 +37,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Gradle wrapper at runtime
-        run: |
-          set -euo pipefail
-          rm -rf /tmp/gradle-wrapper-bootstrap
-          mkdir -p /tmp/gradle-wrapper-bootstrap
-          cd /tmp/gradle-wrapper-bootstrap
-
-          cat > settings.gradle <<'GRADLE_SETTINGS'
-          rootProject.name = 'wrapper-bootstrap'
-          GRADLE_SETTINGS
-
-          cat > build.gradle <<'GRADLE_BUILD'
-          tasks.register("noop")
-          GRADLE_BUILD
-
-          gradle wrapper --gradle-version 8.4 --no-validate-url
-
-          cp gradlew "$GITHUB_WORKSPACE/android/gradlew"
-          cp gradlew.bat "$GITHUB_WORKSPACE/android/gradlew.bat"
-          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.jar"
-          cp gradle/wrapper/gradle-wrapper.properties "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties"
-
-      - name: Make wrapper executable
-        run: chmod +x android/gradlew
 
       - name: Flutter pub get
         run: flutter pub get
