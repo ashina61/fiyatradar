@@ -46,7 +46,7 @@ jobs:
           echo "flutter.sdk=${FLUTTER_ROOT}" > android/local.properties
 
       - name: Regenerate Gradle wrapper JAR (text-only repo compatibility)
-        run: gradle -p android wrapper --gradle-version 8.4 --no-validate-url
+        run: ./android/gradlew -p android wrapper --gradle-version 8.4 --no-validate-url
 
       - name: Flutter analyze
         run: flutter analyze
