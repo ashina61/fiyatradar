@@ -26,6 +26,24 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
+      - name: Bootstrap valid Gradle wrapper (8.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_dir="$(mktemp -d)"
+          cat > "${tmp_dir}/build.gradle" <<'EOF'
+          tasks.register("noop")
+          EOF
+          (
+            cd "${tmp_dir}"
+            gradle wrapper --gradle-version 8.6 --no-daemon
+          )
+          cp "${tmp_dir}/gradlew" android/gradlew
+          cp "${tmp_dir}/gradlew.bat" android/gradlew.bat
+          cp "${tmp_dir}/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/gradle-wrapper.jar
+          cp "${tmp_dir}/gradle/wrapper/gradle-wrapper.properties" android/gradle/wrapper/gradle-wrapper.properties
+          chmod +x android/gradlew
+
       - name: Flutter pub get
         run: flutter pub get
 
