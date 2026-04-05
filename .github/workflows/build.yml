@@ -25,66 +25,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.4
-
-      - name: Set up Flutter
+      - name: Set up Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Recreate clean Gradle wrapper files
-        run: |
-          rm -f android/gradle/wrapper/gradle-wrapper.jar
-          rm -f android/gradlew
-          rm -f android/gradlew.bat
-
-          mkdir -p /tmp/gradle-wrapper-bootstrap
-          cd /tmp/gradle-wrapper-bootstrap
-
-          cat > settings.gradle <<'EOF'
-          rootProject.name = 'wrapper-bootstrap'
-          EOF
-
-          cat > build.gradle <<'EOF'
-          tasks.register("noop")
-          EOF
-
-          gradle wrapper --gradle-version 8.4
-
-          mkdir -p "$GITHUB_WORKSPACE/android/gradle/wrapper"
-          cp gradlew "$GITHUB_WORKSPACE/android/gradlew"
-          cp gradlew.bat "$GITHUB_WORKSPACE/android/gradlew.bat"
-          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.jar"
-          cp gradle/wrapper/gradle-wrapper.properties "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties"
-
-      - name: Make wrapper executable
-        run: chmod +x android/gradlew
-
-      - name: Verify wrapper files
-        run: |
-          test -f android/gradlew
-          test -f android/gradlew.bat
-          test -f android/gradle/wrapper/gradle-wrapper.jar
-          test -f android/gradle/wrapper/gradle-wrapper.properties
-          jar tf android/gradle/wrapper/gradle-wrapper.jar | head
-
-      - name: Verify Gradle wrapper runtime
-        run: ./android/gradlew --version
-
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build debug APK
-        env:
-          GRADLE_OPTS: >-
-            -Dorg.gradle.daemon=false
-            -Dkotlin.compiler.execution.strategy=in-process
-            -Dfile.encoding=UTF-8
-            -Dorg.gradle.jvmargs=-Xmx4g
         run: flutter build apk --debug
 
       - name: Upload debug APK artifact
