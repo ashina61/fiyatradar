@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../models/user_model.dart';
+import '../../theme/fr_colors.dart';
 import '../../utils/formatters.dart';
 import '../../utils/constants.dart';
 import '../../utils/elite_level_engine.dart';
@@ -38,7 +39,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return userAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, __) => Scaffold(
-        backgroundColor: const Color(0xFFF5F3F0),
+        backgroundColor: FRColors.backgroundWarm,
         body: _ErrorState(onRetry: () => setState(() => _reloadKey++)),
       ),
       data: (liveUser) {
@@ -54,7 +55,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F3F0),
+          backgroundColor: FRColors.backgroundWarm,
           body: FutureBuilder<_ProfileData>(
             key: ValueKey(_reloadKey),
             future: _loadProfile(liveUser!),
