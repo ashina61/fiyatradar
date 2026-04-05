@@ -8,15 +8,19 @@ import '../../providers/product_provider.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
 import '../product/product_detail_screen.dart';
-import '../main_screen.dart';
 import '../../theme/fr_colors.dart';
 
-class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({
-    super.key,
-    this.initialQuery,
-  });
+const _kHeaderRadius = 36.0;
+const _kCardRadius = 20.0;
+const _kPagePad = 20.0;
+const _kCardShadow = BoxShadow(
+  color: Color(0x0F170D08),
+  blurRadius: 14,
+  offset: Offset(0, 4),
+);
 
+class SearchScreen extends ConsumerStatefulWidget {
+  const SearchScreen({super.key, this.initialQuery});
   final String? initialQuery;
 
   @override
@@ -24,85 +28,81 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
-  final _searchController = TextEditingController();
-  final _focusNode = FocusNode();
+  final _ctrl = TextEditingController();
+  final _focus = FocusNode();
 
-  String? _selectedCategory;
-  int _sortBy = 0; // 0: Best Price, 1: Newest, 2: Highest Trust
-  bool _showOnlyDiscounted = false;
-  bool _showOnlyHighTrust = false;
+  String? _category;
+  int _sort = 0; // 0 best price · 1 newest · 2 trust
+  bool _discountedOnly = false;
+  bool _highTrustOnly = false;
 
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialQuery?.trim() ?? '';
-    if (initial.isNotEmpty) {
-      _searchController.text = initial;
+    final q = widget.initialQuery?.trim() ?? '';
+    if (q.isNotEmpty) {
+      _ctrl.text = q;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(searchQueryProvider.notifier).state = initial;
+        ref.read(searchQueryProvider.notifier).state = q;
       });
     }
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _focusNode.dispose();
+    _ctrl.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final query = _searchController.text.trim();
-    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
-    final searchResultsAsync = ref.watch(searchResultsProvider);
-    final latestPrices = ref.watch(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
+    final cats = ref.watch(categoriesProvider).valueOrNull ?? const [];
+    final resultsAsync = ref.watch(searchResultsProvider);
+    final allPrices = ref.watch(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
+    final latestByProduct = _latestByProduct(allPrices);
 
-    final latestByProduct = _latestPriceByProduct(latestPrices);
-    final rawResults = searchResultsAsync.valueOrNull ?? const <ProductModel>[];
-    final filtered = _applyFilters(
-      rawResults,
-      categoryName: _selectedCategory,
-      showOnlyDiscounted: _showOnlyDiscounted,
-      showOnlyHighTrust: _showOnlyHighTrust,
-    );
-    final results = _sortResults(filtered, _sortBy, latestByProduct);
+    final raw = resultsAsync.valueOrNull ?? const <ProductModel>[];
+    final filtered = _filter(raw);
+    final results = _sort(filtered, latestByProduct);
 
     return Scaffold(
       backgroundColor: FRColors.backgroundWarm,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildPageHeader(context),
-          _buildSearchInput(context),
-          _buildFilterChips(context, categories),
-          _buildResultsHeader(context, results.length, searchResultsAsync.isLoading),
-          if (searchResultsAsync.isLoading)
-            _buildLoadingState()
+          _buildHeader(),
+          _buildSearchBar(context),
+          _buildFilters(cats),
+          _buildResultsBar(results.length, resultsAsync.isLoading),
+          if (resultsAsync.isLoading)
+            _buildLoading()
           else if (results.isEmpty)
-            _buildEmptyState(context, query)
+            _buildEmpty(_ctrl.text.trim())
           else
-            _buildResultsList(context, results, latestByProduct),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            _buildList(context, results, latestByProduct),
+          const SliverToBoxAdapter(child: SizedBox(height: 130)),
         ],
       ),
     );
   }
 
-  Widget _buildPageHeader(BuildContext context) {
+  // ─── Header ──────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
     return SliverToBoxAdapter(
       child: Container(
         decoration: const BoxDecoration(
           color: FRColors.espresso,
           borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(32),
-            bottomRight: Radius.circular(32),
+            bottomLeft: Radius.circular(_kHeaderRadius),
+            bottomRight: Radius.circular(_kHeaderRadius),
           ),
         ),
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            padding: const EdgeInsets.fromLTRB(_kPagePad, 20, _kPagePad, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -110,20 +110,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   'Keşfet',
                   style: TextStyle(
                     fontFamily: 'Outfit',
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w900,
                     color: Colors.white,
-                    height: 1.1,
+                    letterSpacing: -1.0,
+                    height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'RADARDAKİ TÜM ÜRÜNLER',
+                const SizedBox(height: 5),
+                Text(
+                  'FİYAT RADARINDA TÜM ÜRÜNLER',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: FRColors.textMuted,
-                    letterSpacing: 1.2,
+                    color: Colors.white.withOpacity(0.28),
+                    letterSpacing: 1.4,
                   ),
                 ),
               ],
@@ -134,155 +135,119 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSearchInput(BuildContext context) {
+  // ─── Search bar ──────────────────────────────────────────────────────────
+
+  Widget _buildSearchBar(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: FRColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x10170D08),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _focusNode,
-            decoration: InputDecoration(
-              hintText: 'Ürün, marka veya kategori ara...',
-              hintStyle: const TextStyle(
-                color: FRColors.textSubtle,
-                fontWeight: FontWeight.w500,
-                fontSize: 15,
-              ),
-              prefixIcon: const Icon(Icons.search_rounded, color: FRColors.tan, size: 22),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 20),
-                      color: FRColors.textMuted,
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(searchQueryProvider.notifier).state = '';
-                        setState(() {});
-                        _focusNode.requestFocus();
-                      },
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                      color: FRColors.textMuted,
-                      onPressed: () async {
-                        final barcode = await BarcodeScannerSheet.scan(context);
-                        if (!mounted || barcode == null || barcode.trim().isEmpty) return;
-                        _searchController.text = barcode.trim();
-                        ref.read(searchQueryProvider.notifier).state = barcode.trim();
-                        setState(() {});
-                      },
-                    ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Transform.translate(
+        offset: const Offset(0, -20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
+          child: Container(
+            decoration: BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: const [
+                BoxShadow(color: Color(0x18170D08), blurRadius: 20, offset: Offset(0, 6)),
+              ],
             ),
-            textInputAction: TextInputAction.search,
-            onSubmitted: (value) {
-              ref.read(searchQueryProvider.notifier).state = value.trim();
-              _focusNode.unfocus();
-              setState(() {});
-            },
-            onChanged: (value) {
-              ref.read(searchQueryProvider.notifier).state = value.trim();
-              setState(() {});
-            },
+            child: TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              style: const TextStyle(fontSize: 15, color: FRColors.textPrimary, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: 'Ürün, marka veya kategori ara...',
+                hintStyle: const TextStyle(color: FRColors.textSubtle, fontSize: 14, fontWeight: FontWeight.w500),
+                prefixIcon: const Icon(Icons.search_rounded, color: FRColors.tan, size: 21),
+                suffixIcon: _ctrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        color: FRColors.textMuted,
+                        onPressed: () {
+                          _ctrl.clear();
+                          ref.read(searchQueryProvider.notifier).state = '';
+                          _focus.requestFocus();
+                          setState(() {});
+                        },
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                        color: FRColors.textMuted,
+                        onPressed: () async {
+                          final code = await BarcodeScannerSheet.scan(context);
+                          if (!mounted || code == null || code.trim().isEmpty) return;
+                          _ctrl.text = code.trim();
+                          ref.read(searchQueryProvider.notifier).state = code.trim();
+                          setState(() {});
+                        },
+                      ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (v) {
+                ref.read(searchQueryProvider.notifier).state = v.trim();
+                _focus.unfocus();
+                setState(() {});
+              },
+              onChanged: (v) {
+                ref.read(searchQueryProvider.notifier).state = v.trim();
+                setState(() {});
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFilterChips(BuildContext context, List<dynamic> categories) {
+  // ─── Filters ─────────────────────────────────────────────────────────────
+
+  Widget _buildFilters(List<dynamic> cats) {
     return SliverToBoxAdapter(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
           // Category chips
           SizedBox(
-            height: 38,
+            height: 36,
             child: ListView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
               children: [
-                _buildCategoryChip(
-                  label: 'Tümü',
-                  icon: Icons.grid_view_rounded,
-                  isActive: _selectedCategory == null,
-                  onTap: () => setState(() => _selectedCategory = null),
-                ),
-                ...categories.take(8).map(
-                  (cat) {
-                    final name = (cat.title ?? cat.name ?? 'Kategori').toString();
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _buildCategoryChip(
-                        label: name,
-                        icon: _getCategoryIcon(name),
-                        isActive: _selectedCategory == name,
-                        onTap: () => setState(() => _selectedCategory = name),
-                      ),
-                    );
-                  },
-                ),
+                _catChip('Tümü', Icons.apps_rounded, _category == null,
+                    () => setState(() => _category = null)),
+                ...cats.take(8).map((c) {
+                  final name = (c.title ?? c.name ?? 'Kategori').toString();
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _catChip(name, _catIcon(name), _category == name,
+                        () => setState(() => _category = name)),
+                  );
+                }),
               ],
             ),
           ),
           const SizedBox(height: 10),
-          // Utility filter chips
+          // Utility chips
           SizedBox(
-            height: 34,
+            height: 32,
             child: ListView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
               children: [
-                _buildFilterChip(
-                  label: 'En İyi Fiyat',
-                  icon: Icons.sell_rounded,
-                  isActive: _sortBy == 0,
-                  onTap: () => setState(() => _sortBy = 0),
-                ),
+                _utilChip('En İyi Fiyat', Icons.sell_rounded, _sort == 0,
+                    () => setState(() => _sort = 0)),
                 const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'En Yeni',
-                  icon: Icons.access_time_rounded,
-                  isActive: _sortBy == 1,
-                  onTap: () => setState(() => _sortBy = 1),
-                ),
+                _utilChip('En Yeni', Icons.access_time_rounded, _sort == 1,
+                    () => setState(() => _sort = 1)),
                 const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Yüksek Güven',
-                  icon: Icons.verified_user_rounded,
-                  isActive: _showOnlyHighTrust,
-                  onTap: () => setState(() => _showOnlyHighTrust = !_showOnlyHighTrust),
-                ),
+                _utilChip('Yüksek Güven', Icons.verified_user_rounded, _highTrustOnly,
+                    () => setState(() => _highTrustOnly = !_highTrustOnly)),
                 const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'İndirimli',
-                  icon: Icons.trending_down_rounded,
-                  isActive: _showOnlyDiscounted,
-                  onTap: () => setState(() => _showOnlyDiscounted = !_showOnlyDiscounted),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: 'Alarm Kur',
-                  icon: Icons.notifications_none_rounded,
-                  isActive: false,
-                  isAccent: true,
-                  onTap: () => _showAlertSetup(context),
-                ),
+                _utilChip('İndirimli', Icons.trending_down_rounded, _discountedOnly,
+                    () => setState(() => _discountedOnly = !_discountedOnly)),
               ],
             ),
           ),
@@ -291,35 +256,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildCategoryChip({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
+  Widget _catChip(String label, IconData icon, bool active, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.espresso : FRColors.surface,
+          color: active ? FRColors.espresso : FRColors.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: isActive ? FRColors.espresso : FRColors.border,
-          ),
+          boxShadow: active ? null : const [BoxShadow(color: Color(0x08170D08), blurRadius: 4, offset: Offset(0, 2))],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isActive ? FRColors.tan : FRColors.textMuted),
-            const SizedBox(width: 6),
+            Icon(icon, size: 13, color: active ? FRColors.tan : FRColors.textMuted),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isActive ? Colors.white : FRColors.textPrimary,
+                color: active ? Colors.white : FRColors.textPrimary,
               ),
             ),
           ],
@@ -328,40 +286,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildFilterChip({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-    bool isAccent = false,
-  }) {
+  Widget _utilChip(String label, IconData icon, bool active, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.tan.withOpacity(0.12) : FRColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive
-                ? FRColors.tan
-                : isAccent
-                    ? FRColors.tan.withOpacity(0.4)
-                    : FRColors.border,
-          ),
+          color: active ? FRColors.tan.withOpacity(0.12) : FRColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: active ? FRColors.tan : const Color(0x0C211510)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: isActive || isAccent ? FRColors.tan : FRColors.textMuted),
+            Icon(icon, size: 12, color: active ? FRColors.tan : FRColors.textMuted),
             const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isActive || isAccent ? FRColors.tan : FRColors.textPrimary,
+                color: active ? FRColors.tan : FRColors.textPrimary,
               ),
             ),
           ],
@@ -370,65 +316,54 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsHeader(BuildContext context, int count, bool isLoading) {
-    if (isLoading) return const SliverToBoxAdapter(child: SizedBox.shrink());
+  // ─── Results bar ─────────────────────────────────────────────────────────
 
+  Widget _buildResultsBar(int count, bool loading) {
+    if (loading) return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+        padding: const EdgeInsets.fromLTRB(_kPagePad, 20, _kPagePad, 12),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                const Text(
-                  'SONUÇLAR',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: FRColors.textMuted,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: FRColors.tan.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: FRColors.tan,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'SONUÇLAR',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: FRColors.textMuted,
+                letterSpacing: 1.0,
+              ),
             ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: FRColors.tan.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FRColors.tan),
+              ),
+            ),
+            const Spacer(),
             GestureDetector(
-              onTap: () => _showSortOptions(context),
+              onTap: () => _showSort(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: FRColors.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: FRColors.border),
+                  boxShadow: const [BoxShadow(color: Color(0x08170D08), blurRadius: 6, offset: Offset(0, 2))],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.sort_rounded, size: 14, color: FRColors.textMuted),
+                    const Icon(Icons.sort_rounded, size: 13, color: FRColors.textMuted),
                     const SizedBox(width: 5),
                     Text(
-                      _getSortLabel(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: FRColors.textPrimary,
-                      ),
+                      _sortLabel(),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
                     ),
                   ],
                 ),
@@ -440,200 +375,115 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsList(
-    BuildContext context,
-    List<ProductModel> results,
-    Map<String, PriceModel> latestByProduct,
-  ) {
+  // ─── Results list ─────────────────────────────────────────────────────────
+
+  Widget _buildList(BuildContext context, List<ProductModel> items, Map<String, PriceModel> latestByProduct) {
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildResultCard(
-            context,
-            results[index],
-            latestByProduct: latestByProduct,
-          ),
-          childCount: results.length,
+          (ctx, i) => _resultCard(ctx, items[i], latestByProduct),
+          childCount: items.length,
         ),
       ),
     );
   }
 
-  Widget _buildResultCard(
-    BuildContext context,
-    ProductModel item, {
-    required Map<String, PriceModel> latestByProduct,
-  }) {
-    final productId = item.id;
-    final productName = item.name;
-    final productImage = item.effectiveImage;
-    final latestPrice = latestByProduct[productId];
-    final price = latestPrice?.price ?? item.lastPrice ?? 0;
-    final storeName = latestPrice?.storeName ?? item.lastStore ?? 'Mağaza';
-    final timeAgo = _formatTimeAgo(latestPrice?.createdAt ?? item.updatedAt ?? item.createdAt);
-    final trustScore = latestPrice?.trustPercent ?? ((item.priceEntryCount >= 10 ? 92 : item.priceEntryCount >= 5 ? 82 : 72));
-    final priceChangePercent = _computePriceChangeForProduct(item.id);
+  Widget _resultCard(BuildContext context, ProductModel item, Map<String, PriceModel> latestByProduct) {
+    final latest = latestByProduct[item.id];
+    final price = latest?.price ?? item.lastPrice ?? 0;
+    final store = latest?.storeName ?? item.lastStore ?? '';
+    final time = _timeAgo(latest?.createdAt ?? item.updatedAt ?? item.createdAt);
+    final trust = latest?.trustPercent ?? (item.priceEntryCount >= 10 ? 92 : item.priceEntryCount >= 5 ? 82 : 72);
+    final change = _priceChange(item.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: FRColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Color(0x08170D08), blurRadius: 10, offset: Offset(0, 3)),
-        ],
+        borderRadius: BorderRadius.circular(_kCardRadius),
+        boxShadow: const [_kCardShadow],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(_kCardRadius),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: productId)),
+            MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: item.id)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
+                // Image
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 62,
+                  height: 62,
                   decoration: BoxDecoration(
                     color: FRColors.backgroundWarm,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: FRColors.border),
                   ),
-                  child: productImage != null && productImage.toString().isNotEmpty
+                  child: item.effectiveImage?.isNotEmpty == true
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: CachedNetworkImage(
-                            imageUrl: productImage.toString(),
+                            imageUrl: item.effectiveImage!,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) =>
-                                const Icon(Icons.category_outlined, size: 28, color: FRColors.tan),
+                            errorWidget: (_, __, ___) => const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
                           ),
                         )
-                      : const Icon(Icons.category_outlined, size: 28, color: FRColors.tan),
+                      : const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
                 ),
                 const SizedBox(width: 14),
+                // Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        productName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: FRColors.textPrimary,
-                        ),
+                        item.name,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.store_outlined, size: 10, color: FRColors.textSubtle),
-                          const SizedBox(width: 3),
-                          Text(storeName, style: const TextStyle(fontSize: 10, color: FRColors.textSubtle)),
-                          const SizedBox(width: 4),
-                          Text('• $timeAgo', style: const TextStyle(fontSize: 10, color: FRColors.textSubtle)),
-                        ],
+                      const SizedBox(height: 3),
+                      Text(
+                        store.isNotEmpty ? '$store · $time' : time,
+                        style: const TextStyle(fontSize: 11, color: FRColors.textSubtle),
                       ),
                       const SizedBox(height: 8),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
                             formatTRY(price),
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: FRColors.tan,
-                            ),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: FRColors.tan),
                           ),
-                          if (priceChangePercent != null && priceChangePercent.abs() >= 1)
-                            Container(
-                              margin: const EdgeInsets.only(left: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: priceChangePercent <= 0 ? FRColors.successSurface : FRColors.dangerSurface,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${priceChangePercent <= 0 ? '↓' : '↑'} ${priceChangePercent.abs().toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: priceChangePercent <= 0 ? FRColors.success : FRColors.danger,
-                                ),
-                              ),
-                            ),
+                          if (change != null && change.abs() >= 1) ...[
+                            const SizedBox(width: 6),
+                            _badge(change),
+                          ],
                         ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
+                // Trust + actions
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: trustScore >= 90
-                            ? FRColors.successSurface
-                            : trustScore >= 75
-                                ? FRColors.backgroundWarm
-                                : FRColors.dangerSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: trustScore >= 90
-                              ? FRColors.success.withOpacity(0.3)
-                              : FRColors.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.shield_rounded,
-                            size: 10,
-                            color: trustScore >= 90
-                                ? FRColors.success
-                                : trustScore >= 75
-                                    ? FRColors.textMuted
-                                    : FRColors.danger,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '$trustScore%',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: trustScore >= 90
-                                  ? FRColors.success
-                                  : trustScore >= 75
-                                      ? FRColors.textMuted
-                                      : FRColors.danger,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _trustBadge(trust),
                     const SizedBox(height: 10),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildActionBtn(
-                          icon: Icons.bookmark_outline_rounded,
-                          onTap: () => _addToWatchlist(context, productId),
-                        ),
+                        _actionBtn(Icons.bookmark_outline_rounded,
+                            onTap: () => _snack(context, 'Takip listesine eklendi.')),
                         const SizedBox(width: 6),
-                        _buildActionBtn(
-                          icon: Icons.notifications_none_rounded,
-                          onTap: () => _setPriceAlert(context, productId),
-                        ),
+                        _actionBtn(Icons.notifications_none_rounded,
+                            onTap: () => _snack(context, 'Fiyat alarmı kurma ekranı yakında.')),
                       ],
                     ),
                   ],
@@ -646,7 +496,51 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildActionBtn({required IconData icon, required VoidCallback onTap}) {
+  Widget _trustBadge(int score) {
+    final isHigh = score >= 90;
+    final isMid = score >= 75;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: isHigh ? FRColors.successSurface : isMid ? FRColors.backgroundWarm : FRColors.dangerSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.shield_rounded, size: 10,
+              color: isHigh ? FRColors.success : isMid ? FRColors.textMuted : FRColors.danger),
+          const SizedBox(width: 3),
+          Text(
+            '$score%',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isHigh ? FRColors.success : isMid ? FRColors.textMuted : FRColors.danger,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(double pct) {
+    final down = pct <= 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: down ? FRColors.successSurface : FRColors.dangerSurface,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '${down ? '↓' : '↑'} ${pct.abs().toStringAsFixed(0)}%',
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+            color: down ? FRColors.success : FRColors.danger),
+      ),
+    );
+  }
+
+  Widget _actionBtn(IconData icon, {required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -655,107 +549,148 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         decoration: BoxDecoration(
           color: FRColors.backgroundWarm,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: FRColors.border),
         ),
         child: Icon(icon, size: 14, color: FRColors.textMuted),
       ),
     );
   }
 
-  Widget _buildLoadingState() {
-    return SliverToBoxAdapter(
+  // ─── Loading / Empty ──────────────────────────────────────────────────────
+
+  Widget _buildLoading() {
+    return const SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 64),
+        padding: EdgeInsets.symmetric(vertical: 64),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: FRColors.tan,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Aranıyor...',
-                style: TextStyle(fontSize: 13, color: FRColors.textSubtle),
-              ),
-            ],
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: FRColors.tan),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, String query) {
+  Widget _buildEmpty(String query) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 32),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: FRColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x0A170D08), blurRadius: 10, offset: Offset(0, 3)),
-                  ],
-                ),
-                child: const Icon(Icons.search_off_rounded, size: 32, color: FRColors.textMuted),
+        padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: FRColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [_kCardShadow],
               ),
+              child: const Icon(Icons.search_off_rounded, size: 30, color: FRColors.textMuted),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              query.isEmpty ? 'Aramaya başlayın' : '"$query" bulunamadı',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              query.isEmpty ? 'Ürün, marka veya kategori girin' : 'Farklı bir terim deneyin',
+              style: const TextStyle(fontSize: 13, color: FRColors.textSubtle),
+              textAlign: TextAlign.center,
+            ),
+            if (query.isNotEmpty) ...[
               const SizedBox(height: 20),
-              Text(
-                query.isEmpty ? 'Aramaya Başlayın' : '"$query" bulunamadı',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: FRColors.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                query.isEmpty ? 'Ürün, marka veya kategori arayın' : 'Farklı bir arama deneyin',
-                style: const TextStyle(fontSize: 13, color: FRColors.textSubtle),
-                textAlign: TextAlign.center,
-              ),
-              if (query.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(searchQueryProvider.notifier).state = '';
-                    _focusNode.requestFocus();
-                    setState(() {});
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FRColors.tan,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              GestureDetector(
+                onTap: () {
+                  _ctrl.clear();
+                  ref.read(searchQueryProvider.notifier).state = '';
+                  _focus.requestFocus();
+                  setState(() {});
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: FRColors.espresso,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('Aramayı Temizle', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Aramayı Temizle',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Sort sheet ───────────────────────────────────────────────────────────
 
-  String _getSortLabel() {
-    switch (_sortBy) {
+  void _showSort(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: FRColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(color: const Color(0x18211510), borderRadius: BorderRadius.circular(999)),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Sırala', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: FRColors.textPrimary)),
+              ),
+            ),
+            _sortTile(ctx, 'En İyi Fiyat', Icons.sell_rounded, 0),
+            _sortTile(ctx, 'En Yeni', Icons.access_time_rounded, 1),
+            _sortTile(ctx, 'Yüksek Güven', Icons.shield_rounded, 2),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sortTile(BuildContext ctx, String label, IconData icon, int val) {
+    final active = _sort == val;
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: active ? FRColors.tan.withOpacity(0.12) : FRColors.backgroundWarm,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 18, color: active ? FRColors.tan : FRColors.textMuted),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: active ? FRColors.tan : FRColors.textPrimary),
+      ),
+      trailing: active ? const Icon(Icons.check_rounded, color: FRColors.tan, size: 18) : null,
+      onTap: () {
+        setState(() => _sort = val);
+        Navigator.pop(ctx);
+      },
+    );
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  String _sortLabel() {
+    switch (_sort) {
       case 0: return 'En İyi Fiyat';
       case 1: return 'En Yeni';
       case 2: return 'Yüksek Güven';
@@ -763,173 +698,79 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  IconData _getCategoryIcon(String title) {
-    final lower = title.toLowerCase();
-    if (lower.contains('market') || lower.contains('gıda')) return Icons.shopping_cart_rounded;
-    if (lower.contains('tekno') || lower.contains('elektronik')) return Icons.laptop_mac_rounded;
-    if (lower.contains('kozmetik') || lower.contains('bakım')) return Icons.face_retouching_natural_rounded;
-    if (lower.contains('hobi') || lower.contains('spor')) return Icons.sports_esports_rounded;
+  IconData _catIcon(String t) {
+    final l = t.toLowerCase();
+    if (l.contains('market') || l.contains('gıda')) return Icons.shopping_cart_rounded;
+    if (l.contains('tekno') || l.contains('elektronik')) return Icons.laptop_mac_rounded;
+    if (l.contains('kozmetik') || l.contains('bakım')) return Icons.face_retouching_natural_rounded;
+    if (l.contains('hobi') || l.contains('spor')) return Icons.sports_esports_rounded;
     return Icons.category_rounded;
   }
 
-  String _formatTimeAgo(DateTime createdAt) {
-    final diff = DateTime.now().difference(createdAt);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}d';
-    if (diff.inHours < 24) return '${diff.inHours}s';
-    return '${diff.inDays}g';
+  String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60) return '${d.inSeconds}s';
+    if (d.inMinutes < 60) return '${d.inMinutes}d';
+    if (d.inHours < 24) return '${d.inHours}s';
+    return '${d.inDays}g';
   }
 
-  void _showAlertSetup(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Alarm ayarları yakında eklenecek.')),
-    );
-  }
-
-  void _showSortOptions(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: FRColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: FRColors.border,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: Text(
-                'Sırala',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
-              ),
-            ),
-            _buildSortTile(ctx, 'En İyi Fiyat', Icons.sell_rounded, 0),
-            _buildSortTile(ctx, 'En Yeni', Icons.access_time_rounded, 1),
-            _buildSortTile(ctx, 'Yüksek Güven', Icons.shield_rounded, 2),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortTile(BuildContext ctx, String label, IconData icon, int sortValue) {
-    final isActive = _sortBy == sortValue;
-    return ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: isActive ? FRColors.tan.withOpacity(0.1) : FRColors.backgroundWarm,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, size: 18, color: isActive ? FRColors.tan : FRColors.textMuted),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: isActive ? FRColors.tan : FRColors.textPrimary,
-        ),
-      ),
-      trailing: isActive ? const Icon(Icons.check_rounded, color: FRColors.tan, size: 18) : null,
-      onTap: () {
-        setState(() => _sortBy = sortValue);
-        Navigator.pop(ctx);
-      },
-    );
-  }
-
-  void _addToWatchlist(BuildContext context, String productId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Takip listesine eklendi.')),
-    );
-  }
-
-  void _setPriceAlert(BuildContext context, String productId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fiyat alarmı kurma ekranı yakında eklenecek.')),
-    );
-  }
-
-  Map<String, PriceModel> _latestPriceByProduct(List<PriceModel> prices) {
+  Map<String, PriceModel> _latestByProduct(List<PriceModel> prices) {
     final map = <String, PriceModel>{};
-    for (final price in prices) {
-      final existing = map[price.productId];
-      if (existing == null || price.reportedAt.isAfter(existing.reportedAt)) {
-        map[price.productId] = price;
-      }
+    for (final p in prices) {
+      final e = map[p.productId];
+      if (e == null || p.reportedAt.isAfter(e.reportedAt)) map[p.productId] = p;
     }
     return map;
   }
 
-  List<ProductModel> _applyFilters(
-    List<ProductModel> results, {
-    required String? categoryName,
-    required bool showOnlyDiscounted,
-    required bool showOnlyHighTrust,
-  }) {
-    return results.where((product) {
-      if (categoryName != null && categoryName.isNotEmpty) {
-        final byCategory = product.categories.any((c) => c.toLowerCase() == categoryName.toLowerCase());
-        if (!byCategory) return false;
+  List<ProductModel> _filter(List<ProductModel> results) {
+    return results.where((p) {
+      if (_category != null && _category!.isNotEmpty) {
+        if (!p.categories.any((c) => c.toLowerCase() == _category!.toLowerCase())) return false;
       }
-      final delta = _computePriceChangeForProduct(product.id);
-      if (showOnlyDiscounted && !(delta != null && delta < 0)) return false;
-      if (showOnlyHighTrust && product.priceEntryCount < 5) return false;
+      final delta = _priceChange(p.id);
+      if (_discountedOnly && !(delta != null && delta < 0)) return false;
+      if (_highTrustOnly && p.priceEntryCount < 5) return false;
       return true;
-    }).toList(growable: false);
+    }).toList();
   }
 
-  List<ProductModel> _sortResults(
-    List<ProductModel> results,
-    int sortBy,
-    Map<String, PriceModel> latestByProduct,
-  ) {
+  List<ProductModel> _sort(List<ProductModel> results, Map<String, PriceModel> latest) {
     final sorted = [...results];
-    switch (sortBy) {
+    switch (_sort) {
       case 0:
         sorted.sort((a, b) {
-          final aPrice = latestByProduct[a.id]?.price ?? a.lastPrice ?? double.infinity;
-          final bPrice = latestByProduct[b.id]?.price ?? b.lastPrice ?? double.infinity;
-          return aPrice.compareTo(bPrice);
+          final ap = latest[a.id]?.price ?? a.lastPrice ?? double.infinity;
+          final bp = latest[b.id]?.price ?? b.lastPrice ?? double.infinity;
+          return ap.compareTo(bp);
         });
         break;
       case 1:
         sorted.sort((a, b) {
-          final aDate = latestByProduct[a.id]?.reportedAt ?? a.updatedAt ?? a.createdAt;
-          final bDate = latestByProduct[b.id]?.reportedAt ?? b.updatedAt ?? b.createdAt;
-          return bDate.compareTo(aDate);
+          final ad = latest[a.id]?.reportedAt ?? a.updatedAt ?? a.createdAt;
+          final bd = latest[b.id]?.reportedAt ?? b.updatedAt ?? b.createdAt;
+          return bd.compareTo(ad);
         });
         break;
       case 2:
         sorted.sort((a, b) => b.priceEntryCount.compareTo(a.priceEntryCount));
         break;
-      default:
-        break;
     }
     return sorted;
   }
 
-  double? _computePriceChangeForProduct(String productId) {
-    final latestPrices = ref.read(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
-    final productPrices = latestPrices.where((p) => p.productId == productId).toList()
+  double? _priceChange(String productId) {
+    final prices = ref.read(latestPricesProvider).valueOrNull ?? const <PriceModel>[];
+    final pp = prices.where((p) => p.productId == productId).toList()
       ..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
-    if (productPrices.length < 2) return null;
-    final latest = productPrices[0].price;
-    final prev = productPrices[1].price;
+    if (pp.length < 2) return null;
+    final prev = pp[1].price;
     if (prev <= 0) return null;
-    return ((latest - prev) / prev) * 100;
+    return ((pp[0].price - prev) / prev) * 100;
+  }
+
+  void _snack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
