@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/auth/forgot_password_screen.dart';
-import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -31,7 +30,7 @@ GoRouter buildAppRouter({required bool showOnboarding}) {
       ),
       GoRoute(
         path: '/login',
-        pageBuilder: (context, state) => _fadePage(state, const LoginScreen()),
+        builder: (context, state) => const AppStartGate(),
       ),
       GoRoute(
         path: '/register',
