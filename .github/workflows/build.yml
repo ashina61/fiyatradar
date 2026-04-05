@@ -25,17 +25,73 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Flutter (stable)
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.24.0'
           cache: true
+
+      - name: Rebuild fresh Gradle wrapper
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -f android/gradlew
+          rm -f android/gradlew.bat
+          rm -f android/gradle/wrapper/gradle-wrapper.jar
+          rm -f android/gradle/wrapper/gradle-wrapper.properties
+
+          rm -rf /tmp/fr-wrapper-bootstrap
+          mkdir -p /tmp/fr-wrapper-bootstrap
+          cd /tmp/fr-wrapper-bootstrap
+
+          cat > settings.gradle <<'EOF'
+          rootProject.name = 'fr-wrapper-bootstrap'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          tasks.register("noop")
+          EOF
+
+          gradle wrapper --gradle-version 8.4
+
+          mkdir -p "$GITHUB_WORKSPACE/android/gradle/wrapper"
+          cp gradlew "$GITHUB_WORKSPACE/android/gradlew"
+          cp gradlew.bat "$GITHUB_WORKSPACE/android/gradlew.bat"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.jar"
+          cp gradle/wrapper/gradle-wrapper.properties "$GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties"
+
+      - name: Verify fresh wrapper
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x android/gradlew
+          test -f android/gradlew
+          test -f android/gradle/wrapper/gradle-wrapper.jar
+          test -f android/gradle/wrapper/gradle-wrapper.properties
+          jar tf android/gradle/wrapper/gradle-wrapper.jar | grep 'org/gradle/wrapper/GradleWrapperMain.class'
+          ./android/gradlew --version
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build debug APK
+        env:
+          GRADLE_OPTS: >-
+            -Dorg.gradle.daemon=false
+            -Dkotlin.compiler.execution.strategy=in-process
+            -Dfile.encoding=UTF-8
+            -Dorg.gradle.jvmargs=-Xmx4g
         run: flutter build apk --debug
+
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
