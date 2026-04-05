@@ -9,8 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/cart_provider.dart';
 import '../../theme/fr_colors.dart';
-import '../../theme/fr_radius.dart';
-import '../../theme/fr_spacing.dart';
 import '../../utils/formatters.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -28,116 +26,157 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final cartItems = ref.watch(cartProvider);
     final bestCombination = _calculateBestCombination(cartItems);
     final singlePlatformOption = _calculateSinglePlatformOption(cartItems);
+    final activeCombination = _showBestCombination ? bestCombination : singlePlatformOption;
 
     return Scaffold(
-      backgroundColor: FRColors.background,
-      appBar: _buildAppBar(context),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _buildSummaryCard(bestCombination, singlePlatformOption),
-            _buildCombinationToggle(),
-            Expanded(
-              child: _buildItemList(
-                _showBestCombination ? bestCombination : singlePlatformOption,
-              ),
-            ),
-            _buildPlatformDistribution(bestCombination),
-            _buildActionBar(bestCombination),
-          ],
-        ),
+      backgroundColor: FRColors.backgroundWarm,
+      body: Column(
+        children: [
+          _buildDarkHeader(context, cartItems.length),
+          Expanded(
+            child: cartItems.isEmpty
+                ? _buildEmptyCart()
+                : ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _buildSummaryCard(bestCombination, singlePlatformOption),
+                      _buildCombinationToggle(),
+                      _buildSectionLabel('ÜRÜNLERİNİZ'),
+                      ...activeCombination.items.map((item) => _buildCartItem(item)),
+                      _buildPlatformDistribution(bestCombination),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+          ),
+          if (cartItems.isNotEmpty) _buildActionBar(bestCombination),
+        ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: FRColors.background,
-      elevation: 0,
-      toolbarHeight: 56,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-        color: FRColors.textPrimary,
-        onPressed: () => Navigator.maybePop(context),
-      ),
-      title: const Text(
-        'Karşılaştırma',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          color: FRColors.textPrimary,
+  Widget _buildDarkHeader(BuildContext context, int itemCount) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: FRColors.espresso,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.delete_outline_rounded, size: 20),
-          color: FRColors.textMuted,
-          onPressed: () => _clearCart(context),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sepet',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'FİYAT KARŞILAŞTIRMA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: FRColors.textMuted,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (itemCount > 0)
+                GestureDetector(
+                  onTap: () => _clearCart(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.delete_outline_rounded, size: 15, color: Colors.white.withOpacity(0.7)),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Temizle',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        const SizedBox(width: 8),
-      ],
+      ),
     );
   }
 
   Widget _buildSummaryCard(CartCombination best, CartCombination single) {
     final savings = single.total - best.total;
-    final savingsPercent =
-        savings > 0 && single.total > 0 ? (savings / single.total * 100) : 0;
+    final savingsPercent = savings > 0 && single.total > 0 ? (savings / single.total * 100) : 0;
 
     return Container(
-      margin: FRSpaceInsets.all(16),
-      padding: FRSpaceInsets.all(18),
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            FRColors.tan.withOpacity(0.08),
-            FRColors.tan.withOpacity(0.02),
-          ],
-        ),
-        borderRadius: FRRadius.all(FRRadius.xl),
-        border: Border.all(color: FRColors.tan.withOpacity(0.25)),
+        color: FRColors.espresso,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         children: [
           const Text(
-            'En İyi Kombinasyon',
+            'EN İYİ KOMBİNASYON',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: FRColors.textSubtle,
-              letterSpacing: 0.5,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: FRColors.textMuted,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             formatTRY(best.total),
             style: const TextStyle(
-              fontSize: 36,
+              fontFamily: 'Outfit',
+              fontSize: 40,
               fontWeight: FontWeight.w900,
-              color: FRColors.textPrimary,
+              color: Colors.white,
               letterSpacing: -1,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (savings > 0)
             Container(
-              padding: FRSpaceInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: FRColors.successBg(0.1),
-                borderRadius: FRRadius.all(FRRadius.pill),
+                color: FRColors.success.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: FRColors.success.withOpacity(0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.trending_down_rounded,
-                    size: 14,
-                    color: FRColors.success,
-                  ),
+                  const Icon(Icons.trending_down_rounded, size: 14, color: FRColors.success),
                   const SizedBox(width: 6),
                   Text(
                     '₺${savings.toStringAsFixed(0)} tasarruf (%${savingsPercent.toStringAsFixed(0)})',
@@ -150,13 +189,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ],
               ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             '${best.platformCount} platformdan ${best.itemCount} ürün',
-            style: const TextStyle(
-              fontSize: 11,
-              color: FRColors.textSubtle,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.45)),
           ),
         ],
       ),
@@ -165,11 +201,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Widget _buildCombinationToggle() {
     return Container(
-      margin: FRSpaceInsets.symmetric(horizontal: 16),
-      padding: FRSpaceInsets.all(4),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: FRColors.border),
       ),
       child: Row(
@@ -201,31 +237,26 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: FRRadius.all(FRRadius.md),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: FRSpaceInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? FRColors.tan : Colors.transparent,
-          borderRadius: FRRadius.all(FRRadius.md),
+          color: isActive ? FRColors.espresso : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isActive ? FRColors.background : FRColors.textMuted,
-            ),
+            Icon(icon, size: 15, color: isActive ? FRColors.tan : FRColors.textMuted),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isActive ? FRColors.background : FRColors.textMuted,
+                color: isActive ? Colors.white : FRColors.textMuted,
               ),
             ),
           ],
@@ -234,97 +265,56 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
-  Widget _buildItemList(CartCombination combination) {
-    if (combination.items.isEmpty) {
-      return _buildEmptyCart();
-    }
-
-    return ListView.separated(
-      padding: FRSpaceInsets.fromLTRB(16, 16, 16, 16),
-      itemCount: combination.items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = combination.items[index];
-        return _buildCartItem(item);
-      },
-    );
-  }
-
-  Widget _buildEmptyCart() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: FRColors.surfaceAlt,
-            child: Icon(
-              Icons.shopping_bag_outlined,
-              size: 32,
-              color: FRColors.textSubtle,
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Karşılaştırma listesi boş',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: FRColors.textPrimary,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Arama sayfasından ürün ekleyin',
-            style: TextStyle(
-              fontSize: 12,
-              color: FRColors.textSubtle,
-            ),
-          ),
-        ],
+  Widget _buildSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: FRColors.textMuted,
+          letterSpacing: 1.0,
+        ),
       ),
     );
   }
 
   Widget _buildCartItem(CartItem item) {
     return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       decoration: BoxDecoration(
         color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
-        border: Border.all(color: FRColors.border),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x08170D08), blurRadius: 10, offset: Offset(0, 3)),
+        ],
       ),
       child: Column(
         children: [
           Padding(
-            padding: FRSpaceInsets.all(14),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: FRColors.surfaceAlt,
-                    borderRadius: FRRadius.all(FRRadius.md),
+                    color: FRColors.backgroundWarm,
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: FRColors.border),
                   ),
                   child: item.imageUrl != null && item.imageUrl!.isNotEmpty
                       ? ClipRRect(
-                          borderRadius: FRRadius.all(FRRadius.md),
+                          borderRadius: BorderRadius.circular(14),
                           child: CachedNetworkImage(
                             imageUrl: item.imageUrl!,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(
-                              Icons.category_outlined,
-                              size: 28,
-                              color: FRColors.tan,
-                            ),
+                            errorWidget: (_, __, ___) =>
+                                const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
                           ),
                         )
-                      : const Icon(
-                          Icons.category_outlined,
-                          size: 28,
-                          color: FRColors.tan,
-                        ),
+                      : const Icon(Icons.category_outlined, size: 26, color: FRColors.tan),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -344,57 +334,61 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       const SizedBox(height: 4),
                       Text(
                         'Adet: ${item.quantity}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: FRColors.textSubtle,
-                        ),
+                        style: const TextStyle(fontSize: 11, color: FRColors.textSubtle),
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  formatTRY(item.price * item.quantity),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: FRColors.tan,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatTRY(item.price * item.quantity),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: FRColors.tan,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    if (item.quantity > 1)
+                      Text(
+                        '${formatTRY(item.price)}/adet',
+                        style: const TextStyle(fontSize: 10, color: FRColors.textSubtle),
+                      ),
+                  ],
                 ),
               ],
             ),
           ),
           Container(
-            padding: FRSpaceInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: FRColors.surfaceAlt,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(14),
-              ),
-              border: const Border(top: BorderSide(color: FRColors.border)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: FRColors.backgroundWarm,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+              border: Border(top: BorderSide(color: FRColors.border)),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 24,
-                  height: 24,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: FRColors.tan,
-                    borderRadius: FRRadius.all(FRRadius.sm),
+                    color: FRColors.espresso,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
                     child: Text(
-                      item.platformName.isNotEmpty
-                          ? item.platformName[0].toUpperCase()
-                          : '?',
+                      item.platformName.isNotEmpty ? item.platformName[0].toUpperCase() : '?',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: FRColors.background,
+                        color: FRColors.tan,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     item.platformName,
@@ -406,12 +400,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   ),
                 ),
                 Container(
-                  padding: FRSpaceInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: item.trustScore >= 90
-                        ? FRColors.successBg(0.12)
-                        : FRColors.surface,
-                    borderRadius: FRRadius.all(FRRadius.sm),
+                        ? FRColors.successSurface
+                        : FRColors.backgroundWarm,
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: item.trustScore >= 90
                           ? FRColors.success.withOpacity(0.3)
@@ -424,9 +418,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       Icon(
                         Icons.shield_rounded,
                         size: 10,
-                        color: item.trustScore >= 90
-                            ? FRColors.success
-                            : FRColors.textSubtle,
+                        color: item.trustScore >= 90 ? FRColors.success : FRColors.textSubtle,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -434,9 +426,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: item.trustScore >= 90
-                              ? FRColors.success
-                              : FRColors.textSubtle,
+                          color: item.trustScore >= 90 ? FRColors.success : FRColors.textSubtle,
                         ),
                       ),
                     ],
@@ -450,53 +440,90 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
+  Widget _buildEmptyCart() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [
+                BoxShadow(color: Color(0x0A170D08), blurRadius: 12, offset: Offset(0, 4)),
+              ],
+            ),
+            child: const Icon(Icons.shopping_bag_outlined, size: 36, color: FRColors.textSubtle),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Karşılaştırma Listesi Boş',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: FRColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Arama sayfasından ürün ekleyin\nve fiyatları karşılaştırın',
+            style: TextStyle(fontSize: 13, color: FRColors.textSubtle, height: 1.5),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPlatformDistribution(CartCombination combination) {
     final platforms = _groupItemsByPlatform(combination.items);
+    if (platforms.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      margin: FRSpaceInsets.fromLTRB(16, 0, 16, 16),
-      padding: FRSpaceInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: FRColors.surface,
-        borderRadius: FRRadius.all(FRRadius.lg),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: FRColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Platform Dağılımı',
+            'PLATFORM DAĞILIMI',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: FRColors.textPrimary,
+              color: FRColors.textMuted,
+              letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           ...platforms.entries.map((entry) {
             final platformTotal = entry.value.fold<double>(
               0,
               (sum, item) => sum + (item.price * item.quantity),
             );
-
             return Padding(
-              padding: FRSpaceInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: FRColors.surfaceAlt,
-                      borderRadius: FRRadius.all(FRRadius.md),
-                      border: Border.all(color: FRColors.border),
+                      color: FRColors.espresso,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
                       child: Text(
                         entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?',
                         style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
                           color: FRColors.tan,
                         ),
                       ),
@@ -517,10 +544,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         ),
                         Text(
                           '${entry.value.length} ürün',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: FRColors.textSubtle,
-                          ),
+                          style: const TextStyle(fontSize: 11, color: FRColors.textSubtle),
                         ),
                       ],
                     ),
@@ -530,7 +554,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: FRColors.textPrimary,
+                      color: FRColors.tan,
                     ),
                   ),
                 ],
@@ -544,89 +568,77 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Widget _buildActionBar(CartCombination combination) {
     return Container(
-      padding: FRSpaceInsets.fromLTRB(16, 12, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            FRColors.background.withOpacity(0.95),
+        color: FRColors.surface,
+        border: const Border(top: BorderSide(color: FRColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _openPlatformLinks(combination),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FRColors.espresso,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new_rounded, size: 18, color: FRColors.tan),
+                    SizedBox(width: 8),
+                    Text(
+                      'Platformlara Git',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _shareCart(combination),
+                icon: const Icon(Icons.share_rounded, size: 16),
+                label: const Text('Listeyi Paylaş'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: FRColors.textPrimary,
+                  side: const BorderSide(color: FRColors.border),
+                  minimumSize: const Size(double.infinity, 46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Fiyatlar platformlarda değişebilir. Son fiyatları kontrol edin.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10, color: FRColors.textSubtle),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _openPlatformLinks(combination),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FRColors.tan,
-                foregroundColor: FRColors.background,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: FRRadius.all(FRRadius.lg),
-                ),
-                elevation: 0,
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.open_in_new_rounded, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Platform\'lara Git',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _shareCart(combination),
-              icon: const Icon(Icons.share_rounded, size: 18),
-              label: const Text('Listeyi Paylaş'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: FRColors.textPrimary,
-                side: const BorderSide(color: FRColors.border),
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: FRRadius.all(FRRadius.lg),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Fiyatlar platformlarda değişebilir. Son fiyatları platformda kontrol edin.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              color: FRColors.textSubtle,
-              height: 1.45,
-            ),
-          ),
-        ],
       ),
     );
   }
 
+  // ─── Logic helpers ────────────────────────────────────────────────────────
+
   CartCombination _calculateBestCombination(List<CartItem> items) {
     double total = 0;
     final platforms = <String>{};
-
     for (final item in items) {
       total += item.price * item.quantity;
       platforms.add(item.platformName);
     }
-
     return CartCombination(
       items: items,
       total: total,
@@ -652,14 +664,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       context: context,
       builder: (dialog) => AlertDialog(
         backgroundColor: FRColors.surface,
-        title: const Text('Listeyi Temizle?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Listeyi Temizle?',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
+        ),
         content: const Text(
           'Tüm ürünler karşılaştırma listesinden kaldırılacak.',
+          style: TextStyle(fontSize: 13, color: FRColors.textSubtle),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialog),
-            child: const Text('İptal'),
+            child: const Text('İptal', style: TextStyle(color: FRColors.textMuted)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -671,10 +688,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: FRColors.tan,
-              foregroundColor: FRColors.background,
+              backgroundColor: FRColors.espresso,
+              foregroundColor: FRColors.tan,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
             ),
-            child: const Text('Temizle'),
+            child: const Text('Temizle', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -683,14 +702,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Future<void> _openPlatformLinks(CartCombination combination) async {
     final platforms = _groupItemsByPlatform(combination.items);
-
     for (final platform in platforms.keys) {
       final url = _getPlatformUrl(platform);
       if (url != null) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       }
     }
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Platform linkleri açıldı.')),
@@ -699,7 +716,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   String? _getPlatformUrl(String platform) {
-    final urls = {
+    const urls = {
       'Trendyol': 'https://www.trendyol.com',
       'Hepsiburada': 'https://www.hepsiburada.com',
       'Amazon': 'https://www.amazon.com.tr',
