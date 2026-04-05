@@ -7,6 +7,7 @@ import '../../models/price_model.dart';
 import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../pages/notification_center_page.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
