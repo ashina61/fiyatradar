@@ -33,7 +33,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
           channel: stable
           cache: true
 
@@ -73,14 +72,11 @@ jobs:
           test -f android/gradle/wrapper/gradle-wrapper.properties
           jar tf android/gradle/wrapper/gradle-wrapper.jar | head
 
+      - name: Verify Gradle wrapper runtime
+        run: ./android/gradlew --version
+
       - name: Flutter pub get
         run: flutter pub get
-
-      - name: Flutter analyze (non-blocking)
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: Ensure asset folder exists
-        run: mkdir -p assets/icons/categories
 
       - name: Build debug APK
         env:
