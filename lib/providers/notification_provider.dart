@@ -12,16 +12,14 @@ import 'product_provider.dart';
 
 final _notificationOptimisticProvider =
     StateProvider<Map<String, bool>>((ref) => <String, bool>{});
-final _notificationBootstrapCompletedUidsProvider =
-    StateProvider<Set<String>>((ref) => <String>{});
+final Set<String> _notificationBootstrapCompletedUids = <String>{};
 
 final notificationBootstrapProvider = Provider<void>((ref) {
   if (!ref.watch(firebaseInitializedProvider)) return;
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return;
 
-  final completed = ref.watch(_notificationBootstrapCompletedUidsProvider);
-  if (completed.contains(user.uid)) return;
+  if (_notificationBootstrapCompletedUids.contains(user.uid)) return;
 
   final service = NotificationService();
   unawaited(NotificationService.requestNotificationPermissions());
@@ -34,10 +32,7 @@ final notificationBootstrapProvider = Provider<void>((ref) {
     }),
   );
 
-  ref.read(_notificationBootstrapCompletedUidsProvider.notifier).state = {
-    ...completed,
-    user.uid,
-  };
+  _notificationBootstrapCompletedUids.add(user.uid);
 });
 
 final notificationsStreamProvider = StreamProvider<List<NotificationItem>>((ref) {
