@@ -64,7 +64,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final raw = resultsAsync.valueOrNull ?? const <ProductModel>[];
     final filtered = _filter(raw);
-    final results = _sort(filtered, latestByProduct);
+    final results = _applySorting(filtered, latestByProduct);
 
     return Scaffold(
       backgroundColor: FRColors.backgroundWarm,
@@ -736,7 +736,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }).toList();
   }
 
-  List<ProductModel> _sort(List<ProductModel> results, Map<String, PriceModel> latest) {
+  List<ProductModel> _applySorting(List<ProductModel> results, Map<String, PriceModel> latest) {
     final sorted = [...results];
     switch (_sort) {
       case 0:
