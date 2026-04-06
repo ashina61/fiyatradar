@@ -1,31 +1,18 @@
 // lib/screens/add_price/add_price_screen.dart
-// GREENFIELD — 3-step wizard, mission-like contribution flow
-// Rejected: single-page form, platform pill grid, motivational header bolted on top
-// UX goal: "Complete a mission, not fill a form" — each step is full-focus, guided
+// GREENFIELD v2 — "The Quick Submit"
+// Rejected from the previous iteration: 3-step PageView wizard, mission framing,
+// platform pill grid, per-step motivational copy.
+// UX goal: log a price in under 15 seconds. ONE single screen, number is the hero,
+// custom keypad replaces soft keyboard for the price field.
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/product_model.dart';
-import '../../models/store.dart';
 import '../../providers/add_price_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../theme/fr_colors.dart';
-import '../../utils/formatters.dart';
+import '../../theme/fr_ink.dart';
 
-const _kPad = 24.0;
-const _kCardR = 20.0;
-const _kShadow = BoxShadow(color: Color(0x0A211510), blurRadius: 12, offset: Offset(0, 3));
-
-const _kPlatforms = [
-  'Trendyol', 'Hepsiburada', 'Amazon', 'N11', 'ÇiçekSepeti',
-  'A101', 'BİM', 'Migros', 'CarrefourSA', 'Diğer',
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key, this.initialProductId});
   final String? initialProductId;
@@ -35,74 +22,55 @@ class AddPriceScreen extends ConsumerStatefulWidget {
 }
 
 class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
-  final _pageCtrl = PageController();
-  final _priceCtrl = TextEditingController();
-  final _searchCtrl = TextEditingController();
-
-  int _step = 0;
-  ProductModel? _product;
-  String? _platform;
+  final _productCtrl = TextEditingController();
   bool _submitting = false;
+  int _stage = 0; // 0 product, 1 price+store
 
   @override
   void initState() {
     super.initState();
     if (widget.initialProductId?.isNotEmpty == true) {
-      _loadProduct(widget.initialProductId!);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await ref.read(addPriceProvider.notifier).initializeForProduct(widget.initialProductId!);
+        final s = ref.read(addPriceProvider);
+        if (s.selectedProductId != null) {
+          _productCtrl.text = s.productName;
+          setState(() => _stage = 1);
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    _pageCtrl.dispose();
-    _priceCtrl.dispose();
-    _searchCtrl.dispose();
+    _productCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadProduct(String id) async {
-    final p = await ref.read(productProvider(id).future);
-    if (mounted && p != null) setState(() => _product = p);
-  }
-
-  bool get _step1Valid => _product != null;
-  bool get _step2Valid =>
-      _platform != null &&
-      _priceCtrl.text.trim().isNotEmpty &&
-      double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) != null;
-
-  void _goToStep(int step) {
-    setState(() => _step = step);
-    _pageCtrl.animateToPage(
-      step,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
   Future<void> _submit() async {
-    final user = ref.read(authStateProvider).valueOrNull;
-    if (user == null || !_step2Valid || _product == null) return;
-
+    if (_submitting) return;
+    final uid = ref.read(authUidProvider);
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce giriş yapın.')),
+      );
+      return;
+    }
     setState(() => _submitting = true);
     try {
-      final notifier = ref.read(addPriceProvider.notifier);
-      notifier.selectProductSuggestion(_product!);
-      notifier.setSelectedStore(Store(
-        id: _platform!.toLowerCase().replaceAll(' ', '_'),
-        name: _platform!,
-        type: 'online',
-        distanceMeters: 0,
-        logoUrl: '',
-      ));
-      notifier.setPrice(_priceCtrl.text.trim().replaceAll(',', '.'));
-      await notifier.submitPrice(userId: user.uid);
+      HapticFeedback.mediumImpact();
+      await ref.read(addPriceProvider.notifier).submitPrice(userId: uid);
       if (!mounted) return;
-      _goToStep(2);
+      _productCtrl.clear();
+      setState(() => _stage = 0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Teşekkürler — fiyat kaydedildi.')),
+      );
+      Navigator.of(context).maybePop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e'), backgroundColor: FRColors.espresso),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -111,750 +79,432 @@ class _AddPriceScreenState extends ConsumerState<AddPriceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(addPriceProvider);
+
     return Scaffold(
-      backgroundColor: FRColors.backgroundWarm,
+      backgroundColor: FRInk.paper,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
-            _WizardHeader(
-              step: _step,
-              onBack: () {
-                if (_step > 0 && _step < 2) {
-                  _goToStep(_step - 1);
-                } else {
-                  Navigator.maybePop(context);
-                }
-              },
+            _TopBar(
+              onClose: () => Navigator.of(context).maybePop(),
+              stage: _stage,
             ),
             Expanded(
-              child: PageView(
-                controller: _pageCtrl,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _Step1Product(
-                    ctrl: _searchCtrl,
-                    selected: _product,
-                    onSelect: (p) {
-                      setState(() => _product = p);
-                      _goToStep(1);
-                    },
-                  ),
-                  _Step2Price(
-                    product: _product,
-                    priceCtrl: _priceCtrl,
-                    platform: _platform,
-                    submitting: _submitting,
-                    onPlatformSelect: (v) => setState(() => _platform = v),
-                    onPriceChanged: (_) => setState(() {}),
-                    onSubmit: _step2Valid ? _submit : null,
-                  ),
-                  _Step3Done(
-                    product: _product,
-                    onDone: () => Navigator.maybePop(context),
-                    onAddAnother: () {
-                      setState(() {
-                        _product = null;
-                        _platform = null;
-                        _priceCtrl.clear();
-                        _searchCtrl.clear();
-                      });
-                      _goToStep(0);
-                    },
-                  ),
-                ],
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _stage == 0
+                    ? _StageProduct(
+                        key: const ValueKey('product'),
+                        state: s,
+                        ctrl: _productCtrl,
+                        onPicked: () => setState(() => _stage = 1),
+                      )
+                    : _StagePriceStore(
+                        key: const ValueKey('price'),
+                        state: s,
+                        onEditProduct: () {
+                          setState(() => _stage = 0);
+                          _productCtrl.text = s.productName;
+                        },
+                      ),
               ),
             ),
+            if (_stage == 1) _SubmitBar(enabled: _canSubmit(s) && !_submitting, loading: _submitting, onTap: _submit),
           ],
         ),
       ),
     );
   }
+
+  bool _canSubmit(AddPriceState s) {
+    final p = double.tryParse(s.price.replaceAll(',', '.')) ?? 0;
+    return p > 0 && s.selectedProductId != null && s.selectedStoreId != null;
+  }
 }
 
-// ─── Wizard header ────────────────────────────────────────────────────────────
-class _WizardHeader extends StatelessWidget {
-  const _WizardHeader({required this.step, required this.onBack});
-  final int step;
-  final VoidCallback onBack;
-
-  static const _titles = ['Ürün Seç', 'Fiyat Gir', 'Tamamlandı'];
-  static const _subs = ['Hangi ürünün fiyatını ekleyeceksin?', 'Kaça aldın? Nereden?', 'Katkın kaydedildi!'];
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.onClose, required this.stage});
+  final VoidCallback onClose;
+  final int stage;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 12, _kPad, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(FRInk.gutter, 14, FRInk.gutter, 6),
+      child: Row(
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  step == 2 ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded,
-                  size: 18,
-                  color: FRColors.textMuted,
-                ),
-                onPressed: onBack,
-              ),
-              const Spacer(),
-              // Step dots
-              Row(
-                children: List.generate(3, (i) {
-                  final active = i == step;
-                  final done = i < step;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.only(left: 6),
-                    width: active ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: done || active ? FRColors.espresso : FRColors.border,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-            ],
+          GestureDetector(
+            onTap: onClose,
+            child: const Icon(Icons.close_rounded, size: 24, color: FRInk.ink),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_kPad - 8, 10, 0, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _titles[step],
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: FRColors.espresso,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _subs[step],
-                  style: const TextStyle(fontSize: 13, color: FRColors.textMuted),
-                ),
-              ],
-            ),
-          ),
+          const Spacer(),
+          Text(stage == 0 ? 'ÜRÜN' : 'FİYAT', style: FRType.micro),
+          const Spacer(),
+          const SizedBox(width: 24),
         ],
       ),
     );
   }
 }
 
-// ─── Step 1: Product selection ────────────────────────────────────────────────
-class _Step1Product extends ConsumerStatefulWidget {
-  const _Step1Product({required this.ctrl, required this.selected, required this.onSelect});
+// ── Stage 1: product picker ──────────────────────────────────────────────────
+class _StageProduct extends ConsumerWidget {
+  const _StageProduct({super.key, required this.state, required this.ctrl, required this.onPicked});
+  final AddPriceState state;
   final TextEditingController ctrl;
-  final ProductModel? selected;
-  final ValueChanged<ProductModel> onSelect;
+  final VoidCallback onPicked;
 
   @override
-  ConsumerState<_Step1Product> createState() => _Step1ProductState();
-}
-
-class _Step1ProductState extends ConsumerState<_Step1Product> {
-  List<ProductModel> _suggestions = [];
-
-  @override
-  Widget build(BuildContext context) {
-    final allProducts = ref.watch(allProductsProvider).valueOrNull ?? [];
-
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(_kPad, 20, _kPad, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search input
-          Container(
-            decoration: BoxDecoration(
-              color: FRColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: FRColors.border),
-              boxShadow: const [_kShadow],
-            ),
-            child: TextField(
-              controller: widget.ctrl,
-              autofocus: widget.selected == null,
-              onChanged: (q) {
-                setState(() {
-                  _suggestions = q.length < 2
-                      ? []
-                      : allProducts
-                          .where((p) => p.name.toLowerCase().contains(q.toLowerCase()))
-                          .take(6)
-                          .toList();
-                });
-              },
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: FRColors.textPrimary),
-              decoration: const InputDecoration(
-                hintText: 'Ürün adı yaz…',
-                hintStyle: TextStyle(fontSize: 15, color: FRColors.textSubtle),
-                prefixIcon: Icon(Icons.search_rounded, color: FRColors.textMuted, size: 20),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              ),
-            ),
-          ),
-          // Suggestions
-          if (_suggestions.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: FRColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: FRColors.border),
-                boxShadow: const [_kShadow],
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < _suggestions.length; i++) ...[
-                    _ProductSuggestionRow(
-                      product: _suggestions[i],
-                      onTap: () {
-                        widget.ctrl.text = _suggestions[i].name;
-                        widget.onSelect(_suggestions[i]);
-                      },
-                    ),
-                    if (i < _suggestions.length - 1)
-                      const Divider(height: 1, indent: 60, endIndent: 16, color: Color(0x08211510)),
-                  ],
-                ],
-              ),
-            ),
-          ],
-          // Currently selected
-          if (widget.selected != null && _suggestions.isEmpty) ...[
-            const SizedBox(height: 20),
-            const Text(
-              'SEÇİLEN ÜRÜN',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: FRColors.textMuted,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _SelectedProductCard(product: widget.selected!),
-          ],
-          // Trending products shortcut
-          if (_suggestions.isEmpty && widget.selected == null) ...[
-            const SizedBox(height: 28),
-            const Text(
-              'POPÜLER ÜRÜNLER',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: FRColors.textMuted,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...allProducts.take(5).map((p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _ProductSuggestionRow(
-                    product: p,
-                    onTap: () => widget.onSelect(p),
-                    standalone: true,
-                  ),
-                )),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ProductSuggestionRow extends StatelessWidget {
-  const _ProductSuggestionRow({required this.product, required this.onTap, this.standalone = false});
-  final ProductModel product;
-  final VoidCallback onTap;
-  final bool standalone;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = product.effectiveImage;
-    Widget content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: url != null
-                ? CachedNetworkImage(imageUrl: url, width: 40, height: 40, fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => _thumb())
-                : _thumb(),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
-                ),
-                if (product.brand.isNotEmpty)
-                  Text(
-                    product.brand,
-                    style: const TextStyle(fontSize: 11, color: FRColors.textMuted),
-                  ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, size: 18, color: FRColors.textSubtle),
-        ],
-      ),
-    );
-
-    if (standalone) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: FRColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: FRColors.border),
-            boxShadow: const [_kShadow],
-          ),
-          child: content,
-        ),
-      );
-    }
-    return InkWell(onTap: onTap, child: content);
-  }
-
-  Widget _thumb() => Container(
-        width: 40,
-        height: 40,
-        color: FRColors.backgroundWarm,
-        child: const Icon(Icons.category_outlined, size: 18, color: FRColors.textSubtle),
-      );
-}
-
-class _SelectedProductCard extends StatelessWidget {
-  const _SelectedProductCard({required this.product});
-  final ProductModel product;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = product.effectiveImage;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: BorderRadius.circular(_kCardR),
-        border: Border.all(color: FRColors.tan.withOpacity(0.4)),
-        boxShadow: const [_kShadow],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: url != null
-                ? CachedNetworkImage(imageUrl: url, width: 56, height: 56, fit: BoxFit.cover)
-                : Container(
-                    width: 56,
-                    height: 56,
-                    color: FRColors.backgroundWarm,
-                    child: const Icon(Icons.category_outlined, size: 22, color: FRColors.textSubtle),
-                  ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
-                ),
-                if (product.brand.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(product.brand, style: const TextStyle(fontSize: 12, color: FRColors.textMuted)),
-                ],
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: FRColors.success.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.check_rounded, size: 16, color: FRColors.success),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Step 2: Price + Platform ─────────────────────────────────────────────────
-class _Step2Price extends StatelessWidget {
-  const _Step2Price({
-    required this.product,
-    required this.priceCtrl,
-    required this.platform,
-    required this.submitting,
-    required this.onPlatformSelect,
-    required this.onPriceChanged,
-    required this.onSubmit,
-  });
-
-  final ProductModel? product;
-  final TextEditingController priceCtrl;
-  final String? platform;
-  final bool submitting;
-  final ValueChanged<String> onPlatformSelect;
-  final ValueChanged<String> onPriceChanged;
-  final VoidCallback? onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(_kPad, 20, _kPad, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Product context chip
-                if (product != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: FRColors.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: FRColors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.inventory_2_outlined, size: 14, color: FRColors.tan),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            product!.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FRColors.textPrimary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                // Price input — hero
-                const Text(
-                  'FİYAT',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: FRColors.textMuted, letterSpacing: 1.4),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: FRColors.surface,
-                    borderRadius: BorderRadius.circular(_kCardR),
-                    border: Border.all(color: FRColors.border),
-                    boxShadow: const [_kShadow],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        '₺',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 36,
-                          fontWeight: FontWeight.w700,
-                          color: FRColors.tan,
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: priceCtrl,
-                          onChanged: onPriceChanged,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            color: FRColors.espresso,
-                            height: 1,
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: '0,00',
-                            hintStyle: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              color: FRColors.textSubtle,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 18),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-                // Platform selection
-                const Text(
-                  'PLATFORM',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: FRColors.textMuted, letterSpacing: 1.4),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: FRColors.surface,
-                    borderRadius: BorderRadius.circular(_kCardR),
-                    border: Border.all(color: FRColors.border),
-                    boxShadow: const [_kShadow],
-                  ),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < _kPlatforms.length; i++) ...[
-                        _PlatformRow(
-                          name: _kPlatforms[i],
-                          selected: platform == _kPlatforms[i],
-                          onTap: () => onPlatformSelect(_kPlatforms[i]),
-                        ),
-                        if (i < _kPlatforms.length - 1)
-                          const Divider(height: 1, indent: 16, endIndent: 16, color: Color(0x06211510)),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 100),
-              ],
+        const SizedBox(height: 8),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(FRInk.gutter, 0, FRInk.gutter, 0),
+          child: Text('Hangi ürünün\nfiyatını\ngirmek istersin?', style: FRType.title),
+        ),
+        const SizedBox(height: 28),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FRInk.gutter),
+          child: TextField(
+            controller: ctrl,
+            autofocus: true,
+            cursorColor: FRInk.ink,
+            onChanged: (v) => ref.read(addPriceProvider.notifier).onProductInputChanged(v),
+            style: FRType.body.copyWith(fontSize: 20, color: FRInk.ink, fontWeight: FontWeight.w600),
+            decoration: const InputDecoration(
+              isCollapsed: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+              border: UnderlineInputBorder(borderSide: BorderSide(color: FRInk.hairline)),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FRInk.hairline)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FRInk.ink, width: 1.4)),
+              hintText: 'ürün adı yaz…',
+              hintStyle: TextStyle(color: FRInk.inkFaint, fontFamily: FRType.family, fontSize: 20, fontWeight: FontWeight.w500),
             ),
           ),
         ),
-        // Submit bar
-        Container(
-          padding: const EdgeInsets.fromLTRB(_kPad, 14, _kPad, 0),
-          decoration: BoxDecoration(
-            color: FRColors.surface,
-            border: const Border(top: BorderSide(color: Color(0x08211510))),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: submitting ? null : onSubmit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FRColors.espresso,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: FRColors.textSubtle,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: submitting
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: FRColors.tan))
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.send_rounded, size: 18, color: FRColors.tan),
-                          SizedBox(width: 10),
-                          Text(
-                            'Fiyatı Bildir',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                          ),
-                        ],
+        const SizedBox(height: 14),
+        Expanded(
+          child: state.productSuggestions.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(FRInk.gutter),
+                  child: Text(
+                    state.productName.trim().length < 2
+                        ? 'En az 2 harf yaz, katalogdan öneri gelsin.'
+                        : 'Eşleşme bulunamadı.',
+                    style: FRType.body,
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: state.productSuggestions.length,
+                  separatorBuilder: (_, __) => const FRHairline(indent: FRInk.gutter),
+                  itemBuilder: (_, i) {
+                    final p = state.productSuggestions[i];
+                    return InkWell(
+                      onTap: () {
+                        ref.read(addPriceProvider.notifier).selectProductSuggestion(p);
+                        ctrl.text = p.name;
+                        onPicked();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: FRInk.gutter, vertical: 18),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(p.name, style: FRType.bodyStrong, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  if (p.brand.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(p.brand, style: FRType.body.copyWith(color: FRInk.inkMute, fontSize: 13)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_rounded, color: FRInk.ink, size: 18),
+                          ],
+                        ),
                       ),
-              ),
-            ),
-          ),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 }
 
-class _PlatformRow extends StatelessWidget {
-  const _PlatformRow({required this.name, required this.selected, required this.onTap});
-  final String name;
-  final bool selected;
+// ── Stage 2: price (keypad) + store picker ──────────────────────────────────
+class _StagePriceStore extends ConsumerWidget {
+  const _StagePriceStore({super.key, required this.state, required this.onEditProduct});
+  final AddPriceState state;
+  final VoidCallback onEditProduct;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(addPriceProvider.notifier);
+    final price = state.price;
+    final display = price.isEmpty ? '0' : price;
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Selected product row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(FRInk.gutter, 10, FRInk.gutter, 0),
+            child: InkWell(
+              onTap: onEditProduct,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('ÜRÜN', style: FRType.micro),
+                        const SizedBox(height: 4),
+                        Text(state.productName, style: FRType.bodyStrong, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const Text('değiştir', style: TextStyle(
+                    fontFamily: FRType.family, fontSize: 13, fontWeight: FontWeight.w600,
+                    color: FRInk.saffron, decoration: TextDecoration.underline,
+                  )),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const FRHairline(),
+          // Big price
+          Padding(
+            padding: const EdgeInsets.fromLTRB(FRInk.gutter, 28, FRInk.gutter, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  display,
+                  style: FRType.display.copyWith(fontSize: 72, letterSpacing: -2.4),
+                ),
+                const SizedBox(width: 8),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 14),
+                  child: Text('₺', style: TextStyle(
+                    fontFamily: FRType.family, fontSize: 28, fontWeight: FontWeight.w300, color: FRInk.inkMute,
+                  )),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: FRInk.gutter),
+            child: Text('raf fiyatı — indirim hariç', style: FRType.body),
+          ),
+          const SizedBox(height: 24),
+          _Keypad(
+            onDigit: (d) => notifier.setPrice(_append(price, d)),
+            onDot: () => notifier.setPrice(_appendDot(price)),
+            onBack: () => notifier.setPrice(price.isEmpty ? '' : price.substring(0, price.length - 1)),
+          ),
+          const SizedBox(height: 24),
+          const FRHairline(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(FRInk.gutter, 18, FRInk.gutter, 10),
+            child: Text('MARKET', style: FRType.micro),
+          ),
+          _StorePicker(state: state, notifier: notifier),
+          const SizedBox(height: 28),
+        ],
+      ),
+    );
+  }
+
+  String _append(String cur, String d) {
+    if (cur == '0') return d;
+    if (cur.length >= 8) return cur;
+    return cur + d;
+  }
+  String _appendDot(String cur) {
+    if (cur.contains(',')) return cur;
+    return (cur.isEmpty ? '0' : cur) + ',';
+  }
+}
+
+class _Keypad extends StatelessWidget {
+  const _Keypad({required this.onDigit, required this.onDot, required this.onBack});
+  final ValueChanged<String> onDigit;
+  final VoidCallback onDot;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      ['1','2','3'],
+      ['4','5','6'],
+      ['7','8','9'],
+      [',','0','⌫'],
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FRInk.gutter / 2),
+      child: Column(
+        children: [
+          for (final r in rows)
+            Row(
+              children: [
+                for (final k in r)
+                  Expanded(
+                    child: _KeyButton(
+                      label: k,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        if (k == '⌫') {
+                          onBack();
+                        } else if (k == ',') {
+                          onDot();
+                        } else {
+                          onDigit(k);
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyButton extends StatelessWidget {
+  const _KeyButton({required this.label, required this.onTap});
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        color: selected ? FRColors.espresso.withOpacity(0.04) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        child: Row(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? FRColors.espresso : FRColors.border,
-                  width: selected ? 6 : 2,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? FRColors.espresso : FRColors.textPrimary,
-              ),
-            ),
-          ],
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 58,
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: FRType.family,
+            fontSize: label == '⌫' ? 22 : 26,
+            fontWeight: FontWeight.w500,
+            color: FRInk.ink,
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Step 3: Done ─────────────────────────────────────────────────────────────
-class _Step3Done extends StatelessWidget {
-  const _Step3Done({required this.product, required this.onDone, required this.onAddAnother});
-  final ProductModel? product;
-  final VoidCallback onDone;
-  final VoidCallback onAddAnother;
+class _StorePicker extends StatelessWidget {
+  const _StorePicker({required this.state, required this.notifier});
+  final AddPriceState state;
+  final AddPriceNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(_kPad, 32, _kPad, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: FRColors.success.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check_circle_rounded, size: 44, color: FRColors.success),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Fiyat Eklendi!',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: FRColors.espresso,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Katkın topluluk tarafından değerlendirilecek.\nTeşekkürler!',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: FRColors.textMuted, height: 1.5),
-          ),
-          const SizedBox(height: 32),
-          // XP card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: FRColors.espresso,
-              borderRadius: BorderRadius.circular(_kCardR),
-            ),
-            child: Column(
-              children: [
-                const Text(
-                  'KAZANDIĞIN PUAN',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: FRColors.tan,
-                    letterSpacing: 1.4,
-                  ),
+    final stores = [...state.nearbyStores, ...state.onlineStores].take(12).toList();
+    if (state.isStoresLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(FRInk.gutter),
+        child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.5, color: FRInk.ink)),
+      );
+    }
+    if (stores.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: FRInk.gutter),
+        child: Text('Market bulunamadı.', style: FRType.body),
+      );
+    }
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: FRInk.gutter),
+        scrollDirection: Axis.horizontal,
+        itemCount: stores.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final s = stores[i];
+          final selected = state.selectedStoreId == s.id;
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              notifier.setSelectedStore(s);
+            },
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                color: selected ? FRInk.ink : FRInk.paperDeep,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Text(
+                s.name,
+                style: TextStyle(
+                  fontFamily: FRType.family,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? FRInk.paper : FRInk.ink,
                 ),
-                const SizedBox(height: 10),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '+10',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SubmitBar extends StatelessWidget {
+  const _SubmitBar({required this.enabled, required this.loading, required this.onTap});
+  final bool enabled;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(FRInk.gutter, 10, FRInk.gutter, 18),
+      child: SizedBox(
+        height: 58,
+        width: double.infinity,
+        child: Material(
+          color: enabled ? FRInk.ink : FRInk.inkFaint,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: enabled ? onTap : null,
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: FRInk.paper),
+                    )
+                  : const Text(
+                      'Fiyatı bildir',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 48,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1,
+                        fontFamily: FRType.family,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: FRInk.paper,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.only(top: 12, left: 8),
-                      child: Text(
-                        'PT',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: FRColors.tan),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Fotoğraf ekleyerek +10 daha kazanabilirdin',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.45)),
-                ),
-              ],
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: onAddAnother,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FRColors.surface,
-                foregroundColor: FRColors.espresso,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: FRColors.border),
-                ),
-              ),
-              child: const Text('Başka Fiyat Ekle', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: TextButton(
-              onPressed: onDone,
-              child: const Text(
-                'Kapat',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: FRColors.textMuted),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
