@@ -1,850 +1,587 @@
+// lib/screens/home/home_screen.dart
+// GREENFIELD — warm editorial layout, no dark header island
+// Rejected: full-width dark header, floating search overlap, horizontal carousel island
+// UX goal: "Morning briefing" — what changed today, what am I tracking
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/notification_model.dart';
 import '../../models/price_model.dart';
 import '../../models/product_model.dart';
-import '../../models/user_model.dart';
-import '../../pages/notification_center_page.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../providers/user_provider.dart';
-import '../../utils/formatters.dart';
-import '../../widgets/barcode_scanner_sheet.dart';
-import '../main_screen.dart';
-import '../product/product_detail_screen.dart';
 import '../../theme/fr_colors.dart';
+import '../../utils/formatters.dart';
 
-// ─── Design tokens (local) ────────────────────────────────────────────────
-const _kHeaderRadius = 36.0;
-const _kCardRadius = 20.0;
-const _kPagePad = 20.0;
-const _kSectionGap = 28.0;
+const _kPad = 24.0;
+const _kCardR = 20.0;
+const _kGap = 32.0;
+const _kShadow = BoxShadow(color: Color(0x0A211510), blurRadius: 12, offset: Offset(0, 3));
 
-const _kCardShadow = BoxShadow(
-  color: Color(0x0F170D08),
-  blurRadius: 14,
-  offset: Offset(0, 4),
-);
-
-// ─────────────────────────────────────────────────────────────────────────
-
-class HomeScreen extends ConsumerStatefulWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userModelStreamProvider);
-    final latestPricesAsync = ref.watch(latestPricesProvider);
-    final trendingAsync = ref.watch(trendingProductsProvider);
-    final unreadCount = ref.watch(unreadCountProvider);
-    final notifications =
-        ref.watch(notificationsProvider).valueOrNull ?? const <NotificationItem>[];
-    final watchlist =
-        ref.watch(savedProductsProvider).valueOrNull ?? const <ProductModel>[];
-
-    final prices = latestPricesAsync.valueOrNull ?? const <PriceModel>[];
-    final trending = trendingAsync.valueOrNull ?? const <ProductModel>[];
-    final changeMap = _priceChangeMap(prices);
-
-    NotificationItem? alert;
-    for (final n in notifications) {
-      if (!n.isRead && (n.productId ?? '').trim().isNotEmpty) {
-        alert = n;
-        break;
-      }
-    }
+    final unread = ref.watch(unreadNotificationCountProvider);
+    final trending = ref.watch(trendingProductsProvider);
+    final latestPrices = ref.watch(latestPricesProvider);
 
     return Scaffold(
       backgroundColor: FRColors.backgroundWarm,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          _buildHeader(context, userAsync.valueOrNull, unreadCount),
-          _buildSearch(context),
-          if (alert != null) _buildAlertStrip(context, alert),
-          _buildLiveFeed(context, prices, changeMap),
-          if (watchlist.isNotEmpty) _buildWatchlist(context, watchlist),
-          if (trending.isNotEmpty) _buildTrending(context, trending),
-          const SliverToBoxAdapter(child: SizedBox(height: 130)),
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _TopBar(unread: unread)),
+            SliverToBoxAdapter(
+              child: userAsync.when(
+                loading: () => const _GreetingShimmer(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (u) => _GreetingCard(user: u),
+              ),
+            ),
+            const SliverToBoxAdapter(child: _SecLabel('BUGÜN NE DEĞİŞTİ')),
+            SliverToBoxAdapter(
+              child: _PricePulse(trending: trending, latest: latestPrices),
+            ),
+            const SliverToBoxAdapter(child: _SecLabel('SON KATKILAR')),
+            SliverToBoxAdapter(
+              child: _CommunityFeed(prices: latestPrices),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 130)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Top bar ─────────────────────────────────────────────────────────────────
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.unread});
+  final int unread;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(_kPad, 18, _kPad, 0),
+      child: Row(
+        children: [
+          RichText(
+            text: const TextSpan(children: [
+              TextSpan(
+                text: 'Fiyat',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: FRColors.espresso,
+                ),
+              ),
+              TextSpan(
+                text: 'Radar',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 21,
+                  fontWeight: FontWeight.w400,
+                  color: FRColors.tan,
+                ),
+              ),
+            ]),
+          ),
+          const Spacer(),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: FRColors.surface,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: FRColors.border),
+                  boxShadow: const [_kShadow],
+                ),
+                child: const Icon(Icons.notifications_outlined, size: 20, color: FRColors.textPrimary),
+              ),
+              if (unread > 0)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: FRColors.espresso,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: FRColors.backgroundWarm, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        unread > 9 ? '9+' : '$unread',
+                        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: FRColors.tan),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
+}
 
-  // ─── Header ──────────────────────────────────────────────────────────────
+// ─── Greeting card ────────────────────────────────────────────────────────────
+class _GreetingCard extends StatelessWidget {
+  const _GreetingCard({required this.user});
+  final dynamic user;
 
-  Widget _buildHeader(BuildContext context, UserModel? user, int unread) {
-    final name = user?.username.trim().isNotEmpty == true
-        ? user!.username.trim()
-        : (user?.preferredDisplayName ?? 'Kullanıcı');
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Günaydın';
+    if (h < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  }
 
-    return SliverToBoxAdapter(
-      child: Container(
-        decoration: const BoxDecoration(
-          color: FRColors.espresso,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(_kHeaderRadius),
-            bottomRight: Radius.circular(_kHeaderRadius),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(_kPagePad, 16, _kPagePad, 32),
+  @override
+  Widget build(BuildContext context) {
+    final name = (user?.username?.trim().isNotEmpty == true
+            ? user!.username.trim()
+            : user?.name?.trim() ?? '') as String;
+    final points = (user?.totalPoints ?? 0) as int;
+    final level = (user?.level ?? '') as String;
+    final photoUrl = user?.photoUrl as String?;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(_kPad, 22, _kPad, 0),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: FRColors.espresso,
+        borderRadius: BorderRadius.circular(_kCardR),
+      ),
+      child: Row(
+        children: [
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top row: greeting + icons
+                Text(
+                  '$_greeting${name.isNotEmpty ? ", $name" : ""}',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _greeting(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withOpacity(0.4),
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: FRColors.tanLight,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                    Text(
+                      formatCompactCount(points),
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: FRColors.tan,
+                        height: 1,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    _headerBtn(
-                      Icons.notifications_outlined,
-                      badge: unread > 0,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6, bottom: 4),
+                      child: Text(
+                        'PT',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: FRColors.tan),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _headerBtn(
-                      Icons.person_outline_rounded,
-                      onTap: () => ref.read(currentTabProvider.notifier).state = 4,
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
-                // Wordmark
-                RichText(
-                  text: const TextSpan(
-                    text: 'Fiyat',
+                if (level.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    level.toUpperCase(),
                     style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 38,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.0,
-                      letterSpacing: -1.0,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white.withOpacity(0.4),
+                      letterSpacing: 1.4,
                     ),
-                    children: [
-                      TextSpan(
-                        text: 'Radar',
-                        style: TextStyle(color: FRColors.tan),
-                      ),
-                    ],
                   ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'CANLI FİYAT İSTİHBARATI',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withOpacity(0.28),
-                    letterSpacing: 1.4,
-                  ),
-                ),
+                ],
               ],
             ),
           ),
+          const SizedBox(width: 16),
+          _Avatar(url: photoUrl, name: name, size: 56),
+        ],
+      ),
+    );
+  }
+}
+
+class _GreetingShimmer extends StatelessWidget {
+  const _GreetingShimmer();
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.fromLTRB(_kPad, 22, _kPad, 0),
+        height: 120,
+        decoration: BoxDecoration(
+          color: FRColors.surface,
+          borderRadius: BorderRadius.circular(_kCardR),
+          border: Border.all(color: FRColors.border),
         ),
+      );
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+class _SecLabel extends StatelessWidget {
+  const _SecLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(_kPad, _kGap, _kPad, 14),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: FRColors.textMuted,
+            letterSpacing: 1.5,
+          ),
+        ),
+      );
+}
+
+// ─── Price pulse ──────────────────────────────────────────────────────────────
+class _PricePulse extends StatelessWidget {
+  const _PricePulse({required this.trending, required this.latest});
+  final AsyncValue<List<ProductModel>> trending;
+  final AsyncValue<List<PriceModel>> latest;
+
+  @override
+  Widget build(BuildContext context) {
+    final products = trending.valueOrNull ?? [];
+    if (products.isEmpty) {
+      return SizedBox(
+        height: 110,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: _kPad),
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 4,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, __) => Container(
+            width: 150,
+            decoration: BoxDecoration(
+              color: FRColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: FRColors.border),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final priceMap = <String, double>{};
+    for (final p in latest.valueOrNull ?? []) {
+      final pid = p.selectedProductId ?? p.productId;
+      priceMap.putIfAbsent(pid, () => p.price);
+    }
+
+    return SizedBox(
+      height: 110,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: _kPad),
+        physics: const BouncingScrollPhysics(),
+        itemCount: products.length.clamp(0, 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final p = products[i];
+          final price = priceMap[p.id] ?? p.lastPrice;
+          return _PulseCard(product: p, price: price);
+        },
+      ),
+    );
+  }
+}
+
+class _PulseCard extends StatelessWidget {
+  const _PulseCard({required this.product, required this.price});
+  final ProductModel product;
+  final double? price;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FRColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: FRColors.border),
+        boxShadow: const [_kShadow],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _productThumb(product.effectiveImage),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: FRColors.textPrimary,
+                    height: 1.3,
+                  ),
+                ),
+                const Spacer(),
+                if (price != null)
+                  Text(
+                    formatTRY(price!),
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: FRColors.camelStrong,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _headerBtn(IconData icon, {bool badge = false, required VoidCallback onTap}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
+  Widget _productThumb(String? url) => ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: url != null
+            ? CachedNetworkImage(
+                imageUrl: url,
+                width: 42,
+                height: 42,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _fallbackThumb(),
+              )
+            : _fallbackThumb(),
+      );
+
+  Widget _fallbackThumb() => Container(
+        width: 42,
+        height: 42,
+        color: FRColors.backgroundWarm,
+        child: const Icon(Icons.category_outlined, size: 18, color: FRColors.textSubtle),
+      );
+}
+
+// ─── Community feed ───────────────────────────────────────────────────────────
+class _CommunityFeed extends StatelessWidget {
+  const _CommunityFeed({required this.prices});
+  final AsyncValue<List<PriceModel>> prices;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = (prices.valueOrNull ?? []).take(10).toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: _kPad),
+      child: list.isEmpty
+          ? _emptyState()
+          : Container(
+              decoration: BoxDecoration(
+                color: FRColors.surface,
+                borderRadius: BorderRadius.circular(_kCardR),
+                border: Border.all(color: FRColors.border),
+                boxShadow: const [_kShadow],
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < list.length; i++) ...[
+                    _FeedRow(price: list[i]),
+                    if (i < list.length - 1)
+                      const Divider(height: 1, indent: 62, endIndent: 16, color: Color(0x08211510)),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _emptyState() => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: FRColors.surface,
+          borderRadius: BorderRadius.circular(_kCardR),
+          border: Border.all(color: FRColors.border),
+        ),
+        child: const Center(
+          child: Text(
+            'Henüz katkı yok.\nİlk fiyatı ekleyen sen ol!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: FRColors.textMuted, height: 1.5),
+          ),
+        ),
+      );
+}
+
+class _FeedRow extends StatelessWidget {
+  const _FeedRow({required this.price});
+  final PriceModel price;
+
+  String _ago(DateTime dt) {
+    final d = DateTime.now().difference(dt);
+    if (d.inMinutes < 1) return 'şimdi';
+    if (d.inMinutes < 60) return '${d.inMinutes}dk önce';
+    if (d.inHours < 24) return '${d.inHours}sa önce';
+    return '${d.inDays}g önce';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reporter = price.addedByDisplayName ?? price.reporterName ?? 'Kullanıcı';
+    final product = price.productName ?? 'Ürün';
+    final store = price.storeName ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07),
+              color: FRColors.backgroundWarm,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.10)),
             ),
-            child: Icon(icon, size: 18, color: Colors.white.withOpacity(0.75)),
-          ),
-        ),
-        if (badge)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: FRColors.danger,
-                shape: BoxShape.circle,
-                border: Border.all(color: FRColors.espresso, width: 1.5),
+            child: Center(
+              child: Text(
+                reporter.isNotEmpty ? reporter[0].toUpperCase() : 'K',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: FRColors.tan),
               ),
             ),
           ),
-      ],
-    );
-  }
-
-  // ─── Search ──────────────────────────────────────────────────────────────
-
-  Widget _buildSearch(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Transform.translate(
-        offset: const Offset(0, -20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
-          child: Container(
-            decoration: BoxDecoration(
-              color: FRColors.surface,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: const [
-                BoxShadow(color: Color(0x18170D08), blurRadius: 20, offset: Offset(0, 6)),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => ref.read(currentTabProvider.notifier).state = 1,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, color: FRColors.tan, size: 21),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Ürün, marka veya kategori ara...',
-                          style: TextStyle(
-                            color: FRColors.textSubtle,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () async {
-                          final code = await BarcodeScannerSheet.scan(context);
-                          if (!mounted || code == null || code.trim().isEmpty) return;
-                          ref.read(searchQueryProvider.notifier).state = code.trim();
-                          ref.read(currentTabProvider.notifier).state = 1;
-                        },
-                        child: Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: FRColors.backgroundWarm,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.qr_code_scanner_rounded,
-                            size: 16,
-                            color: FRColors.textMuted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Alert strip ─────────────────────────────────────────────────────────
-
-  Widget _buildAlertStrip(BuildContext context, NotificationItem alert) {
-    return SliverToBoxAdapter(
-      child: GestureDetector(
-        onTap: (alert.productId ?? '').trim().isEmpty
-            ? null
-            : () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(productId: alert.productId!)),
-                ),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(_kPagePad, 0, _kPagePad, _kSectionGap - 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: FRColors.espresso,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: FRColors.tan.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.notifications_active_rounded, size: 18, color: FRColors.tan),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    const Text(
-                      'HEDEF FİYATA ULAŞILDI',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: FRColors.tan,
-                        letterSpacing: 0.8,
+                    Expanded(
+                      child: Text(
+                        reporter,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: FRColors.textPrimary),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      (alert.productName ?? alert.title ?? 'Ürün').toString(),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(_ago(price.reportedAt),
+                        style: const TextStyle(fontSize: 11, color: FRColors.textSubtle)),
                   ],
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: FRColors.textMuted, size: 18),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Live feed ───────────────────────────────────────────────────────────
-
-  Widget _buildLiveFeed(
-    BuildContext context,
-    List<PriceModel> prices,
-    Map<String, double> changeMap,
-  ) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionRow(
-              'CANLI FİYATLAR',
-              Icons.bolt_rounded,
-              onMore: () => ref.read(currentTabProvider.notifier).state = 1,
-            ),
-            const SizedBox(height: 14),
-            prices.isEmpty
-                ? _emptyFeed()
-                : Container(
-                    decoration: BoxDecoration(
-                      color: FRColors.surface,
-                      borderRadius: BorderRadius.circular(_kCardRadius),
-                      boxShadow: const [_kCardShadow],
-                    ),
-                    child: Column(
-                      children: [
-                        ...List.generate(prices.take(5).length, (i) {
-                          final p = prices[i];
-                          return Column(
-                            children: [
-                              if (i > 0)
-                                const Divider(
-                                  height: 1,
-                                  indent: 76,
-                                  color: Color(0x0C211510),
-                                ),
-                              _feedRow(context, p, changeMap[p.productId]),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _feedRow(BuildContext context, PriceModel p, double? change) {
-    return InkWell(
-      onTap: p.productId.trim().isNotEmpty
-          ? () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.productId)),
-              )
-          : null,
-      borderRadius: BorderRadius.circular(_kCardRadius),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
-          children: [
-            // Thumbnail
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: FRColors.backgroundWarm,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: p.imageUrl?.isNotEmpty == true
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(imageUrl: p.imageUrl!, fit: BoxFit.cover),
-                    )
-                  : const Icon(Icons.category_outlined, size: 20, color: FRColors.tan),
-            ),
-            const SizedBox(width: 12),
-            // Name + store
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.productName ?? 'Ürün',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: FRColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${p.storeName ?? 'Mağaza'} · ${_timeAgo(p.createdAt)}',
-                    style: const TextStyle(fontSize: 11, color: FRColors.textSubtle),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Price + change
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
+                const SizedBox(height: 2),
                 Text(
-                  formatTRY(p.price),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: FRColors.tan,
-                  ),
+                  product,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: FRColors.textMuted),
                 ),
-                if (change != null && change.abs() >= 1) ...[
-                  const SizedBox(height: 3),
-                  _changeBadge(change),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _emptyFeed() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 36),
-      decoration: BoxDecoration(
-        color: FRColors.surface,
-        borderRadius: BorderRadius.circular(_kCardRadius),
-        boxShadow: const [_kCardShadow],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: FRColors.backgroundWarm,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.bolt_outlined, size: 26, color: FRColors.textSubtle),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Henüz canlı fiyat yok',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: FRColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'İlk fiyatı sen ekle!',
-            style: TextStyle(fontSize: 12, color: FRColors.textSubtle),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Watchlist ───────────────────────────────────────────────────────────
-
-  Widget _buildWatchlist(BuildContext context, List<ProductModel> list) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(_kPagePad, _kSectionGap, _kPagePad, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionRow(
-              'TAKİP LİSTEM',
-              Icons.bookmark_rounded,
-              count: list.length,
-              onMore: () => ref.read(currentTabProvider.notifier).state = 4,
-            ),
-            const SizedBox(height: 14),
-            Container(
-              decoration: BoxDecoration(
-                color: FRColors.surface,
-                borderRadius: BorderRadius.circular(_kCardRadius),
-                boxShadow: const [_kCardShadow],
-              ),
-              child: Column(
-                children: List.generate(list.take(3).length, (i) {
-                  final item = list[i];
-                  return Column(
-                    children: [
-                      if (i > 0) const Divider(height: 1, indent: 68, color: Color(0x0C211510)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: FRColors.backgroundWarm,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.bookmark_rounded, size: 18, color: FRColors.tan),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item.name,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: FRColors.textPrimary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              (item.lastPrice ?? 0) > 0 ? formatTRY(item.lastPrice ?? 0) : '—',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: FRColors.tan,
-                              ),
-                            ),
-                          ],
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Text(
+                      formatTRY(price.price),
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: FRColors.espresso,
+                      ),
+                    ),
+                    if (store.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FRColors.backgroundWarm,
+                          borderRadius: BorderRadius.circular(6),
                         ),
+                        child: Text(store,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FRColors.textMuted)),
                       ),
                     ],
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Trending ────────────────────────────────────────────────────────────
-
-  Widget _buildTrending(BuildContext context, List<ProductModel> products) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, _kSectionGap, 0, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _kPagePad),
-              child: _sectionRow(
-                'SEÇKİLER',
-                Icons.explore_rounded,
-                onMore: () => ref.read(currentTabProvider.notifier).state = 1,
-                moreLabel: 'Keşfet',
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 196,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(left: _kPagePad, right: 8),
-                itemCount: products.length > 6 ? 6 : products.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (ctx, i) => _trendCard(ctx, products[i]),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _trendCard(BuildContext context, ProductModel p) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: p.id)),
-      ),
-      child: Container(
-        width: 152,
-        decoration: BoxDecoration(
-          color: FRColors.surface,
-          borderRadius: BorderRadius.circular(_kCardRadius),
-          boxShadow: const [_kCardShadow],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            Stack(
-              children: [
-                Container(
-                  height: 116,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: FRColors.backgroundWarm,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(_kCardRadius)),
-                  ),
-                  child: p.effectiveImage?.isNotEmpty == true
-                      ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(_kCardRadius)),
-                          child: CachedNetworkImage(
-                            imageUrl: p.effectiveImage!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        )
-                      : const Center(child: Icon(Icons.category_outlined, size: 38, color: FRColors.tan)),
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: FRColors.espresso.withOpacity(0.88),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      _badge(p),
-                      style: const TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: FRColors.tan,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
-            // Info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: FRColors.textPrimary,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    (p.lastPrice ?? 0) > 0 ? formatTRY(p.lastPrice ?? 0) : '—',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: FRColors.tan,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Shared UI pieces ────────────────────────────────────────────────────
-
-  Widget _sectionRow(
-    String label,
-    IconData icon, {
-    int? count,
-    VoidCallback? onMore,
-    String moreLabel = 'Tümü',
-  }) {
-    return Row(
-      children: [
-        Icon(icon, size: 13, color: FRColors.tan),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: FRColors.textMuted,
-            letterSpacing: 1.0,
-          ),
-        ),
-        if (count != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: FRColors.tan.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: FRColors.tan,
-              ),
-            ),
           ),
         ],
-        const Spacer(),
-        if (onMore != null)
-          GestureDetector(
-            onTap: onMore,
-            child: Text(
-              moreLabel,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: FRColors.tan,
-              ),
+      ),
+    );
+  }
+}
+
+// ─── Shared avatar ────────────────────────────────────────────────────────────
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.url, required this.name, required this.size});
+  final String? url;
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url != null && url!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(size / 3),
+        child: CachedNetworkImage(
+          imageUrl: url!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => _fallback(),
+        ),
+      );
+    }
+    return _fallback();
+  }
+
+  Widget _fallback() => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: FRColors.tan.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(size / 3),
+          border: Border.all(color: FRColors.tan.withOpacity(0.35)),
+        ),
+        child: Center(
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : 'U',
+            style: TextStyle(
+              fontSize: size * 0.38,
+              fontWeight: FontWeight.w800,
+              color: FRColors.tan,
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _changeBadge(double pct) {
-    final down = pct <= 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: down ? FRColors.successSurface : FRColors.dangerSurface,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        '${down ? '↓' : '↑'} ${pct.abs().toStringAsFixed(0)}%',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: down ? FRColors.success : FRColors.danger,
         ),
-      ),
-    );
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h >= 5 && h < 11) return 'Günaydın';
-    if (h >= 11 && h < 18) return 'İyi günler';
-    if (h >= 18 && h < 23) return 'İyi akşamlar';
-    return 'İyi geceler';
-  }
-
-  String _timeAgo(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inSeconds < 60) return '${d.inSeconds}s';
-    if (d.inMinutes < 60) return '${d.inMinutes}d';
-    if (d.inHours < 24) return '${d.inHours}s';
-    return '${d.inDays}g';
-  }
-
-  Map<String, double> _priceChangeMap(List<PriceModel> prices) {
-    final grouped = <String, List<PriceModel>>{};
-    for (final p in prices) {
-      grouped.putIfAbsent(p.productId, () => []).add(p);
-    }
-    final result = <String, double>{};
-    for (final e in grouped.entries) {
-      if (e.value.length < 2) continue;
-      final sorted = [...e.value]..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
-      final latest = sorted.first.price;
-      final prev = sorted[1].price;
-      if (prev > 0) result[e.key] = ((latest - prev) / prev) * 100;
-    }
-    return result;
-  }
-
-  String _badge(ProductModel p) {
-    if (p.priceEntryCount <= 2) return 'YENİ';
-    if (p.isEditorPick) return 'FIRSAT';
-    return 'TREND';
-  }
+      );
 }
