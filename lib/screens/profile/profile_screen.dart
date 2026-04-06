@@ -59,25 +59,25 @@ class ProfileScreen extends ConsumerWidget {
                 _MenuItem(
                   label: 'Katkılarım',
                   sub: 'Bildirdiğin fiyatlar',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPricesScreen())),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyPricesScreen(userId: user.uid))),
                 ),
                 const FRHairline(indent: FRInk.gutter),
                 _MenuItem(
                   label: 'Favoriler',
                   sub: 'Takip ettiğin ürünler',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FavoritesScreen())),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FavoritesScreen(userId: user.uid))),
                 ),
                 const FRHairline(indent: FRInk.gutter),
                 _MenuItem(
                   label: 'Fiyat alarmları',
                   sub: 'Seni bilgilendireceğimiz ürünler',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WatchlistScreen())),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WatchlistScreen(userId: user.uid))),
                 ),
                 const FRHairline(indent: FRInk.gutter),
                 _MenuItem(
                   label: 'Ayarlar',
                   sub: 'Bildirimler, gizlilik, hesap',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsScreen(isAdmin: user.isAdmin))),
                 ),
                 const FRHairline(indent: FRInk.gutter),
                 _MenuItem(

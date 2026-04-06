@@ -56,11 +56,11 @@ class HomeScreen extends ConsumerWidget {
 
 class _Masthead extends StatelessWidget {
   const _Masthead({required this.unread});
-  final AsyncValue<int> unread;
+  final int unread;
 
   @override
   Widget build(BuildContext context) {
-    final count = unread.valueOrNull ?? 0;
+    final count = unread;
     return Padding(
       padding: const EdgeInsets.fromLTRB(FRInk.gutter, 18, FRInk.gutter, 0),
       child: Row(
