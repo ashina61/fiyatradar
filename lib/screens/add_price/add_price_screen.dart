@@ -312,7 +312,7 @@ class _CompleteStep extends StatelessWidget {
         eyebrow: '3. ADIM',
         title: 'Katkın kaydedildi',
         children: [
-          const FRDarkFeatureCard(
+          FRDarkFeatureCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
