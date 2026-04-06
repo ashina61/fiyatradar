@@ -11,6 +11,7 @@ import 'providers/app_start_provider.dart';
 import 'providers/firebase_init_provider.dart';
 import 'providers/notification_provider.dart';
 import 'theme/fr_colors.dart';
+import 'theme/fr_ink.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
 
@@ -88,11 +89,32 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      primaryColor: FRColors.camel,
-      scaffoldBackgroundColor: FRColors.background,
-      canvasColor: FRColors.surfaceSoft,
-      cardColor: FRColors.surface,
+      primaryColor: FRInk.dark,
+      scaffoldBackgroundColor: FRInk.paper,
+      canvasColor: FRInk.paperSoft,
+      cardColor: FRInk.paperSoft,
       fontFamily: 'Outfit',
+      dividerColor: FRInk.hairline,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: FRInk.paper,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: FRInk.ink,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: FRInk.paperSoft,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      cardTheme: CardTheme(
+        color: FRInk.paperSoft,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: const Color(0x12000000),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
     );
 
     if (widget.firebaseInitError != null) {
