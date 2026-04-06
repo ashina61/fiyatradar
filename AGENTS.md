@@ -1,7 +1,7 @@
 # FiyatRadar Repository Instructions
 
 ## First rule
-Before making any UI/UX, layout, component, screen, navigation, spacing, typography, color, or visual hierarchy decision, you MUST read:
+Before making any UI/UX, layout, component, screen, navigation, spacing, typography, color, motion, or visual hierarchy decision, you MUST read:
 
 - `docs/design-language.md`
 
@@ -40,6 +40,7 @@ It must NOT feel like:
 - a cluttered marketplace
 - a generic fintech dashboard
 - a gaming interface
+- a noisy e-commerce screen
 
 It MUST feel like:
 - executive
@@ -65,12 +66,21 @@ Keep one dominant hero area and controlled supporting sections.
 Reuse business logic if needed.
 Do not blindly reuse old presentation code.
 
+## UX density rule
+Do not overload the first viewport.
+A screen can feel rich, but it must remain breathable and clear.
+
+## Visual consistency rule
+Every new screen must belong to the same approved visual family.
+No screen should feel like it belongs to another app.
+
 ## Before finalizing any UI task
 Check:
-- Does this screen belong to the same family as the approved FiyatRadar visual language?
+- Does this screen belong to the approved FiyatRadar visual language?
 - Is the hierarchy clear at first glance?
 - Is the screen premium but calm?
 - Is there unnecessary density?
-- Is gold used selectively rather than everywhere?
+- Is gold used selectively instead of everywhere?
+- Is there one dominant area and controlled supporting content?
 
 If the answer is no, revise before finishing.
