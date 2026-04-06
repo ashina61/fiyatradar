@@ -25,7 +25,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -76,8 +77,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           : _Results(products: list),
                     ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
