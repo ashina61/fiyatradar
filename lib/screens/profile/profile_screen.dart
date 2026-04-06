@@ -93,19 +93,25 @@ class ProfileScreen extends ConsumerWidget {
                         FRInfoRowCard(
                           title: 'Eklediğim Fiyatlar',
                           subtitle: 'Fiyat katkı geçmişi',
-                          onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const MyPricesScreen())),
+                          onTap: () => Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => MyPricesScreen(userId: uid)),
+                          ),
                         ),
                         const SizedBox(height: FRDsSpacing.space8),
                         FRInfoRowCard(
                           title: 'Fiyat Alarmlarım',
                           subtitle: 'Aktif alarm listesi',
-                          onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const PriceAlarmsScreen())),
+                          onTap: () => Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => WatchlistScreen(userId: uid)),
+                          ),
                         ),
                         const SizedBox(height: FRDsSpacing.space8),
                         FRInfoRowCard(
                           title: 'Favorilerim',
                           subtitle: 'Takip edilen ürünler',
-                          onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const FavoritesScreen())),
+                          onTap: () => Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => FavoritesScreen(userId: uid)),
+                          ),
                         ),
                       ],
                     ),
