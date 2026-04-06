@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme/fr_ink.dart';
 import '../../utils/formatters.dart';
 import '../auth/login_screen.dart';
+import '../legal/legal_screen.dart';
 import '../settings/settings_screen.dart';
 import 'favorites_screen.dart';
 import 'my_prices_screen.dart';
@@ -78,6 +79,12 @@ class ProfileScreen extends ConsumerWidget {
                   label: 'Ayarlar',
                   sub: 'Bildirimler, gizlilik, hesap',
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsScreen(isAdmin: user.isAdmin))),
+                ),
+                const FRHairline(indent: FRInk.gutter),
+                _MenuItem(
+                  label: 'Yasal bilgiler',
+                  sub: 'Sorumluluk, KVKK, topluluk kuralları',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LegalScreen())),
                 ),
                 const FRHairline(indent: FRInk.gutter),
                 _MenuItem(
