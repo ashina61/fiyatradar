@@ -26,7 +26,7 @@ if (flutterVersionName == null) {
 android {
     namespace "com.fiyatradar"
     compileSdk 35
-    ndkVersion = "25.1.8937393"
+    ndkVersion = "26.1.10909125"
 
     // flutter_local_notifications requires Java 8+ APIs via desugaring.
     compileOptions {

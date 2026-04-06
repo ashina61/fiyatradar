@@ -15,6 +15,7 @@ import '../../theme/fr_ink.dart';
 
 class AddPriceScreen extends ConsumerStatefulWidget {
   const AddPriceScreen({super.key, this.initialProductId});
+
   final String? initialProductId;
 
   @override
