@@ -1,13 +1,7 @@
-// lib/screens/main_screen.dart
-// GREENFIELD v2 — thin floating pill bottom navigation.
-// Rejected from previous iteration: rotated diamond FAB, rounded brown container,
-// spaceBetween 5-slot layout with center popping out.
-// UX goal: an almost-invisible navigation pill — the content owns the screen.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../theme/fr_ink.dart';
+import '../core/design_system/tokens/colors.dart';
 import 'add_price/add_price_screen.dart';
 import 'cart/cart_screen.dart';
 import 'home/home_screen.dart';
@@ -18,6 +12,7 @@ final currentTabProvider = StateProvider<int>((ref) => 0);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
+
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
@@ -36,7 +31,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (_navigating) return;
     _navigating = true;
     try {
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddPriceScreen()));
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AddPriceScreen()),
+      );
     } finally {
       _navigating = false;
     }
@@ -47,7 +44,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final tab = ref.watch(currentTabProvider);
 
     return Scaffold(
-      backgroundColor: FRInk.paper,
+      backgroundColor: FRDsColors.frBackground,
       extendBody: true,
       body: Stack(
         children: [
@@ -57,15 +54,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               child: TickerMode(enabled: tab == i, child: _screens[i]),
             ),
           Positioned(
-            left: 0, right: 0, bottom: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                child: _NavPill(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: _ExecutiveDock(
                   selected: tab,
                   onSelected: (i) => ref.read(currentTabProvider.notifier).state = i,
-                  onAdd: _openAdd,
+                  onCenterTap: _openAdd,
                 ),
               ),
             ),
@@ -76,99 +75,161 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 }
 
-class _NavPill extends StatelessWidget {
-  const _NavPill({required this.selected, required this.onSelected, required this.onAdd});
+class _ExecutiveDock extends StatelessWidget {
+  const _ExecutiveDock({
+    required this.selected,
+    required this.onSelected,
+    required this.onCenterTap,
+  });
+
   final int selected;
   final ValueChanged<int> onSelected;
-  final VoidCallback onAdd;
+  final VoidCallback onCenterTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 62,
+      height: 74,
       decoration: BoxDecoration(
-        color: FRInk.ink,
-        borderRadius: BorderRadius.circular(999),
+        color: FRDsColors.frSurface,
+        borderRadius: BorderRadius.circular(38),
         boxShadow: const [
-          BoxShadow(color: Color(0x330E0E0C), blurRadius: 30, offset: Offset(0, 14)),
+          BoxShadow(
+            color: Color(0x2A2B1D14),
+            blurRadius: 30,
+            offset: Offset(0, 12),
+          ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
-          _NavItem(index: 0, label: 'pulse', icon: Icons.radio_button_checked_rounded, selected: selected, onTap: onSelected),
-          _NavItem(index: 1, label: 'dizin', icon: Icons.search_rounded, selected: selected, onTap: onSelected),
-          _AddInline(onTap: onAdd),
-          _NavItem(index: 2, label: 'defter', icon: Icons.receipt_long_rounded, selected: selected, onTap: onSelected),
-          _NavItem(index: 3, label: 'dosya', icon: Icons.person_outline_rounded, selected: selected, onTap: onSelected),
+          _DockItem(
+            index: 0,
+            selected: selected,
+            icon: Icons.home_rounded,
+            label: 'Ana Sayfa',
+            onTap: onSelected,
+          ),
+          _DockItem(
+            index: 1,
+            selected: selected,
+            icon: Icons.explore_outlined,
+            label: 'Keşfet',
+            onTap: onSelected,
+          ),
+          _CenterAction(onTap: onCenterTap),
+          _DockItem(
+            index: 2,
+            selected: selected,
+            icon: Icons.shopping_bag_outlined,
+            label: 'Sepet',
+            onTap: onSelected,
+          ),
+          _DockItem(
+            index: 3,
+            selected: selected,
+            icon: Icons.person_outline_rounded,
+            label: 'Profil',
+            onTap: onSelected,
+          ),
         ],
       ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({required this.index, required this.label, required this.icon, required this.selected, required this.onTap});
+class _CenterAction extends StatelessWidget {
+  const _CenterAction({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 62,
+        height: 62,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF986038), Color(0xFF5B371F)],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x335B371F),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add_rounded, color: FRDsColors.frSurface, size: 34),
+      ),
+    );
+  }
+}
+
+class _DockItem extends StatelessWidget {
+  const _DockItem({
+    required this.index,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
   final int index;
-  final String label;
-  final IconData icon;
   final int selected;
+  final IconData icon;
+  final String label;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
     final active = selected == index;
+
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onTap(index),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 240),
           curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(vertical: 6),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            color: active ? FRInk.paper : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
+            color: active ? FRDsColors.frSurfaceMuted : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
           ),
-          alignment: Alignment.center,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: active ? FRInk.ink : FRInk.paper.withOpacity(0.78)),
+              Icon(
+                icon,
+                size: 24,
+                color: active ? FRDsColors.frBrownDeep : FRDsColors.frTextMuted,
+              ),
               if (active) ...[
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: FRType.family,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: FRInk.ink,
-                    letterSpacing: 0.2,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: FRDsColors.frBrownDeep,
+                    ),
                   ),
                 ),
               ],
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AddInline extends StatelessWidget {
-  const _AddInline({required this.onTap});
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50, height: 50,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(color: FRInk.saffron, shape: BoxShape.circle),
-        child: const Icon(Icons.add_rounded, color: FRInk.paper, size: 24),
       ),
     );
   }
