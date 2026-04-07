@@ -151,7 +151,7 @@ class ProductCard extends StatelessWidget {
                           letterSpacing: 0.8,
                         ),
                       ),
-                      PriceText(value: price, size: 17),
+                      PriceText(price, size: 17),
                     ],
                   ),
                   const Spacer(),

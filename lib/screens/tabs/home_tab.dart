@@ -710,7 +710,7 @@ class _FeaturedCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                PriceText(value: lowest, size: 16),
+                PriceText(lowest, size: 16),
                 const Spacer(),
                 if (product.cheapestStore != null)
                   StoreBadge(product.cheapestStore!),
@@ -826,7 +826,7 @@ class _RecentEntryTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 PriceText(
-                  value: entry.entry.price,
+                  entry.entry.price,
                   size: 15,
                   color: isLow
                       ? CoffeeColors.success

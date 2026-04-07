@@ -195,7 +195,7 @@ class ProductDetailScreen extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          PriceText(value: latest, size: 22),
+                          PriceText(latest, size: 22),
                           const SizedBox(width: 10),
                           if (changePct != null) TrendPill(pct: changePct),
                           const Spacer(),
@@ -315,7 +315,7 @@ class ProductDetailScreen extends StatelessWidget {
                               const EyebrowLabel('EN İYİ'),
                               const SizedBox(width: 8),
                             ],
-                            PriceText(value: e.price, size: 16),
+                            PriceText(e.price, size: 16),
                           ],
                         ),
                       );
@@ -821,7 +821,7 @@ class _PriceTile extends StatelessWidget {
             const EyebrowLabel('EN İYİ'),
             const SizedBox(width: 8),
           ],
-          PriceText(value: entry.price, size: 16),
+          PriceText(entry.price, size: 16),
         ],
       ),
     );
