@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
+import '../../widgets/design.dart';
 import '../product_detail_screen.dart';
 
 // ─── Comparison logic helpers ─────────────────────────────────────────────────
@@ -312,27 +313,30 @@ class _WinnerCard extends StatelessWidget {
           colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
         ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: CoffeeColors.espresso.withOpacity(0.30),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: CoffeeColors.caramel.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'EN UCUZ SEÇENEK',
-                  style: TextStyle(
-                    color: CoffeeColors.caramel,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
+              const EyebrowLabel('EN UCUZ SEÇENEK'),
+              const Spacer(),
+              LiveDot(color: CoffeeColors.caramel),
+              const SizedBox(width: 6),
+              const Text(
+                'CANLI HESAPLAMA',
+                style: TextStyle(
+                  color: CoffeeColors.caramel,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
                 ),
               ),
             ],
@@ -375,31 +379,56 @@ class _WinnerCard extends StatelessWidget {
           ),
           if (savings != null && savings! > 0) ...[
             const SizedBox(height: 14),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.25),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFF2E7D32).withOpacity(0.4)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.savings_outlined,
-                      color: Color(0xFF81C784), size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'En pahalıya göre ₺${savings!.toStringAsFixed(2)} tasarruf',
-                    style: const TextStyle(
-                      color: Color(0xFF81C784),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32).withOpacity(0.22),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color:
+                            const Color(0xFF2E7D32).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.savings_outlined,
+                          color: Color(0xFFB7D49A), size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        '₺${savings!.toStringAsFixed(2)} tasarruf',
+                        style: const TextStyle(
+                          color: Color(0xFFB7D49A),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: CoffeeColors.caramel.withOpacity(0.22),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: CoffeeColors.caramel.withOpacity(0.45),
                     ),
                   ),
-                ],
-              ),
+                  child: Text(
+                    '~%${((savings! / (savings! + winner.total)) * 100).toStringAsFixed(0)} avantaj',
+                    style: const TextStyle(
+                      color: CoffeeColors.caramel,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],

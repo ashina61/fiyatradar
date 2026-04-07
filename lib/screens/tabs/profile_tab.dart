@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
+import '../../widgets/design.dart';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -113,14 +114,33 @@ class ProfileTab extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
-          const Text(
-            'Profil',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: CoffeeColors.espresso,
-              letterSpacing: -0.5,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Profil',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: CoffeeColors.espresso,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+                    Text(
+                      'Elit kullanıcı merkezi',
+                      style: TextStyle(
+                        color: CoffeeColors.cocoa,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              EyebrowLabel(level.name.toUpperCase()),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -202,9 +222,16 @@ class _ProfileHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [CoffeeColors.darkRoast, CoffeeColors.mocha],
+          colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
         ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: CoffeeColors.espresso.withOpacity(0.30),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         children: [
