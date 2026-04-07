@@ -24,6 +24,14 @@ class CartTab extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: CoffeeColors.espresso)),
                 ),
+                if (items.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => state.clearCart(),
+                    icon: const Icon(Icons.delete_outline,
+                        size: 18, color: CoffeeColors.cocoa),
+                    label: const Text('Temizle',
+                        style: TextStyle(color: CoffeeColors.cocoa)),
+                  ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 6),
@@ -31,7 +39,7 @@ class CartTab extends StatelessWidget {
                     color: CoffeeColors.foam,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text('${items.length} ürün',
+                  child: Text('${state.cartItemCount} ürün',
                       style: const TextStyle(
                           color: CoffeeColors.darkRoast,
                           fontWeight: FontWeight.w700)),
@@ -62,77 +70,145 @@ class CartTab extends StatelessWidget {
             )
           else
             Expanded(
-              child: ListView.separated(
+              child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) {
-                  final c = items[i];
-                  final unit = c.product.lowestPrice ?? 0;
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: CoffeeColors.crema),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: CoffeeColors.foam,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(c.product.emoji,
-                              style: const TextStyle(fontSize: 28)),
+                children: [
+                  ...items.map((c) {
+                    final unit = c.product.lowestPrice ?? 0;
+                    final lineTotal = unit * c.quantity;
+                    return Dismissible(
+                      key: ValueKey('cart-${c.product.id}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFC62828),
+                          borderRadius: BorderRadius.circular(18),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(c.product.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: CoffeeColors.espresso)),
-                              Text('₺${unit.toStringAsFixed(2)} / adet',
-                                  style: const TextStyle(
-                                      color: CoffeeColors.cocoa,
-                                      fontSize: 12)),
-                            ],
-                          ),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      onDismissed: (_) =>
+                          state.removeFromCart(c.product.id),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: CoffeeColors.crema),
                         ),
-                        Row(
+                        child: Row(
                           children: [
-                            _QtyBtn(
-                              icon: Icons.remove,
-                              onTap: () =>
-                                  state.changeQty(c.product.id, -1),
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: CoffeeColors.foam,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(c.product.emoji,
+                                  style: const TextStyle(fontSize: 28)),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8),
-                              child: Text('${c.quantity}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: CoffeeColors.espresso)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(c.product.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: CoffeeColors.espresso)),
+                                  Text(
+                                      '${c.product.brand} • ${c.product.unit}',
+                                      style: const TextStyle(
+                                          color: CoffeeColors.cocoa,
+                                          fontSize: 11)),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '₺${unit.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                            color: CoffeeColors.accent,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      if (c.product.cheapestStore != null)
+                                        Container(
+                                          padding: const EdgeInsets
+                                              .symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: CoffeeColors.espresso,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                              c.product.cheapestStore!,
+                                              style: const TextStyle(
+                                                  color:
+                                                      CoffeeColors.cream,
+                                                  fontSize: 9,
+                                                  fontWeight:
+                                                      FontWeight.w700)),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                            _QtyBtn(
-                              icon: Icons.add,
-                              onTap: () =>
-                                  state.changeQty(c.product.id, 1),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('₺${lineTotal.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: CoffeeColors.espresso,
+                                        fontSize: 14)),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    _QtyBtn(
+                                      icon: Icons.remove,
+                                      onTap: () => state.changeQty(
+                                          c.product.id, -1),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8),
+                                      child: Text('${c.quantity}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color:
+                                                  CoffeeColors.espresso)),
+                                    ),
+                                    _QtyBtn(
+                                      icon: Icons.add,
+                                      onTap: () => state.changeQty(
+                                          c.product.id, 1),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  );
-                },
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                  _RedeemCard(state: state),
+                  const SizedBox(height: 12),
+                  _SummaryCard(state: state),
+                ],
               ),
             ),
           if (items.isNotEmpty)
@@ -145,27 +221,187 @@ class CartTab extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tahmini Toplam',
+                        const Text('Toplam',
                             style: TextStyle(
                                 color: CoffeeColors.latte, fontSize: 12)),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
+                        Text('₺${state.cartTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                color: CoffeeColors.cream,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800)),
+                        Text(
+                          '+${state.pointsEarnedForCart} puan kazanacaksın',
+                          style: const TextStyle(
+                            color: CoffeeColors.caramel,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Text('₺${state.cartTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          color: CoffeeColors.cream,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800)),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await state.checkout();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Sipariş tamamlandı, puanlar hesabına eklendi')),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: CoffeeColors.caramel,
+                      foregroundColor: CoffeeColors.espresso,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Öde',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
                 ],
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+class _RedeemCard extends StatelessWidget {
+  const _RedeemCard({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final available = state.points;
+    final maxRedeem = available;
+    final selected = state.pointsToRedeem.toDouble();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star, color: CoffeeColors.caramel, size: 18),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text('Puan kullan',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: CoffeeColors.espresso)),
+              ),
+              Text('$available puan',
+                  style: const TextStyle(color: CoffeeColors.cocoa)),
+            ],
+          ),
+          if (maxRedeem > 0) ...[
+            Slider(
+              value: selected.clamp(0, maxRedeem.toDouble()),
+              min: 0,
+              max: maxRedeem.toDouble(),
+              divisions: maxRedeem > 0 ? maxRedeem : 1,
+              label: '${state.pointsToRedeem} puan',
+              onChanged: (v) => state.setRedeemPoints(v.round()),
+              activeColor: CoffeeColors.caramel,
+            ),
+            Text(
+              '${state.pointsToRedeem} puan = ₺${state.redeemDiscount.toStringAsFixed(2)} indirim',
+              style: const TextStyle(
+                  color: CoffeeColors.cocoa, fontSize: 12),
+            ),
+          ] else
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('Fiyat ekleyerek puan kazan',
+                  style: TextStyle(
+                      color: CoffeeColors.cocoa, fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CoffeeColors.foam,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          _row('Ara Toplam', '₺${state.cartSubtotal.toStringAsFixed(2)}'),
+          const SizedBox(height: 6),
+          _row(
+            'Tasarrufun',
+            '-₺${state.cartSavings.toStringAsFixed(2)}',
+            color: const Color(0xFF2E7D32),
+          ),
+          const SizedBox(height: 6),
+          _row(
+            'Teslimat',
+            state.deliveryFee == 0
+                ? 'Ücretsiz'
+                : '₺${state.deliveryFee.toStringAsFixed(2)}',
+          ),
+          if (state.pointsToRedeem > 0) ...[
+            const SizedBox(height: 6),
+            _row(
+              'Puan İndirimi',
+              '-₺${state.redeemDiscount.toStringAsFixed(2)}',
+              color: CoffeeColors.accent,
+            ),
+          ],
+          const Divider(height: 20),
+          _row(
+            'Toplam',
+            '₺${state.cartTotal.toStringAsFixed(2)}',
+            bold: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value, {bool bold = false, Color? color}) {
+    final style = TextStyle(
+      fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+      color: color ?? CoffeeColors.espresso,
+      fontSize: bold ? 15 : 13,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(
+                color: color ?? CoffeeColors.cocoa,
+                fontSize: bold ? 15 : 13,
+                fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              )),
+        ),
+        Text(value, style: style),
+      ],
     );
   }
 }

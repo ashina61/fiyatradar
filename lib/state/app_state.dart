@@ -1,12 +1,39 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
+
 import '../models/product.dart';
+import '../services/firebase_service.dart';
+
+/// Points awarded for different actions in the rewards system.
+class PointsRules {
+  static const int addPrice = 10;
+  static const int addProduct = 25;
+  static const int favorite = 2;
+  static const int dailyLogin = 5;
+
+  /// 100 puan = ₺5 indirim
+  static const double pointValueTl = 0.05;
+}
 
 class AppState extends ChangeNotifier {
-  AppState() {
-    _seed();
-  }
+  AppState();
 
+  final FirebaseService _svc = FirebaseService.instance;
+
+  // Auth
+  User? user;
+
+  // Catalog
   final List<Product> products = [];
+  final List<AppBanner> banners = [];
+
+  // User data (from Firestore user doc)
+  Set<String> favorites = <String>{};
+  int points = 0;
+  int pointsToRedeem = 0; // local, user-chosen redemption
   final List<CartItem> cart = [];
 
   final List<String> categories = const [
@@ -28,91 +55,80 @@ class AppState extends ChangeNotifier {
     'Tarım Kredi',
   ];
 
-  void _seed() {
-    products.addAll([
-      Product(
-        id: 'p1',
-        name: 'Tam Yağlı Süt 1L',
-        brand: 'Sütaş',
-        category: 'Süt Ürünleri',
-        emoji: '🥛',
-        unit: '1 L',
-        priceHistory: [
-          PriceEntry(
-              store: 'BİM', price: 32.50, date: DateTime.now().subtract(const Duration(days: 6))),
-          PriceEntry(
-              store: 'A101', price: 33.90, date: DateTime.now().subtract(const Duration(days: 3))),
-          PriceEntry(
-              store: 'Migros', price: 35.50, date: DateTime.now().subtract(const Duration(days: 1))),
-        ],
-      ),
-      Product(
-        id: 'p2',
-        name: 'Türk Kahvesi 250g',
-        brand: 'Kurukahveci',
-        category: 'İçecek',
-        emoji: '☕',
-        unit: '250 g',
-        priceHistory: [
-          PriceEntry(
-              store: 'Migros', price: 145.00, date: DateTime.now().subtract(const Duration(days: 5))),
-          PriceEntry(
-              store: 'A101', price: 139.50, date: DateTime.now().subtract(const Duration(days: 2))),
-        ],
-      ),
-      Product(
-        id: 'p3',
-        name: 'Zeytinyağı 1L',
-        brand: 'Komili',
-        category: 'Kahvaltılık',
-        emoji: '🫒',
-        unit: '1 L',
-        priceHistory: [
-          PriceEntry(
-              store: 'ŞOK', price: 289.00, date: DateTime.now().subtract(const Duration(days: 4))),
-          PriceEntry(
-              store: 'CarrefourSA', price: 305.00, date: DateTime.now().subtract(const Duration(days: 1))),
-        ],
-      ),
-      Product(
-        id: 'p4',
-        name: 'Yumurta 30’lu',
-        brand: 'Köy',
-        category: 'Kahvaltılık',
-        emoji: '🥚',
-        unit: '30 adet',
-        priceHistory: [
-          PriceEntry(
-              store: 'A101', price: 159.00, date: DateTime.now().subtract(const Duration(days: 2))),
-        ],
-      ),
-      Product(
-        id: 'p5',
-        name: 'Domates 1kg',
-        brand: 'Yerli',
-        category: 'Meyve & Sebze',
-        emoji: '🍅',
-        unit: '1 kg',
-        priceHistory: [
-          PriceEntry(
-              store: 'Tarım Kredi', price: 24.90, date: DateTime.now().subtract(const Duration(days: 1))),
-          PriceEntry(
-              store: 'Migros', price: 32.50, date: DateTime.now()),
-        ],
-      ),
-      Product(
-        id: 'p6',
-        name: 'Çikolata 80g',
-        brand: 'Eti',
-        category: 'Atıştırmalık',
-        emoji: '🍫',
-        unit: '80 g',
-        priceHistory: [
-          PriceEntry(
-              store: 'BİM', price: 22.50, date: DateTime.now().subtract(const Duration(days: 3))),
-        ],
-      ),
-    ]);
+  StreamSubscription? _productsSub;
+  StreamSubscription? _bannersSub;
+  StreamSubscription? _userSub;
+  bool _initialized = false;
+  bool get initialized => _initialized;
+
+  Future<void> init() async {
+    user = await _svc.ensureSignedIn();
+    await _svc.bootstrap();
+
+    _productsSub = _svc.products.snapshots().listen((snap) {
+      products
+        ..clear()
+        ..addAll(snap.docs.map(Product.fromDoc));
+      _reconcileCartProducts();
+      notifyListeners();
+    });
+
+    _bannersSub = _svc.banners
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .listen((snap) {
+      banners
+        ..clear()
+        ..addAll(snap.docs.map(AppBanner.fromDoc));
+      banners.sort((a, b) => a.order.compareTo(b.order));
+      notifyListeners();
+    });
+
+    // Ensure user doc exists
+    final uref = _svc.userDoc(user!.uid);
+    final udoc = await uref.get();
+    if (!udoc.exists) {
+      await uref.set({
+        'displayName': 'Kahve Avcısı',
+        'username': '@fiyatradar_user',
+        'points': 0,
+        'favorites': <String>[],
+        'cart': <Map<String, dynamic>>[],
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    _userSub = uref.snapshots().listen((snap) {
+      final m = snap.data() ?? <String, dynamic>{};
+      points = (m['points'] as num?)?.toInt() ?? 0;
+      favorites = ((m['favorites'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toSet();
+      final cartRaw = (m['cart'] as List?) ?? [];
+      cart
+        ..clear()
+        ..addAll(cartRaw
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .map((e) {
+              final pid = (e['productId'] ?? '') as String;
+              final qty = (e['qty'] as num?)?.toInt() ?? 1;
+              final p = findById(pid);
+              if (p == null) return null;
+              return CartItem(product: p, quantity: qty);
+            })
+            .whereType<CartItem>());
+      notifyListeners();
+    });
+
+    _initialized = true;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _productsSub?.cancel();
+    _bannersSub?.cancel();
+    _userSub?.cancel();
+    super.dispose();
   }
 
   Product? findById(String id) {
@@ -122,58 +138,182 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  void addPrice({
+  // --- Catalog mutations --------------------------------------------------
+
+  Future<void> addPrice({
     required String productId,
     required String store,
     required double price,
-  }) {
+  }) async {
     final p = findById(productId);
     if (p == null) return;
-    p.priceHistory.add(
-      PriceEntry(store: store, price: price, date: DateTime.now()),
-    );
-    notifyListeners();
+    final newHist = [
+      ...p.priceHistory.map((e) => e.toMap()),
+      PriceEntry(
+        store: store,
+        price: price,
+        date: DateTime.now(),
+        reportedBy: user?.displayName ?? 'Sen',
+      ).toMap(),
+    ];
+    await _svc.products.doc(productId).update({'priceHistory': newHist});
+    await _addPoints(PointsRules.addPrice);
   }
 
-  void addProduct(Product p) {
-    products.add(p);
-    notifyListeners();
+  Future<void> addProduct({
+    required String name,
+    required String brand,
+    required String category,
+    required String emoji,
+    required String unit,
+  }) async {
+    await _svc.products.add({
+      'name': name,
+      'brand': brand,
+      'category': category,
+      'emoji': emoji,
+      'unit': unit,
+      'priceHistory': <Map<String, dynamic>>[],
+    });
+    await _addPoints(PointsRules.addProduct);
   }
 
-  void addToCart(Product p) {
+  // --- Favorites ----------------------------------------------------------
+
+  bool isFavorite(String productId) => favorites.contains(productId);
+
+  Future<void> toggleFavorite(String productId) async {
+    if (user == null) return;
+    final ref = _svc.userDoc(user!.uid);
+    if (favorites.contains(productId)) {
+      await ref.update({
+        'favorites': FieldValue.arrayRemove([productId]),
+      });
+    } else {
+      await ref.update({
+        'favorites': FieldValue.arrayUnion([productId]),
+      });
+      await _addPoints(PointsRules.favorite);
+    }
+  }
+
+  // --- Cart ---------------------------------------------------------------
+
+  Future<void> addToCart(Product p) async {
     final existing = cart.where((c) => c.product.id == p.id).toList();
     if (existing.isNotEmpty) {
       existing.first.quantity++;
     } else {
       cart.add(CartItem(product: p));
     }
-    notifyListeners();
+    await _persistCart();
   }
 
-  void removeFromCart(String productId) {
+  Future<void> removeFromCart(String productId) async {
     cart.removeWhere((c) => c.product.id == productId);
-    notifyListeners();
+    await _persistCart();
   }
 
-  void changeQty(String productId, int delta) {
+  Future<void> changeQty(String productId, int delta) async {
     for (final c in cart) {
       if (c.product.id == productId) {
         c.quantity += delta;
-        if (c.quantity <= 0) {
-          cart.remove(c);
-        }
+        if (c.quantity <= 0) cart.remove(c);
         break;
       }
     }
-    notifyListeners();
+    await _persistCart();
   }
 
-  double get cartTotal {
+  Future<void> clearCart() async {
+    cart.clear();
+    pointsToRedeem = 0;
+    await _persistCart();
+  }
+
+  Future<void> _persistCart() async {
+    if (user == null) return;
+    notifyListeners();
+    await _svc.userDoc(user!.uid).update({
+      'cart': cart
+          .map((c) => {'productId': c.product.id, 'qty': c.quantity})
+          .toList(),
+    });
+  }
+
+  void _reconcileCartProducts() {
+    // Replace cart items' product references with fresh copies from [products]
+    for (var i = 0; i < cart.length; i++) {
+      final fresh = findById(cart[i].product.id);
+      if (fresh != null) cart[i] = CartItem(product: fresh, quantity: cart[i].quantity);
+    }
+  }
+
+  // --- Pricing ------------------------------------------------------------
+
+  double get cartSubtotal {
     double total = 0;
     for (final c in cart) {
       total += (c.product.lowestPrice ?? 0) * c.quantity;
     }
     return total;
+  }
+
+  /// Savings compared to each item's highest ever price.
+  double get cartSavings {
+    double s = 0;
+    for (final c in cart) {
+      if (c.product.priceHistory.isEmpty) continue;
+      final high = c.product.priceHistory
+          .map((e) => e.price)
+          .reduce((a, b) => a > b ? a : b);
+      final low = c.product.lowestPrice ?? high;
+      s += (high - low) * c.quantity;
+    }
+    return s;
+  }
+
+  double get deliveryFee => cartSubtotal >= 250 || cart.isEmpty ? 0 : 14.9;
+
+  double get redeemDiscount => pointsToRedeem * PointsRules.pointValueTl;
+
+  double get cartTotal {
+    final t = cartSubtotal + deliveryFee - redeemDiscount;
+    return t < 0 ? 0 : t;
+  }
+
+  int get pointsEarnedForCart => (cartSubtotal ~/ 10); // 1 puan per ₺10
+
+  int get cartItemCount => cart.fold(0, (a, c) => a + c.quantity);
+
+  void setRedeemPoints(int p) {
+    pointsToRedeem = p.clamp(0, points);
+    notifyListeners();
+  }
+
+  /// "Checkout": awards earned points, deducts redeemed points, clears cart.
+  Future<void> checkout() async {
+    if (user == null || cart.isEmpty) return;
+    final earn = pointsEarnedForCart;
+    final redeem = pointsToRedeem;
+    final newPoints = (points - redeem + earn).clamp(0, 1 << 30);
+    await _svc.userDoc(user!.uid).update({
+      'points': newPoints,
+      'cart': <Map<String, dynamic>>[],
+      'lastCheckoutAt': FieldValue.serverTimestamp(),
+    });
+    cart.clear();
+    pointsToRedeem = 0;
+    notifyListeners();
+  }
+
+  // --- Points helpers -----------------------------------------------------
+
+  Future<void> _addPoints(int amount) async {
+    if (user == null) return;
+    await _svc.userDoc(user!.uid).update({
+      'points': FieldValue.increment(amount),
+    });
   }
 }
 
@@ -185,8 +325,7 @@ class AppStateScope extends InheritedNotifier<AppState> {
   }) : super(notifier: state);
 
   static AppState of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<AppStateScope>();
+    final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
     assert(scope != null, 'AppStateScope not found in widget tree');
     return scope!.notifier!;
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../state/app_state.dart';
 import '../../theme.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -6,6 +7,10 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final addedCount = state.products
+        .where((p) => p.priceHistory.any((e) => e.reportedBy == 'Sen' || e.reportedBy == (state.user?.displayName ?? '')))
+        .length;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
@@ -62,23 +67,93 @@ class ProfileTab extends StatelessWidget {
             children: [
               Expanded(
                   child: _StatBox(
-                      label: 'Eklediğin', value: '12', icon: Icons.add_chart)),
+                      label: 'Eklediğin',
+                      value: '$addedCount',
+                      icon: Icons.add_chart)),
               const SizedBox(width: 12),
               Expanded(
                   child: _StatBox(
-                      label: 'Takip', value: '34', icon: Icons.favorite_border)),
+                      label: 'Favori',
+                      value: '${state.favorites.length}',
+                      icon: Icons.favorite_border)),
               const SizedBox(width: 12),
               Expanded(
                   child: _StatBox(
-                      label: 'Puan', value: '480', icon: Icons.star_border)),
+                      label: 'Puan',
+                      value: '${state.points}',
+                      icon: Icons.star_border)),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: CoffeeColors.crema),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.emoji_events, color: CoffeeColors.caramel),
+                    SizedBox(width: 8),
+                    Text('Puan Kazan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: CoffeeColors.espresso,
+                            fontSize: 16)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _rewardRow(Icons.add_circle_outline,
+                    'Fiyat ekle', '+${PointsRules.addPrice} puan'),
+                _rewardRow(Icons.inventory_2_outlined,
+                    'Yeni ürün ekle', '+${PointsRules.addProduct} puan'),
+                _rewardRow(Icons.favorite_border,
+                    'Favorilere ekle', '+${PointsRules.favorite} puan'),
+                _rewardRow(Icons.shopping_bag_outlined,
+                    'Sepetten alışveriş', '₺10 başına +1 puan'),
+                const SizedBox(height: 6),
+                Text(
+                  '100 puan = ₺${(100 * PointsRules.pointValueTl).toStringAsFixed(2)} indirim',
+                  style: const TextStyle(
+                      color: CoffeeColors.cocoa, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           ..._menuItems.map((m) => _MenuTile(item: m)),
         ],
       ),
     );
   }
+}
+
+Widget _rewardRow(IconData icon, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        Icon(icon, size: 16, color: CoffeeColors.darkRoast),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(
+                  color: CoffeeColors.espresso,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600)),
+        ),
+        Text(value,
+            style: const TextStyle(
+                color: CoffeeColors.caramel,
+                fontWeight: FontWeight.w800,
+                fontSize: 12)),
+      ],
+    ),
+  );
 }
 
 class _MenuItem {
