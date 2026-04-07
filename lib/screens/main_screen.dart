@@ -3,7 +3,7 @@ import '../theme.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/explore_tab.dart';
 import 'tabs/add_price_tab.dart';
-import 'tabs/cart_tab.dart';
+import 'tabs/basket_tab.dart';
 import 'tabs/profile_tab.dart';
 
 class MainScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     HomeTab(),
     ExploreTab(),
     AddPriceTab(),
-    CartTab(),
+    BasketTab(),
     ProfileTab(),
   ];
 
@@ -29,7 +29,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: _index, children: _tabs),
-      bottomNavigationBar: _CoffeeBottomBar(
+      bottomNavigationBar: _PremiumBottomBar(
         index: _index,
         onChanged: (i) => setState(() => _index = i),
       ),
@@ -37,8 +37,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-class _CoffeeBottomBar extends StatelessWidget {
-  const _CoffeeBottomBar({required this.index, required this.onChanged});
+class _PremiumBottomBar extends StatelessWidget {
+  const _PremiumBottomBar({required this.index, required this.onChanged});
 
   final int index;
   final ValueChanged<int> onChanged;
@@ -47,8 +47,8 @@ class _CoffeeBottomBar extends StatelessWidget {
     (Icons.home_rounded, 'Anasayfa'),
     (Icons.explore_outlined, 'Keşfet'),
     (Icons.add, 'Fiyat Ekle'),
-    (Icons.shopping_basket_outlined, 'Sepet'),
-    (Icons.person_outline, 'Profil'),
+    (Icons.balance_outlined, 'Karşılaştır'),
+    (Icons.person_outline_rounded, 'Profil'),
   ];
 
   @override
@@ -116,18 +116,20 @@ class _CoffeeBottomBar extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon,
-                          color: selected
-                              ? CoffeeColors.caramel
-                              : CoffeeColors.latte,
-                          size: 22),
+                      Icon(
+                        icon,
+                        color: selected
+                            ? CoffeeColors.caramel
+                            : CoffeeColors.latte,
+                        size: 22,
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w700,
                           color: selected
                               ? CoffeeColors.cream
