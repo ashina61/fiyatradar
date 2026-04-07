@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/design.dart';
+import '../settings_screen.dart';
+import '../profile/favorites_screen.dart';
+import '../profile/history_screen.dart';
+import '../profile/alerts_screen.dart';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -9,7 +13,7 @@ class _Level {
   final String name;
   final String emoji;
   final int minPoints;
-  final int? maxPoints; // null = no ceiling
+  final int? maxPoints;
   final Color color;
 
   const _Level({
@@ -110,10 +114,13 @@ class ProfileTab extends StatelessWidget {
             ))
         .length;
 
+    final favCount = state.favorites.length;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
+          // ── Header ───────────────────────────────────────────────
           Row(
             children: [
               const Expanded(
@@ -130,7 +137,7 @@ class ProfileTab extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Elit kullanıcı merkezi',
+                      'Kişisel merkezin',
                       style: TextStyle(
                         color: CoffeeColors.cocoa,
                         fontSize: 13,
@@ -151,48 +158,199 @@ class ProfileTab extends StatelessWidget {
             nextLevel: nextLvl,
             progress: progress,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // ── Stats ────────────────────────────────────────────────
           Row(
             children: [
               Expanded(
                 child: _StatBox(
-                  label: 'Eklediğin',
+                  label: 'Katkı',
                   value: '$addedCount',
                   icon: Icons.add_chart,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const HistoryScreen()),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: _StatBox(
-                  label: 'Favoriler',
-                  value: '${state.favorites.length}',
+                  label: 'Favori',
+                  value: '$favCount',
                   icon: Icons.favorite_border,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const FavoritesScreen()),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: _StatBox(
                   label: 'Puan',
                   value: '$points',
                   icon: Icons.star_border,
+                  onTap: null,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // ── Quick action row ──────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.notifications_none,
+                  label: 'Alarmlar',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AlertsScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.history,
+                  label: 'Geçmiş',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const HistoryScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Ayarlar',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SettingsScreen()),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
 
           // ── Level journey ─────────────────────────────────────────
           _LevelJourneyCard(currentLevel: level),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // ── Contribution ways ────────────────────────────────────
           _ContributionCard(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // ── Menu ──────────────────────────────────────────────────
-          ..._menuItems.map((m) => _MenuTile(item: m)),
+          // ── Menu items ────────────────────────────────────────────
+          _MenuSection(
+            items: [
+              _MenuItem(
+                icon: Icons.bookmark_outline,
+                title: 'Kayıtlı Ürünler',
+                subtitle: '$favCount ürün takipte',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const FavoritesScreen()),
+                ),
+              ),
+              _MenuItem(
+                icon: Icons.notifications_none,
+                title: 'Fiyat Alarmlarım',
+                subtitle: 'Düşüş bildirimlerini yönet',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AlertsScreen()),
+                ),
+              ),
+              _MenuItem(
+                icon: Icons.history,
+                title: 'Geçmiş Eklemeler',
+                subtitle: '$addedCount fiyat katkısı',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const HistoryScreen()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _MenuSection(
+            items: [
+              _MenuItem(
+                icon: Icons.settings_outlined,
+                title: 'Ayarlar',
+                subtitle: 'Hesap, bildirim, gizlilik',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SettingsScreen()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _MenuSection(
+            items: [
+              _MenuItem(
+                icon: Icons.logout,
+                title: 'Çıkış Yap',
+                isDestructive: true,
+                onTap: () => _showLogoutDialog(context),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Çıkış Yap',
+          style: TextStyle(
+              fontWeight: FontWeight.w800, color: CoffeeColors.espresso),
+        ),
+        content: const Text(
+          'Hesabından çıkmak istediğine emin misin?',
+          style: TextStyle(color: CoffeeColors.cocoa),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('İptal',
+                style: TextStyle(color: CoffeeColors.cocoa)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CoffeeColors.danger,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Çık',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );
@@ -242,10 +400,10 @@ class _ProfileHero extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: level.color.withOpacity(0.25),
+                  color: level.color.withOpacity(0.22),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: level.color.withOpacity(0.6), width: 2),
+                      color: level.color.withOpacity(0.55), width: 2),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -254,7 +412,6 @@ class _ProfileHero extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              // Name + username
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,6 +422,7 @@ class _ProfileHero extends StatelessWidget {
                         color: CoffeeColors.cream,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -283,8 +441,8 @@ class _ProfileHero extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: level.color.withOpacity(0.22),
                   borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: level.color.withOpacity(0.5)),
+                  border: Border.all(
+                      color: level.color.withOpacity(0.5)),
                 ),
                 child: Text(
                   level.name,
@@ -301,7 +459,6 @@ class _ProfileHero extends StatelessWidget {
           ),
           if (nextLevel != null) ...[
             const SizedBox(height: 16),
-            // Progress bar
             Row(
               children: [
                 Text(
@@ -363,6 +520,209 @@ class _ProfileHero extends StatelessWidget {
   }
 }
 
+// ─── Stat box ─────────────────────────────────────────────────────────────────
+
+class _StatBox extends StatelessWidget {
+  const _StatBox({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.onTap,
+  });
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: CoffeeColors.crema),
+          boxShadow: FR.softShadow,
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: CoffeeColors.caramel, size: 20),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: CoffeeColors.espresso),
+            ),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: CoffeeColors.cocoa),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Quick action ─────────────────────────────────────────────────────────────
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: CoffeeColors.crema),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: CoffeeColors.foam,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon,
+                  color: CoffeeColors.darkRoast, size: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: CoffeeColors.espresso,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Menu section ─────────────────────────────────────────────────────────────
+
+class _MenuSection extends StatelessWidget {
+  const _MenuSection({required this.items});
+  final List<_MenuItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CoffeeColors.crema),
+        boxShadow: FR.softShadow,
+      ),
+      child: Column(
+        children: items.asMap().entries.map((entry) {
+          final i = entry.key;
+          final item = entry.value;
+          return Column(
+            children: [
+              _MenuTile(item: item),
+              if (i < items.length - 1)
+                const Divider(
+                    height: 1,
+                    indent: 54,
+                    color: CoffeeColors.crema),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _MenuItem {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _MenuItem({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+}
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({required this.item});
+  final _MenuItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDestructive = item.isDestructive;
+    return ListTile(
+      onTap: item.onTap,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: isDestructive
+              ? CoffeeColors.danger.withOpacity(0.1)
+              : CoffeeColors.foam,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          item.icon,
+          color: isDestructive
+              ? CoffeeColors.danger
+              : CoffeeColors.darkRoast,
+          size: 19,
+        ),
+      ),
+      title: Text(
+        item.title,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: isDestructive
+              ? CoffeeColors.danger
+              : CoffeeColors.espresso,
+          fontSize: 14,
+        ),
+      ),
+      subtitle: item.subtitle != null
+          ? Text(
+              item.subtitle!,
+              style: const TextStyle(
+                  color: CoffeeColors.cocoa, fontSize: 12),
+            )
+          : null,
+      trailing: isDestructive
+          ? null
+          : const Icon(Icons.chevron_right,
+              color: CoffeeColors.cocoa, size: 20),
+    );
+  }
+}
+
 // ─── Level journey card ───────────────────────────────────────────────────────
 
 class _LevelJourneyCard extends StatelessWidget {
@@ -377,6 +737,7 @@ class _LevelJourneyCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: CoffeeColors.crema),
+        boxShadow: FR.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,26 +770,18 @@ class _LevelJourneyCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isCurrent
                           ? l.color.withOpacity(0.18)
-                          : isPast
-                              ? CoffeeColors.foam
-                              : CoffeeColors.foam,
+                          : CoffeeColors.foam,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isCurrent
                             ? l.color
-                            : isPast
-                                ? CoffeeColors.crema
-                                : CoffeeColors.crema,
+                            : CoffeeColors.crema,
                         width: isCurrent ? 2 : 1,
                       ),
                     ),
                     alignment: Alignment.center,
                     child: Text(l.emoji,
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: isPast && !isCurrent
-                                ? null
-                                : null)),
+                        style: const TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -503,13 +856,15 @@ class _ContributionCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: CoffeeColors.crema),
+        boxShadow: FR.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.emoji_events_outlined, color: CoffeeColors.caramel),
+              Icon(Icons.emoji_events_outlined,
+                  color: CoffeeColors.caramel),
               SizedBox(width: 8),
               Text(
                 'Puan Kazan',
@@ -521,28 +876,31 @@ class _ContributionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _rewardRow(
-              Icons.add_circle_outline, 'Fiyat ekle', '+${PointsRules.addPrice} puan'),
-          _rewardRow(
-              Icons.inventory_2_outlined, 'Yeni ürün ekle', '+${PointsRules.addProduct} puan'),
-          _rewardRow(
-              Icons.favorite_border, 'Favorilere ekle', '+${PointsRules.favorite} puan'),
-          _rewardRow(
-              Icons.login_outlined, 'Günlük giriş', '+${PointsRules.dailyLogin} puan'),
+          _rewardRow(Icons.add_circle_outline, 'Fiyat ekle',
+              '+${PointsRules.addPrice} puan'),
+          _rewardRow(Icons.inventory_2_outlined, 'Yeni ürün ekle',
+              '+${PointsRules.addProduct} puan'),
+          _rewardRow(Icons.favorite_border, 'Favorilere ekle',
+              '+${PointsRules.favorite} puan'),
+          _rewardRow(Icons.login_outlined, 'Günlük giriş',
+              '+${PointsRules.dailyLogin} puan'),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: CoffeeColors.foam,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Row(
               children: [
-                Icon(Icons.info_outline, size: 14, color: CoffeeColors.cocoa),
+                Icon(Icons.info_outline,
+                    size: 14, color: CoffeeColors.cocoa),
                 SizedBox(width: 6),
                 Text(
                   '100 puan = ₺5 değerinde',
-                  style: TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
+                  style: TextStyle(
+                      color: CoffeeColors.cocoa, fontSize: 12),
                 ),
               ],
             ),
@@ -570,7 +928,8 @@ Widget _rewardRow(IconData icon, String label, String value) {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: CoffeeColors.caramel.withOpacity(0.18),
             borderRadius: BorderRadius.circular(8),
@@ -587,116 +946,4 @@ Widget _rewardRow(IconData icon, String label, String value) {
       ],
     ),
   );
-}
-
-// ─── Stat box ─────────────────────────────────────────────────────────────────
-
-class _StatBox extends StatelessWidget {
-  const _StatBox(
-      {required this.label, required this.value, required this.icon});
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CoffeeColors.crema),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: CoffeeColors.caramel, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: CoffeeColors.espresso),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: CoffeeColors.cocoa),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Menu ─────────────────────────────────────────────────────────────────────
-
-class _MenuItem {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  const _MenuItem(this.icon, this.title, this.subtitle);
-}
-
-const _menuItems = [
-  _MenuItem(Icons.bookmark_outline, 'Kayıtlı Ürünler',
-      'Takip listende neler var'),
-  _MenuItem(Icons.history, 'Geçmiş Eklemeler', 'Senin eklediğin fiyatlar'),
-  _MenuItem(Icons.notifications_none, 'Bildirimler', 'Fiyat düşüş alarmları'),
-  _MenuItem(Icons.settings_outlined, 'Ayarlar', 'Hesap ve uygulama'),
-  _MenuItem(Icons.logout, 'Çıkış Yap', ''),
-];
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.item});
-  final _MenuItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final isLogout = item.title == 'Çıkış Yap';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CoffeeColors.crema),
-      ),
-      child: ListTile(
-        onTap: () {},
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isLogout
-                ? CoffeeColors.danger.withOpacity(0.1)
-                : CoffeeColors.foam,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            item.icon,
-            color: isLogout ? CoffeeColors.danger : CoffeeColors.darkRoast,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          item.title,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color:
-                isLogout ? CoffeeColors.danger : CoffeeColors.espresso,
-            fontSize: 14,
-          ),
-        ),
-        subtitle: item.subtitle.isEmpty
-            ? null
-            : Text(
-                item.subtitle,
-                style: const TextStyle(
-                    color: CoffeeColors.cocoa, fontSize: 12),
-              ),
-        trailing: isLogout
-            ? null
-            : const Icon(Icons.chevron_right,
-                color: CoffeeColors.cocoa, size: 20),
-      ),
-    );
-  }
 }

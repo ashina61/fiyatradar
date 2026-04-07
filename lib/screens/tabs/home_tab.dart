@@ -15,6 +15,13 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   String _activeFilter = 'Hepsi';
 
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Günaydın';
+    if (h < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -72,12 +79,25 @@ class _HomeTabState extends State<HomeTab> {
             DateTime.now().difference(e.entry.date).inHours < 24)
         .length;
 
+    // Market health signal
+    final double dropRatio = products.isEmpty
+        ? 0
+        : drops.length / products.length;
+    final String marketPulse = dropRatio > 0.4
+        ? 'Piyasa düşüşte'
+        : dropRatio > 0.2
+            ? 'Karışık sinyal'
+            : rises.length > drops.length
+                ? 'Piyasa yükselişte'
+                : 'Stabil seyir';
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
           // ── Header ───────────────────────────────────────────────
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
@@ -85,16 +105,37 @@ class _HomeTabState extends State<HomeTab> {
                   children: [
                     Row(
                       children: [
-                        const Text('Günaydın',
-                            style: TextStyle(
-                                color: CoffeeColors.cocoa,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
+                        Text(
+                          _greeting,
+                          style: const TextStyle(
+                              color: CoffeeColors.cocoa,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
                         const SizedBox(width: 6),
                         LiveDot(),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: CoffeeColors.foam,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: CoffeeColors.crema),
+                          ),
+                          child: Text(
+                            marketPulse,
+                            style: const TextStyle(
+                              color: CoffeeColors.cocoa,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 2),
                     const Text(
                       'FiyatRadar',
                       style: TextStyle(
@@ -108,10 +149,8 @@ class _HomeTabState extends State<HomeTab> {
               ),
               _PointsPill(points: state.points),
               const SizedBox(width: 8),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_none,
-                    color: CoffeeColors.darkRoast, size: 24),
+              _NotificationBell(
+                hasNew: last24h > 0,
               ),
             ],
           ),
@@ -124,6 +163,7 @@ class _HomeTabState extends State<HomeTab> {
             last24h: last24h,
             bestStore: bestStore,
             sparkValues: _aggregateSpark(allEntries),
+            totalProducts: products.length,
           ),
           const SizedBox(height: 12),
 
@@ -140,75 +180,36 @@ class _HomeTabState extends State<HomeTab> {
             height: 38,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: ['Hepsi', 'Düşenler', 'Yükselenler'].map((f) {
-                final selected = _activeFilter == f;
-                Color chipColor = CoffeeColors.espresso;
-                if (f == 'Düşenler') chipColor = const Color(0xFF2E7D32);
-                if (f == 'Yükselenler') chipColor = const Color(0xFFC62828);
-                final n = f == 'Düşenler'
-                    ? drops.length
-                    : f == 'Yükselenler'
-                        ? rises.length
-                        : products.length;
-                return GestureDetector(
-                  onTap: () => setState(() => _activeFilter = f),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: selected ? chipColor : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: selected ? chipColor : CoffeeColors.crema),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (f == 'Düşenler')
-                          const Icon(Icons.trending_down,
-                              size: 14, color: Colors.white),
-                        if (f == 'Yükselenler')
-                          const Icon(Icons.trending_up,
-                              size: 14, color: Colors.white),
-                        if (f != 'Hepsi') const SizedBox(width: 4),
-                        Text(
-                          f,
-                          style: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : CoffeeColors.darkRoast,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? Colors.white.withOpacity(0.22)
-                                : CoffeeColors.foam,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '$n',
-                            style: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : CoffeeColors.cocoa,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+              children: [
+                _FilterChip(
+                  label: 'Hepsi',
+                  count: products.length,
+                  selected: _activeFilter == 'Hepsi',
+                  selectedColor: CoffeeColors.espresso,
+                  onTap: () =>
+                      setState(() => _activeFilter = 'Hepsi'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Düşenler',
+                  count: drops.length,
+                  selected: _activeFilter == 'Düşenler',
+                  selectedColor: const Color(0xFF2E7D32),
+                  onTap: () =>
+                      setState(() => _activeFilter = 'Düşenler'),
+                  icon: Icons.trending_down,
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Yükselenler',
+                  count: rises.length,
+                  selected: _activeFilter == 'Yükselenler',
+                  selectedColor: const Color(0xFFC62828),
+                  onTap: () =>
+                      setState(() => _activeFilter = 'Yükselenler'),
+                  icon: Icons.trending_up,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 18),
@@ -216,7 +217,7 @@ class _HomeTabState extends State<HomeTab> {
           // ── Featured ──────────────────────────────────────────────
           SectionHeader(
             title: 'Öne Çıkanlar',
-            subtitle: 'Bugün hareketli olanlar',
+            subtitle: 'En hareketli ürünler',
             trailing: TextButton(
               onPressed: () {},
               style: TextButton.styleFrom(
@@ -244,7 +245,7 @@ class _HomeTabState extends State<HomeTab> {
             )
           else
             SizedBox(
-              height: 232,
+              height: 242,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: featured.take(8).length,
@@ -296,7 +297,6 @@ class _HomeTabState extends State<HomeTab> {
 
   List<double> _aggregateSpark(List<_RecentEntry> entries) {
     if (entries.length < 4) return const [];
-    // Use last 14 entries' prices as a rough community pulse line.
     final last = entries.take(14).toList().reversed.toList();
     return last.map((e) => e.entry.price).toList();
   }
@@ -306,6 +306,82 @@ class _RecentEntry {
   final Product product;
   final PriceEntry entry;
   const _RecentEntry({required this.product, required this.entry});
+}
+
+// ─── Filter chip ─────────────────────────────────────────────────────────────
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.selectedColor,
+    required this.onTap,
+    this.icon,
+  });
+  final String label;
+  final int count;
+  final bool selected;
+  final Color selectedColor;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? selectedColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: selected ? selectedColor : CoffeeColors.crema),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: Colors.white),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: selected
+                    ? Colors.white
+                    : CoffeeColors.darkRoast,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withOpacity(0.22)
+                    : CoffeeColors.foam,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  color: selected
+                      ? Colors.white
+                      : CoffeeColors.cocoa,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Points pill ─────────────────────────────────────────────────────────────
@@ -347,6 +423,50 @@ class _PointsPill extends StatelessWidget {
   }
 }
 
+// ─── Notification bell ────────────────────────────────────────────────────────
+
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({this.hasNew = false});
+  final bool hasNew;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: CoffeeColors.crema),
+          ),
+          child: IconButton(
+            onPressed: () {},
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.notifications_none,
+                color: CoffeeColors.darkRoast, size: 20),
+          ),
+        ),
+        if (hasNew)
+          Positioned(
+            top: -2,
+            right: -2,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: CoffeeColors.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 // ─── Hero card ───────────────────────────────────────────────────────────────
 
 class _RadarHeroCard extends StatelessWidget {
@@ -356,6 +476,7 @@ class _RadarHeroCard extends StatelessWidget {
     required this.last24h,
     required this.bestStore,
     required this.sparkValues,
+    required this.totalProducts,
   });
 
   final int dropCount;
@@ -363,11 +484,12 @@ class _RadarHeroCard extends StatelessWidget {
   final int last24h;
   final String? bestStore;
   final List<double> sparkValues;
+  final int totalProducts;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -386,6 +508,7 @@ class _RadarHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top row: label + live indicator
           Row(
             children: [
               const EyebrowLabel('RADAR ÖZETİ'),
@@ -403,7 +526,9 @@ class _RadarHeroCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+
+          // Main number + sparkline
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -415,18 +540,29 @@ class _RadarHeroCard extends StatelessWidget {
                       '$last24h',
                       style: const TextStyle(
                         color: CoffeeColors.cream,
-                        fontSize: 44,
+                        fontSize: 52,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: -1.5,
+                        letterSpacing: -2,
                         height: 1,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     const Text(
                       'son 24 saatte yeni fiyat',
                       style: TextStyle(
                           color: CoffeeColors.latte, fontSize: 12),
                     ),
+                    if (totalProducts > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '$totalProducts ürün takipte',
+                        style: const TextStyle(
+                          color: CoffeeColors.caramel,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -435,13 +571,15 @@ class _RadarHeroCard extends StatelessWidget {
                   width: 120,
                   child: Sparkline(
                     values: sparkValues,
-                    height: 50,
+                    height: 56,
                     color: CoffeeColors.caramel,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+
+          // Stats row
           Row(
             children: [
               _HeroStat(
@@ -491,12 +629,12 @@ class _HeroStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         decoration: BoxDecoration(
           color: highlight
               ? accent.withOpacity(0.18)
               : Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: highlight
                 ? accent.withOpacity(0.4)
@@ -507,7 +645,7 @@ class _HeroStat extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: accent, size: 14),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             Text(
               value,
               maxLines: 1,
@@ -519,6 +657,7 @@ class _HeroStat extends StatelessWidget {
                 letterSpacing: -0.2,
               ),
             ),
+            const SizedBox(height: 1),
             Text(
               label,
               style: const TextStyle(
@@ -574,7 +713,7 @@ class _SignalStrip extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(FR.radiusL),
@@ -618,26 +757,32 @@ class _FeaturedCard extends StatelessWidget {
     final lowest = product.lowestPrice;
     final stores =
         product.priceHistory.map((e) => e.store).toSet().length;
+    final entries = product.priceHistory.length;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 168,
+        width: 172,
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(FR.radiusXl),
-          border: Border.all(color: CoffeeColors.crema),
+          border: Border.all(
+            color: changePct != null && changePct < 0
+                ? CoffeeColors.caramel.withOpacity(0.3)
+                : CoffeeColors.crema,
+          ),
           boxShadow: FR.softShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Image area
             Stack(
               children: [
                 Container(
-                  height: 70,
+                  height: 80,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
@@ -649,17 +794,17 @@ class _FeaturedCard extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: Text(product.emoji,
-                      style: const TextStyle(fontSize: 36)),
+                      style: const TextStyle(fontSize: 40)),
                 ),
                 Positioned(
-                  top: 4,
-                  right: 4,
+                  top: 5,
+                  right: 5,
                   child: GestureDetector(
                     onTap: () => state.toggleFavorite(product.id),
                     child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -676,13 +821,14 @@ class _FeaturedCard extends StatelessWidget {
                 ),
                 if (changePct != null)
                   Positioned(
-                    top: 6,
-                    left: 6,
+                    top: 7,
+                    left: 7,
                     child: TrendPill(pct: changePct, dense: true),
                   ),
               ],
             ),
             const SizedBox(height: 10),
+            // Name
             Text(
               product.name,
               maxLines: 2,
@@ -692,11 +838,12 @@ class _FeaturedCard extends StatelessWidget {
                 color: CoffeeColors.espresso,
                 fontSize: 13,
                 height: 1.25,
+                letterSpacing: -0.2,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              product.brand,
+              '${product.brand} · ${product.unit}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -707,10 +854,25 @@ class _FeaturedCard extends StatelessWidget {
             ),
             const Spacer(),
             const Divider(height: 12, color: CoffeeColors.crema),
+            // Price row
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                PriceText(lowest, size: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'EN İYİ',
+                      style: TextStyle(
+                        color: CoffeeColors.cocoa,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    PriceText(lowest, size: 17),
+                  ],
+                ),
                 const Spacer(),
                 if (product.cheapestStore != null)
                   StoreBadge(product.cheapestStore!),
@@ -731,6 +893,16 @@ class _FeaturedCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (entries > 0) ...[
+              const SizedBox(height: 3),
+              Text(
+                '$entries kayıt',
+                style: const TextStyle(
+                  color: CoffeeColors.cocoa,
+                  fontSize: 9,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -748,6 +920,8 @@ class _RecentEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLow = entry.product.lowestPrice != null &&
         entry.entry.price <= entry.product.lowestPrice!;
+    final changePct = entry.product.priceChangePct;
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -757,7 +931,7 @@ class _RecentEntryTile extends StatelessWidget {
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(FR.radiusL),
@@ -770,9 +944,10 @@ class _RecentEntryTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Emoji
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
@@ -790,14 +965,22 @@ class _RecentEntryTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.product.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: CoffeeColors.espresso,
-                        fontSize: 13),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.product.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: CoffeeColors.espresso,
+                              fontSize: 13),
+                        ),
+                      ),
+                      if (changePct != null)
+                        TrendPill(pct: changePct, dense: true),
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Row(
@@ -827,7 +1010,7 @@ class _RecentEntryTile extends StatelessWidget {
               children: [
                 PriceText(
                   entry.entry.price,
-                  size: 15,
+                  size: 16,
                   color: isLow
                       ? CoffeeColors.success
                       : CoffeeColors.espresso,
@@ -849,16 +1032,27 @@ class _EmptyBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 22),
+      padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(FR.radiusL),
         border: Border.all(color: CoffeeColors.crema),
       ),
       alignment: Alignment.center,
-      child: Text(
-        text,
-        style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 13),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.radar_rounded,
+              color: CoffeeColors.caramel, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            text,
+            style: const TextStyle(
+                color: CoffeeColors.cocoa,
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
