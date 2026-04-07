@@ -233,7 +233,7 @@ class _EmptyState extends StatelessWidget {
                       color: CoffeeColors.caramel, size: 16),
                   SizedBox(width: 8),
                   Text(
-                    'İpucu: Keşfet'ten ürün ara ve ekle',
+                    "İpucu: Keşfet'ten ürün ara ve ekle",
                     style: TextStyle(
                       color: CoffeeColors.darkRoast,
                       fontSize: 12,
