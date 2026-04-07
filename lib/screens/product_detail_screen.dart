@@ -34,10 +34,25 @@ class ProductDetailScreen extends StatelessWidget {
         product.priceHistory.map((e) => e.reportedBy).toSet().length;
     final lastDate = history.isNotEmpty ? history.first.date : null;
 
+    // 7-day low
+    final sevenDaysAgo =
+        DateTime.now().subtract(const Duration(days: 7));
+    final recentPrices = history
+        .where((e) => e.date.isAfter(sevenDaysAgo))
+        .map((e) => e.price)
+        .toList();
+    final sevenDayLow =
+        recentPrices.isEmpty ? null : recentPrices.reduce((a, b) => a < b ? a : b);
+
     return Scaffold(
       backgroundColor: CoffeeColors.cream,
       appBar: AppBar(
-        title: const Text('Ürün Detayı'),
+        title: Text(
+          product.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
         actions: [
           IconButton(
             icon: Icon(
@@ -59,7 +74,7 @@ class ProductDetailScreen extends StatelessWidget {
             children: [
               // ── Hero ─────────────────────────────────────────────
               Container(
-                height: 210,
+                height: 200,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
@@ -74,63 +89,115 @@ class ProductDetailScreen extends StatelessWidget {
                   children: [
                     Center(
                       child: Text(product.emoji,
-                          style: const TextStyle(fontSize: 116)),
+                          style: const TextStyle(fontSize: 100)),
                     ),
                     Positioned(
                       top: 14,
                       left: 14,
                       child: EyebrowLabel(product.category.toUpperCase()),
                     ),
+                    if (changePct != null)
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: TrendPill(pct: changePct),
+                      ),
                     Positioned(
                       bottom: 14,
                       right: 14,
                       child: FreshnessChip(date: lastDate),
                     ),
+                    if (hasDrop)
+                      Positioned(
+                        bottom: 14,
+                        left: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: CoffeeColors.success.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: CoffeeColors.success
+                                    .withOpacity(0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.trending_down,
+                                  color: CoffeeColors.success, size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'Fiyat düştü',
+                                style: TextStyle(
+                                  color: CoffeeColors.success,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: 18),
 
               // ── Title row ────────────────────────────────────────
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: CoffeeColors.espresso,
-                            letterSpacing: -0.4,
-                            height: 1.15,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          Text(product.brand,
-                              style: const TextStyle(
-                                  color: CoffeeColors.darkRoast,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13)),
-                          const Text('  ·  ',
-                              style: TextStyle(color: CoffeeColors.crema)),
-                          Text(product.unit,
-                              style: const TextStyle(
-                                  color: CoffeeColors.cocoa, fontSize: 13)),
-                        ]),
-                      ],
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: CoffeeColors.espresso,
+                      letterSpacing: -0.5,
+                      height: 1.15,
                     ),
                   ),
-                  if (changePct != null) TrendPill(pct: changePct),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(product.brand,
+                          style: const TextStyle(
+                              color: CoffeeColors.darkRoast,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                      const Text('  ·  ',
+                          style: TextStyle(color: CoffeeColors.crema)),
+                      Text(product.unit,
+                          style: const TextStyle(
+                              color: CoffeeColors.cocoa,
+                              fontSize: 13)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: CoffeeColors.foam,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                              color: CoffeeColors.crema),
+                        ),
+                        child: Text(
+                          '${history.length} kayıt',
+                          style: const TextStyle(
+                            color: CoffeeColors.cocoa,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
 
-              // ── Best price hero block ────────────────────────────
+              // ── Best price hero block ─────────────────────────────
               if (lowest != null)
                 _BestPriceBlock(
                   lowest: lowest,
@@ -139,10 +206,11 @@ class ProductDetailScreen extends StatelessWidget {
                   entries: history.length,
                   hasDrop: hasDrop,
                   changePct: changePct,
+                  latest: latest,
                 ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // ── Stat tiles row ───────────────────────────────────
+              // ── Stat tiles ────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -157,13 +225,11 @@ class ProductDetailScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _StatTile(
-                      label: 'SON GÖRÜLEN',
-                      value: latest,
-                      sub: lastDate == null
-                          ? '–'
-                          : _agoShort(lastDate),
-                      icon: Icons.access_time_rounded,
-                      color: CoffeeColors.accent,
+                      label: '7 GÜN',
+                      value: sevenDayLow,
+                      sub: 'son 7 gün en düşük',
+                      icon: Icons.calendar_today_outlined,
+                      color: CoffeeColors.caramel,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -173,23 +239,28 @@ class ProductDetailScreen extends StatelessWidget {
                       value: '$contributors',
                       sub: 'kullanıcı',
                       icon: Icons.people_alt_outlined,
-                      color: CoffeeColors.caramel,
+                      color: CoffeeColors.accent,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // ── Sparkline / history ──────────────────────────────
+              // ── Price history chart ───────────────────────────────
               if (ascHistory.length >= 2) ...[
                 const SectionHeader(
                   title: 'Fiyat Hareketi',
                   subtitle: 'Topluluk verisine göre seyir',
                 ),
                 const SizedBox(height: 12),
-                PremiumCard(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                  elevated: true,
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(FR.radiusL),
+                    border: Border.all(color: CoffeeColors.crema),
+                    boxShadow: FR.softShadow,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -197,66 +268,111 @@ class ProductDetailScreen extends StatelessWidget {
                         children: [
                           PriceText(latest, size: 22),
                           const SizedBox(width: 10),
-                          if (changePct != null) TrendPill(pct: changePct),
+                          if (changePct != null)
+                            TrendPill(pct: changePct),
                           const Spacer(),
-                          Text(
-                            '${ascHistory.length} kayıt',
-                            style: const TextStyle(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: CoffeeColors.foam,
+                              borderRadius:
+                                  BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${ascHistory.length} veri noktası',
+                              style: const TextStyle(
                                 color: CoffeeColors.cocoa,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       Sparkline(
                         values:
                             ascHistory.map((e) => e.price).toList(),
-                        height: 64,
+                        height: 72,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             _agoShort(ascHistory.first.date),
                             style: const TextStyle(
-                                color: CoffeeColors.cocoa, fontSize: 10),
+                                color: CoffeeColors.cocoa,
+                                fontSize: 10),
                           ),
-                          Text(
+                          Row(
+                            children: [
+                              if (lowest != null) ...[
+                                const Text(
+                                  'min ',
+                                  style: TextStyle(
+                                      color: CoffeeColors.cocoa,
+                                      fontSize: 10),
+                                ),
+                                Text(
+                                  '₺${lowest.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      color: CoffeeColors.success,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const Text(
                             'şimdi',
-                            style: const TextStyle(
-                                color: CoffeeColors.cocoa, fontSize: 10),
+                            style: TextStyle(
+                                color: CoffeeColors.cocoa,
+                                fontSize: 10),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
               ],
 
               // ── Per-store breakdown ───────────────────────────────
               if (perStoreSorted.isNotEmpty) ...[
                 const SectionHeader(
                   title: 'Marketlere Göre',
-                  subtitle: 'Her marketin en iyi gözlemlenen fiyatı',
+                  subtitle: 'Her marketin gözlemlenen en iyi fiyatı',
                 ),
                 const SizedBox(height: 12),
-                PremiumCard(
-                  padding: EdgeInsets.zero,
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(FR.radiusL),
+                    border: Border.all(color: CoffeeColors.crema),
+                    boxShadow: FR.softShadow,
+                  ),
                   child: Column(
-                    children:
-                        List.generate(perStoreSorted.length, (i) {
+                    children: List.generate(perStoreSorted.length, (i) {
                       final e = perStoreSorted[i];
                       final isBest = i == 0;
                       return Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                            horizontal: 14, vertical: 13),
                         decoration: BoxDecoration(
                           color: isBest
-                              ? CoffeeColors.foam.withOpacity(0.6)
+                              ? CoffeeColors.espresso.withOpacity(0.03)
                               : null,
+                          borderRadius: i == 0
+                              ? const BorderRadius.vertical(
+                                  top: Radius.circular(FR.radiusL))
+                              : i == perStoreSorted.length - 1
+                                  ? const BorderRadius.vertical(
+                                      bottom:
+                                          Radius.circular(FR.radiusL))
+                                  : null,
                           border: i < perStoreSorted.length - 1
                               ? const Border(
                                   bottom: BorderSide(
@@ -265,14 +381,15 @@ class ProductDetailScreen extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
+                            // Rank circle
                             Container(
-                              width: 28,
-                              height: 28,
+                              width: 30,
+                              height: 30,
                               decoration: BoxDecoration(
                                 color: isBest
                                     ? CoffeeColors.caramel
                                     : CoffeeColors.foam,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(9),
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -292,17 +409,27 @@ class ProductDetailScreen extends StatelessWidget {
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    e.store,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: CoffeeColors.espresso,
-                                      fontSize: 14,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        e.store,
+                                        style: TextStyle(
+                                          fontWeight: isBest
+                                              ? FontWeight.w800
+                                              : FontWeight.w700,
+                                          color: CoffeeColors.espresso,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      if (isBest) ...[
+                                        const SizedBox(width: 6),
+                                        const EyebrowLabel('EN İYİ'),
+                                      ],
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${e.reportedBy} · ${_agoShort(e.date)}',
+                                    '${e.reportedBy}  ·  ${_agoShort(e.date)}',
                                     style: const TextStyle(
                                       color: CoffeeColors.cocoa,
                                       fontSize: 11,
@@ -311,102 +438,40 @@ class ProductDetailScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (isBest) ...[
-                              const EyebrowLabel('EN İYİ'),
-                              const SizedBox(width: 8),
-                            ],
-                            PriceText(e.price, size: 16),
+                            PriceText(
+                              e.price,
+                              size: 16,
+                              color: isBest
+                                  ? CoffeeColors.success
+                                  : CoffeeColors.espresso,
+                            ),
                           ],
                         ),
                       );
                     }),
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
               ],
 
               // ── Full history ──────────────────────────────────────
-              const SectionHeader(
+              SectionHeader(
                 title: 'Fiyat Geçmişi',
-                subtitle: 'Topluluk gözlemleri',
+                subtitle:
+                    '${history.length} topluluk kaydı',
               ),
               const SizedBox(height: 12),
               if (history.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: CoffeeColors.foam,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: CoffeeColors.crema),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.lightbulb_outline,
-                          color: CoffeeColors.caramel),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Henüz fiyat eklenmemiş. İlk ekleyen sen ol — +5 puan.',
-                          style: TextStyle(
-                              color: CoffeeColors.darkRoast,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+                _NoHistoryCard()
               else
                 ...history.map((e) => _PriceTile(entry: e, lowest: lowest)),
               const SizedBox(height: 18),
 
               // ── Trust block ───────────────────────────────────────
               if (history.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: CoffeeColors.foam,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: CoffeeColors.crema),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: CoffeeColors.success.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.verified_outlined,
-                            color: CoffeeColors.success, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Topluluk doğrulamalı',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: CoffeeColors.espresso,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$contributors kullanıcı, ${history.length} fiyat girişi',
-                              style: const TextStyle(
-                                color: CoffeeColors.cocoa,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                _TrustBlock(
+                  contributors: contributors,
+                  entries: history.length,
                 ),
             ],
           ),
@@ -416,71 +481,7 @@ class ProductDetailScreen extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              decoration: BoxDecoration(
-                color: CoffeeColors.cream.withOpacity(0.96),
-                border: const Border(
-                  top: BorderSide(color: CoffeeColors.crema),
-                ),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: CoffeeColors.crema),
-                      ),
-                      child: IconButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Alarm kuruldu'),
-                              backgroundColor: CoffeeColors.darkRoast,
-                              behavior: SnackBarBehavior.floating,
-                              margin: EdgeInsets.fromLTRB(16, 0, 16, 80),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.notifications_none,
-                            color: CoffeeColors.darkRoast, size: 22),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          state.addToCart(product);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Karşılaştırmaya eklendi'),
-                              backgroundColor: CoffeeColors.darkRoast,
-                              behavior: SnackBarBehavior.floating,
-                              margin: EdgeInsets.fromLTRB(16, 0, 16, 80),
-                            ),
-                          );
-                        },
-                        icon:
-                            const Icon(Icons.balance_outlined, size: 18),
-                        label: const Text('Karşılaştırmaya Ekle'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(0, 50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            child: _StickyActionBar(product: product),
           ),
         ],
       ),
@@ -497,7 +498,7 @@ String _agoShort(DateTime d) {
   return 'az önce';
 }
 
-// ─── Best price hero ──────────────────────────────────────────────────────────
+// ─── Best price hero block ────────────────────────────────────────────────────
 
 class _BestPriceBlock extends StatelessWidget {
   const _BestPriceBlock({
@@ -507,6 +508,7 @@ class _BestPriceBlock extends StatelessWidget {
     required this.entries,
     required this.hasDrop,
     required this.changePct,
+    required this.latest,
   });
 
   final double lowest;
@@ -515,11 +517,12 @@ class _BestPriceBlock extends StatelessWidget {
   final int entries;
   final bool hasDrop;
   final double? changePct;
+  final double? latest;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -529,15 +532,16 @@ class _BestPriceBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: CoffeeColors.espresso.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: CoffeeColors.espresso.withOpacity(0.32),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Label row
           Row(
             children: [
               const EyebrowLabel('EN İYİ MEVCUT FİYAT'),
@@ -555,7 +559,9 @@ class _BestPriceBlock extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // Price
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -563,48 +569,62 @@ class _BestPriceBlock extends StatelessWidget {
                 '₺${lowest.toStringAsFixed(2)}',
                 style: const TextStyle(
                   color: CoffeeColors.cream,
-                  fontSize: 38,
+                  fontSize: 44,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
+                  letterSpacing: -1.5,
                   fontFeatures: [FontFeature.tabularFigures()],
+                  height: 1,
                 ),
               ),
               const SizedBox(width: 12),
-              if (hasDrop && changePct != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color:
-                          const Color(0xFF6B8E4E).withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color:
-                              const Color(0xFF8FB36A).withOpacity(0.5)),
-                    ),
-                    child: Text(
-                      '${changePct!.toStringAsFixed(1)}% düşüş',
-                      style: const TextStyle(
-                        color: Color(0xFFB7D49A),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (hasDrop && changePct != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6B8E4E).withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                            color: const Color(0xFF8FB36A)
+                                .withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        '${changePct!.toStringAsFixed(1)}% düştü',
+                        style: const TextStyle(
+                          color: Color(0xFFB7D49A),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  if (latest != null && latest != lowest) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'son: ₺${latest!.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          color: CoffeeColors.latte, fontSize: 11),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // Store + meta row
           Row(
             children: [
+              // Store badge
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 7),
+                    horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: CoffeeColors.caramel,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -624,13 +644,18 @@ class _BestPriceBlock extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(Icons.people_alt_outlined,
-                  color: CoffeeColors.latte, size: 13),
-              const SizedBox(width: 4),
-              Text(
-                '$contributors katkı · $entries kayıt',
-                style: const TextStyle(
-                    color: CoffeeColors.latte, fontSize: 11),
+              // Meta
+              Row(
+                children: [
+                  const Icon(Icons.verified_outlined,
+                      color: CoffeeColors.latte, size: 13),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$contributors katkı · $entries kayıt',
+                    style: const TextStyle(
+                        color: CoffeeColors.latte, fontSize: 11),
+                  ),
+                ],
               ),
             ],
           ),
@@ -640,7 +665,7 @@ class _BestPriceBlock extends StatelessWidget {
   }
 }
 
-// ─── Stat tile ────────────────────────────────────────────────────────────────
+// ─── Stat tiles ───────────────────────────────────────────────────────────────
 
 class _StatTile extends StatelessWidget {
   const _StatTile({
@@ -697,7 +722,7 @@ class _StatTileRaw extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 16),
+              Icon(icon, color: color, size: 14),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -720,12 +745,12 @@ class _StatTileRaw extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w800,
-              fontSize: 17,
+              fontSize: 16,
               letterSpacing: -0.3,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 1),
+          const SizedBox(height: 2),
           Text(
             sub,
             maxLines: 1,
@@ -757,22 +782,27 @@ class _PriceTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isLowest
-              ? CoffeeColors.caramel.withOpacity(0.5)
+              ? CoffeeColors.caramel.withOpacity(0.45)
               : CoffeeColors.crema,
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: CoffeeColors.foam,
+              color: isLowest
+                  ? CoffeeColors.caramel.withOpacity(0.12)
+                  : CoffeeColors.foam,
               borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.storefront_outlined,
-                color: CoffeeColors.darkRoast, size: 19),
+            child: Icon(Icons.storefront_outlined,
+                color: isLowest
+                    ? CoffeeColors.caramel
+                    : CoffeeColors.darkRoast,
+                size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -781,9 +811,11 @@ class _PriceTile extends StatelessWidget {
               children: [
                 Text(
                   entry.store,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: CoffeeColors.espresso,
+                    color: isLowest
+                        ? CoffeeColors.espresso
+                        : CoffeeColors.darkRoast,
                     fontSize: 14,
                   ),
                 ),
@@ -817,12 +849,253 @@ class _PriceTile extends StatelessWidget {
               ],
             ),
           ),
-          if (isLowest) ...[
-            const EyebrowLabel('EN İYİ'),
-            const SizedBox(width: 8),
-          ],
-          PriceText(entry.price, size: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (isLowest) ...[
+                const EyebrowLabel('EN İYİ'),
+                const SizedBox(height: 4),
+              ],
+              PriceText(
+                entry.price,
+                size: 16,
+                color: isLowest
+                    ? CoffeeColors.success
+                    : CoffeeColors.espresso,
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── No history card ──────────────────────────────────────────────────────────
+
+class _NoHistoryCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: CoffeeColors.foam,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.lightbulb_outline, color: CoffeeColors.caramel),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Henüz fiyat yok',
+                  style: TextStyle(
+                      color: CoffeeColors.espresso,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'İlk fiyatı ekleyen sen ol — +10 puan kazanırsın.',
+                  style: TextStyle(
+                      color: CoffeeColors.darkRoast,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Trust block ─────────────────────────────────────────────────────────────
+
+class _TrustBlock extends StatelessWidget {
+  const _TrustBlock(
+      {required this.contributors, required this.entries});
+  final int contributors;
+  final int entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CoffeeColors.foam,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: CoffeeColors.success.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.verified_outlined,
+                color: CoffeeColors.success, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Topluluk doğrulamalı',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: CoffeeColors.espresso,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$contributors kullanıcı · $entries fiyat kaydı',
+                  style: const TextStyle(
+                    color: CoffeeColors.cocoa,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Sticky action bar ────────────────────────────────────────────────────────
+
+class _StickyActionBar extends StatefulWidget {
+  const _StickyActionBar({required this.product});
+  final Product product;
+
+  @override
+  State<_StickyActionBar> createState() => _StickyActionBarState();
+}
+
+class _StickyActionBarState extends State<_StickyActionBar> {
+  bool _alarmSet = false;
+  bool _addingToCompare = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+      decoration: BoxDecoration(
+        color: CoffeeColors.cream.withOpacity(0.97),
+        border: const Border(
+          top: BorderSide(color: CoffeeColors.crema, width: 1.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: CoffeeColors.espresso.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Alarm button
+            GestureDetector(
+              onTap: () {
+                setState(() => _alarmSet = !_alarmSet);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(_alarmSet
+                        ? '${widget.product.name} için alarm kuruldu'
+                        : 'Alarm kaldırıldı'),
+                    backgroundColor: CoffeeColors.darkRoast,
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  ),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _alarmSet
+                      ? CoffeeColors.espresso
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: _alarmSet
+                        ? CoffeeColors.espresso
+                        : CoffeeColors.crema,
+                  ),
+                ),
+                child: Icon(
+                  _alarmSet
+                      ? Icons.notifications_active
+                      : Icons.notifications_none,
+                  color: _alarmSet
+                      ? CoffeeColors.caramel
+                      : CoffeeColors.darkRoast,
+                  size: 22,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Compare button
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _addingToCompare
+                    ? null
+                    : () async {
+                        setState(() => _addingToCompare = true);
+                        state.addToCart(widget.product);
+                        await Future.delayed(
+                            const Duration(milliseconds: 400));
+                        if (!mounted) return;
+                        setState(() => _addingToCompare = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                '${widget.product.name} karşılaştırmaya eklendi'),
+                            backgroundColor: CoffeeColors.darkRoast,
+                            behavior: SnackBarBehavior.floating,
+                            margin: const EdgeInsets.fromLTRB(
+                                16, 0, 16, 80),
+                          ),
+                        );
+                      },
+                icon: _addingToCompare
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: CoffeeColors.cream),
+                      )
+                    : const Icon(Icons.balance_outlined, size: 18),
+                label: const Text('Karşılaştırmaya Ekle'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
