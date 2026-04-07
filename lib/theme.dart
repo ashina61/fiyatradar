@@ -49,11 +49,13 @@ ThemeData buildCoffeeTheme() {
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
+      shadowColor: CoffeeColors.espresso.withOpacity(0.06),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: CoffeeColors.crema, width: 1),
       ),
     ),
+    splashFactory: InkRipple.splashFactory,
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: CoffeeColors.espresso,

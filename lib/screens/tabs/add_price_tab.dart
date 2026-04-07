@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
+import '../../widgets/design.dart';
 
 class AddPriceTab extends StatefulWidget {
   const AddPriceTab({super.key});
@@ -87,18 +88,118 @@ class _AddPriceTabState extends State<AddPriceTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Fiyat Ekle',
-                  style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: CoffeeColors.espresso)),
-              const SizedBox(height: 4),
-              const Text(
-                'Markette gördüğün fiyatı paylaş, topluluğa katkıda bulun.',
-                style: TextStyle(color: CoffeeColors.cocoa),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Fiyat Ekle',
+                            style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.6,
+                                color: CoffeeColors.espresso)),
+                        Text(
+                          'Markette gördüğünü paylaş, puan kazan.',
+                          style: TextStyle(color: CoffeeColors.cocoa),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: CoffeeColors.caramel,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.add_circle_outline,
+                            color: CoffeeColors.espresso, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          '+5',
+                          style: TextStyle(
+                            color: CoffeeColors.espresso,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          ' puan',
+                          style: TextStyle(
+                            color: CoffeeColors.espresso,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              _Label('Ürün'),
+              const SizedBox(height: 16),
+              // Contribution callout
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(FR.radiusL),
+                  border: Border.all(color: CoffeeColors.crema),
+                  boxShadow: FR.softShadow,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: CoffeeColors.caramel.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(Icons.verified_outlined,
+                          color: CoffeeColors.caramel, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Eklediğin fiyat anında topluluk verisine düşer ve diğer kullanıcıların kararına yardım eder.',
+                        style: TextStyle(
+                          color: CoffeeColors.darkRoast,
+                          fontSize: 12,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Step pills
+              Row(
+                children: [
+                  _StepDot(n: 1, label: 'Ürün', active: true),
+                  _StepLine(),
+                  _StepDot(
+                    n: 2,
+                    label: 'Market',
+                    active: _selectedStore != null,
+                  ),
+                  _StepLine(),
+                  _StepDot(
+                    n: 3,
+                    label: 'Fiyat',
+                    active: _priceCtrl.text.isNotEmpty,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _Label('1. Ürün'),
               Row(
                 children: [
                   ChoiceChip(
@@ -153,7 +254,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   onChanged: (v) => setState(() => _selectedProduct = v),
                 ),
               const SizedBox(height: 20),
-              _Label('Market'),
+              _Label('2. Market'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -188,9 +289,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
-              _Label('Fiyat (₺)'),
+              _Label('3. Fiyat (₺)'),
               TextFormField(
                 controller: _priceCtrl,
+                onChanged: (_) => setState(() {}),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(hintText: 'örn: 24,90'),
@@ -205,15 +307,88 @@ class _AddPriceTabState extends State<AddPriceTab> {
               const SizedBox(height: 28),
               ElevatedButton.icon(
                 onPressed: _submit,
-                icon: const Icon(Icons.check),
-                label: const Text('Fiyatı Paylaş'),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Fiyatı Paylaş ve Puan Kazan'),
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  minimumSize: const Size.fromHeight(58),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'Doğrulanan her katkı topluluğu güçlendirir.',
+                  style: TextStyle(
+                    color: CoffeeColors.cocoa,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StepDot extends StatelessWidget {
+  const _StepDot({required this.n, required this.label, required this.active});
+  final int n;
+  final String label;
+  final bool active;
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: active ? CoffeeColors.espresso : CoffeeColors.foam,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: active ? CoffeeColors.espresso : CoffeeColors.crema,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$n',
+            style: TextStyle(
+              color: active ? CoffeeColors.cream : CoffeeColors.cocoa,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: active ? CoffeeColors.espresso : CoffeeColors.cocoa,
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepLine extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Divider(color: CoffeeColors.crema, thickness: 1),
       ),
     );
   }
