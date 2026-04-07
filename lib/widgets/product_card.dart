@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
+import '../state/app_state.dart';
 import '../theme.dart';
 
 class ProductCard extends StatelessWidget {
@@ -10,8 +11,12 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
     final price = product.lowestPrice;
     final store = product.cheapestStore;
+    final changePct = product.priceChangePct;
+    final isFav = state.isFavorite(product.id);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -25,14 +30,51 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 84,
-              decoration: BoxDecoration(
-                color: CoffeeColors.foam,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              alignment: Alignment.center,
-              child: Text(product.emoji, style: const TextStyle(fontSize: 44)),
+            Stack(
+              children: [
+                Container(
+                  height: 84,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: CoffeeColors.foam,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(product.emoji,
+                      style: const TextStyle(fontSize: 44)),
+                ),
+                // Price-change badge (top-left)
+                if (changePct != null)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: _ChangeBadge(pct: changePct),
+                  ),
+                // Favorite button (top-right)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 1,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => state.toggleFavorite(product.id),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          size: 18,
+                          color: isFav
+                              ? CoffeeColors.accent
+                              : CoffeeColors.darkRoast,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             Text(
@@ -92,6 +134,40 @@ class ProductCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ChangeBadge extends StatelessWidget {
+  const _ChangeBadge({required this.pct});
+  final double pct;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDown = pct < 0;
+    final color = isDown ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
+    final icon = isDown ? Icons.arrow_downward : Icons.arrow_upward;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 11),
+          const SizedBox(width: 2),
+          Text(
+            '${pct.abs().toStringAsFixed(1)}%',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -25,7 +25,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -36,17 +36,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final state = AppStateScope.of(context);
     final price = double.parse(_priceCtrl.text.replaceAll(',', '.'));
 
-    Product target;
     if (_newProductMode) {
-      target = Product(
-        id: 'p${DateTime.now().millisecondsSinceEpoch}',
+      await state.addProduct(
         name: _newProductCtrl.text.trim(),
         brand: '-',
         category: 'Tümü',
         emoji: '🛒',
         unit: '1 adet',
       );
-      state.addProduct(target);
+      // Newly added product will stream in; skip price add this round.
     } else {
       if (_selectedProduct == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -54,14 +52,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
         );
         return;
       }
-      target = _selectedProduct!;
+      await state.addPrice(
+        productId: _selectedProduct!.id,
+        store: _selectedStore!,
+        price: price,
+      );
     }
-
-    state.addPrice(
-      productId: target.id,
-      store: _selectedStore!,
-      price: price,
-    );
+    if (!mounted) return;
 
     _priceCtrl.clear();
     _newProductCtrl.clear();
@@ -73,7 +70,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Teşekkürler ☕ Fiyatın eklendi'),
+        content: Text('Teşekkürler ☕ Katkın için puan kazandın'),
         backgroundColor: CoffeeColors.darkRoast,
       ),
     );
