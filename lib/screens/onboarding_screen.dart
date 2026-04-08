@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme.dart';
+import '../widgets/design.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -21,13 +22,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body:
           'Topluluk her gün binlerce fiyat gözlemi ekliyor. Gerçek zamanlı veri, anlık karar.',
       tag: 'GERÇEK ZAMANLI',
+      highlight: 'Bugün 847 yeni kayıt eklendi.',
     ),
     _Slide(
       emoji: '⚖️',
       title: 'Akıllı Karşılaştırma',
       body:
-          'Marketleri yan yana gör. En avantajlı sepeti tek ekranda hesapla. Tasarrufu kaybet.',
+          'Marketleri yan yana gör. En avantajlı sepeti tek ekranda hesapla. Tasarrufu kaçırma.',
       tag: 'KARAR DESTEĞİ',
+      highlight: 'Ortalama %18 daha ucuz market bulunuyor.',
     ),
     _Slide(
       emoji: '☕',
@@ -35,6 +38,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body:
           'Markette gördüğün fiyatı saniyeler içinde paylaş. Topluluk güçlenir, sen puan kazanırsın.',
       tag: 'TOPLULUK KATKISI',
+      highlight: '1.200+ aktif katkıcı toplulukta.',
+    ),
+    _Slide(
+      emoji: '🛡️',
+      title: 'Güvenilir Veri',
+      body:
+          'Her fiyat zaman damgasıyla doğrulanır. Birden fazla kullanıcı onayladığında güven skoru yükselir.',
+      tag: 'DOĞRULANMIŞ VERİ',
+      highlight: 'Topluluk moderasyonu + algoritma filtresi.',
     ),
   ];
 
@@ -56,26 +68,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final isLast = _page == _slides.length - 1;
+
     return Scaffold(
       backgroundColor: CoffeeColors.espresso,
       body: SafeArea(
         child: Column(
           children: [
-            // Skip row
+            // ── Top bar ───────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Logo mark
+                  // Logo
                   Row(
                     children: [
                       Container(
-                        width: 32,
-                        height: 32,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: CoffeeColors.caramel,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(11),
                         ),
                         alignment: Alignment.center,
                         child: const Text('☕',
@@ -93,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ],
                   ),
-                  // Skip
+                  // Skip button
                   GestureDetector(
                     onTap: _finish,
                     child: Container(
@@ -119,7 +132,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // Slides
+            // ── Slide counter ─────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+              child: Row(
+                children: List.generate(_slides.length, (i) {
+                  final isActive = i == _page;
+                  return Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      height: 3,
+                      margin: EdgeInsets.only(right: i < _slides.length - 1 ? 6 : 0),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? CoffeeColors.caramel
+                            : Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // ── Slides ────────────────────────────────────────────
             Expanded(
               child: PageView.builder(
                 controller: _controller,
@@ -130,64 +166,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // Bottom controls
+            // ── Bottom CTA ────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 36),
-              child: Column(
-                children: [
-                  // Progress dots
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(_slides.length, (i) {
-                      final active = i == _page;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: active ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: active
-                              ? CoffeeColors.caramel
-                              : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (isLast) {
+                      _finish();
+                    } else {
+                      _controller.nextPage(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeInOut,
                       );
-                    }),
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: CoffeeColors.caramel,
+                    foregroundColor: CoffeeColors.espresso,
+                    minimumSize: const Size.fromHeight(56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    elevation: 0,
                   ),
-                  const SizedBox(height: 24),
-                  // CTA
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (isLast) {
-                          _finish();
-                        } else {
-                          _controller.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: CoffeeColors.caramel,
-                        foregroundColor: CoffeeColors.espresso,
-                        minimumSize: const Size.fromHeight(56),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        isLast ? 'Başla →' : 'Devam',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
+                  child: Text(
+                    isLast ? 'Başla →' : 'Devam',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -202,11 +213,13 @@ class _Slide {
   final String title;
   final String body;
   final String tag;
+  final String highlight;
   const _Slide({
     required this.emoji,
     required this.title,
     required this.body,
     required this.tag,
+    required this.highlight,
   });
 }
 
@@ -217,11 +230,11 @@ class _SlideView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+      padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Illustration area
+          // Illustration
           Expanded(
             flex: 5,
             child: Center(
@@ -229,18 +242,18 @@ class _SlideView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 140,
-                    height: 140,
+                    width: 148,
+                    height: 148,
                     decoration: BoxDecoration(
                       color: CoffeeColors.darkRoast,
-                      borderRadius: BorderRadius.circular(40),
+                      borderRadius: BorderRadius.circular(42),
                       border: Border.all(
                           color: Colors.white.withOpacity(0.08)),
                       boxShadow: [
                         BoxShadow(
-                          color: CoffeeColors.caramel.withOpacity(0.15),
-                          blurRadius: 40,
-                          spreadRadius: 10,
+                          color: CoffeeColors.caramel.withOpacity(0.18),
+                          blurRadius: 48,
+                          spreadRadius: 12,
                         ),
                       ],
                     ),
@@ -248,16 +261,17 @@ class _SlideView extends StatelessWidget {
                     child: Text(slide.emoji,
                         style: const TextStyle(fontSize: 64)),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   // Tag
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(
-                      color: CoffeeColors.caramel.withOpacity(0.18),
+                      color: CoffeeColors.caramel.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: CoffeeColors.caramel.withOpacity(0.32)),
+                          color:
+                              CoffeeColors.caramel.withOpacity(0.30)),
                     ),
                     child: Text(
                       slide.tag,
@@ -291,7 +305,7 @@ class _SlideView extends StatelessWidget {
                     height: 1.15,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
                   slide.body,
                   style: const TextStyle(
@@ -299,6 +313,33 @@ class _SlideView extends StatelessWidget {
                     fontSize: 15,
                     height: 1.5,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Highlight stat
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: Colors.white.withOpacity(0.10)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LiveDot(color: CoffeeColors.caramel),
+                      const SizedBox(width: 8),
+                      Text(
+                        slide.highlight,
+                        style: const TextStyle(
+                          color: CoffeeColors.caramel,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

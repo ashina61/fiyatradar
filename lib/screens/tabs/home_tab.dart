@@ -79,7 +79,6 @@ class _HomeTabState extends State<HomeTab> {
             DateTime.now().difference(e.entry.date).inHours < 24)
         .length;
 
-    // Market health signal
     final double dropRatio = products.isEmpty
         ? 0
         : drops.length / products.length;
@@ -90,6 +89,14 @@ class _HomeTabState extends State<HomeTab> {
             : rises.length > drops.length
                 ? 'Piyasa yükselişte'
                 : 'Stabil seyir';
+
+    final pulseColor = dropRatio > 0.4
+        ? const Color(0xFF2E7D32)
+        : dropRatio > 0.2
+            ? CoffeeColors.caramel
+            : rises.length > drops.length
+                ? const Color(0xFFC62828)
+                : CoffeeColors.cocoa;
 
     return SafeArea(
       child: ListView(
@@ -105,33 +112,14 @@ class _HomeTabState extends State<HomeTab> {
                   children: [
                     Row(
                       children: [
+                        LiveDot(),
+                        const SizedBox(width: 6),
                         Text(
                           _greeting,
                           style: const TextStyle(
                               color: CoffeeColors.cocoa,
                               fontSize: 13,
                               fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(width: 6),
-                        LiveDot(),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: CoffeeColors.foam,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: CoffeeColors.crema),
-                          ),
-                          child: Text(
-                            marketPulse,
-                            style: const TextStyle(
-                              color: CoffeeColors.cocoa,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -140,21 +128,19 @@ class _HomeTabState extends State<HomeTab> {
                       'FiyatRadar',
                       style: TextStyle(
                           color: CoffeeColors.espresso,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6),
+                          letterSpacing: -0.8),
                     ),
                   ],
                 ),
               ),
               _PointsPill(points: state.points),
               const SizedBox(width: 8),
-              _NotificationBell(
-                hasNew: last24h > 0,
-              ),
+              _NotificationBell(hasNew: last24h > 0),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           // ── Radar hero ────────────────────────────────────────────
           _RadarHeroCard(
@@ -164,8 +150,10 @@ class _HomeTabState extends State<HomeTab> {
             bestStore: bestStore,
             sparkValues: _aggregateSpark(allEntries),
             totalProducts: products.length,
+            marketPulse: marketPulse,
+            pulseColor: pulseColor,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // ── Signal strip ──────────────────────────────────────────
           _SignalStrip(
@@ -186,8 +174,7 @@ class _HomeTabState extends State<HomeTab> {
                   count: products.length,
                   selected: _activeFilter == 'Hepsi',
                   selectedColor: CoffeeColors.espresso,
-                  onTap: () =>
-                      setState(() => _activeFilter = 'Hepsi'),
+                  onTap: () => setState(() => _activeFilter = 'Hepsi'),
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
@@ -195,8 +182,7 @@ class _HomeTabState extends State<HomeTab> {
                   count: drops.length,
                   selected: _activeFilter == 'Düşenler',
                   selectedColor: const Color(0xFF2E7D32),
-                  onTap: () =>
-                      setState(() => _activeFilter = 'Düşenler'),
+                  onTap: () => setState(() => _activeFilter = 'Düşenler'),
                   icon: Icons.trending_down,
                 ),
                 const SizedBox(width: 8),
@@ -205,8 +191,7 @@ class _HomeTabState extends State<HomeTab> {
                   count: rises.length,
                   selected: _activeFilter == 'Yükselenler',
                   selectedColor: const Color(0xFFC62828),
-                  onTap: () =>
-                      setState(() => _activeFilter = 'Yükselenler'),
+                  onTap: () => setState(() => _activeFilter = 'Yükselenler'),
                   icon: Icons.trending_up,
                 ),
               ],
@@ -245,7 +230,7 @@ class _HomeTabState extends State<HomeTab> {
             )
           else
             SizedBox(
-              height: 242,
+              height: 252,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: featured.take(8).length,
@@ -253,6 +238,7 @@ class _HomeTabState extends State<HomeTab> {
                   final p = featured[i];
                   return _FeaturedCard(
                     product: p,
+                    rank: i,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -268,7 +254,9 @@ class _HomeTabState extends State<HomeTab> {
           // ── Recent entries ────────────────────────────────────────
           SectionHeader(
             title: 'Son Fiyat Eklemeleri',
-            subtitle: '$last24h kayıt · son 24 saat',
+            subtitle: last24h > 0
+                ? '$last24h kayıt son 24 saatte'
+                : 'Henüz bugün ekleme yok',
             trailing: TextButton(
               onPressed: () {},
               style: TextButton.styleFrom(
@@ -289,7 +277,9 @@ class _HomeTabState extends State<HomeTab> {
           if (recentTop.isEmpty)
             _EmptyBlock(text: 'Henüz fiyat eklenmemiş')
           else
-            ...recentTop.map((r) => _RecentEntryTile(entry: r)),
+            ...recentTop.asMap().entries.map(
+                  (e) => _RecentEntryTile(entry: e.value, rank: e.key + 1),
+                ),
         ],
       ),
     );
@@ -338,28 +328,35 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color: selected ? selectedColor : CoffeeColors.crema),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: selectedColor.withOpacity(0.22),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: Colors.white),
+              Icon(icon, size: 14,
+                  color: selected ? Colors.white : CoffeeColors.darkRoast),
               const SizedBox(width: 4),
             ],
             Text(
               label,
               style: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : CoffeeColors.darkRoast,
+                color: selected ? Colors.white : CoffeeColors.darkRoast,
                 fontWeight: FontWeight.w800,
                 fontSize: 13,
               ),
             ),
             const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: selected
                     ? Colors.white.withOpacity(0.22)
@@ -369,9 +366,7 @@ class _FilterChip extends StatelessWidget {
               child: Text(
                 '$count',
                 style: TextStyle(
-                  color: selected
-                      ? Colors.white
-                      : CoffeeColors.cocoa,
+                  color: selected ? Colors.white : CoffeeColors.cocoa,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
@@ -394,26 +389,20 @@ class _PointsPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: CoffeeColors.caramel,
+        color: CoffeeColors.espresso,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: CoffeeColors.caramel.withOpacity(0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: CoffeeColors.caramel.withOpacity(0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.star_rounded,
-              size: 14, color: CoffeeColors.espresso),
-          const SizedBox(width: 4),
+              size: 13, color: CoffeeColors.caramel),
+          const SizedBox(width: 5),
           Text(
             '$points',
             style: const TextStyle(
-                color: CoffeeColors.espresso,
+                color: CoffeeColors.cream,
                 fontWeight: FontWeight.w800,
                 fontSize: 13),
           ),
@@ -477,6 +466,8 @@ class _RadarHeroCard extends StatelessWidget {
     required this.bestStore,
     required this.sparkValues,
     required this.totalProducts,
+    required this.marketPulse,
+    required this.pulseColor,
   });
 
   final int dropCount;
@@ -485,9 +476,13 @@ class _RadarHeroCard extends StatelessWidget {
   final String? bestStore;
   final List<double> sparkValues;
   final int totalProducts;
+  final String marketPulse;
+  final Color pulseColor;
 
   @override
   Widget build(BuildContext context) {
+    final hasActivity = last24h > 0;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
       decoration: BoxDecoration(
@@ -499,9 +494,9 @@ class _RadarHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: CoffeeColors.espresso.withOpacity(0.30),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            color: CoffeeColors.espresso.withOpacity(0.28),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -511,24 +506,38 @@ class _RadarHeroCard extends StatelessWidget {
           // Top row: label + live indicator
           Row(
             children: [
-              const EyebrowLabel('RADAR ÖZETİ'),
+              const EyebrowLabel('KARAR PANELİ'),
               const Spacer(),
-              LiveDot(color: CoffeeColors.caramel),
-              const SizedBox(width: 6),
-              const Text(
-                'CANLI',
-                style: TextStyle(
-                  color: CoffeeColors.caramel,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withOpacity(0.10)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LiveDot(color: CoffeeColors.caramel),
+                    const SizedBox(width: 5),
+                    const Text(
+                      'CANLI',
+                      style: TextStyle(
+                        color: CoffeeColors.caramel,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 18),
 
-          // Main number + sparkline
+          // Main row: numbers + sparkline
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -536,42 +545,94 @@ class _RadarHeroCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '$last24h',
-                      style: const TextStyle(
-                        color: CoffeeColors.cream,
-                        fontSize: 52,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -2,
-                        height: 1,
+                    // Contextual number display
+                    if (hasActivity) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '$last24h',
+                            style: const TextStyle(
+                              color: CoffeeColors.cream,
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -2,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'yeni kayıt',
+                            style: TextStyle(
+                              color: CoffeeColors.latte,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'son 24 saatte yeni fiyat',
-                      style: TextStyle(
-                          color: CoffeeColors.latte, fontSize: 12),
-                    ),
-                    if (totalProducts > 0) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'son 24 saat',
+                        style: TextStyle(
+                            color: CoffeeColors.cocoa, fontSize: 11),
+                      ),
+                    ] else ...[
                       Text(
-                        '$totalProducts ürün takipte',
+                        '$totalProducts',
                         style: const TextStyle(
-                          color: CoffeeColors.caramel,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          color: CoffeeColors.cream,
+                          fontSize: 48,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -2,
+                          height: 1,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'ürün aktif takipte',
+                        style: TextStyle(
+                            color: CoffeeColors.latte, fontSize: 12),
+                      ),
                     ],
+                    const SizedBox(height: 8),
+                    // Market pulse badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: pulseColor.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: pulseColor.withOpacity(0.30)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.radio_button_checked,
+                              size: 9, color: pulseColor),
+                          const SizedBox(width: 5),
+                          Text(
+                            marketPulse,
+                            style: TextStyle(
+                              color: pulseColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
               if (sparkValues.length >= 2)
                 SizedBox(
-                  width: 120,
+                  width: 110,
                   child: Sparkline(
                     values: sparkValues,
-                    height: 56,
+                    height: 52,
                     color: CoffeeColors.caramel,
                   ),
                 ),
@@ -588,16 +649,16 @@ class _RadarHeroCard extends StatelessWidget {
                 icon: Icons.trending_down,
                 accent: const Color(0xFF8FB36A),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               _HeroStat(
                 label: 'yükselen',
                 value: '$riseCount',
                 icon: Icons.trending_up,
                 accent: const Color(0xFFE57B6F),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               _HeroStat(
-                label: 'en ucuz',
+                label: 'en ucuz market',
                 value: bestStore ?? '–',
                 icon: Icons.emoji_events_outlined,
                 accent: CoffeeColors.caramel,
@@ -632,20 +693,20 @@ class _HeroStat extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         decoration: BoxDecoration(
           color: highlight
-              ? accent.withOpacity(0.18)
+              ? accent.withOpacity(0.16)
               : Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: highlight
-                ? accent.withOpacity(0.4)
+                ? accent.withOpacity(0.35)
                 : Colors.white.withOpacity(0.08),
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: accent, size: 14),
-            const SizedBox(height: 7),
+            Icon(icon, color: accent, size: 13),
+            const SizedBox(height: 6),
             Text(
               value,
               maxLines: 1,
@@ -660,8 +721,10 @@ class _HeroStat extends StatelessWidget {
             const SizedBox(height: 1),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  color: CoffeeColors.latte, fontSize: 10),
+                  color: CoffeeColors.latte, fontSize: 9),
             ),
           ],
         ),
@@ -684,36 +747,8 @@ class _SignalStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget cell(String value, String label, IconData icon) {
-      return Expanded(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: CoffeeColors.caramel),
-            const SizedBox(width: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                color: CoffeeColors.espresso,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: CoffeeColors.cocoa,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(FR.radiusL),
@@ -722,13 +757,41 @@ class _SignalStrip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          cell('$products', 'ürün', Icons.inventory_2_outlined),
-          Container(
-              width: 1, height: 18, color: CoffeeColors.crema),
-          cell('$stores', 'market', Icons.storefront_outlined),
-          Container(
-              width: 1, height: 18, color: CoffeeColors.crema),
-          cell('$contributors', 'katkıcı', Icons.people_alt_outlined),
+          _cell('$products', 'ürün', Icons.inventory_2_outlined),
+          _vDivider(),
+          _cell('$stores', 'market', Icons.storefront_outlined),
+          _vDivider(),
+          _cell('$contributors', 'katkıcı', Icons.people_alt_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _vDivider() =>
+      Container(width: 1, height: 16, color: CoffeeColors.crema);
+
+  Widget _cell(String value, String label, IconData icon) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 14, color: CoffeeColors.caramel),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: CoffeeColors.espresso,
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              color: CoffeeColors.cocoa,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -738,9 +801,14 @@ class _SignalStrip extends StatelessWidget {
 // ─── Featured card ───────────────────────────────────────────────────────────
 
 class _FeaturedCard extends StatelessWidget {
-  const _FeaturedCard({required this.product, required this.onTap});
+  const _FeaturedCard({
+    required this.product,
+    required this.onTap,
+    required this.rank,
+  });
   final Product product;
   final VoidCallback onTap;
+  final int rank;
 
   DateTime? get _latest {
     if (product.priceHistory.isEmpty) return null;
@@ -749,29 +817,37 @@ class _FeaturedCard extends StatelessWidget {
     return s.first.date;
   }
 
+  List<double> get _sparkValues {
+    if (product.priceHistory.length < 3) return [];
+    final sorted = [...product.priceHistory]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return sorted.map((e) => e.price).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final isFav = state.isFavorite(product.id);
     final changePct = product.priceChangePct;
     final lowest = product.lowestPrice;
-    final stores =
-        product.priceHistory.map((e) => e.store).toSet().length;
+    final stores = product.priceHistory.map((e) => e.store).toSet().length;
     final entries = product.priceHistory.length;
+    final isHot = changePct != null && changePct < -5;
+    final spark = _sparkValues;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 172,
+        width: 170,
         margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(FR.radiusXl),
           border: Border.all(
-            color: changePct != null && changePct < 0
-                ? CoffeeColors.caramel.withOpacity(0.3)
+            color: isHot
+                ? CoffeeColors.caramel.withOpacity(0.4)
                 : CoffeeColors.crema,
+            width: isHot ? 1.5 : 1,
           ),
           boxShadow: FR.softShadow,
         ),
@@ -782,35 +858,75 @@ class _FeaturedCard extends StatelessWidget {
             Stack(
               children: [
                 Container(
-                  height: 80,
+                  height: 84,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [CoffeeColors.foam, CoffeeColors.crema],
+                      colors: isHot
+                          ? [
+                              CoffeeColors.caramel.withOpacity(0.15),
+                              CoffeeColors.foam
+                            ]
+                          : [CoffeeColors.foam, CoffeeColors.crema],
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(FR.radiusXl)),
                   ),
                   alignment: Alignment.center,
                   child: Text(product.emoji,
                       style: const TextStyle(fontSize: 40)),
                 ),
+                // Rank indicator (top left, subtle)
                 Positioned(
-                  top: 5,
-                  right: 5,
+                  top: 8,
+                  left: 10,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: rank == 0
+                          ? CoffeeColors.caramel
+                          : Colors.white.withOpacity(0.88),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: rank == 0
+                              ? CoffeeColors.caramel
+                              : CoffeeColors.crema),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${rank + 1}',
+                      style: TextStyle(
+                        color: rank == 0
+                            ? CoffeeColors.espresso
+                            : CoffeeColors.cocoa,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
                   child: GestureDetector(
                     onTap: () => state.toggleFavorite(product.id),
                     child: Container(
                       padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withOpacity(0.92),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: CoffeeColors.espresso.withOpacity(0.08),
+                            blurRadius: 6,
+                          )
+                        ],
                       ),
                       child: Icon(
-                        isFav
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border,
+                        isFav ? Icons.favorite_rounded : Icons.favorite_border,
                         color: isFav
                             ? CoffeeColors.accent
                             : CoffeeColors.darkRoast,
@@ -821,88 +937,101 @@ class _FeaturedCard extends StatelessWidget {
                 ),
                 if (changePct != null)
                   Positioned(
-                    top: 7,
-                    left: 7,
+                    bottom: 6,
+                    left: 8,
                     child: TrendPill(pct: changePct, dense: true),
                   ),
               ],
             ),
-            const SizedBox(height: 10),
-            // Name
-            Text(
-              product.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: CoffeeColors.espresso,
-                fontSize: 13,
-                height: 1.25,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${product.brand} · ${product.unit}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: CoffeeColors.cocoa,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            const Divider(height: 12, color: CoffeeColors.crema),
-            // Price row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'EN İYİ',
-                      style: TextStyle(
-                        color: CoffeeColors.cocoa,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: CoffeeColors.espresso,
+                      fontSize: 13,
+                      height: 1.25,
+                      letterSpacing: -0.2,
                     ),
-                    PriceText(lowest, size: 17),
-                  ],
-                ),
-                const Spacer(),
-                if (product.cheapestStore != null)
-                  StoreBadge(product.cheapestStore!),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Row(
-              children: [
-                FreshnessChip(date: _latest),
-                const Spacer(),
-                Text(
-                  '$stores market',
-                  style: const TextStyle(
-                    color: CoffeeColors.cocoa,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
                   ),
-                ),
-              ],
-            ),
-            if (entries > 0) ...[
-              const SizedBox(height: 3),
-              Text(
-                '$entries kayıt',
-                style: const TextStyle(
-                  color: CoffeeColors.cocoa,
-                  fontSize: 9,
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${product.brand} · ${product.unit}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CoffeeColors.cocoa,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  // Sparkline (if available)
+                  if (spark.length >= 3) ...[
+                    const SizedBox(height: 8),
+                    Sparkline(
+                      values: spark,
+                      height: 32,
+                      color: changePct != null && changePct < 0
+                          ? CoffeeColors.success
+                          : CoffeeColors.caramel,
+                    ),
+                  ] else
+                    const SizedBox(height: 10),
+
+                  const Divider(height: 10, color: CoffeeColors.crema),
+
+                  // Price row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'EN İYİ',
+                            style: TextStyle(
+                              color: CoffeeColors.cocoa,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          PriceText(lowest, size: 16),
+                        ],
+                      ),
+                      const Spacer(),
+                      if (product.cheapestStore != null)
+                        StoreBadge(product.cheapestStore!),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      FreshnessChip(date: _latest),
+                      const Spacer(),
+                      if (stores > 0)
+                        Text(
+                          '$stores market',
+                          style: const TextStyle(
+                            color: CoffeeColors.cocoa,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -913,8 +1042,9 @@ class _FeaturedCard extends StatelessWidget {
 // ─── Recent entry tile ────────────────────────────────────────────────────────
 
 class _RecentEntryTile extends StatelessWidget {
-  const _RecentEntryTile({required this.entry});
+  const _RecentEntryTile({required this.entry, required this.rank});
   final _RecentEntry entry;
+  final int rank;
 
   @override
   Widget build(BuildContext context) {
@@ -930,37 +1060,46 @@ class _RecentEntryTile extends StatelessWidget {
         ),
       ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(FR.radiusL),
           border: Border.all(
             color: isLow
-                ? CoffeeColors.caramel.withOpacity(0.45)
+                ? CoffeeColors.caramel.withOpacity(0.4)
                 : CoffeeColors.crema,
+            width: isLow ? 1.5 : 1,
           ),
           boxShadow: FR.softShadow,
         ),
         child: Row(
           children: [
-            // Emoji
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [CoffeeColors.foam, CoffeeColors.crema],
-                ),
-                borderRadius: BorderRadius.circular(12),
+            // Rank + emoji
+            SizedBox(
+              width: 48,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [CoffeeColors.foam, CoffeeColors.crema],
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(entry.product.emoji,
+                        style: const TextStyle(fontSize: 22)),
+                  ),
+                ],
               ),
-              alignment: Alignment.center,
-              child: Text(entry.product.emoji,
-                  style: const TextStyle(fontSize: 22)),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -982,7 +1121,7 @@ class _RecentEntryTile extends StatelessWidget {
                         TrendPill(pct: changePct, dense: true),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       StoreBadge(entry.entry.store, dark: false),
@@ -1004,7 +1143,7 @@ class _RecentEntryTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -1013,10 +1152,29 @@ class _RecentEntryTile extends StatelessWidget {
                   size: 16,
                   color: isLow
                       ? CoffeeColors.success
-                      : CoffeeColors.espresso,
+                      : CoffeeColors.accent,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 FreshnessChip(date: entry.entry.date),
+                if (isLow) ...[
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: CoffeeColors.success.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Text(
+                      'en düşük',
+                      style: TextStyle(
+                        color: CoffeeColors.success,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -1032,7 +1190,7 @@ class _EmptyBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 28),
+      padding: const EdgeInsets.symmetric(vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(FR.radiusL),
@@ -1042,9 +1200,18 @@ class _EmptyBlock extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.radar_rounded,
-              color: CoffeeColors.caramel, size: 28),
-          const SizedBox(height: 8),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: CoffeeColors.foam,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.radar_rounded,
+                color: CoffeeColors.caramel, size: 24),
+          ),
+          const SizedBox(height: 10),
           Text(
             text,
             style: const TextStyle(

@@ -14,73 +14,95 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Ayarlar'),
         leading: const BackButton(),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+              height: 1, color: CoffeeColors.crema),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 48),
         children: [
+          // ── Account identity block ────────────────────────────────
+          _AccountBlock(),
+          const SizedBox(height: 24),
+
+          // ── Hesap ─────────────────────────────────────────────────
           _SettingsGroup(
             title: 'Hesap',
+            icon: Icons.person_outline,
             items: [
               _SettingsItem(
                 icon: Icons.person_outline,
                 title: 'Kişisel Bilgiler',
                 subtitle: 'Ad, e-posta, profil',
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _PersonalInfoPage())),
               ),
               _SettingsItem(
                 icon: Icons.lock_outline,
                 title: 'Güvenlik ve Giriş',
-                subtitle: 'Şifre, oturum yönetimi',
-                onTap: () => Navigator.push(context,
+                subtitle: 'Şifre, oturum, 2FA',
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _SecurityPage())),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
+          // ── Tercihler ─────────────────────────────────────────────
           _SettingsGroup(
             title: 'Tercihler',
+            icon: Icons.tune_outlined,
             items: [
               _SettingsItem(
                 icon: Icons.notifications_none,
                 title: 'Bildirim Tercihleri',
-                subtitle: 'Fiyat alarmları, haberler',
-                onTap: () => Navigator.push(context,
+                subtitle: 'Fiyat alarmları, haftalık özet',
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _NotificationsPage())),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
+          // ── Destek ────────────────────────────────────────────────
           _SettingsGroup(
             title: 'Destek',
+            icon: Icons.support_outlined,
             items: [
               _SettingsItem(
                 icon: Icons.help_outline,
                 title: 'Sıkça Sorulan Sorular',
                 subtitle: 'Nasıl çalışır, nasıl kullanılır',
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const _FAQPage())),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const _FAQPage())),
               ),
               _SettingsItem(
                 icon: Icons.mail_outline,
                 title: 'Bize Ulaşın',
                 subtitle: 'Öneri, şikayet, geri bildirim',
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _ContactPage())),
               ),
               _SettingsItem(
                 icon: Icons.star_outline,
                 title: 'Uygulamayı Puanla',
-                subtitle: 'App Store / Play Store değerlendirmesi',
+                subtitle: 'App Store / Play Store',
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content:
-                          Text('Mağazaya yönlendiriliyorsunuz…'),
+                      content: Text('Mağazaya yönlendiriliyorsunuz…'),
                       backgroundColor: CoffeeColors.darkRoast,
                       behavior: SnackBarBehavior.floating,
                     ),
@@ -90,38 +112,156 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+
+          // ── Uygulama ──────────────────────────────────────────────
           _SettingsGroup(
             title: 'Uygulama',
+            icon: Icons.info_outline,
             items: [
               _SettingsItem(
                 icon: Icons.history,
                 title: 'Güncelleme Geçmişi',
-                subtitle: 'Versiyon notları',
-                onTap: () => Navigator.push(context,
+                subtitle: 'Versiyon notları ve değişiklikler',
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _ChangelogPage())),
               ),
               _SettingsItem(
                 icon: Icons.description_outlined,
                 title: 'Kullanım Koşulları',
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _TermsPage())),
               ),
               _SettingsItem(
                 icon: Icons.privacy_tip_outlined,
                 title: 'Gizlilik Politikası',
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const _PrivacyPage())),
               ),
             ],
           ),
           const SizedBox(height: 32),
-          const Center(
-            child: Text(
-              'FiyatRadar v1.0.0',
-              style: TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
+
+          // ── App version ───────────────────────────────────────────
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: CoffeeColors.foam,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: CoffeeColors.crema),
+                  ),
+                  child: const Text(
+                    'FiyatRadar v1.0.0',
+                    style: TextStyle(
+                        color: CoffeeColors.cocoa,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Topluluk gücüyle fiyat avantajı',
+                  style: TextStyle(
+                      color: CoffeeColors.cocoa,
+                      fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Account identity block ───────────────────────────────────────────────────
+
+class _AccountBlock extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: CoffeeColors.espresso.withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: CoffeeColors.caramel.withOpacity(0.22),
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: CoffeeColors.caramel.withOpacity(0.45), width: 2),
+            ),
+            alignment: Alignment.center,
+            child: const Text('☕', style: TextStyle(fontSize: 22)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Kahve Avcısı',
+                  style: TextStyle(
+                    color: CoffeeColors.cream,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Text(
+                  'kullanici@ornek.com',
+                  style: TextStyle(
+                      color: CoffeeColors.latte, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const _PersonalInfoPage())),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: Colors.white.withOpacity(0.15)),
+              ),
+              child: const Text(
+                'Düzenle',
+                style: TextStyle(
+                    color: CoffeeColors.latte,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ],
@@ -133,9 +273,14 @@ class SettingsScreen extends StatelessWidget {
 // ─── Reusable group + item ────────────────────────────────────────────────────
 
 class _SettingsGroup extends StatelessWidget {
-  const _SettingsGroup({required this.title, required this.items});
+  const _SettingsGroup({
+    required this.title,
+    required this.items,
+    this.icon,
+  });
   final String title;
   final List<_SettingsItem> items;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -143,15 +288,23 @@ class _SettingsGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: CoffeeColors.cocoa,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
+          padding: const EdgeInsets.only(left: 4, bottom: 9),
+          child: Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon!, size: 13, color: CoffeeColors.caramel),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                title.toUpperCase(),
+                style: const TextStyle(
+                  color: CoffeeColors.cocoa,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
           ),
         ),
         Container(
@@ -207,6 +360,7 @@ class _SettingsItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: CoffeeColors.foam,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: CoffeeColors.crema),
         ),
         child: Icon(icon, color: CoffeeColors.darkRoast, size: 19),
       ),
@@ -221,8 +375,8 @@ class _SettingsItem extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style:
-                  const TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
+              style: const TextStyle(
+                  color: CoffeeColors.cocoa, fontSize: 12),
             )
           : null,
       trailing: const Icon(Icons.chevron_right,
@@ -244,28 +398,38 @@ class _PersonalInfoPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
-          // Avatar area
           Center(
             child: Column(
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
                     color: CoffeeColors.espresso,
                     shape: BoxShape.circle,
                     border: Border.all(
                         color: CoffeeColors.caramel, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: CoffeeColors.espresso.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   alignment: Alignment.center,
                   child: const Text('☕',
-                      style: TextStyle(fontSize: 36)),
+                      style: TextStyle(fontSize: 38)),
                 ),
-                const SizedBox(height: 12),
-                TextButton(
+                const SizedBox(height: 10),
+                TextButton.icon(
                   onPressed: () {},
-                  child: const Text('Fotoğraf Değiştir',
-                      style: TextStyle(color: CoffeeColors.caramel)),
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 14, color: CoffeeColors.caramel),
+                  label: const Text('Fotoğraf Değiştir',
+                      style: TextStyle(
+                          color: CoffeeColors.caramel,
+                          fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -320,7 +484,8 @@ class _InfoField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -366,27 +531,41 @@ class _SecurityPageState extends State<_SecurityPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
-          _ToggleTile(
-            icon: Icons.fingerprint,
-            title: 'Biyometrik Giriş',
-            subtitle: 'Parmak izi veya yüz tanıma ile giriş',
-            value: _biometric,
-            onChanged: (v) => setState(() => _biometric = v),
-          ),
-          const SizedBox(height: 12),
-          _ToggleTile(
-            icon: Icons.security,
-            title: 'İki Faktörlü Doğrulama',
-            subtitle: 'Giriş yaparken SMS kodu iste',
-            value: _twoFA,
-            onChanged: (v) => setState(() => _twoFA = v),
-          ),
-          const SizedBox(height: 20),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: CoffeeColors.crema),
+              boxShadow: FR.softShadow,
+            ),
+            child: Column(
+              children: [
+                _ToggleTileCompact(
+                  title: 'Biyometrik Giriş',
+                  subtitle: 'Parmak izi veya yüz tanıma',
+                  icon: Icons.fingerprint,
+                  value: _biometric,
+                  onChanged: (v) => setState(() => _biometric = v),
+                ),
+                const Divider(
+                    height: 1, indent: 16, color: CoffeeColors.crema),
+                _ToggleTileCompact(
+                  title: 'İki Faktörlü Doğrulama',
+                  subtitle: 'Giriş yaparken SMS kodu iste',
+                  icon: Icons.security,
+                  value: _twoFA,
+                  onChanged: (v) => setState(() => _twoFA = v),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: CoffeeColors.crema),
+              boxShadow: FR.softShadow,
             ),
             child: Column(
               children: [
@@ -403,10 +582,12 @@ class _SecurityPageState extends State<_SecurityPage> {
                     );
                   },
                 ),
-                const Divider(height: 1, indent: 54, color: CoffeeColors.crema),
+                const Divider(
+                    height: 1, indent: 54, color: CoffeeColors.crema),
                 _ActionTile(
                   icon: Icons.devices_outlined,
                   title: 'Aktif Oturumlar',
+                  subtitle: 'Bağlı cihazları görüntüle',
                   onTap: () {},
                 ),
               ],
@@ -443,36 +624,46 @@ class _NotificationsPageState extends State<_NotificationsPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: CoffeeColors.crema),
+              boxShadow: FR.softShadow,
             ),
             child: Column(
               children: [
                 _ToggleTileCompact(
                   title: 'Fiyat Alarmları',
                   subtitle: 'Takip ettiğin ürünlerde fiyat düşünce',
+                  icon: Icons.notifications_active_outlined,
                   value: _priceAlerts,
                   onChanged: (v) => setState(() => _priceAlerts = v),
                 ),
-                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
+                const Divider(
+                    height: 1, indent: 16, color: CoffeeColors.crema),
                 _ToggleTileCompact(
                   title: 'Haftalık Özet',
                   subtitle: 'Haftanın en hareketli ürünleri',
+                  icon: Icons.summarize_outlined,
                   value: _weeklyReport,
-                  onChanged: (v) => setState(() => _weeklyReport = v),
+                  onChanged: (v) =>
+                      setState(() => _weeklyReport = v),
                 ),
-                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
+                const Divider(
+                    height: 1, indent: 16, color: CoffeeColors.crema),
                 _ToggleTileCompact(
                   title: 'Yeni Katkılar',
                   subtitle: 'Takip ettiğin ürünlere fiyat eklenince',
+                  icon: Icons.add_circle_outline,
                   value: _newContributions,
                   onChanged: (v) =>
                       setState(() => _newContributions = v),
                 ),
-                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
+                const Divider(
+                    height: 1, indent: 16, color: CoffeeColors.crema),
                 _ToggleTileCompact(
                   title: 'Topluluk Haberleri',
                   subtitle: 'Kampanya ve duyurular',
+                  icon: Icons.campaign_outlined,
                   value: _communityNews,
-                  onChanged: (v) => setState(() => _communityNews = v),
+                  onChanged: (v) =>
+                      setState(() => _communityNews = v),
                 ),
               ],
             ),
@@ -516,9 +707,7 @@ class _FAQPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Sıkça Sorulan Sorular')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: _faqs
-            .map((f) => _FAQTile(faq: f))
-            .toList(),
+        children: _faqs.map((f) => _FAQTile(faq: f)).toList(),
       ),
     );
   }
@@ -549,9 +738,10 @@ class _FAQTileState extends State<_FAQTile> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _open
-              ? CoffeeColors.caramel.withOpacity(0.5)
+              ? CoffeeColors.caramel.withOpacity(0.45)
               : CoffeeColors.crema,
         ),
+        boxShadow: _open ? FR.softShadow : null,
       ),
       child: Column(
         children: [
@@ -584,7 +774,7 @@ class _FAQTileState extends State<_FAQTile> {
                 style: const TextStyle(
                   color: CoffeeColors.cocoa,
                   fontSize: 13,
-                  height: 1.5,
+                  height: 1.55,
                 ),
               ),
             ),
@@ -618,9 +808,8 @@ class _ContactPage extends StatelessWidget {
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('💬',
-                    style: TextStyle(fontSize: 32)),
-                SizedBox(height: 12),
+                Text('💬', style: TextStyle(fontSize: 30)),
+                SizedBox(height: 10),
                 Text(
                   'Seni duyuyoruz',
                   style: TextStyle(
@@ -629,28 +818,42 @@ class _ContactPage extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 5),
                 Text(
                   'Öneri, şikayet veya geri bildirimini paylaş. Her mesaja 24 saat içinde yanıt veriyoruz.',
                   style: TextStyle(
-                      color: CoffeeColors.latte, fontSize: 13, height: 1.4),
+                      color: CoffeeColors.latte,
+                      fontSize: 13,
+                      height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: CoffeeColors.crema),
+            ),
+            child: Column(
+              children: [
+                _ContactRowTile(
+                  icon: Icons.mail_outline,
+                  label: 'E-posta',
+                  value: 'destek@fiyatradar.app',
+                ),
+                const Divider(
+                    height: 1, indent: 54, color: CoffeeColors.crema),
+                _ContactRowTile(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Canlı Destek',
+                  value: 'Hafta içi 09:00 – 18:00',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          _ContactRow(
-            icon: Icons.mail_outline,
-            label: 'E-posta',
-            value: 'destek@fiyatradar.app',
-          ),
-          const SizedBox(height: 10),
-          _ContactRow(
-            icon: Icons.chat_bubble_outline,
-            label: 'Canlı Destek',
-            value: 'Hafta içi 09:00 – 18:00',
-          ),
-          const SizedBox(height: 24),
           TextField(
             maxLines: 5,
             decoration: InputDecoration(
@@ -659,13 +862,11 @@ class _ContactPage extends StatelessWidget {
               fillColor: Colors.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide:
-                    const BorderSide(color: CoffeeColors.crema),
+                borderSide: const BorderSide(color: CoffeeColors.crema),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide:
-                    const BorderSide(color: CoffeeColors.crema),
+                borderSide: const BorderSide(color: CoffeeColors.crema),
               ),
             ),
           ),
@@ -691,8 +892,8 @@ class _ContactPage extends StatelessWidget {
   }
 }
 
-class _ContactRow extends StatelessWidget {
-  const _ContactRow(
+class _ContactRowTile extends StatelessWidget {
+  const _ContactRowTile(
       {required this.icon, required this.label, required this.value});
   final IconData icon;
   final String label;
@@ -700,46 +901,30 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: CoffeeColors.crema),
+    return ListTile(
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: CoffeeColors.foam,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: CoffeeColors.darkRoast, size: 18),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child:
-                Icon(icon, color: CoffeeColors.darkRoast, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                    color: CoffeeColors.cocoa, fontSize: 11),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: CoffeeColors.espresso,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ],
+      title: Text(
+        label,
+        style: const TextStyle(
+            color: CoffeeColors.cocoa, fontSize: 11),
+      ),
+      subtitle: Text(
+        value,
+        style: const TextStyle(
+          color: CoffeeColors.espresso,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
       ),
     );
   }
@@ -758,6 +943,7 @@ class _ChangelogPage extends StatelessWidget {
         'Market karşılaştırması',
         'Puan ve seviye sistemi',
         'Fiyat alarmı altyapısı',
+        'Admin yönetim paneli',
       ],
     ),
     _Version(
@@ -779,9 +965,7 @@ class _ChangelogPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Güncelleme Geçmişi')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: _versions
-            .map((v) => _VersionCard(version: v))
-            .toList(),
+        children: _versions.map((v) => _VersionCard(version: v)).toList(),
       ),
     );
   }
@@ -815,8 +999,8 @@ class _VersionCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: CoffeeColors.espresso,
                   borderRadius: BorderRadius.circular(8),
@@ -1000,97 +1184,43 @@ class _TextContentPage extends StatelessWidget {
 
 // ─── Reusable toggle components ───────────────────────────────────────────────
 
-class _ToggleTile extends StatelessWidget {
-  const _ToggleTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CoffeeColors.crema),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: value
-                  ? CoffeeColors.espresso.withOpacity(0.1)
-                  : CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon,
-                color: value
-                    ? CoffeeColors.espresso
-                    : CoffeeColors.darkRoast,
-                size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: CoffeeColors.espresso,
-                        fontSize: 14)),
-                Text(subtitle,
-                    style: const TextStyle(
-                        color: CoffeeColors.cocoa, fontSize: 12)),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: CoffeeColors.espresso,
-            activeTrackColor: CoffeeColors.caramel,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ToggleTileCompact extends StatelessWidget {
   const _ToggleTileCompact({
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
+    this.icon,
   });
   final String title;
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+      leading: icon != null
+          ? Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: CoffeeColors.foam,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon!, color: CoffeeColors.darkRoast, size: 18),
+            )
+          : null,
       title: Text(title,
           style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: CoffeeColors.espresso,
               fontSize: 14)),
       subtitle: Text(subtitle,
-          style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12)),
+          style: const TextStyle(
+              color: CoffeeColors.cocoa, fontSize: 12)),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
@@ -1103,9 +1233,10 @@ class _ToggleTileCompact extends StatelessWidget {
 
 class _ActionTile extends StatelessWidget {
   const _ActionTile(
-      {required this.icon, required this.title, required this.onTap});
+      {required this.icon, required this.title, required this.onTap, this.subtitle});
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   @override
@@ -1128,6 +1259,11 @@ class _ActionTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: CoffeeColors.espresso,
               fontSize: 14)),
+      subtitle: subtitle != null
+          ? Text(subtitle!,
+              style: const TextStyle(
+                  color: CoffeeColors.cocoa, fontSize: 12))
+          : null,
       trailing: const Icon(Icons.chevron_right,
           color: CoffeeColors.cocoa, size: 20),
     );
