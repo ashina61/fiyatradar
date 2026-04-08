@@ -99,9 +99,9 @@ class _ExploreTabState extends State<ExploreTab> {
                       Text(
                         'Keşfet',
                         style: TextStyle(
-                            fontSize: 26,
+                            fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.6,
+                            letterSpacing: -0.7,
                             color: CoffeeColors.espresso),
                       ),
                       Text(
@@ -158,8 +158,8 @@ class _ExploreTabState extends State<ExploreTab> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  vertical: 10, horizontal: 14),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(FR.radiusM),
@@ -172,17 +172,18 @@ class _ExploreTabState extends State<ExploreTab> {
                       '${all.length}', 'sonuç', Icons.inventory_2_outlined),
                   Container(
                       width: 1, height: 16, color: CoffeeColors.crema),
-                  _signalCell(
-                      '${stores.length}', 'market', Icons.storefront_outlined),
+                  _signalCell('${stores.length}', 'market',
+                      Icons.storefront_outlined),
                   Container(
                       width: 1, height: 16, color: CoffeeColors.crema),
-                  _signalCell('$fresh', 'taze bugün', Icons.bolt_outlined),
+                  _signalCell(
+                      '$fresh', 'taze bugün', Icons.bolt_outlined),
                 ],
               ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // ── Category chips ───────────────────────────────────────
           SizedBox(
@@ -196,8 +197,7 @@ class _ExploreTabState extends State<ExploreTab> {
                 final cat = state.categories[i];
                 final selected = cat == _selectedCategory;
                 return GestureDetector(
-                  onTap: () =>
-                      setState(() => _selectedCategory = cat),
+                  onTap: () => setState(() => _selectedCategory = cat),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     padding: const EdgeInsets.symmetric(
@@ -211,6 +211,16 @@ class _ExploreTabState extends State<ExploreTab> {
                           color: selected
                               ? CoffeeColors.espresso
                               : CoffeeColors.crema),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                color:
+                                    CoffeeColors.espresso.withOpacity(0.20),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              )
+                            ]
+                          : null,
                     ),
                     child: Text(
                       cat,
@@ -230,61 +240,91 @@ class _ExploreTabState extends State<ExploreTab> {
 
           const SizedBox(height: 10),
 
-          // ── Sort + count row ─────────────────────────────────────
+          // ── Sort toolbar ─────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text(
-                  '${filtered.length} ürün',
-                  style: const TextStyle(
-                    color: CoffeeColors.cocoa,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: CoffeeColors.crema),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.sort_rounded,
+                      size: 15, color: CoffeeColors.cocoa),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${filtered.length} ürün',
+                    style: const TextStyle(
+                      color: CoffeeColors.cocoa,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                ..._SortMode.values.map((m) {
-                  final selected = m == _sort;
-                  final label = switch (m) {
-                    _SortMode.trending => 'Hareketli',
-                    _SortMode.cheapest => 'En ucuz',
-                    _SortMode.freshest => 'En taze',
-                  };
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _sort = m),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? CoffeeColors.caramel
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: selected
-                                ? CoffeeColors.caramel
-                                : CoffeeColors.crema,
-                          ),
-                        ),
-                        child: Text(
-                          label,
-                          style: TextStyle(
+                  const Spacer(),
+                  ..._SortMode.values.map((m) {
+                    final selected = m == _sort;
+                    final label = switch (m) {
+                      _SortMode.trending => 'Hareketli',
+                      _SortMode.cheapest => 'Ucuz',
+                      _SortMode.freshest => 'Taze',
+                    };
+                    final icon = switch (m) {
+                      _SortMode.trending => Icons.local_fire_department_outlined,
+                      _SortMode.cheapest => Icons.arrow_downward_rounded,
+                      _SortMode.freshest => Icons.bolt_outlined,
+                    };
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _sort = m),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
                             color: selected
                                 ? CoffeeColors.espresso
-                                : CoffeeColors.darkRoast,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected
+                                  ? CoffeeColors.espresso
+                                  : CoffeeColors.crema,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                icon,
+                                size: 11,
+                                color: selected
+                                    ? CoffeeColors.caramel
+                                    : CoffeeColors.cocoa,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  color: selected
+                                      ? CoffeeColors.cream
+                                      : CoffeeColors.darkRoast,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
 
@@ -302,7 +342,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 0.64,
+                      childAspectRatio: 0.60,
                     ),
                     itemCount: filtered.length,
                     itemBuilder: (context, i) {
@@ -331,7 +371,7 @@ class _ExploreTabState extends State<ExploreTab> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 13, color: CoffeeColors.caramel),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             value,
             style: const TextStyle(
@@ -345,7 +385,7 @@ class _ExploreTabState extends State<ExploreTab> {
             label,
             style: const TextStyle(
               color: CoffeeColors.cocoa,
-              fontSize: 11,
+              fontSize: 10,
             ),
           ),
         ],
@@ -369,6 +409,13 @@ class _ExploreCard extends StatelessWidget {
         .date;
   }
 
+  List<double> get _sparkValues {
+    if (product.priceHistory.length < 3) return [];
+    final sorted = [...product.priceHistory]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return sorted.map((e) => e.price).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -380,6 +427,7 @@ class _ExploreCard extends StatelessWidget {
     final storeCount =
         product.priceHistory.map((e) => e.store).toSet().length;
     final hasPrice = price != null;
+    final spark = _sparkValues;
 
     return InkWell(
       onTap: onTap,
@@ -389,13 +437,13 @@ class _ExploreCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(FR.radiusXl),
           border: Border.all(
-            color: changePct != null && changePct < 0
-                ? CoffeeColors.caramel.withOpacity(0.3)
+            color: changePct != null && changePct < -5
+                ? CoffeeColors.caramel.withOpacity(0.35)
                 : CoffeeColors.crema,
+            width: changePct != null && changePct < -5 ? 1.5 : 1,
           ),
           boxShadow: FR.softShadow,
         ),
-        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -412,45 +460,40 @@ class _ExploreCard extends StatelessWidget {
                       colors: hasPrice
                           ? [CoffeeColors.foam, CoffeeColors.crema]
                           : [
-                              CoffeeColors.foam.withOpacity(0.6),
-                              CoffeeColors.crema.withOpacity(0.6)
+                              CoffeeColors.foam.withOpacity(0.5),
+                              CoffeeColors.crema.withOpacity(0.5)
                             ],
                     ),
-                    borderRadius: BorderRadius.circular(FR.radiusM),
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(FR.radiusXl)),
                   ),
                   alignment: Alignment.center,
-                  child: Text(
-                    product.emoji,
-                    style: TextStyle(
-                        fontSize: 44,
-                        color: hasPrice ? null : null),
-                  ),
+                  child: Text(product.emoji,
+                      style: const TextStyle(fontSize: 42)),
                 ),
                 // Trend pill
                 if (changePct != null)
                   Positioned(
-                    top: 6,
-                    left: 6,
+                    top: 7,
+                    left: 7,
                     child: TrendPill(pct: changePct, dense: true),
                   ),
                 // Fav button
                 Positioned(
-                  top: 4,
-                  right: 4,
+                  top: 5,
+                  right: 5,
                   child: Material(
                     color: Colors.white,
                     shape: const CircleBorder(),
-                    elevation: 0.5,
+                    elevation: 0,
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => state.toggleFavorite(product.id),
                       child: Padding(
                         padding: const EdgeInsets.all(6),
                         child: Icon(
-                          isFav
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 15,
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          size: 14,
                           color: isFav
                               ? CoffeeColors.accent
                               : CoffeeColors.darkRoast,
@@ -459,7 +502,7 @@ class _ExploreCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Freshness chip bottom-right
+                // Freshness chip
                 Positioned(
                   bottom: 6,
                   right: 6,
@@ -467,114 +510,171 @@ class _ExploreCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 9),
 
-            // ── Name + brand ──────────────────────────────────────
-            Text(
-              product.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: CoffeeColors.espresso,
-                fontSize: 13,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              '${product.brand} · ${product.unit}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: CoffeeColors.cocoa,
-                fontSize: 11,
-              ),
-            ),
-
-            const Spacer(),
-            const Divider(height: 10, color: CoffeeColors.crema),
-
-            // ── Price area ────────────────────────────────────────
-            if (hasPrice) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'EN İYİ',
-                        style: TextStyle(
+            // ── Content ───────────────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(11, 9, 11, 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Brand pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: CoffeeColors.foam,
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: CoffeeColors.crema),
+                      ),
+                      child: Text(
+                        product.brand.isNotEmpty
+                            ? product.brand
+                            : product.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: CoffeeColors.cocoa,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                         ),
                       ),
-                      PriceText(price, size: 17),
-                    ],
-                  ),
-                  const Spacer(),
-                  if (store != null) StoreBadge(store),
-                ],
-              ),
-              const SizedBox(height: 5),
-              // Signals row
-              Row(
-                children: [
-                  const Icon(Icons.people_alt_outlined,
-                      size: 11, color: CoffeeColors.cocoa),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$entries kayıt',
-                    style: const TextStyle(
-                        color: CoffeeColors.cocoa,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.storefront_outlined,
-                      size: 11, color: CoffeeColors.cocoa),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$storeCount market',
-                    style: const TextStyle(
-                        color: CoffeeColors.cocoa,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ] else ...[
-              // No price state — designed, not empty
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: CoffeeColors.foam,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: CoffeeColors.crema, width: 1.5),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_circle_outline,
-                        color: CoffeeColors.caramel, size: 13),
-                    SizedBox(width: 5),
+                    ),
+                    const SizedBox(height: 5),
+
+                    // Name
                     Text(
-                      'İlk fiyatı ekle',
-                      style: TextStyle(
-                        color: CoffeeColors.caramel,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: CoffeeColors.espresso,
+                        fontSize: 13,
+                        height: 1.2,
+                        letterSpacing: -0.2,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      product.unit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: CoffeeColors.cocoa,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                    // Sparkline (if available)
+                    if (spark.length >= 3) ...[
+                      const SizedBox(height: 6),
+                      Sparkline(
+                        values: spark,
+                        height: 28,
+                        color: changePct != null && changePct < 0
+                            ? CoffeeColors.success
+                            : CoffeeColors.caramel,
+                      ),
+                    ],
+
+                    const Spacer(),
+                    const Divider(height: 10, color: CoffeeColors.crema),
+
+                    // ── Price area ────────────────────────────────
+                    if (hasPrice) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'EN İYİ',
+                                  style: TextStyle(
+                                    color: CoffeeColors.cocoa,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                PriceText(price, size: 16),
+                              ],
+                            ),
+                          ),
+                          if (store != null) StoreBadge(store),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(Icons.people_alt_outlined,
+                              size: 10, color: CoffeeColors.cocoa),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$entries kayıt',
+                            style: const TextStyle(
+                                color: CoffeeColors.cocoa,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.storefront_outlined,
+                              size: 10, color: CoffeeColors.cocoa),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$storeCount mkt',
+                            style: const TextStyle(
+                                color: CoffeeColors.cocoa,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // No-price CTA
+                      GestureDetector(
+                        onTap: () {},
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: CoffeeColors.caramel.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: CoffeeColors.caramel.withOpacity(0.3),
+                                width: 1.5),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_circle_outline,
+                                  color: CoffeeColors.caramel, size: 13),
+                              SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'İlk fiyatı ekle →',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: CoffeeColors.caramel,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -591,38 +691,43 @@ class _EmptyExplore extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: CoffeeColors.crema),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: CoffeeColors.foam,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: CoffeeColors.crema),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.search_off,
+                  color: CoffeeColors.caramel, size: 32),
             ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.search_off,
-                color: CoffeeColors.caramel, size: 32),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            query.isEmpty
-                ? 'Sonuç bulunamadı'
-                : '"$query" için sonuç yok',
-            style: const TextStyle(
-              color: CoffeeColors.espresso,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
+            const SizedBox(height: 16),
+            Text(
+              query.isEmpty
+                  ? 'Sonuç bulunamadı'
+                  : '"$query" için sonuç yok',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: CoffeeColors.espresso,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Filtreyi değiştir ya da farklı kelime dene',
-            style: TextStyle(color: CoffeeColors.cocoa, fontSize: 13),
-          ),
-        ],
+            const SizedBox(height: 6),
+            const Text(
+              'Filtreyi değiştir ya da farklı kelime dene',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: CoffeeColors.cocoa, fontSize: 13),
+            ),
+          ],
+        ),
       ),
     );
   }

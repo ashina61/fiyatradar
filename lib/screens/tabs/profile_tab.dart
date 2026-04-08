@@ -6,6 +6,7 @@ import '../settings_screen.dart';
 import '../profile/favorites_screen.dart';
 import '../profile/history_screen.dart';
 import '../profile/alerts_screen.dart';
+import '../admin_screen.dart';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -130,10 +131,10 @@ class ProfileTab extends StatelessWidget {
                     Text(
                       'Profil',
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 28,
                         fontWeight: FontWeight.w800,
                         color: CoffeeColors.espresso,
-                        letterSpacing: -0.6,
+                        letterSpacing: -0.7,
                       ),
                     ),
                     Text(
@@ -146,12 +147,11 @@ class ProfileTab extends StatelessWidget {
                   ],
                 ),
               ),
-              EyebrowLabel(level.name.toUpperCase()),
             ],
           ),
           const SizedBox(height: 16),
 
-          // ── Identity + Level hero ────────────────────────────────
+          // ── Identity + Level hero ─────────────────────────────────
           _ProfileHero(
             points: points,
             level: level,
@@ -160,86 +160,27 @@ class ProfileTab extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // ── Stats ────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _StatBox(
-                  label: 'Katkı',
-                  value: '$addedCount',
-                  icon: Icons.add_chart,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const HistoryScreen()),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatBox(
-                  label: 'Favori',
-                  value: '$favCount',
-                  icon: Icons.favorite_border,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const FavoritesScreen()),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatBox(
-                  label: 'Puan',
-                  value: '$points',
-                  icon: Icons.star_border,
-                  onTap: null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // ── Quick action row ──────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.notifications_none,
-                  label: 'Alarmlar',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AlertsScreen()),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.history,
-                  label: 'Geçmiş',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const HistoryScreen()),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.settings_outlined,
-                  label: 'Ayarlar',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SettingsScreen()),
-                  ),
-                ),
-              ),
-            ],
+          // ── Combined stats + actions card ──────────────────────────
+          _StatsActionsCard(
+            addedCount: addedCount,
+            favCount: favCount,
+            points: points,
+            onContributions: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            ),
+            onFavorites: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            ),
+            onAlerts: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AlertsScreen()),
+            ),
+            onSettings: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -247,12 +188,13 @@ class ProfileTab extends StatelessWidget {
           _LevelJourneyCard(currentLevel: level),
           const SizedBox(height: 14),
 
-          // ── Contribution ways ────────────────────────────────────
+          // ── Contribution ways ─────────────────────────────────────
           _ContributionCard(),
           const SizedBox(height: 14),
 
-          // ── Menu items ────────────────────────────────────────────
+          // ── Navigation menu ───────────────────────────────────────
           _MenuSection(
+            title: 'Kütüphanem',
             items: [
               _MenuItem(
                 icon: Icons.bookmark_outline,
@@ -270,24 +212,23 @@ class ProfileTab extends StatelessWidget {
                 subtitle: 'Düşüş bildirimlerini yönet',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const AlertsScreen()),
+                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
                 ),
               ),
               _MenuItem(
                 icon: Icons.history,
-                title: 'Geçmiş Eklemeler',
+                title: 'Katkı Geçmişim',
                 subtitle: '$addedCount fiyat katkısı',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const HistoryScreen()),
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
           _MenuSection(
+            title: 'Hesap',
             items: [
               _MenuItem(
                 icon: Icons.settings_outlined,
@@ -295,8 +236,16 @@ class ProfileTab extends StatelessWidget {
                 subtitle: 'Hesap, bildirim, gizlilik',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const SettingsScreen()),
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+              _MenuItem(
+                icon: Icons.admin_panel_settings_outlined,
+                title: 'Yönetim Paneli',
+                subtitle: 'Admin & içerik yönetimi',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminScreen()),
                 ),
               ),
             ],
@@ -385,8 +334,8 @@ class _ProfileHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: CoffeeColors.espresso.withOpacity(0.30),
-            blurRadius: 26,
+            color: CoffeeColors.espresso.withOpacity(0.28),
+            blurRadius: 28,
             offset: const Offset(0, 12),
           ),
         ],
@@ -397,19 +346,17 @@ class _ProfileHero extends StatelessWidget {
             children: [
               // Avatar
               Container(
-                width: 60,
-                height: 60,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: level.color.withOpacity(0.22),
+                  color: level.color.withOpacity(0.20),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: level.color.withOpacity(0.55), width: 2),
+                      color: level.color.withOpacity(0.50), width: 2),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  level.emoji,
-                  style: const TextStyle(fontSize: 26),
-                ),
+                child: Text(level.emoji,
+                    style: const TextStyle(fontSize: 28)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -420,7 +367,7 @@ class _ProfileHero extends StatelessWidget {
                       'Kahve Avcısı',
                       style: TextStyle(
                         color: CoffeeColors.cream,
-                        fontSize: 18,
+                        fontSize: 19,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
                       ),
@@ -436,23 +383,31 @@ class _ProfileHero extends StatelessWidget {
               ),
               // Level badge
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: level.color.withOpacity(0.22),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: level.color.withOpacity(0.5)),
+                  border:
+                      Border.all(color: level.color.withOpacity(0.45)),
                 ),
-                child: Text(
-                  level.name,
-                  style: TextStyle(
-                    color: level.color == const Color(0xFFB07B4F)
-                        ? CoffeeColors.caramel
-                        : Color.lerp(level.color, Colors.white, 0.5)!,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(level.emoji,
+                        style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 5),
+                    Text(
+                      level.name,
+                      style: TextStyle(
+                        color: level.color == const Color(0xFFB07B4F)
+                            ? CoffeeColors.caramel
+                            : Color.lerp(level.color, Colors.white, 0.5)!,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -470,13 +425,13 @@ class _ProfileHero extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${nextLevel!.minPoints} → ${nextLevel!.name}',
+                  '${nextLevel!.minPoints} puan → ${nextLevel!.emoji} ${nextLevel!.name}',
                   style: const TextStyle(
                       color: CoffeeColors.latte, fontSize: 11),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
@@ -493,8 +448,8 @@ class _ProfileHero extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: CoffeeColors.caramel.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
@@ -504,7 +459,7 @@ class _ProfileHero extends StatelessWidget {
                 children: [
                   Text('💎 ', style: TextStyle(fontSize: 14)),
                   Text(
-                    'En yüksek seviyedesin',
+                    'En yüksek seviyedesin · Radar Efsanesi',
                     style: TextStyle(
                         color: CoffeeColors.caramel,
                         fontWeight: FontWeight.w700,
@@ -520,36 +475,126 @@ class _ProfileHero extends StatelessWidget {
   }
 }
 
-// ─── Stat box ─────────────────────────────────────────────────────────────────
+// ─── Combined stats + actions card ────────────────────────────────────────────
 
-class _StatBox extends StatelessWidget {
-  const _StatBox({
+class _StatsActionsCard extends StatelessWidget {
+  const _StatsActionsCard({
+    required this.addedCount,
+    required this.favCount,
+    required this.points,
+    required this.onContributions,
+    required this.onFavorites,
+    required this.onAlerts,
+    required this.onSettings,
+  });
+
+  final int addedCount;
+  final int favCount;
+  final int points;
+  final VoidCallback onContributions;
+  final VoidCallback onFavorites;
+  final VoidCallback onAlerts;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CoffeeColors.crema),
+        boxShadow: FR.softShadow,
+      ),
+      child: Column(
+        children: [
+          // Stats row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                _StatCell(
+                  label: 'Katkı',
+                  value: '$addedCount',
+                  icon: Icons.add_chart,
+                  onTap: onContributions,
+                ),
+                Container(
+                    width: 1, height: 40, color: CoffeeColors.crema),
+                _StatCell(
+                  label: 'Favori',
+                  value: '$favCount',
+                  icon: Icons.favorite_border,
+                  onTap: onFavorites,
+                ),
+                Container(
+                    width: 1, height: 40, color: CoffeeColors.crema),
+                _StatCell(
+                  label: 'Puan',
+                  value: '$points',
+                  icon: Icons.star_border,
+                  onTap: null,
+                  accent: CoffeeColors.caramel,
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, color: CoffeeColors.crema),
+
+          // Quick actions row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Row(
+              children: [
+                _ActionBtn(
+                  icon: Icons.notifications_none,
+                  label: 'Alarmlar',
+                  onTap: onAlerts,
+                ),
+                const SizedBox(width: 8),
+                _ActionBtn(
+                  icon: Icons.history,
+                  label: 'Geçmiş',
+                  onTap: onContributions,
+                ),
+                const SizedBox(width: 8),
+                _ActionBtn(
+                  icon: Icons.settings_outlined,
+                  label: 'Ayarlar',
+                  onTap: onSettings,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({
     required this.label,
     required this.value,
     required this.icon,
     this.onTap,
+    this.accent = CoffeeColors.caramel,
   });
   final String label;
   final String value;
   final IconData icon;
   final VoidCallback? onTap;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: CoffeeColors.crema),
-          boxShadow: FR.softShadow,
-        ),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
         child: Column(
           children: [
-            Icon(icon, color: CoffeeColors.caramel, size: 20),
-            const SizedBox(height: 6),
+            Icon(icon, color: accent, size: 18),
+            const SizedBox(height: 4),
             Text(
               value,
               style: const TextStyle(
@@ -559,7 +604,8 @@ class _StatBox extends StatelessWidget {
             ),
             Text(
               label,
-              style: const TextStyle(fontSize: 11, color: CoffeeColors.cocoa),
+              style: const TextStyle(
+                  fontSize: 11, color: CoffeeColors.cocoa),
             ),
           ],
         ),
@@ -568,10 +614,8 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ─── Quick action ─────────────────────────────────────────────────────────────
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
+class _ActionBtn extends StatelessWidget {
+  const _ActionBtn({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -582,37 +626,30 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: CoffeeColors.crema),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: CoffeeColors.foam,
-                borderRadius: BorderRadius.circular(10),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: CoffeeColors.foam,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: CoffeeColors.crema),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: CoffeeColors.darkRoast, size: 18),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: CoffeeColors.espresso,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
               ),
-              child: Icon(icon,
-                  color: CoffeeColors.darkRoast, size: 18),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: CoffeeColors.espresso,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -622,34 +659,52 @@ class _QuickAction extends StatelessWidget {
 // ─── Menu section ─────────────────────────────────────────────────────────────
 
 class _MenuSection extends StatelessWidget {
-  const _MenuSection({required this.items});
+  const _MenuSection({required this.items, this.title});
   final List<_MenuItem> items;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CoffeeColors.crema),
-        boxShadow: FR.softShadow,
-      ),
-      child: Column(
-        children: items.asMap().entries.map((entry) {
-          final i = entry.key;
-          final item = entry.value;
-          return Column(
-            children: [
-              _MenuTile(item: item),
-              if (i < items.length - 1)
-                const Divider(
-                    height: 1,
-                    indent: 54,
-                    color: CoffeeColors.crema),
-            ],
-          );
-        }).toList(),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              title!.toUpperCase(),
+              style: const TextStyle(
+                color: CoffeeColors.cocoa,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+        ],
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: CoffeeColors.crema),
+            boxShadow: FR.softShadow,
+          ),
+          child: Column(
+            children: items.asMap().entries.map((entry) {
+              final i = entry.key;
+              final item = entry.value;
+              return Column(
+                children: [
+                  _MenuTile(item: item),
+                  if (i < items.length - 1)
+                    const Divider(
+                        height: 1, indent: 54, color: CoffeeColors.crema),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -680,13 +735,13 @@ class _MenuTile extends StatelessWidget {
     return ListTile(
       onTap: item.onTap,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       leading: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
           color: isDestructive
-              ? CoffeeColors.danger.withOpacity(0.1)
+              ? CoffeeColors.danger.withOpacity(0.10)
               : CoffeeColors.foam,
           borderRadius: BorderRadius.circular(10),
         ),
@@ -761,27 +816,30 @@ class _LevelJourneyCard extends StatelessWidget {
             final isPast =
                 _levels.indexOf(l) < _levels.indexOf(currentLevel);
             return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 9),
               child: Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: isCurrent
                           ? l.color.withOpacity(0.18)
-                          : CoffeeColors.foam,
+                          : isPast
+                              ? CoffeeColors.foam
+                              : CoffeeColors.foam,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isCurrent
-                            ? l.color
-                            : CoffeeColors.crema,
+                        color: isCurrent ? l.color : CoffeeColors.crema,
                         width: isCurrent ? 2 : 1,
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: Text(l.emoji,
-                        style: const TextStyle(fontSize: 16)),
+                    child: isPast
+                        ? const Icon(Icons.check,
+                            color: Color(0xFF2E7D32), size: 14)
+                        : Text(l.emoji,
+                            style: const TextStyle(fontSize: 14)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -793,32 +851,27 @@ class _LevelJourneyCard extends StatelessWidget {
                             : FontWeight.w600,
                         color: isCurrent
                             ? CoffeeColors.espresso
-                            : CoffeeColors.cocoa,
-                        fontSize: 14,
+                            : isPast
+                                ? CoffeeColors.cocoa
+                                : CoffeeColors.cocoa.withOpacity(0.6),
+                        fontSize: 13,
                       ),
                     ),
                   ),
                   Text(
                     l.maxPoints == null
-                        ? '${l.minPoints}+ puan'
-                        : '${l.minPoints}–${l.maxPoints} puan',
+                        ? '${l.minPoints}+'
+                        : '${l.minPoints}–${l.maxPoints}',
                     style: TextStyle(
-                      color: isCurrent
-                          ? l.color
-                          : CoffeeColors.cocoa,
+                      color: isCurrent ? l.color : CoffeeColors.crema,
                       fontSize: 11,
                       fontWeight: isCurrent
                           ? FontWeight.w700
                           : FontWeight.w500,
                     ),
                   ),
-                  if (isPast) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF2E7D32), size: 16),
-                  ],
-                  if (isCurrent) ...[
-                    const SizedBox(width: 6),
+                  const SizedBox(width: 6),
+                  if (isCurrent)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
@@ -833,8 +886,9 @@ class _LevelJourneyCard extends StatelessWidget {
                             fontSize: 9,
                             fontWeight: FontWeight.w800),
                       ),
-                    ),
-                  ],
+                    )
+                  else
+                    const SizedBox(width: 36),
                 ],
               ),
             );
@@ -864,7 +918,7 @@ class _ContributionCard extends StatelessWidget {
           const Row(
             children: [
               Icon(Icons.emoji_events_outlined,
-                  color: CoffeeColors.caramel),
+                  color: CoffeeColors.caramel, size: 18),
               SizedBox(width: 8),
               Text(
                 'Puan Kazan',
@@ -886,8 +940,7 @@ class _ContributionCard extends StatelessWidget {
               '+${PointsRules.dailyLogin} puan'),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: CoffeeColors.foam,
               borderRadius: BorderRadius.circular(10),
@@ -899,8 +952,8 @@ class _ContributionCard extends StatelessWidget {
                 SizedBox(width: 6),
                 Text(
                   '100 puan = ₺5 değerinde',
-                  style: TextStyle(
-                      color: CoffeeColors.cocoa, fontSize: 12),
+                  style:
+                      TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
                 ),
               ],
             ),
@@ -928,10 +981,9 @@ Widget _rewardRow(IconData icon, String label, String value) {
           ),
         ),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: CoffeeColors.caramel.withOpacity(0.18),
+            color: CoffeeColors.caramel.withOpacity(0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
