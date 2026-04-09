@@ -35,6 +35,15 @@ class AppState extends ChangeNotifier {
   int points = 0;
   int pointsToRedeem = 0; // local, user-chosen redemption
   final List<CartItem> cart = [];
+  String displayName = 'Kahve Avcısı';
+  String username = '@fiyatradar_user';
+  String? phoneNumber;
+
+  bool pushNotificationsEnabled = true;
+  bool priceAlertsEnabled = true;
+  bool weeklySummaryEnabled = true;
+  bool twoFactorEnabled = false;
+  bool biometricEnabled = true;
 
   final List<String> categories = const [
     'Tümü',
@@ -95,20 +104,57 @@ class AppState extends ChangeNotifier {
     final udoc = await uref.get();
     if (!udoc.exists) {
       await uref.set({
-        'displayName': 'Kahve Avcısı',
-        'username': '@fiyatradar_user',
+        'displayName': displayName,
+        'username': username,
         'points': 0,
         'favorites': <String>[],
         'cart': <Map<String, dynamic>>[],
+        'settings': {
+          'notifications': {
+            'pushEnabled': pushNotificationsEnabled,
+            'priceAlertsEnabled': priceAlertsEnabled,
+            'weeklySummaryEnabled': weeklySummaryEnabled,
+          },
+          'security': {
+            'twoFactorEnabled': twoFactorEnabled,
+            'biometricEnabled': biometricEnabled,
+          },
+        },
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
     _userSub = uref.snapshots().listen((snap) {
       final m = snap.data() ?? <String, dynamic>{};
+      displayName = (m['displayName'] as String?)?.trim().isNotEmpty == true
+          ? (m['displayName'] as String)
+          : 'Kahve Avcısı';
+      username = (m['username'] as String?)?.trim().isNotEmpty == true
+          ? (m['username'] as String)
+          : '@fiyatradar_user';
+      phoneNumber = (m['phoneNumber'] as String?)?.trim().isNotEmpty == true
+          ? (m['phoneNumber'] as String)
+          : null;
       points = (m['points'] as num?)?.toInt() ?? 0;
       favorites = ((m['favorites'] as List?) ?? [])
           .map((e) => e.toString())
           .toSet();
+      final settings = Map<String, dynamic>.from(
+        (m['settings'] as Map?) ?? const <String, dynamic>{},
+      );
+      final notificationsSettings = Map<String, dynamic>.from(
+        (settings['notifications'] as Map?) ?? const <String, dynamic>{},
+      );
+      final securitySettings = Map<String, dynamic>.from(
+        (settings['security'] as Map?) ?? const <String, dynamic>{},
+      );
+      pushNotificationsEnabled =
+          notificationsSettings['pushEnabled'] as bool? ?? true;
+      priceAlertsEnabled =
+          notificationsSettings['priceAlertsEnabled'] as bool? ?? true;
+      weeklySummaryEnabled =
+          notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
+      twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
+      biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? true;
       final cartRaw = (m['cart'] as List?) ?? [];
       cart
         ..clear()
@@ -391,6 +437,83 @@ class AppState extends ChangeNotifier {
           ? FieldValue.serverTimestamp()
           : Timestamp.fromDate(existing.createdAt),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> updateProfileSettings({
+    required String displayName,
+    required String username,
+    String? phoneNumber,
+  }) async {
+    if (user == null) return;
+    await _svc.userDoc(user!.uid).update({
+      'displayName': displayName.trim(),
+      'username': username.trim(),
+      'phoneNumber': phoneNumber?.trim().isEmpty == true
+          ? FieldValue.delete()
+          : phoneNumber?.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateNotificationSettings({
+    bool? pushEnabled,
+    bool? priceAlertsEnabled,
+    bool? weeklySummaryEnabled,
+  }) async {
+    if (user == null) return;
+    await _svc.userDoc(user!.uid).set({
+      'settings': {
+        'notifications': {
+          if (pushEnabled != null) 'pushEnabled': pushEnabled,
+          if (priceAlertsEnabled != null)
+            'priceAlertsEnabled': priceAlertsEnabled,
+          if (weeklySummaryEnabled != null)
+            'weeklySummaryEnabled': weeklySummaryEnabled,
+        },
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateSecuritySettings({
+    bool? twoFactorEnabled,
+    bool? biometricEnabled,
+  }) async {
+    if (user == null) return;
+    await _svc.userDoc(user!.uid).set({
+      'settings': {
+        'security': {
+          if (twoFactorEnabled != null) 'twoFactorEnabled': twoFactorEnabled,
+          if (biometricEnabled != null) 'biometricEnabled': biometricEnabled,
+        },
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> logout() async {
+    await _productsSub?.cancel();
+    await _bannersSub?.cancel();
+    await _userSub?.cancel();
+    await _notificationsSub?.cancel();
+    await _productAlertsSub?.cancel();
+    _productsSub = null;
+    _bannersSub = null;
+    _userSub = null;
+    _notificationsSub = null;
+    _productAlertsSub = null;
+    products.clear();
+    banners.clear();
+    favorites.clear();
+    notifications.clear();
+    productAlerts.clear();
+    cart.clear();
+    points = 0;
+    pointsToRedeem = 0;
+    _initialized = false;
+    notifyListeners();
+    await _svc.auth.signOut();
+    await init();
   }
 }
 

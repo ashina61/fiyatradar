@@ -1,15 +1,30 @@
 import 'package:flutter/material.dart';
-import 'notifications_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
-
-// ─── Entry point ──────────────────────────────────────────────────────────────
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  static final Uri _termsUri =
+      Uri.parse('https://fiyatradar.app/terms');
+  static final Uri _privacyUri =
+      Uri.parse('https://fiyatradar.app/privacy');
+  static final Uri _faqUri =
+      Uri.parse('https://fiyatradar.app/faq');
+  static final Uri _changelogUri =
+      Uri.parse('https://fiyatradar.app/changelog');
+  static final Uri _storeUri = Uri.parse(
+    'https://play.google.com/store/apps/details?id=app.fiyatradar',
+  );
+
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final user = state.user;
+
     return Scaffold(
       backgroundColor: CoffeeColors.cream,
       appBar: AppBar(
@@ -17,18 +32,21 @@ class SettingsScreen extends StatelessWidget {
         leading: const BackButton(),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-              height: 1, color: CoffeeColors.crema),
+          child: Container(height: 1, color: CoffeeColors.crema),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 48),
         children: [
-          // ── Account identity block ────────────────────────────────
-          _AccountBlock(),
+          _AccountBlock(
+            displayName: state.displayName,
+            email: user?.email,
+            onEdit: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const _PersonalInfoPage()),
+            ),
+          ),
           const SizedBox(height: 24),
-
-          // ── Hesap ─────────────────────────────────────────────────
           _SettingsGroup(
             title: 'Hesap',
             icon: Icons.person_outline,
@@ -36,26 +54,24 @@ class SettingsScreen extends StatelessWidget {
               _SettingsItem(
                 icon: Icons.person_outline,
                 title: 'Kişisel Bilgiler',
-                subtitle: 'Ad, e-posta, profil',
+                subtitle: 'Ad, kullanıcı adı, telefon',
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _PersonalInfoPage())),
+                  context,
+                  MaterialPageRoute(builder: (_) => const _PersonalInfoPage()),
+                ),
               ),
               _SettingsItem(
                 icon: Icons.lock_outline,
                 title: 'Güvenlik ve Giriş',
-                subtitle: 'Şifre, oturum, 2FA',
+                subtitle: '2FA, biyometrik, oturum bilgisi',
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _SecurityPage())),
+                  context,
+                  MaterialPageRoute(builder: (_) => const _SecurityPage()),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // ── Tercihler ─────────────────────────────────────────────
           _SettingsGroup(
             title: 'Tercihler',
             icon: Icons.tune_outlined,
@@ -63,17 +79,17 @@ class SettingsScreen extends StatelessWidget {
               _SettingsItem(
                 icon: Icons.notifications_none,
                 title: 'Bildirim Tercihleri',
-                subtitle: 'Fiyat alarmları, haftalık özet',
+                subtitle: 'Push, fiyat alarmı, haftalık özet',
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const _NotificationPreferencesPage(),
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // ── Destek ────────────────────────────────────────────────
           _SettingsGroup(
             title: 'Destek',
             icon: Icons.support_outlined,
@@ -81,40 +97,31 @@ class SettingsScreen extends StatelessWidget {
               _SettingsItem(
                 icon: Icons.help_outline,
                 title: 'Sıkça Sorulan Sorular',
-                subtitle: 'Nasıl çalışır, nasıl kullanılır',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _FAQPage())),
+                subtitle: 'Yardım merkezi',
+                onTap: () => _launchExternal(context, _faqUri),
               ),
               _SettingsItem(
                 icon: Icons.mail_outline,
                 title: 'Bize Ulaşın',
-                subtitle: 'Öneri, şikayet, geri bildirim',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _ContactPage())),
+                subtitle: 'destek@fiyatradar.app',
+                onTap: () => _launchExternal(
+                  context,
+                  Uri(
+                    scheme: 'mailto',
+                    path: 'destek@fiyatradar.app',
+                    query: 'subject=FiyatRadar%20Destek',
+                  ),
+                ),
               ),
               _SettingsItem(
                 icon: Icons.star_outline,
                 title: 'Uygulamayı Puanla',
-                subtitle: 'App Store / Play Store',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Mağazaya yönlendiriliyorsunuz…'),
-                      backgroundColor: CoffeeColors.darkRoast,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+                subtitle: 'Play Store',
+                onTap: () => _launchExternal(context, _storeUri),
               ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // ── Uygulama ──────────────────────────────────────────────
           _SettingsGroup(
             title: 'Uygulama',
             icon: Icons.info_outline,
@@ -122,39 +129,42 @@ class SettingsScreen extends StatelessWidget {
               _SettingsItem(
                 icon: Icons.history,
                 title: 'Güncelleme Geçmişi',
-                subtitle: 'Versiyon notları ve değişiklikler',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _ChangelogPage())),
+                subtitle: 'Sürüm notları',
+                onTap: () => _launchExternal(context, _changelogUri),
               ),
               _SettingsItem(
                 icon: Icons.description_outlined,
                 title: 'Kullanım Koşulları',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _TermsPage())),
+                onTap: () => _launchExternal(context, _termsUri),
               ),
               _SettingsItem(
                 icon: Icons.privacy_tip_outlined,
                 title: 'Gizlilik Politikası',
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _PrivacyPage())),
+                onTap: () => _launchExternal(context, _privacyUri),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _SettingsGroup(
+            title: 'Oturum',
+            icon: Icons.logout,
+            items: [
+              _SettingsItem(
+                icon: Icons.logout,
+                title: 'Çıkış Yap',
+                subtitle: 'Geçerli oturumu sonlandır',
+                isDestructive: true,
+                onTap: () => _confirmLogout(context),
               ),
             ],
           ),
           const SizedBox(height: 32),
-
-          // ── App version ───────────────────────────────────────────
           Center(
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: CoffeeColors.foam,
                     borderRadius: BorderRadius.circular(10),
@@ -163,17 +173,16 @@ class SettingsScreen extends StatelessWidget {
                   child: const Text(
                     'FiyatRadar v1.0.0',
                     style: TextStyle(
-                        color: CoffeeColors.cocoa,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600),
+                      color: CoffeeColors.cocoa,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'Topluluk gücüyle fiyat avantajı',
-                  style: TextStyle(
-                      color: CoffeeColors.cocoa,
-                      fontSize: 11),
+                  style: TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
                 ),
               ],
             ),
@@ -182,11 +191,66 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
+  static Future<void> _launchExternal(BuildContext context, Uri uri) async {
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!context.mounted || launched) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Bağlantı açılamadı: $uri'),
+        backgroundColor: CoffeeColors.darkRoast,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  static Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Çıkış Yap'),
+        content: const Text('Hesabından çıkmak istediğine emin misin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CoffeeColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Çıkış Yap'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final state = AppStateScope.of(context);
+    await state.logout();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Oturum kapatıldı.'),
+        backgroundColor: CoffeeColors.darkRoast,
+      ),
+    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
 }
 
-// ─── Account identity block ───────────────────────────────────────────────────
-
 class _AccountBlock extends StatelessWidget {
+  const _AccountBlock({
+    required this.displayName,
+    required this.email,
+    required this.onEdit,
+  });
+
+  final String displayName;
+  final String? email;
+  final VoidCallback onEdit;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -215,7 +279,9 @@ class _AccountBlock extends StatelessWidget {
               color: CoffeeColors.caramel.withOpacity(0.22),
               shape: BoxShape.circle,
               border: Border.all(
-                  color: CoffeeColors.caramel.withOpacity(0.45), width: 2),
+                color: CoffeeColors.caramel.withOpacity(0.45),
+                width: 2,
+              ),
             ),
             alignment: Alignment.center,
             child: const Text('☕', style: TextStyle(fontSize: 22)),
@@ -225,43 +291,38 @@ class _AccountBlock extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Kahve Avcısı',
-                  style: TextStyle(
+                Text(
+                  displayName,
+                  style: const TextStyle(
                     color: CoffeeColors.cream,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
                   ),
                 ),
-                const Text(
-                  'kullanici@ornek.com',
-                  style: TextStyle(
-                      color: CoffeeColors.latte, fontSize: 13),
+                Text(
+                  email ?? 'Anonim hesap',
+                  style: const TextStyle(color: CoffeeColors.latte, fontSize: 13),
                 ),
               ],
             ),
           ),
           GestureDetector(
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const _PersonalInfoPage())),
+            onTap: onEdit,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Colors.white.withOpacity(0.15)),
+                border: Border.all(color: Colors.white.withOpacity(0.15)),
               ),
               child: const Text(
                 'Düzenle',
                 style: TextStyle(
-                    color: CoffeeColors.latte,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700),
+                  color: CoffeeColors.latte,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -271,14 +332,13 @@ class _AccountBlock extends StatelessWidget {
   }
 }
 
-// ─── Reusable group + item ────────────────────────────────────────────────────
-
 class _SettingsGroup extends StatelessWidget {
   const _SettingsGroup({
     required this.title,
     required this.items,
     this.icon,
   });
+
   final String title;
   final List<_SettingsItem> items;
   final IconData? icon;
@@ -317,16 +377,17 @@ class _SettingsGroup extends StatelessWidget {
           ),
           child: Column(
             children: items.asMap().entries.map((entry) {
-              final i = entry.key;
+              final index = entry.key;
               final item = entry.value;
               return Column(
                 children: [
                   item,
-                  if (i < items.length - 1)
+                  if (index < items.length - 1)
                     const Divider(
-                        height: 1,
-                        indent: 54,
-                        color: CoffeeColors.crema),
+                      height: 1,
+                      indent: 54,
+                      color: CoffeeColors.crema,
+                    ),
                 ],
               );
             }).toList(),
@@ -343,18 +404,23 @@ class _SettingsItem extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.onTap,
+    this.isDestructive = false,
   });
+
   final IconData icon;
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
+  final bool isDestructive;
 
   @override
   Widget build(BuildContext context) {
+    final titleColor = isDestructive ? CoffeeColors.danger : CoffeeColors.espresso;
+    final iconColor = isDestructive ? CoffeeColors.danger : CoffeeColors.darkRoast;
+
     return ListTile(
       onTap: onTap,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         width: 38,
         height: 38,
@@ -363,33 +429,56 @@ class _SettingsItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: CoffeeColors.crema),
         ),
-        child: Icon(icon, color: CoffeeColors.darkRoast, size: 19),
+        child: Icon(icon, color: iconColor, size: 19),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: CoffeeColors.espresso,
-          fontSize: 14,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w700, color: titleColor, fontSize: 14),
       ),
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: const TextStyle(
-                  color: CoffeeColors.cocoa, fontSize: 12),
+              style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
             )
           : null,
-      trailing: const Icon(Icons.chevron_right,
-          color: CoffeeColors.cocoa, size: 20),
+      trailing: const Icon(Icons.chevron_right, color: CoffeeColors.cocoa, size: 20),
     );
   }
 }
 
-// ─── Sub-screens ──────────────────────────────────────────────────────────────
-
-class _PersonalInfoPage extends StatelessWidget {
+class _PersonalInfoPage extends StatefulWidget {
   const _PersonalInfoPage();
+
+  @override
+  State<_PersonalInfoPage> createState() => _PersonalInfoPageState();
+}
+
+class _PersonalInfoPageState extends State<_PersonalInfoPage> {
+  late final TextEditingController _displayNameController =
+      TextEditingController();
+  late final TextEditingController _usernameController = TextEditingController();
+  late final TextEditingController _phoneController = TextEditingController();
+  bool _initializedControllers = false;
+  bool _saving = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initializedControllers) return;
+    final state = AppStateScope.of(context);
+    _displayNameController.text = state.displayName;
+    _usernameController.text = state.username;
+    _phoneController.text = state.phoneNumber ?? '';
+    _initializedControllers = true;
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _usernameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -399,76 +488,70 @@ class _PersonalInfoPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: CoffeeColors.espresso,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: CoffeeColors.caramel, width: 2.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: CoffeeColors.espresso.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text('☕',
-                      style: TextStyle(fontSize: 38)),
-                ),
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.edit_outlined,
-                      size: 14, color: CoffeeColors.caramel),
-                  label: const Text('Fotoğraf Değiştir',
-                      style: TextStyle(
-                          color: CoffeeColors.caramel,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
+          _EditableField(label: 'Ad Soyad', controller: _displayNameController),
+          const SizedBox(height: 12),
+          _EditableField(label: 'Kullanıcı Adı', controller: _usernameController),
+          const SizedBox(height: 12),
+          _EditableField(
+            label: 'Telefon',
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
           ),
-          const SizedBox(height: 24),
-          _InfoField(label: 'Ad Soyad', value: 'Kahve Avcısı'),
-          const SizedBox(height: 12),
-          _InfoField(label: 'Kullanıcı Adı', value: '@fiyatradar_user'),
-          const SizedBox(height: 12),
-          _InfoField(label: 'E-posta', value: 'kullanici@ornek.com'),
-          const SizedBox(height: 12),
-          _InfoField(label: 'Telefon', value: '+90 5xx xxx xx xx'),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Bilgiler kaydedildi'),
-                  backgroundColor: CoffeeColors.darkRoast,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52)),
-            child: const Text('Kaydet'),
+            onPressed: _saving ? null : _save,
+            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Kaydet'),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _save() async {
+    final state = AppStateScope.of(context);
+    final displayName = _displayNameController.text.trim();
+    final username = _usernameController.text.trim();
+    if (displayName.isEmpty || username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ad ve kullanıcı adı zorunludur.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    await state.updateProfileSettings(
+      displayName: displayName,
+      username: username,
+      phoneNumber: _phoneController.text,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bilgiler güncellendi.'),
+        backgroundColor: CoffeeColors.darkRoast,
+      ),
+    );
+    Navigator.pop(context);
+  }
 }
 
-class _InfoField extends StatelessWidget {
-  const _InfoField({required this.label, required this.value});
+class _EditableField extends StatelessWidget {
+  const _EditableField({
+    required this.label,
+    required this.controller,
+    this.keyboardType,
+  });
+
   final String label;
-  final String value;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -484,29 +567,20 @@ class _InfoField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: CoffeeColors.crema),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    color: CoffeeColors.espresso,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const Icon(Icons.edit_outlined,
-                  color: CoffeeColors.cocoa, size: 16),
-            ],
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: CoffeeColors.crema),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: CoffeeColors.crema),
+            ),
           ),
         ),
       ],
@@ -514,18 +588,72 @@ class _InfoField extends StatelessWidget {
   }
 }
 
-class _SecurityPage extends StatefulWidget {
-  const _SecurityPage();
-  @override
-  State<_SecurityPage> createState() => _SecurityPageState();
-}
-
-class _SecurityPageState extends State<_SecurityPage> {
-  bool _twoFA = false;
-  bool _biometric = true;
+class _NotificationPreferencesPage extends StatelessWidget {
+  const _NotificationPreferencesPage();
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+
+    return Scaffold(
+      backgroundColor: CoffeeColors.cream,
+      appBar: AppBar(title: const Text('Bildirim Tercihleri')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: CoffeeColors.crema),
+              boxShadow: FR.softShadow,
+            ),
+            child: Column(
+              children: [
+                _ToggleTileCompact(
+                  title: 'Push Bildirimleri',
+                  subtitle: 'Uygulama bildirim izni',
+                  icon: Icons.notifications_active_outlined,
+                  value: state.pushNotificationsEnabled,
+                  onChanged: (value) => state.updateNotificationSettings(pushEnabled: value),
+                ),
+                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
+                _ToggleTileCompact(
+                  title: 'Fiyat Alarmı Bildirimleri',
+                  subtitle: 'Alarm ürünlerinde düşüş olduğunda bildir',
+                  icon: Icons.price_change_outlined,
+                  value: state.priceAlertsEnabled,
+                  onChanged: state.pushNotificationsEnabled
+                      ? (value) => state.updateNotificationSettings(priceAlertsEnabled: value)
+                      : null,
+                ),
+                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
+                _ToggleTileCompact(
+                  title: 'Haftalık Özet',
+                  subtitle: 'Haftalık fiyat özeti ve trendler',
+                  icon: Icons.summarize_outlined,
+                  value: state.weeklySummaryEnabled,
+                  onChanged: state.pushNotificationsEnabled
+                      ? (value) => state.updateNotificationSettings(weeklySummaryEnabled: value)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityPage extends StatelessWidget {
+  const _SecurityPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final user = state.user;
+
     return Scaffold(
       backgroundColor: CoffeeColors.cream,
       appBar: AppBar(title: const Text('Güvenlik ve Giriş')),
@@ -545,17 +673,16 @@ class _SecurityPageState extends State<_SecurityPage> {
                   title: 'Biyometrik Giriş',
                   subtitle: 'Parmak izi veya yüz tanıma',
                   icon: Icons.fingerprint,
-                  value: _biometric,
-                  onChanged: (v) => setState(() => _biometric = v),
+                  value: state.biometricEnabled,
+                  onChanged: (value) => state.updateSecuritySettings(biometricEnabled: value),
                 ),
-                const Divider(
-                    height: 1, indent: 16, color: CoffeeColors.crema),
+                const Divider(height: 1, indent: 16, color: CoffeeColors.crema),
                 _ToggleTileCompact(
                   title: 'İki Faktörlü Doğrulama',
-                  subtitle: 'Giriş yaparken SMS kodu iste',
+                  subtitle: 'Giriş yaparken ek doğrulama iste',
                   icon: Icons.security,
-                  value: _twoFA,
-                  onChanged: (v) => setState(() => _twoFA = v),
+                  value: state.twoFactorEnabled,
+                  onChanged: (value) => state.updateSecuritySettings(twoFactorEnabled: value),
                 ),
               ],
             ),
@@ -573,542 +700,46 @@ class _SecurityPageState extends State<_SecurityPage> {
                 _ActionTile(
                   icon: Icons.lock_outline,
                   title: 'Şifre Değiştir',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Şifre sıfırlama maili gönderildi'),
-                        backgroundColor: CoffeeColors.darkRoast,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                  subtitle: 'Giriş sağlayıcına göre güncelle',
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Anonim oturumda şifre güncelleme desteklenmiyor.'),
+                    ),
+                  ),
                 ),
-                const Divider(
-                    height: 1, indent: 54, color: CoffeeColors.crema),
+                const Divider(height: 1, indent: 54, color: CoffeeColors.crema),
                 _ActionTile(
                   icon: Icons.devices_outlined,
-                  title: 'Aktif Oturumlar',
-                  subtitle: 'Bağlı cihazları görüntüle',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FAQPage extends StatelessWidget {
-  const _FAQPage();
-
-  static const _faqs = [
-    _FAQ(
-      q: 'FiyatRadar nasıl çalışır?',
-      a: 'Kullanıcılar markette gördükleri fiyatları uygulama üzerinden paylaşır. Bu veriler anlık olarak işlenerek diğer kullanıcılara sunulur. Piyasa fiyatı topluluk katkısıyla oluşur.',
-    ),
-    _FAQ(
-      q: 'Fiyat verileri güvenilir mi?',
-      a: 'Her fiyat girişi zaman damgası ve katkıcı bilgisiyle saklanır. Birden fazla kullanıcı aynı fiyatı doğruladığında güven skoru artar.',
-    ),
-    _FAQ(
-      q: 'Nasıl puan kazanırım?',
-      a: 'Fiyat ekleme (+10 puan), yeni ürün ekleme (+25 puan), favorilere ekleme (+2 puan), günlük giriş (+5 puan) ile puan kazanırsın. 100 puan = ₺5 değerindedir.',
-    ),
-    _FAQ(
-      q: 'Fiyat alarmı nasıl kurulur?',
-      a: 'Ürün detay ekranında zil simgesine dokunarak fiyat alarmı kurabilirsin. Fiyat belirlediğin seviyenin altına düşünce bildirim alırsın.',
-    ),
-    _FAQ(
-      q: 'Hangi marketler destekleniyor?',
-      a: 'Şu an A101, BİM, ŞOK, Migros, CarrefourSA ve Tarım Kredi destekleniyor. Yeni marketler yakında eklenecek.',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CoffeeColors.cream,
-      appBar: AppBar(title: const Text('Sıkça Sorulan Sorular')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: _faqs.map((f) => _FAQTile(faq: f)).toList(),
-      ),
-    );
-  }
-}
-
-class _FAQ {
-  final String q;
-  final String a;
-  const _FAQ({required this.q, required this.a});
-}
-
-class _FAQTile extends StatefulWidget {
-  const _FAQTile({required this.faq});
-  final _FAQ faq;
-  @override
-  State<_FAQTile> createState() => _FAQTileState();
-}
-
-class _FAQTileState extends State<_FAQTile> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _open
-              ? CoffeeColors.caramel.withOpacity(0.45)
-              : CoffeeColors.crema,
-        ),
-        boxShadow: _open ? FR.softShadow : null,
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => setState(() => _open = !_open),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            title: Text(
-              widget.faq.q,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _open
-                    ? CoffeeColors.espresso
-                    : CoffeeColors.darkRoast,
-                fontSize: 14,
-              ),
-            ),
-            trailing: AnimatedRotation(
-              duration: const Duration(milliseconds: 200),
-              turns: _open ? 0.5 : 0,
-              child: const Icon(Icons.keyboard_arrow_down,
-                  color: CoffeeColors.cocoa),
-            ),
-          ),
-          if (_open)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Text(
-                widget.faq.a,
-                style: const TextStyle(
-                  color: CoffeeColors.cocoa,
-                  fontSize: 13,
-                  height: 1.55,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ContactPage extends StatelessWidget {
-  const _ContactPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CoffeeColors.cream,
-      appBar: AppBar(title: const Text('Bize Ulaşın')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('💬', style: TextStyle(fontSize: 30)),
-                SizedBox(height: 10),
-                Text(
-                  'Seni duyuyoruz',
-                  style: TextStyle(
-                    color: CoffeeColors.cream,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'Öneri, şikayet veya geri bildirimini paylaş. Her mesaja 24 saat içinde yanıt veriyoruz.',
-                  style: TextStyle(
-                      color: CoffeeColors.latte,
-                      fontSize: 13,
-                      height: 1.4),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: CoffeeColors.crema),
-            ),
-            child: Column(
-              children: [
-                _ContactRowTile(
-                  icon: Icons.mail_outline,
-                  label: 'E-posta',
-                  value: 'destek@fiyatradar.app',
-                ),
-                const Divider(
-                    height: 1, indent: 54, color: CoffeeColors.crema),
-                _ContactRowTile(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Canlı Destek',
-                  value: 'Hafta içi 09:00 – 18:00',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: 'Mesajını buraya yaz…',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: CoffeeColors.crema),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: CoffeeColors.crema),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Mesajın iletildi, teşekkürler'),
-                  backgroundColor: CoffeeColors.darkRoast,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52)),
-            child: const Text('Gönder'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ContactRowTile extends StatelessWidget {
-  const _ContactRowTile(
-      {required this.icon, required this.label, required this.value});
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: CoffeeColors.foam,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: CoffeeColors.darkRoast, size: 18),
-      ),
-      title: Text(
-        label,
-        style: const TextStyle(
-            color: CoffeeColors.cocoa, fontSize: 11),
-      ),
-      subtitle: Text(
-        value,
-        style: const TextStyle(
-          color: CoffeeColors.espresso,
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-}
-
-class _ChangelogPage extends StatelessWidget {
-  const _ChangelogPage();
-
-  static const _versions = [
-    _Version(
-      version: '1.0.0',
-      date: 'Nisan 2026',
-      notes: [
-        'İlk kararlı sürüm yayınlandı',
-        'Topluluk fiyat katkısı sistemi',
-        'Market karşılaştırması',
-        'Puan ve seviye sistemi',
-        'Fiyat alarmı altyapısı',
-        'Admin yönetim paneli',
-      ],
-    ),
-    _Version(
-      version: '0.9.0',
-      date: 'Mart 2026',
-      notes: [
-        'Beta testi başladı',
-        'Onboarding akışı eklendi',
-        'Arama ve filtreleme iyileştirmeleri',
-        'Performans optimizasyonları',
-      ],
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CoffeeColors.cream,
-      appBar: AppBar(title: const Text('Güncelleme Geçmişi')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: _versions.map((v) => _VersionCard(version: v)).toList(),
-      ),
-    );
-  }
-}
-
-class _Version {
-  final String version;
-  final String date;
-  final List<String> notes;
-  const _Version(
-      {required this.version, required this.date, required this.notes});
-}
-
-class _VersionCard extends StatelessWidget {
-  const _VersionCard({required this.version});
-  final _Version version;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CoffeeColors.crema),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: CoffeeColors.espresso,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'v${version.version}',
-                  style: const TextStyle(
-                    color: CoffeeColors.cream,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                version.date,
-                style: const TextStyle(
-                    color: CoffeeColors.cocoa, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...version.notes.map((note) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: CircleAvatar(
-                        radius: 3,
-                        backgroundColor: CoffeeColors.caramel,
+                  title: 'Aktif Oturum',
+                  subtitle: user == null
+                      ? 'Oturum bilgisi bulunamadı'
+                      : 'UID: ${user.uid.substring(0, 8)}…',
+                  onTap: () => showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Aktif Oturum'),
+                      content: Text(
+                        user == null
+                            ? 'Aktif kullanıcı bulunamadı.'
+                            : 'UID: ${user.uid}\nSon giriş: ${user.metadata.lastSignInTime ?? '-'}',
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        note,
-                        style: const TextStyle(
-                          color: CoffeeColors.darkRoast,
-                          fontSize: 13,
-                          height: 1.4,
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Tamam'),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              )),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
-
-class _TermsPage extends StatelessWidget {
-  const _TermsPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _TextContentPage(
-      title: 'Kullanım Koşulları',
-      sections: const [
-        _TextSection(
-          heading: '1. Hizmetin Kapsamı',
-          body:
-              'FiyatRadar, kullanıcıların market fiyatlarını paylaşmasına ve karşılaştırmasına olanak tanıyan topluluk destekli bir platformdur. Uygulama yalnızca bilgi amaçlıdır.',
-        ),
-        _TextSection(
-          heading: '2. Kullanıcı Yükümlülükleri',
-          body:
-              'Kullanıcılar yalnızca gerçek ve doğru fiyat bilgisi paylaşmalıdır. Yanıltıcı veya sahte bilgi girişi hesap askıya alınmasına yol açabilir.',
-        ),
-        _TextSection(
-          heading: '3. Veri Kullanımı',
-          body:
-              'Paylaşılan fiyat verileri anonim olarak analiz edilir ve toplulukla paylaşılır. Kişisel veriler üçüncü taraflarla satılmaz.',
-        ),
-        _TextSection(
-          heading: '4. Sorumluluk Sınırlaması',
-          body:
-              'FiyatRadar, paylaşılan fiyat verilerinin doğruluğunu garanti etmez. Satın alma kararları kullanıcının sorumluluğundadır.',
-        ),
-        _TextSection(
-          heading: '5. Değişiklikler',
-          body:
-              'Bu koşullar önceden bildirim yapılarak değiştirilebilir. Uygulamayı kullanmaya devam etmek güncel koşulları kabul etmek anlamına gelir.',
-        ),
-      ],
-    );
-  }
-}
-
-class _PrivacyPage extends StatelessWidget {
-  const _PrivacyPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _TextContentPage(
-      title: 'Gizlilik Politikası',
-      sections: const [
-        _TextSection(
-          heading: 'Topladığımız Veriler',
-          body:
-              'E-posta adresi, kullanıcı adı ve fiyat katkıları toplanır. Konum verisi opsiyoneldir ve yalnızca yakın market önerileri için kullanılır.',
-        ),
-        _TextSection(
-          heading: 'Verilerin Kullanımı',
-          body:
-              'Verileriniz hizmetin iyileştirilmesi, topluluk içeriklerinin moderasyonu ve kişiselleştirilmiş öneriler için kullanılır.',
-        ),
-        _TextSection(
-          heading: 'Veri Güvenliği',
-          body:
-              'Tüm veriler şifreli bağlantı (TLS) üzerinden iletilir. Firebase altyapısı kullanılmaktadır ve endüstri standardı güvenlik önlemleri uygulanmaktadır.',
-        ),
-        _TextSection(
-          heading: 'Üçüncü Taraflar',
-          body:
-              'Kişisel verileriniz hiçbir üçüncü tarafa satılmaz veya kiralanmaz. Analitik amaçlı anonimleştirilmiş veriler kullanılabilir.',
-        ),
-        _TextSection(
-          heading: 'Haklarınız',
-          body:
-              'Hesabınızı ve verilerinizi istediğiniz zaman silebilirsiniz. Veri erişim veya silme talepleriniz için destek@fiyatradar.app adresine yazabilirsiniz.',
-        ),
-      ],
-    );
-  }
-}
-
-class _TextSection {
-  final String heading;
-  final String body;
-  const _TextSection({required this.heading, required this.body});
-}
-
-class _TextContentPage extends StatelessWidget {
-  const _TextContentPage(
-      {required this.title, required this.sections});
-  final String title;
-  final List<_TextSection> sections;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CoffeeColors.cream,
-      appBar: AppBar(title: Text(title)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: [
-          ...sections.map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      s.heading,
-                      style: const TextStyle(
-                        color: CoffeeColors.espresso,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      s.body,
-                      style: const TextStyle(
-                        color: CoffeeColors.darkRoast,
-                        fontSize: 13,
-                        height: 1.55,
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Reusable toggle components ───────────────────────────────────────────────
 
 class _ToggleTileCompact extends StatelessWidget {
   const _ToggleTileCompact({
@@ -1118,10 +749,11 @@ class _ToggleTileCompact extends StatelessWidget {
     required this.onChanged,
     this.icon,
   });
+
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
   final IconData? icon;
 
   @override
@@ -1139,14 +771,18 @@ class _ToggleTileCompact extends StatelessWidget {
               child: Icon(icon!, color: CoffeeColors.darkRoast, size: 18),
             )
           : null,
-      title: Text(title,
-          style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: CoffeeColors.espresso,
-              fontSize: 14)),
-      subtitle: Text(subtitle,
-          style: const TextStyle(
-              color: CoffeeColors.cocoa, fontSize: 12)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: CoffeeColors.espresso,
+          fontSize: 14,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
+      ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
@@ -1158,8 +794,13 @@ class _ToggleTileCompact extends StatelessWidget {
 }
 
 class _ActionTile extends StatelessWidget {
-  const _ActionTile(
-      {required this.icon, required this.title, required this.onTap, this.subtitle});
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
   final IconData icon;
   final String title;
   final String? subtitle;
@@ -1169,8 +810,7 @@ class _ActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         width: 38,
         height: 38,
@@ -1180,18 +820,21 @@ class _ActionTile extends StatelessWidget {
         ),
         child: Icon(icon, color: CoffeeColors.darkRoast, size: 19),
       ),
-      title: Text(title,
-          style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: CoffeeColors.espresso,
-              fontSize: 14)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: CoffeeColors.espresso,
+          fontSize: 14,
+        ),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle!,
-              style: const TextStyle(
-                  color: CoffeeColors.cocoa, fontSize: 12))
+          ? Text(
+              subtitle!,
+              style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
+            )
           : null,
-      trailing: const Icon(Icons.chevron_right,
-          color: CoffeeColors.cocoa, size: 20),
+      trailing: const Icon(Icons.chevron_right, color: CoffeeColors.cocoa, size: 20),
     );
   }
 }

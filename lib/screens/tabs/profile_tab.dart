@@ -289,7 +289,18 @@ class ProfileTab extends StatelessWidget {
                 style: TextStyle(color: CoffeeColors.cocoa)),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final state = AppStateScope.of(context);
+              await state.logout();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Oturum kapatıldı.'),
+                  backgroundColor: CoffeeColors.darkRoast,
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: CoffeeColors.danger,
               foregroundColor: Colors.white,
