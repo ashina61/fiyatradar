@@ -58,8 +58,14 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _productsSub;
   StreamSubscription? _bannersSub;
   StreamSubscription? _userSub;
+  StreamSubscription? _notificationsSub;
+  StreamSubscription? _productAlertsSub;
   bool _initialized = false;
   bool get initialized => _initialized;
+  final List<AppNotification> notifications = [];
+  final Map<String, ProductAlert> productAlerts = {};
+  int get unreadNotificationCount =>
+      notifications.where((n) => !n.isRead).length;
 
   Future<void> init() async {
     user = await _svc.ensureSignedIn();
@@ -119,6 +125,30 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
 
+    _notificationsSub = _svc
+        .userNotifications(user!.uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snap) {
+      notifications
+        ..clear()
+        ..addAll(snap.docs.map(AppNotification.fromDoc));
+      notifyListeners();
+    });
+
+    _productAlertsSub = _svc
+        .userProductAlerts(user!.uid)
+        .snapshots()
+        .listen((snap) {
+      productAlerts
+        ..clear()
+        ..addEntries(snap.docs.map((d) {
+          final a = ProductAlert.fromDoc(d);
+          return MapEntry(a.productId, a);
+        }));
+      notifyListeners();
+    });
+
     _initialized = true;
     notifyListeners();
   }
@@ -128,6 +158,8 @@ class AppState extends ChangeNotifier {
     _productsSub?.cancel();
     _bannersSub?.cancel();
     _userSub?.cancel();
+    _notificationsSub?.cancel();
+    _productAlertsSub?.cancel();
     super.dispose();
   }
 
@@ -314,6 +346,51 @@ class AppState extends ChangeNotifier {
     await _svc.userDoc(user!.uid).update({
       'points': FieldValue.increment(amount),
     });
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    if (user == null) return;
+    AppNotification? current;
+    for (final n in notifications) {
+      if (n.id == notificationId) {
+        current = n;
+        break;
+      }
+    }
+    if (current == null || current.isRead) return;
+    await _svc.userNotifications(user!.uid).doc(notificationId).update({
+      'readAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    if (user == null) return;
+    final unread = notifications.where((n) => !n.isRead).toList();
+    if (unread.isEmpty) return;
+    final batch = _svc.db.batch();
+    for (final n in unread) {
+      batch.update(_svc.userNotifications(user!.uid).doc(n.id), {
+        'readAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  ProductAlert? alertForProduct(String productId) => productAlerts[productId];
+
+  Future<void> setProductAlert({
+    required String productId,
+    required double targetPrice,
+  }) async {
+    if (user == null) return;
+    final existing = productAlerts[productId];
+    await _svc.userProductAlerts(user!.uid).doc(productId).set({
+      'targetPrice': targetPrice,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': existing == null
+          ? FieldValue.serverTimestamp()
+          : Timestamp.fromDate(existing.createdAt),
+    }, SetOptions(merge: true));
   }
 }
 

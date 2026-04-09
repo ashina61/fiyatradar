@@ -985,12 +985,69 @@ class _StickyActionBar extends StatefulWidget {
 }
 
 class _StickyActionBarState extends State<_StickyActionBar> {
-  bool _alarmSet = false;
   bool _addingToCompare = false;
+
+  Future<void> _openTargetPriceDialog(AppState state) async {
+    final existing = state.alertForProduct(widget.product.id);
+    final ctrl = TextEditingController(
+      text: existing == null ? '' : existing.targetPrice.toStringAsFixed(2),
+    );
+    final target = await showDialog<double>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hedef fiyat'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              hintText: 'Örn: 49,90',
+              prefixText: '₺ ',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final raw = ctrl.text.trim().replaceAll(',', '.');
+                final parsed = double.tryParse(raw);
+                if (parsed == null || parsed <= 0) return;
+                Navigator.pop(context, parsed);
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        );
+      },
+    );
+    ctrl.dispose();
+    if (target == null) return;
+    await state.setProductAlert(
+      productId: widget.product.id,
+      targetPrice: target,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${widget.product.name} için hedef fiyat ₺${target.toStringAsFixed(2)} kaydedildi',
+        ),
+        backgroundColor: CoffeeColors.darkRoast,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final alert = state.alertForProduct(widget.product.id);
+    final alarmSet = alert != null;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
@@ -1013,39 +1070,27 @@ class _StickyActionBarState extends State<_StickyActionBar> {
           children: [
             // Alarm button
             GestureDetector(
-              onTap: () {
-                setState(() => _alarmSet = !_alarmSet);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(_alarmSet
-                        ? '${widget.product.name} için alarm kuruldu'
-                        : 'Alarm kaldırıldı'),
-                    backgroundColor: CoffeeColors.darkRoast,
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                  ),
-                );
-              },
+              onTap: () => _openTargetPriceDialog(state),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: _alarmSet
+                  color: alarmSet
                       ? CoffeeColors.espresso
                       : Colors.white,
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(
-                    color: _alarmSet
+                    color: alarmSet
                         ? CoffeeColors.espresso
                         : CoffeeColors.crema,
                   ),
                 ),
                 child: Icon(
-                  _alarmSet
+                  alarmSet
                       ? Icons.notifications_active
                       : Icons.notifications_none,
-                  color: _alarmSet
+                  color: alarmSet
                       ? CoffeeColors.caramel
                       : CoffeeColors.darkRoast,
                   size: 22,

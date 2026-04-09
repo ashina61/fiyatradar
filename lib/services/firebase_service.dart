@@ -19,6 +19,12 @@ class FirebaseService {
   DocumentReference<Map<String, dynamic>> userDoc(String uid) =>
       users.doc(uid);
 
+  CollectionReference<Map<String, dynamic>> userNotifications(String uid) =>
+      users.doc(uid).collection('notifications');
+
+  CollectionReference<Map<String, dynamic>> userProductAlerts(String uid) =>
+      users.doc(uid).collection('productAlerts');
+
   Future<User> ensureSignedIn() async {
     final cur = auth.currentUser;
     if (cur != null) return cur;
