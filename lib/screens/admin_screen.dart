@@ -1,8 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import '../services/firebase_service.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
-
-// ─── Admin screen ─────────────────────────────────────────────────────────────
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -13,13 +14,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
+  late final TabController _tabController = TabController(length: 4, vsync: this);
 
   @override
   void dispose() {
@@ -35,13 +30,11 @@ class _AdminScreenState extends State<AdminScreen>
         title: Row(
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: CoffeeColors.caramel.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: CoffeeColors.caramel.withOpacity(0.35)),
+                border: Border.all(color: CoffeeColors.caramel.withOpacity(0.35)),
               ),
               child: const Text(
                 'ADMIN',
@@ -64,14 +57,8 @@ class _AdminScreenState extends State<AdminScreen>
           tabAlignment: TabAlignment.start,
           labelColor: CoffeeColors.espresso,
           unselectedLabelColor: CoffeeColors.cocoa,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           indicatorColor: CoffeeColors.caramel,
           indicatorWeight: 3,
           indicatorSize: TabBarIndicatorSize.tab,
@@ -86,118 +73,162 @@ class _AdminScreenState extends State<AdminScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _OverviewTab(),
-          _ContentTab(),
-          _UsersTab(),
-          _NotificationsTab(),
+        children: [
+          _OverviewTab(
+            onGoContent: () => _tabController.animateTo(1),
+            onGoUsers: () => _tabController.animateTo(2),
+            onGoAnnouncements: () => _tabController.animateTo(3),
+          ),
+          const _ContentTab(),
+          const _UsersTab(),
+          const _NotificationsTab(),
         ],
       ),
     );
   }
 }
 
-// ─── Overview tab ─────────────────────────────────────────────────────────────
-
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab();
+  const _OverviewTab({
+    required this.onGoContent,
+    required this.onGoUsers,
+    required this.onGoAnnouncements,
+  });
+
+  final VoidCallback onGoContent;
+  final VoidCallback onGoUsers;
+  final VoidCallback onGoAnnouncements;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
-      children: [
-        // ── Status summary ────────────────────────────────────────
-        _AdminHeroCard(),
-        const SizedBox(height: 20),
+    final svc = FirebaseService.instance;
 
-        // ── Critical queues ───────────────────────────────────────
-        const _SectionHeader(
-          title: 'Kritik Kuyruklar',
-          subtitle: 'Aksiyon bekleyen öğeler',
-        ),
-        const SizedBox(height: 12),
-        _QueueCard(
-          icon: Icons.price_check_outlined,
-          title: 'Onay Bekleyen Fiyatlar',
-          count: 14,
-          accentColor: CoffeeColors.caramel,
-          onTap: () {},
-        ),
-        const SizedBox(height: 8),
-        _QueueCard(
-          icon: Icons.flag_outlined,
-          title: 'Raporlanan İçerikler',
-          count: 3,
-          accentColor: CoffeeColors.danger,
-          onTap: () {},
-        ),
-        const SizedBox(height: 8),
-        _QueueCard(
-          icon: Icons.inventory_2_outlined,
-          title: 'Yönetim Gerektiren Ürünler',
-          count: 7,
-          accentColor: CoffeeColors.accent,
-          onTap: () {},
-        ),
-        const SizedBox(height: 8),
-        _QueueCard(
-          icon: Icons.campaign_outlined,
-          title: 'Bildirim Taslakları',
-          count: 2,
-          accentColor: CoffeeColors.success,
-          onTap: () {},
-        ),
-        const SizedBox(height: 24),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: svc.products.snapshots(),
+      builder: (context, productsSnap) {
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: svc.users.snapshots(),
+          builder: (context, usersSnap) {
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: svc.db.collection('adminAnnouncements').snapshots(),
+              builder: (context, announcementsSnap) {
+                final products = productsSnap.data?.docs ?? const [];
+                final users = usersSnap.data?.docs ?? const [];
+                final announcements = announcementsSnap.data?.docs ?? const [];
 
-        // ── Platform metrics ──────────────────────────────────────
-        const _SectionHeader(
-          title: 'Platform Durumu',
-          subtitle: 'Son 7 gün',
-        ),
-        const SizedBox(height: 12),
-        _MetricsGrid(),
-        const SizedBox(height: 24),
+                int pendingProducts = 0;
+                int hiddenProducts = 0;
+                int featuredProducts = 0;
+                int todayPriceEntries = 0;
+                int flaggedUsers = 0;
+                int draftAnnouncements = 0;
+                final now = DateTime.now();
+                final dayStart = DateTime(now.year, now.month, now.day);
 
-        // ── Quick actions ─────────────────────────────────────────
-        const _SectionHeader(
-          title: 'Hızlı Erişim',
-          subtitle: 'Sık kullanılan yönetim aksiyonları',
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.add_box_outlined,
-                label: 'Ürün Ekle',
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.bar_chart_outlined,
-                label: 'Rapor Al',
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.send_outlined,
-                label: 'Bildirim',
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-      ],
+                for (final p in products) {
+                  final data = p.data();
+                  final status = (data['adminStatus'] as String?) ?? 'active';
+                  if (status == 'pending') pendingProducts++;
+                  if (data['isHidden'] == true) hiddenProducts++;
+                  if (data['isFeatured'] == true) featuredProducts++;
+                  final history = (data['priceHistory'] as List?) ?? const [];
+                  for (final h in history) {
+                    final m = Map<String, dynamic>.from(h as Map);
+                    final ts = m['date'];
+                    final dt = ts is Timestamp ? ts.toDate() : null;
+                    if (dt != null && dt.isAfter(dayStart)) {
+                      todayPriceEntries++;
+                    }
+                  }
+                }
+
+                for (final u in users) {
+                  final trustStatus = (u.data()['trustStatus'] as String?) ?? 'active';
+                  if (trustStatus == 'flagged') flaggedUsers++;
+                }
+
+                for (final a in announcements) {
+                  final status = (a.data()['status'] as String?) ?? 'draft';
+                  if (status == 'draft' || status == 'scheduled') {
+                    draftAnnouncements++;
+                  }
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
+                  children: [
+                    _AdminHeroCard(
+                      productCount: products.length,
+                      userCount: users.length,
+                      todayPriceEntries: todayPriceEntries,
+                    ),
+                    const SizedBox(height: 20),
+                    const _SectionHeader(
+                      title: 'Kritik Kuyruklar',
+                      subtitle: 'Gerçek koleksiyonlardan anlık sayılar',
+                    ),
+                    const SizedBox(height: 12),
+                    _QueueCard(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'Onay Bekleyen Ürünler',
+                      count: pendingProducts,
+                      accentColor: CoffeeColors.caramel,
+                      onTap: onGoContent,
+                    ),
+                    const SizedBox(height: 8),
+                    _QueueCard(
+                      icon: Icons.visibility_off_outlined,
+                      title: 'Gizlenen Ürünler',
+                      count: hiddenProducts,
+                      accentColor: CoffeeColors.danger,
+                      onTap: onGoContent,
+                    ),
+                    const SizedBox(height: 8),
+                    _QueueCard(
+                      icon: Icons.flag_outlined,
+                      title: 'Bayraklı Kullanıcılar',
+                      count: flaggedUsers,
+                      accentColor: CoffeeColors.danger,
+                      onTap: onGoUsers,
+                    ),
+                    const SizedBox(height: 8),
+                    _QueueCard(
+                      icon: Icons.campaign_outlined,
+                      title: 'Taslak/Planlı Duyuru',
+                      count: draftAnnouncements,
+                      accentColor: CoffeeColors.success,
+                      onTap: onGoAnnouncements,
+                    ),
+                    const SizedBox(height: 12),
+                    _QueueCard(
+                      icon: Icons.star_outline,
+                      title: 'Öne Çıkan Ürünler',
+                      count: featuredProducts,
+                      accentColor: CoffeeColors.accent,
+                      onTap: onGoContent,
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
 
 class _AdminHeroCard extends StatelessWidget {
+  const _AdminHeroCard({
+    required this.productCount,
+    required this.userCount,
+    required this.todayPriceEntries,
+  });
+
+  final int productCount;
+  final int userCount;
+  final int todayPriceEntries;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -225,13 +256,11 @@ class _AdminHeroCard extends StatelessWidget {
               const EyebrowLabel('YÖNETİM PANELİ'),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: CoffeeColors.success.withOpacity(0.20),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: CoffeeColors.success.withOpacity(0.35)),
+                  border: Border.all(color: CoffeeColors.success.withOpacity(0.35)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -239,7 +268,7 @@ class _AdminHeroCard extends StatelessWidget {
                     LiveDot(color: CoffeeColors.success),
                     const SizedBox(width: 5),
                     const Text(
-                      'ÇALIŞIYOR',
+                      'CANLI VERİ',
                       style: TextStyle(
                         color: CoffeeColors.success,
                         fontSize: 9,
@@ -265,18 +294,17 @@ class _AdminHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Admin Kontrol Merkezi · v1.0.0',
+            'Admin Kontrol Merkezi',
             style: TextStyle(color: CoffeeColors.latte, fontSize: 13),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _HeroStatChip(
-                  label: 'aktif kullanıcı', value: '1.2K'),
+              _HeroStatChip(label: 'kullanıcı', value: '$userCount'),
               const SizedBox(width: 8),
-              _HeroStatChip(label: 'ürün', value: '248'),
+              _HeroStatChip(label: 'ürün', value: '$productCount'),
               const SizedBox(width: 8),
-              _HeroStatChip(label: 'bugün kayıt', value: '87'),
+              _HeroStatChip(label: 'bugün fiyat', value: '$todayPriceEntries'),
             ],
           ),
         ],
@@ -311,11 +339,7 @@ class _HeroStatChip extends StatelessWidget {
               letterSpacing: -0.3,
             ),
           ),
-          Text(
-            label,
-            style: const TextStyle(
-                color: CoffeeColors.latte, fontSize: 10),
-          ),
+          Text(label, style: const TextStyle(color: CoffeeColors.latte, fontSize: 10)),
         ],
       ),
     );
@@ -330,6 +354,7 @@ class _QueueCard extends StatelessWidget {
     required this.accentColor,
     required this.onTap,
   });
+
   final IconData icon;
   final String title;
   final int count;
@@ -347,9 +372,7 @@ class _QueueCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isUrgent
-                ? accentColor.withOpacity(0.35)
-                : CoffeeColors.crema,
+            color: isUrgent ? accentColor.withOpacity(0.35) : CoffeeColors.crema,
             width: isUrgent ? 1.5 : 1,
           ),
           boxShadow: FR.softShadow,
@@ -362,8 +385,7 @@ class _QueueCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: accentColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: accentColor.withOpacity(0.22)),
+                border: Border.all(color: accentColor.withOpacity(0.22)),
               ),
               child: Icon(icon, color: accentColor, size: 20),
             ),
@@ -379,8 +401,7 @@ class _QueueCard extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: accentColor.withOpacity(isUrgent ? 1.0 : 0.15),
                 borderRadius: BorderRadius.circular(10),
@@ -395,207 +416,13 @@ class _QueueCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right,
-                color: CoffeeColors.cocoa, size: 18),
+            const Icon(Icons.chevron_right, color: CoffeeColors.cocoa, size: 18),
           ],
         ),
       ),
     );
   }
 }
-
-class _MetricsGrid extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CoffeeColors.crema),
-        boxShadow: FR.softShadow,
-      ),
-      child: Column(
-        children: [
-          _MetricRow(
-            icon: Icons.people_alt_outlined,
-            label: 'Yeni Kayıt',
-            value: '+124',
-            sub: 'son 7 gün',
-            trend: '+18%',
-            positive: true,
-            showDivider: true,
-          ),
-          _MetricRow(
-            icon: Icons.add_circle_outline,
-            label: 'Fiyat Katkısı',
-            value: '1.847',
-            sub: 'son 7 gün',
-            trend: '+34%',
-            positive: true,
-            showDivider: true,
-          ),
-          _MetricRow(
-            icon: Icons.flag_outlined,
-            label: 'Raporlama',
-            value: '11',
-            sub: 'son 7 gün',
-            trend: '-5%',
-            positive: false,
-            showDivider: false,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricRow extends StatelessWidget {
-  const _MetricRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.sub,
-    required this.trend,
-    required this.positive,
-    required this.showDivider,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final String sub;
-  final String trend;
-  final bool positive;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) {
-    final trendColor =
-        positive ? CoffeeColors.success : CoffeeColors.danger;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: CoffeeColors.foam,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child:
-                    Icon(icon, color: CoffeeColors.darkRoast, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: CoffeeColors.espresso,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      sub,
-                      style: const TextStyle(
-                          color: CoffeeColors.cocoa, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      color: CoffeeColors.espresso,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: trendColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      trend,
-                      style: TextStyle(
-                        color: trendColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        if (showDivider)
-          const Divider(height: 1, indent: 64, color: CoffeeColors.crema),
-      ],
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile(
-      {required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: CoffeeColors.crema),
-          boxShadow: FR.softShadow,
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: CoffeeColors.espresso,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon,
-                  color: CoffeeColors.caramel, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: CoffeeColors.espresso,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Content tab ─────────────────────────────────────────────────────────────
 
 class _ContentTab extends StatefulWidget {
   const _ContentTab();
@@ -606,153 +433,176 @@ class _ContentTab extends StatefulWidget {
 
 class _ContentTabState extends State<_ContentTab> {
   String _contentFilter = 'Tümü';
-  final _filters = ['Tümü', 'Onay Bekleyen', 'Aktif', 'Arşiv'];
-
-  static const _products = [
-    _AdminProduct(
-        name: 'Filiz Eriştesi 500g',
-        category: 'Makarna',
-        entries: 24,
-        status: 'active'),
-    _AdminProduct(
-        name: 'Pınar Süt 1L',
-        category: 'Süt Ürünleri',
-        entries: 18,
-        status: 'pending'),
-    _AdminProduct(
-        name: 'Ülker Çikolata 60g',
-        category: 'Atıştırmalık',
-        entries: 31,
-        status: 'active'),
-    _AdminProduct(
-        name: 'Elidor Şampuan 400ml',
-        category: 'Kişisel Bakım',
-        entries: 9,
-        status: 'pending'),
-    _AdminProduct(
-        name: 'Aytemiz Zeytinyağı',
-        category: 'Yağ',
-        entries: 0,
-        status: 'archive'),
-  ];
+  final _filters = const ['Tümü', 'Onay Bekleyen', 'Aktif', 'Gizlenen'];
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _contentFilter == 'Tümü'
-        ? _products
-        : _products.where((p) {
-            if (_contentFilter == 'Onay Bekleyen') {
-              return p.status == 'pending';
-            } else if (_contentFilter == 'Aktif') {
-              return p.status == 'active';
-            } else {
-              return p.status == 'archive';
-            }
-          }).toList();
+    final svc = FirebaseService.instance;
 
-    return Column(
-      children: [
-        // Filter chips
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: SizedBox(
-            height: 36,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _filters.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final f = _filters[i];
-                final selected = f == _contentFilter;
-                return GestureDetector(
-                  onTap: () => setState(() => _contentFilter = f),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? CoffeeColors.espresso
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: selected
-                              ? CoffeeColors.espresso
-                              : CoffeeColors.crema),
-                    ),
-                    child: Text(
-                      f,
-                      style: TextStyle(
-                        color: selected
-                            ? CoffeeColors.cream
-                            : CoffeeColors.darkRoast,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: svc.products.snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? const [];
+        final filtered = docs.where((d) {
+          final m = d.data();
+          final status = (m['adminStatus'] as String?) ?? 'active';
+          final isHidden = m['isHidden'] == true;
+          if (_contentFilter == 'Onay Bekleyen') return status == 'pending';
+          if (_contentFilter == 'Aktif') return status == 'active' && !isHidden;
+          if (_contentFilter == 'Gizlenen') return isHidden;
+          return true;
+        }).toList();
+
+        final priceRows = _extractPriceRows(docs);
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: SizedBox(
+                height: 36,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _filters.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final f = _filters[i];
+                    final selected = f == _contentFilter;
+                    return GestureDetector(
+                      onTap: () => setState(() => _contentFilter = f),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? CoffeeColors.espresso : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected ? CoffeeColors.espresso : CoffeeColors.crema,
+                          ),
+                        ),
+                        child: Text(
+                          f,
+                          style: TextStyle(
+                            color: selected ? CoffeeColors.cream : CoffeeColors.darkRoast,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
-
-        // Product list
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-            itemCount: filtered.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) =>
-                _ProductAdminRow(product: filtered[i]),
-          ),
-        ),
-      ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
+                children: [
+                  const _SectionHeader(
+                    title: 'Ürün Yönetimi',
+                    subtitle: 'Gerçek ürün dokümanları',
+                  ),
+                  const SizedBox(height: 12),
+                  ...filtered.map((doc) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _ProductAdminRow(productDoc: doc),
+                      )),
+                  const SizedBox(height: 16),
+                  const _SectionHeader(
+                    title: 'Fiyat Kayıtları',
+                    subtitle: 'Ürün priceHistory akışından',
+                  ),
+                  const SizedBox(height: 12),
+                  ...priceRows.map((row) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _PriceReportRow(row: row),
+                      )),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  List<_PriceRow> _extractPriceRows(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final rows = <_PriceRow>[];
+    for (final d in docs) {
+      final data = d.data();
+      final history = (data['priceHistory'] as List?) ?? const [];
+      for (var i = 0; i < history.length; i++) {
+        final m = Map<String, dynamic>.from(history[i] as Map);
+        final ts = m['date'];
+        rows.add(
+          _PriceRow(
+            productDocId: d.id,
+            productName: (data['name'] as String?) ?? '-',
+            entryIndex: i,
+            store: (m['store'] as String?) ?? '-',
+            price: ((m['price'] as num?) ?? 0).toDouble(),
+            reportedBy: (m['reportedBy'] as String?) ?? '-',
+            date: ts is Timestamp ? ts.toDate() : null,
+          ),
+        );
+      }
+    }
+    rows.sort((a, b) {
+      final ad = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return rows.take(30).toList();
   }
 }
 
-class _AdminProduct {
-  final String name;
-  final String category;
-  final int entries;
-  final String status;
-  const _AdminProduct({
-    required this.name,
-    required this.category,
-    required this.entries,
-    required this.status,
+class _PriceRow {
+  const _PriceRow({
+    required this.productDocId,
+    required this.productName,
+    required this.entryIndex,
+    required this.store,
+    required this.price,
+    required this.reportedBy,
+    required this.date,
   });
+
+  final String productDocId;
+  final String productName;
+  final int entryIndex;
+  final String store;
+  final double price;
+  final String reportedBy;
+  final DateTime? date;
 }
 
 class _ProductAdminRow extends StatelessWidget {
-  const _ProductAdminRow({required this.product});
-  final _AdminProduct product;
+  const _ProductAdminRow({required this.productDoc});
 
-  Color get _statusColor => switch (product.status) {
-        'active' => CoffeeColors.success,
-        'pending' => CoffeeColors.caramel,
-        _ => CoffeeColors.cocoa,
-      };
-
-  String get _statusLabel => switch (product.status) {
-        'active' => 'Aktif',
-        'pending' => 'Bekliyor',
-        _ => 'Arşiv',
-      };
+  final QueryDocumentSnapshot<Map<String, dynamic>> productDoc;
 
   @override
   Widget build(BuildContext context) {
+    final product = productDoc.data();
+    final status = (product['adminStatus'] as String?) ?? 'active';
+    final isHidden = product['isHidden'] == true;
+    final isFeatured = product['isFeatured'] == true;
+
+    final statusColor = switch (status) {
+      'active' => CoffeeColors.success,
+      'pending' => CoffeeColors.caramel,
+      'rejected' => CoffeeColors.danger,
+      _ => CoffeeColors.cocoa,
+    };
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: product.status == 'pending'
-              ? CoffeeColors.caramel.withOpacity(0.35)
-              : CoffeeColors.crema,
-          width: product.status == 'pending' ? 1.5 : 1,
+          color: status == 'pending' ? CoffeeColors.caramel.withOpacity(0.35) : CoffeeColors.crema,
+          width: status == 'pending' ? 1.5 : 1,
         ),
         boxShadow: FR.softShadow,
       ),
@@ -763,7 +613,7 @@ class _ProductAdminRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  product.name,
+                  (product['name'] as String?) ?? '-',
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: CoffeeColors.espresso,
@@ -771,606 +621,92 @@ class _ProductAdminRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: CoffeeColors.foam,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        product.category,
-                        style: const TextStyle(
-                          color: CoffeeColors.cocoa,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${product.entries} kayıt',
-                      style: const TextStyle(
-                          color: CoffeeColors.cocoa, fontSize: 11),
-                    ),
-                  ],
+                Text(
+                  '${(product['category'] as String?) ?? '-'} · ${((product['priceHistory'] as List?) ?? const []).length} kayıt',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          // Status chip
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: _statusColor.withOpacity(0.12),
+              color: statusColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                  color: _statusColor.withOpacity(0.25)),
+              border: Border.all(color: statusColor.withOpacity(0.25)),
             ),
             child: Text(
-              _statusLabel,
-              style: TextStyle(
-                color: _statusColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
+              isHidden ? 'Gizli' : status,
+              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w700),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Actions
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert,
-                color: CoffeeColors.cocoa, size: 18),
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
-            elevation: 4,
-            onSelected: (val) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$val: ${product.name}'),
-                  backgroundColor: CoffeeColors.darkRoast,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'Düzenle',
-                child: Text('Düzenle',
-                    style: TextStyle(
-                        color: CoffeeColors.espresso,
-                        fontSize: 14)),
-              ),
-              if (product.status == 'pending')
-                const PopupMenuItem(
-                  value: 'Onayla',
-                  child: Text('Onayla',
-                      style: TextStyle(
-                          color: CoffeeColors.success,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14)),
-                ),
-              const PopupMenuItem(
-                value: 'Arşivle',
-                child: Text('Arşivle',
-                    style: TextStyle(
-                        color: CoffeeColors.cocoa, fontSize: 14)),
-              ),
-              const PopupMenuItem(
-                value: 'Sil',
-                child: Text('Sil',
-                    style: TextStyle(
-                        color: CoffeeColors.danger,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Users tab ────────────────────────────────────────────────────────────────
-
-class _UsersTab extends StatelessWidget {
-  const _UsersTab();
-
-  static const _users = [
-    _AdminUser(
-        name: 'Ayşe K.',
-        username: '@ayse_k',
-        contributions: 48,
-        trustScore: 94,
-        status: 'active'),
-    _AdminUser(
-        name: 'Mehmet D.',
-        username: '@mehmetd',
-        contributions: 22,
-        trustScore: 78,
-        status: 'active'),
-    _AdminUser(
-        name: 'Zeynep A.',
-        username: '@zeynep_a',
-        contributions: 3,
-        trustScore: 45,
-        status: 'flagged'),
-    _AdminUser(
-        name: 'Burak Y.',
-        username: '@burakyy',
-        contributions: 67,
-        trustScore: 99,
-        status: 'active'),
-    _AdminUser(
-        name: 'Anonim Kullanıcı',
-        username: '@anon_01xk',
-        contributions: 0,
-        trustScore: 20,
-        status: 'flagged'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
-      children: [
-        // Trust stats summary
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: CoffeeColors.crema),
-            boxShadow: FR.softShadow,
-          ),
-          child: Row(
-            children: [
-              _TrustStat(
-                  label: 'Aktif', value: '1.184', color: CoffeeColors.success),
-              _vDivider(),
-              _TrustStat(
-                  label: 'Bayraklı', value: '23', color: CoffeeColors.danger),
-              _vDivider(),
-              _TrustStat(
-                  label: 'Askıya Alınan', value: '5', color: CoffeeColors.cocoa),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        const _SectionHeader(
-          title: 'Kullanıcı Listesi',
-          subtitle: 'Katkı ve güven skoru',
-        ),
-        const SizedBox(height: 12),
-
-        ..._users.map((u) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _UserAdminRow(user: u),
-            )),
-      ],
-    );
-  }
-
-  Widget _vDivider() =>
-      Container(width: 1, height: 36, color: CoffeeColors.crema);
-}
-
-class _AdminUser {
-  final String name;
-  final String username;
-  final int contributions;
-  final int trustScore;
-  final String status;
-  const _AdminUser({
-    required this.name,
-    required this.username,
-    required this.contributions,
-    required this.trustScore,
-    required this.status,
-  });
-}
-
-class _TrustStat extends StatelessWidget {
-  const _TrustStat(
-      {required this.label, required this.value, required this.color});
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-                color: CoffeeColors.cocoa, fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UserAdminRow extends StatelessWidget {
-  const _UserAdminRow({required this.user});
-  final _AdminUser user;
-
-  @override
-  Widget build(BuildContext context) {
-    final isFlagged = user.status == 'flagged';
-    final trustColor = user.trustScore >= 80
-        ? CoffeeColors.success
-        : user.trustScore >= 50
-            ? CoffeeColors.caramel
-            : CoffeeColors.danger;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isFlagged
-              ? CoffeeColors.danger.withOpacity(0.3)
-              : CoffeeColors.crema,
-          width: isFlagged ? 1.5 : 1,
-        ),
-        boxShadow: FR.softShadow,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isFlagged
-                  ? CoffeeColors.danger.withOpacity(0.10)
-                  : CoffeeColors.foam,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              isFlagged
-                  ? Icons.flag_outlined
-                  : Icons.person_outline,
-              color: isFlagged ? CoffeeColors.danger : CoffeeColors.darkRoast,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: CoffeeColors.espresso,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '${user.username} · ${user.contributions} katkı',
-                  style: const TextStyle(
-                      color: CoffeeColors.cocoa, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          // Trust score
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${user.trustScore}',
-                style: TextStyle(
-                  color: trustColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              Text(
-                'güven',
-                style: TextStyle(color: trustColor.withOpacity(0.7), fontSize: 10),
-              ),
-            ],
           ),
           const SizedBox(width: 8),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert,
-                color: CoffeeColors.cocoa, size: 18),
+            icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
             color: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
-            elevation: 4,
-            onSelected: (val) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$val: ${user.name}'),
-                  backgroundColor: CoffeeColors.darkRoast,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onSelected: (val) => _handleProductAction(context, val, productDoc),
             itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'Profili Gör',
-                child: Text('Profili Gör',
-                    style: TextStyle(
-                        color: CoffeeColors.espresso, fontSize: 14)),
+              if (status == 'pending')
+                const PopupMenuItem(value: 'approve', child: Text('Onayla')),
+              if (status == 'pending')
+                const PopupMenuItem(value: 'reject', child: Text('Reddet')),
+              PopupMenuItem(
+                value: isHidden ? 'unhide' : 'hide',
+                child: Text(isHidden ? 'Gizlemeyi Kaldır' : 'Gizle'),
               ),
-              if (isFlagged)
-                const PopupMenuItem(
-                  value: 'Temizle',
-                  child: Text('Bayrağı Kaldır',
-                      style: TextStyle(
-                          color: CoffeeColors.success,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14)),
-                ),
-              const PopupMenuItem(
-                value: 'Askıya Al',
-                child: Text('Askıya Al',
-                    style: TextStyle(
-                        color: CoffeeColors.danger,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
+              PopupMenuItem(
+                value: isFeatured ? 'unfeature' : 'feature',
+                child: Text(isFeatured ? 'Öne Çıkarmayı Kaldır' : 'Öne Çıkar'),
               ),
+              const PopupMenuItem(value: 'delete', child: Text('Sil')),
             ],
           ),
         ],
       ),
     );
   }
-}
 
-// ─── Notifications tab ────────────────────────────────────────────────────────
+  Future<void> _handleProductAction(
+    BuildContext context,
+    String action,
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final ref = FirebaseService.instance.products.doc(doc.id);
+    if (action == 'approve') {
+      await ref.set({'adminStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'reject') {
+      await ref.set({
+        'adminStatus': 'rejected',
+        'isHidden': true,
+        'moderatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else if (action == 'hide') {
+      await ref.set({'isHidden': true, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'unhide') {
+      await ref.set({'isHidden': false, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'feature') {
+      await ref.set({'isFeatured': true, 'featuredAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'unfeature') {
+      await ref.set({'isFeatured': false}, SetOptions(merge: true));
+    } else if (action == 'delete') {
+      await ref.delete();
+    }
 
-class _NotificationsTab extends StatelessWidget {
-  const _NotificationsTab();
-
-  static const _drafts = [
-    _NotifDraft(
-        title: 'Haftalık Fiyat Özeti',
-        audience: 'Tüm Kullanıcılar',
-        scheduledFor: 'Pazartesi 09:00',
-        status: 'scheduled'),
-    _NotifDraft(
-        title: 'Yeni Ürün: Tarım Kredi Fiyatları',
-        audience: 'Aktif Kullanıcılar',
-        scheduledFor: 'Taslak',
-        status: 'draft'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
-      children: [
-        // New notification CTA
-        GestureDetector(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Yeni bildirim oluşturuluyor…'),
-                backgroundColor: CoffeeColors.darkRoast,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.add_alert_outlined,
-                    color: CoffeeColors.caramel, size: 22),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Yeni Bildirim Oluştur',
-                        style: TextStyle(
-                          color: CoffeeColors.cream,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        'Tüm veya segment kullanıcılara gönder',
-                        style: TextStyle(
-                            color: CoffeeColors.latte, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios,
-                    color: CoffeeColors.caramel, size: 16),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        const _SectionHeader(
-          title: 'Planlanmış & Taslak',
-          subtitle: 'Bekleyen bildirimler',
-        ),
-        const SizedBox(height: 12),
-
-        ..._drafts.map((d) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _NotifDraftCard(draft: d),
-            )),
-
-        const SizedBox(height: 24),
-
-        const _SectionHeader(
-          title: 'Gönderim Geçmişi',
-          subtitle: 'Son 30 gün',
-        ),
-        const SizedBox(height: 12),
-
-        _SentNotifRow(
-          title: 'BİM fiyatları güncellendi',
-          sentAt: '4 Nis · 10:23',
-          reach: '2.1K',
-        ),
-        const SizedBox(height: 8),
-        _SentNotifRow(
-          title: 'Yeni ürün: Ayçiçek Yağı',
-          sentAt: '2 Nis · 14:05',
-          reach: '1.8K',
-        ),
-        const SizedBox(height: 8),
-        _SentNotifRow(
-          title: 'Haftalık fiyat özeti #14',
-          sentAt: '1 Nis · 09:00',
-          reach: '3.2K',
-        ),
-      ],
-    );
-  }
-}
-
-class _NotifDraft {
-  final String title;
-  final String audience;
-  final String scheduledFor;
-  final String status;
-  const _NotifDraft({
-    required this.title,
-    required this.audience,
-    required this.scheduledFor,
-    required this.status,
-  });
-}
-
-class _NotifDraftCard extends StatelessWidget {
-  const _NotifDraftCard({required this.draft});
-  final _NotifDraft draft;
-
-  @override
-  Widget build(BuildContext context) {
-    final isScheduled = draft.status == 'scheduled';
-    final statusColor =
-        isScheduled ? CoffeeColors.success : CoffeeColors.caramel;
-    final statusLabel = isScheduled ? 'Planlandı' : 'Taslak';
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isScheduled
-              ? CoffeeColors.success.withOpacity(0.3)
-              : CoffeeColors.crema,
-          width: isScheduled ? 1.5 : 1,
-        ),
-        boxShadow: FR.softShadow,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              isScheduled
-                  ? Icons.schedule_outlined
-                  : Icons.edit_note_outlined,
-              color: statusColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  draft.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: CoffeeColors.espresso,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${draft.audience} · ${draft.scheduledFor}',
-                  style: const TextStyle(
-                      color: CoffeeColors.cocoa, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  Border.all(color: statusColor.withOpacity(0.25)),
-            ),
-            child: Text(
-              statusLabel,
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ürün aksiyonu uygulandı.'),
+        backgroundColor: CoffeeColors.darkRoast,
       ),
     );
   }
 }
 
-class _SentNotifRow extends StatelessWidget {
-  const _SentNotifRow({
-    required this.title,
-    required this.sentAt,
-    required this.reach,
-  });
-  final String title;
-  final String sentAt;
-  final String reach;
+class _PriceReportRow extends StatelessWidget {
+  const _PriceReportRow({required this.row});
+
+  final _PriceRow row;
 
   @override
   Widget build(BuildContext context) {
@@ -1383,15 +719,186 @@ class _SentNotifRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.productName,
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 13),
+                ),
+                Text(
+                  '${row.store} · ₺${row.price.toStringAsFixed(2)} · ${row.reportedBy}',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                ),
+                if (row.date != null)
+                  Text(
+                    '${row.date}',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 10),
+                  ),
+              ],
             ),
-            child: const Icon(Icons.check_circle_outline,
-                color: CoffeeColors.success, size: 18),
+          ),
+          TextButton(
+            onPressed: () => _rejectPriceReport(context),
+            child: const Text('Reddet'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rejectPriceReport(BuildContext context) async {
+    final ref = FirebaseService.instance.products.doc(row.productDocId);
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null) return;
+    final history = List<Map<String, dynamic>>.from(
+      ((data['priceHistory'] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    if (row.entryIndex < 0 || row.entryIndex >= history.length) return;
+    history.removeAt(row.entryIndex);
+    await ref.update({
+      'priceHistory': history,
+      'moderatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fiyat kaydı kaldırıldı.'), backgroundColor: CoffeeColors.darkRoast),
+    );
+  }
+}
+
+class _UsersTab extends StatelessWidget {
+  const _UsersTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = FirebaseService.instance;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: svc.users.snapshots(),
+      builder: (context, usersSnap) {
+        final users = usersSnap.data?.docs ?? const [];
+        int active = 0;
+        int flagged = 0;
+        int suspended = 0;
+        for (final u in users) {
+          final s = (u.data()['trustStatus'] as String?) ?? 'active';
+          if (s == 'flagged') {
+            flagged++;
+          } else if (s == 'suspended') {
+            suspended++;
+          } else {
+            active++;
+          }
+        }
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: CoffeeColors.crema),
+                boxShadow: FR.softShadow,
+              ),
+              child: Row(
+                children: [
+                  _TrustStat(label: 'Aktif', value: '$active', color: CoffeeColors.success),
+                  _vDivider(),
+                  _TrustStat(label: 'Bayraklı', value: '$flagged', color: CoffeeColors.danger),
+                  _vDivider(),
+                  _TrustStat(label: 'Askıda', value: '$suspended', color: CoffeeColors.cocoa),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const _SectionHeader(title: 'Kullanıcı Listesi', subtitle: 'Gerçek kullanıcı belgeleri'),
+            const SizedBox(height: 12),
+            ...users.map((u) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _UserAdminRow(userDoc: u),
+                )),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _vDivider() => Container(width: 1, height: 36, color: CoffeeColors.crema);
+}
+
+class _TrustStat extends StatelessWidget {
+  const _TrustStat({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 18)),
+          Text(label, style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserAdminRow extends StatelessWidget {
+  const _UserAdminRow({required this.userDoc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> userDoc;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = userDoc.data();
+    final trustStatus = (user['trustStatus'] as String?) ?? 'active';
+    final isFlagged = trustStatus == 'flagged';
+    final isSuspended = trustStatus == 'suspended';
+
+    final trustColor = switch (trustStatus) {
+      'suspended' => CoffeeColors.cocoa,
+      'flagged' => CoffeeColors.danger,
+      _ => CoffeeColors.success,
+    };
+
+    final displayName = (user['displayName'] as String?) ?? 'Anonim Kullanıcı';
+    final username = (user['username'] as String?) ?? '@anon';
+    final points = ((user['points'] as num?) ?? 0).toInt();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isFlagged ? CoffeeColors.danger.withOpacity(0.3) : CoffeeColors.crema,
+          width: isFlagged ? 1.5 : 1,
+        ),
+        boxShadow: FR.softShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isFlagged ? CoffeeColors.danger.withOpacity(0.10) : CoffeeColors.foam,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              isFlagged ? Icons.flag_outlined : Icons.person_outline,
+              color: isFlagged ? CoffeeColors.danger : CoffeeColors.darkRoast,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1399,35 +906,298 @@ class _SentNotifRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: CoffeeColors.espresso,
-                    fontSize: 13,
-                  ),
+                  displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
                 ),
                 Text(
-                  sentAt,
-                  style: const TextStyle(
-                      color: CoffeeColors.cocoa, fontSize: 11),
+                  '$username · $points puan',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
                 ),
               ],
             ),
           ),
-          Row(
-            children: [
-              const Icon(Icons.people_alt_outlined,
-                  size: 13, color: CoffeeColors.caramel),
-              const SizedBox(width: 4),
-              Text(
-                reach,
-                style: const TextStyle(
-                  color: CoffeeColors.cocoa,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onSelected: (val) => _handleUserAction(context, val),
+            itemBuilder: (_) => [
+              if (!isFlagged)
+                const PopupMenuItem(value: 'flag', child: Text('Bayrakla')),
+              if (isFlagged)
+                const PopupMenuItem(value: 'resolve', child: Text('Bayrağı Kaldır')),
+              if (!isSuspended)
+                const PopupMenuItem(value: 'suspend', child: Text('Askıya Al')),
+              if (isSuspended)
+                const PopupMenuItem(value: 'activate', child: Text('Aktifleştir')),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: trustColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              trustStatus,
+              style: TextStyle(color: trustColor, fontSize: 10, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleUserAction(BuildContext context, String action) async {
+    final ref = FirebaseService.instance.users.doc(userDoc.id);
+    if (action == 'flag') {
+      await ref.set({'trustStatus': 'flagged', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'resolve') {
+      await ref.set({'trustStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'suspend') {
+      await ref.set({
+        'trustStatus': 'suspended',
+        'disabledAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else if (action == 'activate') {
+      await ref.set({'trustStatus': 'active', 'disabledAt': FieldValue.delete()}, SetOptions(merge: true));
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Kullanıcı aksiyonu uygulandı.'), backgroundColor: CoffeeColors.darkRoast),
+    );
+  }
+}
+
+class _NotificationsTab extends StatefulWidget {
+  const _NotificationsTab();
+
+  @override
+  State<_NotificationsTab> createState() => _NotificationsTabState();
+}
+
+class _NotificationsTabState extends State<_NotificationsTab> {
+  bool _sending = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = FirebaseService.instance;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: svc.db.collection('adminAnnouncements').orderBy('createdAt', descending: true).snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? const [];
+        final sent = docs.where((d) => (d.data()['status'] as String?) == 'sent').toList();
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
+          children: [
+            GestureDetector(
+              onTap: _sending ? null : () => _showCreateAnnouncementDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_alert_outlined, color: CoffeeColors.caramel, size: 22),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Yeni Bildirim Oluştur',
+                            style: TextStyle(color: CoffeeColors.cream, fontWeight: FontWeight.w800, fontSize: 15),
+                          ),
+                          Text(
+                            'Gerçek duyuru dokümanı oluşturur',
+                            style: TextStyle(color: CoffeeColors.latte, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _sending
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: CoffeeColors.caramel),
+                          )
+                        : const Icon(Icons.arrow_forward_ios, color: CoffeeColors.caramel, size: 16),
+                  ],
                 ),
               ),
-            ],
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Planlanmış & Taslak', subtitle: 'adminAnnouncements'),
+            const SizedBox(height: 12),
+            ...docs.where((d) {
+              final s = (d.data()['status'] as String?) ?? 'draft';
+              return s == 'draft' || s == 'scheduled';
+            }).map((d) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _AnnouncementCard(doc: d),
+                )),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Gönderim Geçmişi', subtitle: 'status = sent'),
+            const SizedBox(height: 12),
+            ...sent.map((d) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SentAnnouncementRow(doc: d),
+                )),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showCreateAnnouncementDialog(BuildContext context) async {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    String status = 'draft';
+    String audience = 'all';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Yeni Duyuru'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Başlık'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: bodyController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Mesaj'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: status,
+                  items: const [
+                    DropdownMenuItem(value: 'draft', child: Text('Taslak')),
+                    DropdownMenuItem(value: 'scheduled', child: Text('Planlı')),
+                    DropdownMenuItem(value: 'sent', child: Text('Hemen Gönder')),
+                  ],
+                  onChanged: (v) => setDialogState(() => status = v ?? 'draft'),
+                  decoration: const InputDecoration(labelText: 'Durum'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: audience,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Tüm Kullanıcılar')),
+                    DropdownMenuItem(value: 'active', child: Text('Aktif Kullanıcılar')),
+                  ],
+                  onChanged: (v) => setDialogState(() => audience = v ?? 'all'),
+                  decoration: const InputDecoration(labelText: 'Hedef Kitle'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    final title = titleController.text.trim();
+    final body = bodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+
+    setState(() => _sending = true);
+    final svc = FirebaseService.instance;
+    final doc = await svc.db.collection('adminAnnouncements').add({
+      'title': title,
+      'body': body,
+      'status': status,
+      'audience': audience,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (status == 'sent') {
+      final usersSnap = await svc.users.limit(200).get();
+      final batch = svc.db.batch();
+      for (final u in usersSnap.docs) {
+        batch.set(svc.userNotifications(u.id).doc(), {
+          'title': title,
+          'body': body,
+          'createdAt': FieldValue.serverTimestamp(),
+          'source': 'admin',
+          'announcementId': doc.id,
+        });
+      }
+      await batch.commit();
+    }
+
+    if (!mounted) return;
+    setState(() => _sending = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Duyuru kaydedildi.'), backgroundColor: CoffeeColors.darkRoast),
+    );
+  }
+}
+
+class _AnnouncementCard extends StatelessWidget {
+  const _AnnouncementCard({required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data();
+    final status = (d['status'] as String?) ?? 'draft';
+    final color = status == 'scheduled' ? CoffeeColors.success : CoffeeColors.caramel;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+        boxShadow: FR.softShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (d['title'] as String?) ?? '-',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${(d['audience'] as String?) ?? '-'} · $status',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await doc.reference.set({'status': 'sent', 'sentAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Duyuru gönderime alındı.'), backgroundColor: CoffeeColors.darkRoast),
+              );
+            },
+            child: const Text('Gönder'),
           ),
         ],
       ),
@@ -1435,10 +1205,54 @@ class _SentNotifRow extends StatelessWidget {
   }
 }
 
-// ─── Shared components ────────────────────────────────────────────────────────
+class _SentAnnouncementRow extends StatelessWidget {
+  const _SentAnnouncementRow({required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: CoffeeColors.foam, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.check_circle_outline, color: CoffeeColors.success, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (d['title'] as String?) ?? '-',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 13),
+                ),
+                Text(
+                  (d['audience'] as String?) ?? '-',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, this.subtitle});
+
   final String title;
   final String? subtitle;
 
@@ -1459,11 +1273,7 @@ class _SectionHeader extends StatelessWidget {
         ),
         if (subtitle != null) ...[
           const SizedBox(width: 8),
-          Text(
-            subtitle!,
-            style: const TextStyle(
-                color: CoffeeColors.cocoa, fontSize: 12),
-          ),
+          Text(subtitle!, style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12)),
         ],
       ],
     );
