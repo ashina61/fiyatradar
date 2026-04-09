@@ -3,6 +3,7 @@ import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/design.dart';
+import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
 
 class HomeTab extends StatefulWidget {
@@ -137,7 +138,7 @@ class _HomeTabState extends State<HomeTab> {
               ),
               _PointsPill(points: state.points),
               const SizedBox(width: 8),
-              _NotificationBell(hasNew: last24h > 0),
+              _NotificationBell(hasNew: state.unreadNotificationCount > 0),
             ],
           ),
           const SizedBox(height: 16),
@@ -432,7 +433,14 @@ class _NotificationBell extends StatelessWidget {
             border: Border.all(color: CoffeeColors.crema),
           ),
           child: IconButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsScreen(),
+                ),
+              );
+            },
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.notifications_none,
                 color: CoffeeColors.darkRoast, size: 20),

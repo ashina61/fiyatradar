@@ -139,3 +139,60 @@ class AppBanner {
     );
   }
 }
+
+class AppNotification {
+  final String id;
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  final DateTime? readAt;
+
+  const AppNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    this.readAt,
+  });
+
+  bool get isRead => readAt != null;
+
+  factory AppNotification.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? <String, dynamic>{};
+    final created = m['createdAt'];
+    final read = m['readAt'];
+    return AppNotification(
+      id: d.id,
+      title: (m['title'] ?? '') as String,
+      body: (m['body'] ?? '') as String,
+      createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
+      readAt: read is Timestamp ? read.toDate() : null,
+    );
+  }
+}
+
+class ProductAlert {
+  final String productId;
+  final double targetPrice;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  const ProductAlert({
+    required this.productId,
+    required this.targetPrice,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  factory ProductAlert.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? <String, dynamic>{};
+    final created = m['createdAt'];
+    final updated = m['updatedAt'];
+    return ProductAlert(
+      productId: d.id,
+      targetPrice: (m['targetPrice'] as num?)?.toDouble() ?? 0,
+      createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
+      updatedAt: updated is Timestamp ? updated.toDate() : null,
+    );
+  }
+}

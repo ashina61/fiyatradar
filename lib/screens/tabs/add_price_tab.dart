@@ -13,6 +13,7 @@ class AddPriceTab extends StatefulWidget {
 
 class _AddPriceTabState extends State<AddPriceTab> {
   final _formKey = GlobalKey<FormState>();
+  final _productSearchCtrl = TextEditingController();
   Product? _selectedProduct;
   String? _selectedStore;
   final _priceCtrl = TextEditingController();
@@ -22,6 +23,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
   @override
   void dispose() {
+    _productSearchCtrl.dispose();
     _priceCtrl.dispose();
     _newProductCtrl.dispose();
     super.dispose();
@@ -77,6 +79,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     _priceCtrl.clear();
     _newProductCtrl.clear();
+    _productSearchCtrl.clear();
     setState(() {
       _selectedProduct = null;
       _selectedStore = null;
@@ -96,6 +99,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final q = _productSearchCtrl.text.trim().toLowerCase();
+    final filteredProducts = state.products.where((p) {
+      if (q.isEmpty) return true;
+      return p.name.toLowerCase().contains(q) ||
+          p.brand.toLowerCase().contains(q);
+    }).toList();
+
     final step2Active = _selectedStore != null ||
         (_newProductMode
             ? _newProductCtrl.text.isNotEmpty
@@ -110,7 +120,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ───────────────────────────────────────────
               Row(
                 children: [
                   const Expanded(
@@ -134,8 +143,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
                       color: CoffeeColors.caramel,
                       borderRadius: BorderRadius.circular(20),
@@ -167,8 +176,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // ── Contribution callout ──────────────────────────────
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -205,8 +212,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ),
               ),
               const SizedBox(height: 22),
-
-              // ── Step indicators ───────────────────────────────────
               Row(
                 children: [
                   _StepDot(n: 1, label: 'Ürün', active: true, done: step2Active),
@@ -227,23 +232,19 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ],
               ),
               const SizedBox(height: 22),
-
-              // ── Step 1: Product ────────────────────────────────────
               _StepLabel('1. Ürün'),
               Row(
                 children: [
                   _ModeChip(
                     label: 'Mevcut ürün',
                     selected: !_newProductMode,
-                    onTap: () =>
-                        setState(() => _newProductMode = false),
+                    onTap: () => setState(() => _newProductMode = false),
                   ),
                   const SizedBox(width: 8),
                   _ModeChip(
                     label: 'Yeni ürün ekle',
                     selected: _newProductMode,
-                    onTap: () =>
-                        setState(() => _newProductMode = true),
+                    onTap: () => setState(() => _newProductMode = true),
                   ),
                 ],
               ),
@@ -261,57 +262,91 @@ class _AddPriceTabState extends State<AddPriceTab> {
                       (v == null || v.trim().isEmpty) ? 'Zorunlu' : null,
                 )
               else
-                DropdownButtonFormField<Product>(
-                  value: _selectedProduct,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Ürün seç',
-                    prefixIcon: Icon(Icons.search,
-                        color: CoffeeColors.cocoa, size: 20),
-                  ),
-                  items: state.products
-                      .map((p) => DropdownMenuItem(
-                            value: p,
-                            child: Row(
-                              children: [
-                                Text(p.emoji,
-                                    style:
-                                        const TextStyle(fontSize: 16)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        p.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13),
-                                      ),
-                                      if (p.lowestPrice != null)
-                                        Text(
-                                          '₺${p.lowestPrice!.toStringAsFixed(2)} · ${p.cheapestStore ?? ''}',
-                                          style: const TextStyle(
-                                              color: CoffeeColors.cocoa,
-                                              fontSize: 11),
-                                        ),
-                                    ],
-                                  ),
+                Column(
+                  children: [
+                    TextFormField(
+                      controller: _productSearchCtrl,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Ürün veya marka ara',
+                        prefixIcon: const Icon(Icons.search,
+                            color: CoffeeColors.cocoa, size: 20),
+                        suffixIcon: _productSearchCtrl.text.isEmpty
+                            ? null
+                            : IconButton(
+                                onPressed: () {
+                                  _productSearchCtrl.clear();
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.close, size: 18),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 230),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: CoffeeColors.crema),
+                        boxShadow: FR.softShadow,
+                      ),
+                      child: filteredProducts.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: Text(
+                                'Eşleşen ürün bulunamadı',
+                                style: TextStyle(
+                                  color: CoffeeColors.cocoa,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filteredProducts.length,
+                              itemBuilder: (context, index) {
+                                final p = filteredProducts[index];
+                                final selected = p.id == _selectedProduct?.id;
+                                return ListTile(
+                                  onTap: () =>
+                                      setState(() => _selectedProduct = p),
+                                  dense: true,
+                                  leading: Text(p.emoji,
+                                      style: const TextStyle(fontSize: 18)),
+                                  title: Text(
+                                    p.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: selected
+                                          ? FontWeight.w800
+                                          : FontWeight.w700,
+                                      color: CoffeeColors.espresso,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    p.lowestPrice == null
+                                        ? p.brand
+                                        : '₺${p.lowestPrice!.toStringAsFixed(2)} · ${p.cheapestStore ?? ''}',
+                                    style: const TextStyle(
+                                        color: CoffeeColors.cocoa,
+                                        fontSize: 11),
+                                  ),
+                                  trailing: selected
+                                      ? const Icon(Icons.check_circle,
+                                          color: CoffeeColors.caramel,
+                                          size: 18)
+                                      : null,
+                                );
+                              },
                             ),
-                          ))
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => _selectedProduct = v),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 22),
-
-              // ── Step 2: Store ──────────────────────────────────────
               _StepLabel('2. Market'),
               Wrap(
                 spacing: 8,
@@ -319,16 +354,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 children: state.stores.map((s) {
                   final selected = s == _selectedStore;
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedStore = s),
+                    onTap: () => setState(() => _selectedStore = s),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: selected
-                            ? CoffeeColors.espresso
-                            : Colors.white,
+                        color: selected ? CoffeeColors.espresso : Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: selected
@@ -352,8 +384,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 }).toList(),
               ),
               const SizedBox(height: 22),
-
-              // ── Step 3: Price ──────────────────────────────────────
               Row(
                 children: [
                   const Expanded(child: _StepLabel('3. Fiyat (₺)')),
@@ -401,8 +431,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 },
               ),
               const SizedBox(height: 28),
-
-              // ── CTA ───────────────────────────────────────────────
               ElevatedButton(
                 onPressed: _submitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
@@ -457,8 +485,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 }
 
-// ─── Mode chip ────────────────────────────────────────────────────────────────
-
 class _ModeChip extends StatelessWidget {
   const _ModeChip({
     required this.label,
@@ -475,22 +501,17 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: selected ? CoffeeColors.espresso : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: selected
-                  ? CoffeeColors.espresso
-                  : CoffeeColors.crema),
+              color: selected ? CoffeeColors.espresso : CoffeeColors.crema),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected
-                ? CoffeeColors.cream
-                : CoffeeColors.darkRoast,
+            color: selected ? CoffeeColors.cream : CoffeeColors.darkRoast,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -499,8 +520,6 @@ class _ModeChip extends StatelessWidget {
     );
   }
 }
-
-// ─── Step dot ─────────────────────────────────────────────────────────────────
 
 class _StepDot extends StatelessWidget {
   const _StepDot({
@@ -513,6 +532,7 @@ class _StepDot extends StatelessWidget {
   final String label;
   final bool active;
   final bool done;
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -526,9 +546,7 @@ class _StepDot extends StatelessWidget {
             color: active ? CoffeeColors.espresso : CoffeeColors.foam,
             shape: BoxShape.circle,
             border: Border.all(
-              color: active
-                  ? CoffeeColors.espresso
-                  : CoffeeColors.crema,
+              color: active ? CoffeeColors.espresso : CoffeeColors.crema,
               width: active ? 2 : 1,
             ),
           ),
@@ -538,9 +556,7 @@ class _StepDot extends StatelessWidget {
               : Text(
                   '$n',
                   style: TextStyle(
-                    color: active
-                        ? CoffeeColors.cream
-                        : CoffeeColors.cocoa,
+                    color: active ? CoffeeColors.cream : CoffeeColors.cocoa,
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                   ),
@@ -550,9 +566,7 @@ class _StepDot extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: active
-                ? CoffeeColors.espresso
-                : CoffeeColors.cocoa,
+            color: active ? CoffeeColors.espresso : CoffeeColors.cocoa,
             fontWeight: FontWeight.w700,
             fontSize: 11,
           ),
@@ -565,6 +579,7 @@ class _StepDot extends StatelessWidget {
 class _StepLine extends StatelessWidget {
   const _StepLine({this.active = false});
   final bool active;
+
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -588,6 +603,7 @@ class _StepLine extends StatelessWidget {
 class _StepLabel extends StatelessWidget {
   const _StepLabel(this.text);
   final String text;
+
   @override
   Widget build(BuildContext context) {
     return Padding(

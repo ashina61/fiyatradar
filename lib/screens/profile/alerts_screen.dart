@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
+
+import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/design.dart';
 import '../product_detail_screen.dart';
 
-class AlertsScreen extends StatefulWidget {
+class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
-
-  @override
-  State<AlertsScreen> createState() => _AlertsScreenState();
-}
-
-class _AlertsScreenState extends State<AlertsScreen> {
-  // Local alert state (in a real app this would be in AppState / Firestore)
-  final Map<String, bool> _alertsEnabled = {};
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    // Show alerts for favorited products
-    final favProducts = state.products
-        .where((p) => state.isFavorite(p.id))
-        .toList();
+    final alertEntries = state.productAlerts.entries.toList()
+      ..sort((a, b) => b.value.createdAt.compareTo(a.value.createdAt));
+    final activeAlerts = <MapEntry<Product, double>>[];
+    for (final entry in alertEntries) {
+      final product = state.findById(entry.key);
+      if (product == null) continue;
+      activeAlerts.add(MapEntry(product, entry.value.targetPrice));
+    }
 
     return Scaffold(
       backgroundColor: CoffeeColors.cream,
@@ -30,23 +28,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Fiyat Alarmlarım'),
-            if (favProducts.isNotEmpty)
+            if (activeAlerts.isNotEmpty)
               Text(
-                '${_alertsEnabled.values.where((v) => v).length} aktif alarm',
+                '${activeAlerts.length} aktif alarm',
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: CoffeeColors.cocoa),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: CoffeeColors.cocoa,
+                ),
               ),
           ],
         ),
       ),
-      body: favProducts.isEmpty
-          ? _EmptyAlerts()
+      body: activeAlerts.isEmpty
+          ? const _EmptyAlerts()
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
               children: [
-                // Info callout
                 Container(
                   padding: const EdgeInsets.all(14),
                   margin: const EdgeInsets.only(bottom: 16),
@@ -54,7 +52,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     color: CoffeeColors.caramel.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                        color: CoffeeColors.caramel.withOpacity(0.3)),
+                      color: CoffeeColors.caramel.withOpacity(0.3),
+                    ),
                   ),
                   child: const Row(
                     children: [
@@ -63,7 +62,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Kayıtlı ürünlerin fiyatı düştüğünde bildirim gönderilir.',
+                          'Hedef fiyat alarmın ürün detayındaki Alarm Kur akışından yönetilir.',
                           style: TextStyle(
                             color: CoffeeColors.darkRoast,
                             fontSize: 13,
@@ -74,16 +73,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     ],
                   ),
                 ),
-
-                // Alert tiles
-                ...favProducts.map((p) {
-                  final enabled = _alertsEnabled[p.id] ?? false;
+                ...activeAlerts.map((e) {
+                  final p = e.key;
                   return GestureDetector(
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) =>
-                              ProductDetailScreen(product: p)),
+                        builder: (_) => ProductDetailScreen(product: p),
+                      ),
                     ),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -92,9 +89,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: enabled
-                              ? CoffeeColors.caramel.withOpacity(0.4)
-                              : CoffeeColors.crema,
+                          color: CoffeeColors.caramel.withOpacity(0.4),
                         ),
                         boxShadow: FR.softShadow,
                       ),
@@ -105,24 +100,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
                             height: 48,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [
-                                  CoffeeColors.foam,
-                                  CoffeeColors.crema
-                                ],
+                                colors: [CoffeeColors.foam, CoffeeColors.crema],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(13),
                             ),
                             alignment: Alignment.center,
-                            child: Text(p.emoji,
-                                style: const TextStyle(fontSize: 24)),
+                            child: Text(
+                              p.emoji,
+                              style: const TextStyle(fontSize: 24),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   p.name,
@@ -135,18 +128,29 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 3),
+                                Text(
+                                  'Hedef fiyat: ₺${e.value.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: CoffeeColors.caramel,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
                                 Row(
                                   children: [
                                     PriceText(p.lowestPrice, size: 14),
                                     if (p.cheapestStore != null) ...[
-                                      const Text(' · ',
-                                          style: TextStyle(
-                                              color: CoffeeColors.crema)),
+                                      const Text(
+                                        ' · ',
+                                        style: TextStyle(color: CoffeeColors.crema),
+                                      ),
                                       Text(
                                         p.cheapestStore!,
                                         style: const TextStyle(
-                                            color: CoffeeColors.cocoa,
-                                            fontSize: 12),
+                                          color: CoffeeColors.cocoa,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -154,66 +158,33 @@ class _AlertsScreenState extends State<AlertsScreen> {
                               ],
                             ),
                           ),
-                          // Toggle
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _alertsEnabled[p.id] = !enabled;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(enabled
-                                      ? 'Alarm kapatıldı'
-                                      : '${p.name} için alarm kuruldu'),
-                                  backgroundColor:
-                                      CoffeeColors.darkRoast,
-                                  behavior: SnackBarBehavior.floating,
-                                  margin: const EdgeInsets.fromLTRB(
-                                      16, 0, 16, 80),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: CoffeeColors.espresso,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.notifications_active,
+                                  size: 16,
+                                  color: CoffeeColors.caramel,
                                 ),
-                              );
-                            },
-                            child: AnimatedContainer(
-                              duration:
-                                  const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: enabled
-                                    ? CoffeeColors.espresso
-                                    : CoffeeColors.foam,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: enabled
-                                      ? CoffeeColors.espresso
-                                      : CoffeeColors.crema,
+                                SizedBox(width: 4),
+                                Text(
+                                  'Açık',
+                                  style: TextStyle(
+                                    color: CoffeeColors.caramel,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    enabled
-                                        ? Icons.notifications_active
-                                        : Icons.notifications_none,
-                                    size: 16,
-                                    color: enabled
-                                        ? CoffeeColors.caramel
-                                        : CoffeeColors.cocoa,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    enabled ? 'Açık' : 'Kapat',
-                                    style: TextStyle(
-                                      color: enabled
-                                          ? CoffeeColors.caramel
-                                          : CoffeeColors.cocoa,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
                         ],
@@ -228,6 +199,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
 }
 
 class _EmptyAlerts extends StatelessWidget {
+  const _EmptyAlerts();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -243,20 +216,24 @@ class _EmptyAlerts extends StatelessWidget {
               border: Border.all(color: CoffeeColors.crema),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.notifications_none,
-                color: CoffeeColors.caramel, size: 36),
+            child: const Icon(
+              Icons.notifications_none,
+              color: CoffeeColors.caramel,
+              size: 36,
+            ),
           ),
           const SizedBox(height: 16),
           const Text(
             'Henüz alarm yok',
             style: TextStyle(
-                color: CoffeeColors.espresso,
-                fontSize: 17,
-                fontWeight: FontWeight.w800),
+              color: CoffeeColors.espresso,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Önce ürünleri favorile, ardından\nalarm kurabilirsin',
+            'Ürün detayında hedef fiyat belirleyerek\nalarm oluşturabilirsin',
             textAlign: TextAlign.center,
             style: TextStyle(color: CoffeeColors.cocoa, fontSize: 13),
           ),

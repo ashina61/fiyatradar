@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'notifications_screen.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
 
@@ -66,7 +67,7 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const _NotificationsPage())),
+                        builder: (_) => const NotificationsScreen())),
               ),
             ],
           ),
@@ -589,81 +590,6 @@ class _SecurityPageState extends State<_SecurityPage> {
                   title: 'Aktif Oturumlar',
                   subtitle: 'Bağlı cihazları görüntüle',
                   onTap: () {},
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationsPage extends StatefulWidget {
-  const _NotificationsPage();
-  @override
-  State<_NotificationsPage> createState() => _NotificationsPageState();
-}
-
-class _NotificationsPageState extends State<_NotificationsPage> {
-  bool _priceAlerts = true;
-  bool _weeklyReport = true;
-  bool _newContributions = false;
-  bool _communityNews = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CoffeeColors.cream,
-      appBar: AppBar(title: const Text('Bildirim Tercihleri')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: CoffeeColors.crema),
-              boxShadow: FR.softShadow,
-            ),
-            child: Column(
-              children: [
-                _ToggleTileCompact(
-                  title: 'Fiyat Alarmları',
-                  subtitle: 'Takip ettiğin ürünlerde fiyat düşünce',
-                  icon: Icons.notifications_active_outlined,
-                  value: _priceAlerts,
-                  onChanged: (v) => setState(() => _priceAlerts = v),
-                ),
-                const Divider(
-                    height: 1, indent: 16, color: CoffeeColors.crema),
-                _ToggleTileCompact(
-                  title: 'Haftalık Özet',
-                  subtitle: 'Haftanın en hareketli ürünleri',
-                  icon: Icons.summarize_outlined,
-                  value: _weeklyReport,
-                  onChanged: (v) =>
-                      setState(() => _weeklyReport = v),
-                ),
-                const Divider(
-                    height: 1, indent: 16, color: CoffeeColors.crema),
-                _ToggleTileCompact(
-                  title: 'Yeni Katkılar',
-                  subtitle: 'Takip ettiğin ürünlere fiyat eklenince',
-                  icon: Icons.add_circle_outline,
-                  value: _newContributions,
-                  onChanged: (v) =>
-                      setState(() => _newContributions = v),
-                ),
-                const Divider(
-                    height: 1, indent: 16, color: CoffeeColors.crema),
-                _ToggleTileCompact(
-                  title: 'Topluluk Haberleri',
-                  subtitle: 'Kampanya ve duyurular',
-                  icon: Icons.campaign_outlined,
-                  value: _communityNews,
-                  onChanged: (v) =>
-                      setState(() => _communityNews = v),
                 ),
               ],
             ),
