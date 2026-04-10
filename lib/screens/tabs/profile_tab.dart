@@ -188,10 +188,6 @@ class ProfileTab extends StatelessWidget {
           _LevelJourneyCard(currentLevel: level),
           const SizedBox(height: 14),
 
-          // ── Contribution ways ─────────────────────────────────────
-          _ContributionCard(),
-          const SizedBox(height: 14),
-
           // ── Navigation menu ───────────────────────────────────────
           _MenuSection(
             title: 'Kütüphanem',
@@ -908,105 +904,4 @@ class _LevelJourneyCard extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─── Contribution card ────────────────────────────────────────────────────────
-
-class _ContributionCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CoffeeColors.crema),
-        boxShadow: FR.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.emoji_events_outlined,
-                  color: CoffeeColors.caramel, size: 18),
-              SizedBox(width: 8),
-              Text(
-                'Puan Kazan',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: CoffeeColors.espresso,
-                    fontSize: 15),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _rewardRow(Icons.add_circle_outline, 'Fiyat ekle',
-              '+${PointsRules.addPrice} puan'),
-          _rewardRow(Icons.inventory_2_outlined, 'Yeni ürün ekle',
-              '+${PointsRules.addProduct} puan'),
-          _rewardRow(Icons.favorite_border, 'Favorilere ekle',
-              '+${PointsRules.favorite} puan'),
-          _rewardRow(Icons.login_outlined, 'Günlük giriş',
-              '+${PointsRules.dailyLogin} puan'),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline,
-                    size: 14, color: CoffeeColors.cocoa),
-                SizedBox(width: 6),
-                Text(
-                  '100 puan = ₺5 değerinde',
-                  style:
-                      TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Widget _rewardRow(IconData icon, String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      children: [
-        Icon(icon, size: 16, color: CoffeeColors.darkRoast),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-                color: CoffeeColors.espresso,
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: CoffeeColors.caramel.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: CoffeeColors.caramel,
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }
