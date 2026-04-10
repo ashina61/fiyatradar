@@ -7,14 +7,16 @@ import 'tabs/basket_tab.dart';
 import 'tabs/profile_tab.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _index = 0;
+  late int _index;
 
   static const _tabs = <Widget>[
     HomeTab(),
@@ -23,6 +25,12 @@ class _MainScreenState extends State<MainScreen> {
     BasketTab(),
     ProfileTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex.clamp(0, _tabs.length - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +58,6 @@ class _PremiumBottomBar extends StatelessWidget {
     (Icons.balance_outlined, 'Karşılaştır'),
     (Icons.person_outline_rounded, 'Profil'),
   ];
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
