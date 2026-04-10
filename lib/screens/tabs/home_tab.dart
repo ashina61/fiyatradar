@@ -5,6 +5,7 @@ import '../../theme.dart';
 import '../../widgets/design.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
+import '../points_screen.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -136,7 +137,13 @@ class _HomeTabState extends State<HomeTab> {
                   ],
                 ),
               ),
-              _PointsPill(points: state.points),
+              _PointsPill(
+                points: state.points,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PointsScreen()),
+                ),
+              ),
               const SizedBox(width: 8),
               _NotificationBell(hasNew: state.unreadNotificationCount > 0),
             ],
@@ -383,31 +390,39 @@ class _FilterChip extends StatelessWidget {
 // ─── Points pill ─────────────────────────────────────────────────────────────
 
 class _PointsPill extends StatelessWidget {
-  const _PointsPill({required this.points});
+  const _PointsPill({required this.points, required this.onTap});
   final int points;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: CoffeeColors.espresso,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CoffeeColors.caramel.withOpacity(0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star_rounded,
-              size: 13, color: CoffeeColors.caramel),
-          const SizedBox(width: 5),
-          Text(
-            '$points',
-            style: const TextStyle(
-                color: CoffeeColors.cream,
-                fontWeight: FontWeight.w800,
-                fontSize: 13),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: CoffeeColors.espresso,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: CoffeeColors.caramel.withOpacity(0.4)),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star_rounded,
+                  size: 13, color: CoffeeColors.caramel),
+              const SizedBox(width: 5),
+              Text(
+                '$points',
+                style: const TextStyle(
+                    color: CoffeeColors.cream,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
