@@ -1,11 +1,13 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/design.dart';
+import '../main_screen.dart';
 import '../product_detail_screen.dart';
-
-// ─── Comparison logic ─────────────────────────────────────────────────────────
 
 Map<String, double> _bestPricePerStore(Product product) {
   final Map<String, double> best = {};
@@ -50,16 +52,15 @@ _MixedBasket mixedBasket(List<CartItem> items) {
     if (lowest != null && store != null) {
       total += lowest * item.quantity;
       allocs.add(_ItemAllocation(
-          product: item.product,
-          store: store,
-          unitPrice: lowest,
-          quantity: item.quantity));
+        product: item.product,
+        store: store,
+        unitPrice: lowest,
+        quantity: item.quantity,
+      ));
     }
   }
   return _MixedBasket(total: total, allocations: allocs);
 }
-
-// ─── Data classes ─────────────────────────────────────────────────────────────
 
 class _StoreTotal {
   final String store;
@@ -86,7 +87,13 @@ class _ItemAllocation {
   });
 }
 
-// ─── Main tab ─────────────────────────────────────────────────────────────────
+enum _ComparisonScenario {
+  noCoverage,
+  singleStore,
+  multiStore,
+  mixedOnly,
+  partialData,
+}
 
 class BasketTab extends StatelessWidget {
   const BasketTab({super.key});
@@ -100,7 +107,6 @@ class BasketTab extends StatelessWidget {
     return SafeArea(
       child: Column(
         children: [
-          // ── Header ───────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Row(
@@ -119,17 +125,15 @@ class BasketTab extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'En avantajlı marketi bul',
-                        style: TextStyle(
-                            color: CoffeeColors.cocoa, fontSize: 13),
+                        'Akıllı sepet optimizasyonu',
+                        style: TextStyle(color: CoffeeColors.cocoa, fontSize: 13),
                       ),
                     ],
                   ),
                 ),
                 if (items.isNotEmpty) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: CoffeeColors.espresso.withOpacity(0.06),
                       borderRadius: BorderRadius.circular(12),
@@ -138,9 +142,10 @@ class BasketTab extends StatelessWidget {
                     child: Text(
                       '$totalQty ürün',
                       style: const TextStyle(
-                          color: CoffeeColors.darkRoast,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13),
+                        color: CoffeeColors.darkRoast,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -151,21 +156,18 @@ class BasketTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: CoffeeColors.danger.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: CoffeeColors.danger.withOpacity(0.2)),
+                        border: Border.all(color: CoffeeColors.danger.withOpacity(0.2)),
                       ),
-                      child: const Icon(Icons.delete_outline,
-                          size: 18, color: CoffeeColors.danger),
+                      child: const Icon(Icons.delete_outline, size: 18, color: CoffeeColors.danger),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-
           Expanded(
             child: items.isEmpty
-                ? const _EmptyState()
+                ? _EmptyState(products: state.products)
                 : _ComparisonBody(items: items),
           ),
         ],
@@ -179,10 +181,10 @@ class BasketTab extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Sepeti Temizle',
-            style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: CoffeeColors.espresso)),
+        title: const Text(
+          'Sepeti Temizle',
+          style: TextStyle(fontWeight: FontWeight.w800, color: CoffeeColors.espresso),
+        ),
         content: const Text(
           'Tüm ürünler sepetten kaldırılacak.',
           style: TextStyle(color: CoffeeColors.cocoa),
@@ -190,8 +192,7 @@ class BasketTab extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal',
-                style: TextStyle(color: CoffeeColors.cocoa)),
+            child: const Text('İptal', style: TextStyle(color: CoffeeColors.cocoa)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -202,11 +203,9 @@ class BasketTab extends StatelessWidget {
               backgroundColor: CoffeeColors.danger,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('Temizle',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text('Temizle', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -214,83 +213,170 @@ class BasketTab extends StatelessWidget {
   }
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.products});
+
+  final List<Product> products;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                color: CoffeeColors.foam,
-                borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: CoffeeColors.crema),
-              ),
-              alignment: Alignment.center,
-              child: const Text('⚖️', style: TextStyle(fontSize: 40)),
+    final suggestions = [...products]
+      ..sort((a, b) {
+        DateTime aDate = DateTime.fromMillisecondsSinceEpoch(0);
+        DateTime bDate = DateTime.fromMillisecondsSinceEpoch(0);
+        if (a.priceHistory.isNotEmpty) {
+          aDate = ([...a.priceHistory]..sort((x, y) => y.date.compareTo(x.date))).first.date;
+        }
+        if (b.priceHistory.isNotEmpty) {
+          bDate = ([...b.priceHistory]..sort((x, y) => y.date.compareTo(x.date))).first.date;
+        }
+        return bDate.compareTo(aDate);
+      });
+    final latestSuggestions = suggestions.take(3).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Karşılaştırma için\nürün ekle',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: CoffeeColors.espresso,
-                fontWeight: FontWeight.w800,
-                fontSize: 19,
-                letterSpacing: -0.4,
-                height: 1.25,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: CoffeeColors.espresso.withOpacity(0.28),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Ürün detay ekranındaki "Karşılaştırmaya Ekle" butonuna bas.',
-              textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: CoffeeColors.cocoa, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: CoffeeColors.crema),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const EyebrowLabel('KARŞILAŞTIRMAYA BAŞLA'),
+              const SizedBox(height: 12),
+              const Text(
+                'Sepetine ürün ekle,\nFiyatRadar en avantajlı senaryoyu çıkarsın.',
+                style: TextStyle(
+                  color: CoffeeColors.cream,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  height: 1.25,
+                ),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.tips_and_updates_outlined,
-                      color: CoffeeColors.caramel, size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    "İpucu: Keşfet'ten ürün ara ve ekle",
-                    style: TextStyle(
-                      color: CoffeeColors.darkRoast,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              const Text(
+                'Tek market sonucu varsa net gör, yoksa karma kombinasyonu ürün bazında değerlendir.',
+                style: TextStyle(color: CoffeeColors.latte, fontSize: 12, height: 1.4),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: CoffeeColors.caramel,
+                  foregroundColor: CoffeeColors.espresso,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text(
+                  'Keşfet’ten ürün ekle',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        if (latestSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const _SectionLabel(
+            title: 'Son Eklenenlerden Öneriler',
+            subtitle: 'Karşılaştırmaya hızlı başlamak için ürün seç',
+          ),
+          const SizedBox(height: 8),
+          ...latestSuggestions.map(
+            (product) => _SuggestionRow(product: product),
+          ),
+        ],
+      ],
     );
   }
 }
 
-// ─── Comparison body ──────────────────────────────────────────────────────────
+class _SuggestionRow extends StatelessWidget {
+  const _SuggestionRow({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: CoffeeColors.foam,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text(product.emoji, style: const TextStyle(fontSize: 18)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CoffeeColors.espresso,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  product.lowestPrice != null
+                      ? 'En düşük: ₺${product.lowestPrice!.toStringAsFixed(2)}'
+                      : 'Henüz fiyat verisi yok',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => state.addToCart(product),
+            style: TextButton.styleFrom(
+              foregroundColor: CoffeeColors.darkRoast,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            child: const Text('Ekle', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ComparisonBody extends StatelessWidget {
   const _ComparisonBody({required this.items});
@@ -302,288 +388,274 @@ class _ComparisonBody extends StatelessWidget {
     final mixed = mixedBasket(items);
     final winner = storeTotals.isNotEmpty ? storeTotals.first : null;
     final worst = storeTotals.isNotEmpty ? storeTotals.last : null;
-    final savingsVsWorst =
-        (winner != null && worst != null && worst.store != winner.store)
-            ? worst.total - winner.total
-            : null;
-    final savingsPct = (savingsVsWorst != null && worst!.total > 0)
-        ? (savingsVsWorst / worst.total * 100)
+    final savingsVsWorst = (winner != null && worst != null && worst.store != winner.store)
+        ? worst.total - winner.total
         : null;
+    final scenario = _resolveScenario(storeTotals: storeTotals, mixed: mixed, items: items);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
-        // ── Winner card ──────────────────────────────────────────
-        if (winner != null)
-          _WinnerCard(
-            winner: winner,
-            savings: savingsVsWorst,
-            savingsPct: savingsPct,
-            itemCount: items.fold(0, (s, c) => s + c.quantity),
-          )
-        else
-          const _NoComparisonCard(),
-
+        _TopSummaryCard(
+          scenario: scenario,
+          winner: winner,
+          mixed: mixed,
+          itemCount: items.fold(0, (s, c) => s + c.quantity),
+          distinctProductCount: items.length,
+          savingsVsWorst: savingsVsWorst,
+        ),
         const SizedBox(height: 16),
-
-        // ── Store ranking ────────────────────────────────────────
-        if (storeTotals.isNotEmpty) ...[
-          _SectionLabel(
-            title: 'Market Sıralaması',
-            subtitle: 'Tüm ürünleri karşılayan marketler',
-          ),
-          const SizedBox(height: 10),
-          _StoreRankingList(
-              storeTotals: storeTotals, worstTotal: worst?.total),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Mixed basket ─────────────────────────────────────────
-        if (mixed.allocations.length > 1) ...[
-          _SectionLabel(
-            title: 'En İyi Kombinasyon',
-            subtitle: 'Her ürün kendi en ucuz marketinden',
-          ),
-          const SizedBox(height: 10),
-          _MixedBasketCard(mixed: mixed),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Per-item breakdown ────────────────────────────────────
-        _SectionLabel(
-          title: 'Ürün Bazında En Ucuz',
-          subtitle: 'Her ürün için en iyi market',
+        const _SectionLabel(
+          title: 'Market Karşılaştırma',
+          subtitle: 'Uygunluk ve toplam fiyat görünümü',
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+        if (storeTotals.isNotEmpty)
+          _StoreRankingList(storeTotals: storeTotals, worstTotal: worst?.total)
+        else
+          _MarketFallbackCard(scenario: scenario, mixed: mixed),
+        const SizedBox(height: 18),
+        const _SectionLabel(
+          title: 'Ürün Bazında Dağılım',
+          subtitle: 'Her üründe en iyi market ve fiyat',
+        ),
+        const SizedBox(height: 8),
         ...items.map((c) => _ItemCompareRow(item: c)),
-        const SizedBox(height: 20),
-
-        // ── Basket items ──────────────────────────────────────────
-        _SectionLabel(
-          title: 'Sepetteki Ürünler',
-          subtitle: 'Miktar düzenle veya çıkar',
+        const SizedBox(height: 18),
+        const _SectionLabel(
+          title: 'Sepet',
+          subtitle: 'Adet düzenle, ürünü çıkar',
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         ...items.map((c) => _BasketItemRow(item: c)),
       ],
     );
   }
+
+  _ComparisonScenario _resolveScenario({
+    required List<_StoreTotal> storeTotals,
+    required _MixedBasket mixed,
+    required List<CartItem> items,
+  }) {
+    if (storeTotals.isEmpty && mixed.allocations.isEmpty) {
+      return _ComparisonScenario.noCoverage;
+    }
+    if (storeTotals.length == 1) {
+      return _ComparisonScenario.singleStore;
+    }
+    if (storeTotals.length > 1) {
+      final allCoveredByMixed = mixed.allocations.length == items.length;
+      return allCoveredByMixed ? _ComparisonScenario.multiStore : _ComparisonScenario.partialData;
+    }
+    if (mixed.allocations.length == items.length) {
+      return _ComparisonScenario.mixedOnly;
+    }
+    return _ComparisonScenario.partialData;
+  }
 }
 
-// ─── Winner card ─────────────────────────────────────────────────────────────
-
-class _WinnerCard extends StatelessWidget {
-  const _WinnerCard({
+class _TopSummaryCard extends StatelessWidget {
+  const _TopSummaryCard({
+    required this.scenario,
     required this.winner,
-    required this.savings,
-    required this.savingsPct,
+    required this.mixed,
     required this.itemCount,
+    required this.distinctProductCount,
+    required this.savingsVsWorst,
   });
 
-  final _StoreTotal winner;
-  final double? savings;
-  final double? savingsPct;
+  final _ComparisonScenario scenario;
+  final _StoreTotal? winner;
+  final _MixedBasket mixed;
   final int itemCount;
+  final int distinctProductCount;
+  final double? savingsVsWorst;
 
   @override
   Widget build(BuildContext context) {
+    final bool isSingleStore = scenario == _ComparisonScenario.singleStore || scenario == _ComparisonScenario.multiStore;
+    final bool isMixedHero = scenario == _ComparisonScenario.mixedOnly;
+    final heroTitle = switch (scenario) {
+      _ComparisonScenario.singleStore => 'Tek markette en iyi sonuç',
+      _ComparisonScenario.multiStore => 'En avantajlı market bulundu',
+      _ComparisonScenario.mixedOnly => 'Karma kombinasyon en iyi seçenek',
+      _ComparisonScenario.partialData => 'Kısmi fiyat verisiyle özet',
+      _ComparisonScenario.noCoverage => 'Kıyas için yeterli veri yok',
+    };
+
+    final heroTotal = isMixedHero ? mixed.total : winner?.total;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [CoffeeColors.espresso, CoffeeColors.darkRoast],
         ),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: CoffeeColors.espresso.withOpacity(0.30),
-            blurRadius: 32,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label row
           Row(
             children: [
-              const EyebrowLabel('EN AVANTAJLI SEÇENEK'),
+              const EyebrowLabel('TOPLAM KARAR YÜZEYİ'),
               const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.07),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withOpacity(0.10)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LiveDot(color: CoffeeColors.caramel),
-                    const SizedBox(width: 5),
-                    const Text(
-                      'CANLI',
-                      style: TextStyle(
-                        color: CoffeeColors.caramel,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _StateBadge(label: _scenarioChip(scenario)),
             ],
           ),
-          const SizedBox(height: 18),
-
-          // Store name + total price
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      winner.store,
-                      style: const TextStyle(
-                        color: CoffeeColors.cream,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.8,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '$itemCount ürün için en ucuz market',
-                      style: const TextStyle(
-                          color: CoffeeColors.latte, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '₺${winner.total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: CoffeeColors.cream,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const Text(
-                    'toplam',
-                    style: TextStyle(
-                        color: CoffeeColors.latte, fontSize: 10),
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            heroTitle,
+            style: const TextStyle(
+              color: CoffeeColors.cream,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              height: 1.2,
+            ),
           ),
-
-          // Savings badges
-          if (savings != null && savings! > 0.005) ...[
-            const SizedBox(height: 16),
+          const SizedBox(height: 6),
+          Text(
+            '${distinctProductCount} ürün · $itemCount adet hesaplandı',
+            style: const TextStyle(color: CoffeeColors.latte, fontSize: 12),
+          ),
+          const SizedBox(height: 14),
+          if (heroTotal != null)
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32).withOpacity(0.22),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: const Color(0xFF2E7D32).withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.savings_outlined,
-                          color: Color(0xFFB7D49A), size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        '₺${savings!.toStringAsFixed(2)} tasarruf',
-                        style: const TextStyle(
-                          color: Color(0xFFB7D49A),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                Text(
+                  '₺${heroTotal.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: CoffeeColors.cream,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
-                if (savingsPct != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: CoffeeColors.caramel.withOpacity(0.22),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: CoffeeColors.caramel.withOpacity(0.4),
-                      ),
-                    ),
-                    child: Text(
-                      '%${savingsPct!.toStringAsFixed(0)} avantaj',
-                      style: const TextStyle(
-                        color: CoffeeColors.caramel,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
+                const SizedBox(width: 6),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text('toplam', style: TextStyle(color: CoffeeColors.latte, fontSize: 11)),
+                ),
               ],
+            )
+          else
+            const Text(
+              'Fiyat geçmişi olan ürün ekleyerek karşılaştırmayı başlatabilirsin.',
+              style: TextStyle(color: CoffeeColors.latte, fontSize: 12),
+            ),
+          if (isSingleStore && winner != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Önerilen market: ${winner!.store}',
+              style: const TextStyle(color: CoffeeColors.caramel, fontWeight: FontWeight.w800, fontSize: 13),
+            ),
+          ],
+          if (savingsVsWorst != null && savingsVsWorst! > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: CoffeeColors.success.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: CoffeeColors.success.withOpacity(0.35)),
+              ),
+              child: Text(
+                'En pahalı seçeneğe göre ₺${savingsVsWorst!.toStringAsFixed(2)} avantaj',
+                style: const TextStyle(color: Color(0xFFCDE3B8), fontWeight: FontWeight.w700, fontSize: 12),
+              ),
             ),
           ],
         ],
       ),
     );
   }
+
+  String _scenarioChip(_ComparisonScenario scenario) {
+    return switch (scenario) {
+      _ComparisonScenario.singleStore => 'TEK MARKET',
+      _ComparisonScenario.multiStore => 'MARKET KIYASI',
+      _ComparisonScenario.mixedOnly => 'KARMA SONUÇ',
+      _ComparisonScenario.partialData => 'KISMİ VERİ',
+      _ComparisonScenario.noCoverage => 'VERİ YETERSİZ',
+    };
+  }
 }
 
-// ─── No comparison card ───────────────────────────────────────────────────────
+class _StateBadge extends StatelessWidget {
+  const _StateBadge({required this.label});
 
-class _NoComparisonCard extends StatelessWidget {
-  const _NoComparisonCard();
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: CoffeeColors.foam,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.14)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: CoffeeColors.caramel,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketFallbackCard extends StatelessWidget {
+  const _MarketFallbackCard({required this.scenario, required this.mixed});
+
+  final _ComparisonScenario scenario;
+  final _MixedBasket mixed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: CoffeeColors.crema),
       ),
-      child: const Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: CoffeeColors.caramel, size: 28),
-          SizedBox(height: 10),
-          Text(
-            'Karşılaştırma yapılamıyor',
-            style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: CoffeeColors.espresso,
-                fontSize: 15),
+          Row(
+            children: [
+              Icon(
+                scenario == _ComparisonScenario.noCoverage ? Icons.info_outline : Icons.hub_outlined,
+                color: CoffeeColors.caramel,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                scenario == _ComparisonScenario.noCoverage
+                    ? 'Ürün var ama kıyas yapılamıyor'
+                    : 'Ortak market yok, karma kombinasyon hazır',
+                style: const TextStyle(
+                  color: CoffeeColors.espresso,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            'Sepetteki ürünlerin tümünde fiyat bulunan ortak bir market yok.',
-            textAlign: TextAlign.center,
-            style:
-                TextStyle(color: CoffeeColors.cocoa, fontSize: 13, height: 1.4),
+            scenario == _ComparisonScenario.noCoverage
+                ? 'Sepetteki ürünlerde geçerli fiyat verisi olmayan kayıtlar var. Yeni fiyat ekleyerek karşılaştırmayı güçlendirebilirsin.'
+                : 'Tüm ürünleri tek markette bulamadık. Ürün bazında en düşük fiyatları birleştirerek toplam ₺${mixed.total.toStringAsFixed(2)} sonucu elde edildi.',
+            style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12, height: 1.4),
           ),
         ],
       ),
@@ -591,11 +663,9 @@ class _NoComparisonCard extends StatelessWidget {
   }
 }
 
-// ─── Store ranking ────────────────────────────────────────────────────────────
-
 class _StoreRankingList extends StatelessWidget {
-  const _StoreRankingList(
-      {required this.storeTotals, required this.worstTotal});
+  const _StoreRankingList({required this.storeTotals, required this.worstTotal});
+
   final List<_StoreTotal> storeTotals;
   final double? worstTotal;
 
@@ -608,7 +678,7 @@ class _StoreRankingList extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: CoffeeColors.crema),
         boxShadow: FR.softShadow,
       ),
@@ -617,42 +687,30 @@ class _StoreRankingList extends StatelessWidget {
           final st = storeTotals[i];
           final isWinner = i == 0;
           final isLast = i == storeTotals.length - 1;
-          final barFill = isWinner
-              ? 0.12
-              : 0.12 + ((st.total - minTotal) / range) * 0.88;
+          final barFill = isWinner ? 0.14 : 0.14 + ((st.total - minTotal) / range) * 0.86;
           final diff = isWinner ? null : st.total - minTotal;
 
           return Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
-              color: isWinner
-                  ? CoffeeColors.caramel.withOpacity(0.05)
-                  : null,
-              border: !isLast
-                  ? const Border(
-                      bottom: BorderSide(color: CoffeeColors.crema))
-                  : null,
+              color: isWinner ? CoffeeColors.caramel.withOpacity(0.07) : null,
+              border: !isLast ? const Border(bottom: BorderSide(color: CoffeeColors.crema)) : null,
               borderRadius: isWinner
-                  ? const BorderRadius.vertical(top: Radius.circular(20))
+                  ? const BorderRadius.vertical(top: Radius.circular(18))
                   : isLast
-                      ? const BorderRadius.vertical(
-                          bottom: Radius.circular(20))
+                      ? const BorderRadius.vertical(bottom: Radius.circular(18))
                       : null,
             ),
             child: Row(
               children: [
-                // Rank number
                 SizedBox(
-                  width: 24,
+                  width: 20,
                   child: Text(
                     '${i + 1}',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: isWinner
-                          ? CoffeeColors.caramel
-                          : CoffeeColors.cocoa,
-                      fontSize: isWinner ? 18 : 13,
+                      color: isWinner ? CoffeeColors.caramel : CoffeeColors.cocoa,
+                      fontSize: isWinner ? 17 : 12,
                     ),
                   ),
                 ),
@@ -667,55 +725,43 @@ class _StoreRankingList extends StatelessWidget {
                             child: Text(
                               st.store,
                               style: TextStyle(
-                                fontWeight: isWinner
-                                    ? FontWeight.w800
-                                    : FontWeight.w700,
+                                fontWeight: isWinner ? FontWeight.w800 : FontWeight.w700,
                                 color: CoffeeColors.espresso,
                                 fontSize: 14,
                               ),
                             ),
                           ),
-                          if (isWinner) ...[
+                          if (isWinner)
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                               decoration: BoxDecoration(
                                 color: CoffeeColors.caramel,
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
-                                '🏆 En ucuz',
+                                'EN UCUZ',
                                 style: TextStyle(
-                                    color: CoffeeColors.espresso,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ],
-                          if (diff != null) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: CoffeeColors.danger.withOpacity(0.10),
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                '+₺${diff.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: CoffeeColors.danger,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  fontFeatures: [
-                                    FontFeature.tabularFigures()
-                                  ],
+                                  color: CoffeeColors.espresso,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
-                          ],
                         ],
                       ),
-                      const SizedBox(height: 7),
+                      if (diff != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '+₺${diff.toStringAsFixed(2)} fark',
+                          style: const TextStyle(
+                            color: CoffeeColors.danger,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
@@ -723,25 +769,21 @@ class _StoreRankingList extends StatelessWidget {
                           minHeight: 5,
                           backgroundColor: CoffeeColors.foam,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            isWinner
-                                ? CoffeeColors.caramel
-                                : CoffeeColors.crema,
+                            isWinner ? CoffeeColors.caramel : CoffeeColors.crema,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
                 Text(
                   '₺${st.total.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: isWinner
-                        ? CoffeeColors.accent
-                        : CoffeeColors.espresso,
+                    color: CoffeeColors.espresso,
                     fontSize: 15,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -753,223 +795,85 @@ class _StoreRankingList extends StatelessWidget {
   }
 }
 
-// ─── Mixed basket card ────────────────────────────────────────────────────────
-
-class _MixedBasketCard extends StatelessWidget {
-  const _MixedBasketCard({required this.mixed});
-  final _MixedBasket mixed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CoffeeColors.crema),
-        boxShadow: FR.softShadow,
-      ),
-      child: Column(
-        children: [
-          ...mixed.allocations.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: CoffeeColors.foam,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(a.product.emoji,
-                          style: const TextStyle(fontSize: 16)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            a.product.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: CoffeeColors.espresso,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13),
-                          ),
-                          Text(
-                            '×${a.quantity} · ${a.store}',
-                            style: const TextStyle(
-                                color: CoffeeColors.cocoa, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '₺${(a.unitPrice * a.quantity).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: CoffeeColors.espresso,
-                          fontSize: 13,
-                          fontFeatures: [FontFeature.tabularFigures()]),
-                    ),
-                  ],
-                ),
-              )),
-          const Divider(height: 16, color: CoffeeColors.crema),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Karma Toplam',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: CoffeeColors.espresso,
-                      fontSize: 14),
-                ),
-              ),
-              Text(
-                '₺${mixed.total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: CoffeeColors.accent,
-                  fontSize: 18,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Per-item compare row ─────────────────────────────────────────────────────
-
 class _ItemCompareRow extends StatelessWidget {
   const _ItemCompareRow({required this.item});
+
   final CartItem item;
 
   @override
   Widget build(BuildContext context) {
     final prices = _bestPricePerStore(item.product);
-    final sorted = prices.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+    final sorted = prices.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
     final cheapest = sorted.isNotEmpty ? sorted.first : null;
-    final secondCheapest = sorted.length > 1 ? sorted[1] : null;
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(product: item.product),
-        ),
+        MaterialPageRoute(builder: (_) => ProductDetailScreen(product: item.product)),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: CoffeeColors.crema),
           boxShadow: FR.softShadow,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            // Product header row
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: CoffeeColors.foam,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(item.product.emoji,
-                      style: const TextStyle(fontSize: 20)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.product.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: CoffeeColors.espresso,
-                            fontSize: 13),
-                      ),
-                      if (sorted.length > 1)
-                        Text(
-                          '${sorted.length} markette karşılaştırıldı',
-                          style: const TextStyle(
-                              color: CoffeeColors.cocoa, fontSize: 11),
-                        ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right,
-                    color: CoffeeColors.cocoa, size: 18),
-              ],
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: CoffeeColors.foam,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Text(item.product.emoji, style: const TextStyle(fontSize: 18)),
             ),
-
-            // Price comparison strip
-            if (sorted.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Row(
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (cheapest != null)
-                    Expanded(
-                      child: _PriceStoreChip(
-                        store: cheapest.key,
-                        price: cheapest.value,
-                        isBest: true,
-                      ),
+                  Text(
+                    item.product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: CoffeeColors.espresso,
+                      fontSize: 13,
                     ),
-                  if (secondCheapest != null) ...[
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _PriceStoreChip(
-                        store: secondCheapest.key,
-                        price: secondCheapest.value,
-                        isBest: false,
-                      ),
-                    ),
-                  ],
-                  if (sorted.length > 2) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: CoffeeColors.foam,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: CoffeeColors.crema),
-                      ),
-                      child: Text(
-                        '+${sorted.length - 2}',
-                        style: const TextStyle(
-                          color: CoffeeColors.cocoa,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    cheapest == null
+                        ? 'Fiyat verisi yok'
+                        : '${cheapest.key} · ₺${cheapest.value.toStringAsFixed(2)} en iyi fiyat',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                  ),
                 ],
               ),
-            ],
+            ),
+            if (sorted.length > 1)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: CoffeeColors.foam,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: CoffeeColors.crema),
+                ),
+                child: Text(
+                  '${sorted.length} market',
+                  style: const TextStyle(
+                    color: CoffeeColors.darkRoast,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -977,89 +881,34 @@ class _ItemCompareRow extends StatelessWidget {
   }
 }
 
-class _PriceStoreChip extends StatelessWidget {
-  const _PriceStoreChip({
-    required this.store,
-    required this.price,
-    required this.isBest,
-  });
-  final String store;
-  final double price;
-  final bool isBest;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: isBest
-            ? CoffeeColors.espresso
-            : CoffeeColors.foam,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isBest ? CoffeeColors.espresso : CoffeeColors.crema,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Text(
-              store,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: isBest ? CoffeeColors.caramel : CoffeeColors.cocoa,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Text(
-            '₺${price.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: isBest ? CoffeeColors.cream : CoffeeColors.espresso,
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Basket item row ──────────────────────────────────────────────────────────
-
 class _BasketItemRow extends StatelessWidget {
   const _BasketItemRow({required this.item});
+
   final CartItem item;
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: CoffeeColors.crema),
-        boxShadow: FR.softShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: CoffeeColors.foam,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Text(item.product.emoji,
-                style: const TextStyle(fontSize: 20)),
+            child: Text(item.product.emoji, style: const TextStyle(fontSize: 17)),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1071,20 +920,20 @@ class _BasketItemRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: CoffeeColors.espresso,
-                      fontSize: 13),
-                ),
-                if (item.product.lowestPrice != null)
-                  Text(
-                    '₺${item.product.lowestPrice!.toStringAsFixed(2)} × ${item.quantity}',
-                    style: const TextStyle(
-                        color: CoffeeColors.cocoa, fontSize: 11),
+                    fontWeight: FontWeight.w700,
+                    color: CoffeeColors.espresso,
+                    fontSize: 13,
                   ),
+                ),
+                Text(
+                  item.product.lowestPrice != null
+                      ? 'Referans: ₺${item.product.lowestPrice!.toStringAsFixed(2)}'
+                      : 'Referans fiyat yok',
+                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                ),
               ],
             ),
           ),
-          // Qty controls - refined
           Container(
             decoration: BoxDecoration(
               color: CoffeeColors.foam,
@@ -1094,25 +943,20 @@ class _BasketItemRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _QtyBtn(
-                  icon: Icons.remove,
-                  onTap: () => state.changeQty(item.product.id, -1),
-                ),
+                _QtyBtn(icon: Icons.remove, onTap: () => state.changeQty(item.product.id, -1)),
                 SizedBox(
-                  width: 32,
+                  width: 28,
                   child: Text(
                     '${item.quantity}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: CoffeeColors.espresso,
-                        fontSize: 14),
+                      fontWeight: FontWeight.w800,
+                      color: CoffeeColors.espresso,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-                _QtyBtn(
-                  icon: Icons.add,
-                  onTap: () => state.changeQty(item.product.id, 1),
-                ),
+                _QtyBtn(icon: Icons.add, onTap: () => state.changeQty(item.product.id, 1)),
               ],
             ),
           ),
@@ -1120,13 +964,14 @@ class _BasketItemRow extends StatelessWidget {
           GestureDetector(
             onTap: () => state.removeFromCart(item.product.id),
             child: Container(
-              padding: const EdgeInsets.all(6),
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: CoffeeColors.danger.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.close,
-                  size: 15, color: CoffeeColors.danger),
+              alignment: Alignment.center,
+              child: const Icon(Icons.close, size: 15, color: CoffeeColors.danger),
             ),
           ),
         ],
@@ -1137,6 +982,7 @@ class _BasketItemRow extends StatelessWidget {
 
 class _QtyBtn extends StatelessWidget {
   const _QtyBtn({required this.icon, required this.onTap});
+
   final IconData icon;
   final VoidCallback onTap;
 
@@ -1146,18 +992,17 @@ class _QtyBtn extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 32,
-        height: 34,
-        child: Icon(icon, size: 15, color: CoffeeColors.darkRoast),
+        width: 28,
+        height: 30,
+        child: Icon(icon, size: 14, color: CoffeeColors.darkRoast),
       ),
     );
   }
 }
 
-// ─── Section label ────────────────────────────────────────────────────────────
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.title, this.subtitle});
+
   final String title;
   final String? subtitle;
 
