@@ -16,7 +16,7 @@ class ProfileTab extends StatelessWidget {
     final state = AppStateScope.of(context);
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 90),
+        padding: FRInsets.pageTop,
         children: [
           Row(children: [
             const Expanded(child: Text('Profil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
@@ -24,10 +24,10 @@ class ProfileTab extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: FRInsets.cardXl,
             decoration: BoxDecoration(
               gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [ProtoColors.bgSecondary, ProtoColors.bgPrimary]),
-              borderRadius: BorderRadius.circular(ProtoRadius.xl),
+              borderRadius: FRRadii.xl,
               border: Border.all(color: ProtoColors.border),
             ),
             child: Column(children: [
@@ -46,10 +46,10 @@ class ProfileTab extends StatelessWidget {
               Text(state.displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: FRInsets.chip,
                 decoration: BoxDecoration(
                   color: ProtoColors.tan.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: FRRadii.pill,
                   border: Border.all(color: ProtoColors.tan.withOpacity(0.25)),
                 ),
                 child: const Text('👑 Level 18 • Elite', style: TextStyle(color: ProtoColors.tan, fontWeight: FontWeight.w700, fontSize: 12)),
@@ -77,16 +77,16 @@ class ProfileTab extends StatelessWidget {
             ('Ayarlar', const SettingsScreen()),
             ('Yönetim Paneli', const AdminScreen()),
           ].map((e) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: FRInsets.bottomGapS,
                 child: InkWell(
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => e.$2),
                   ),
-                  borderRadius: BorderRadius.circular(ProtoRadius.xl),
+                  borderRadius: FRRadii.xl,
                   child: ProtoCard(
                     child: Row(children: [
-                      Container(width: 36, height: 36, decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.chevron_right, color: ProtoColors.tan)),
+                      Container(width: 36, height: 36, decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: FRRadii.md), child: const Icon(Icons.chevron_right, color: ProtoColors.tan)),
                       const SizedBox(width: 12),
                       Expanded(child: Text(e.$1, style: const TextStyle(fontWeight: FontWeight.w600))),
                       const Icon(Icons.chevron_right, color: ProtoColors.textSubtle)
@@ -101,8 +101,8 @@ class ProfileTab extends StatelessWidget {
 
   Widget _stat(String v, String l) => Expanded(
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          margin: const EdgeInsetsDirectional.symmetric(horizontal: 4),
+          padding: FRInsets.verticalS,
           decoration: protoSurface(radius: ProtoRadius.lg),
           child: Column(children: [
             Text(v, style: const TextStyle(color: ProtoColors.tan, fontSize: 20, fontWeight: FontWeight.w800)),

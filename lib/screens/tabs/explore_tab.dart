@@ -27,13 +27,13 @@ class _ExploreTabState extends State<ExploreTab> {
           SizedBox(
             height: 34,
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: FRInsets.horizontalPage,
               scrollDirection: Axis.horizontal,
               children: const [_Fx('Tümü', true), _Fx('Elektronik', false), _Fx('Gıda', false), _Fx('Bakım', false)],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+            padding: FRInsets.pageHeader,
             child: Row(
               children: [
                 Text('${filtered.length}', style: const TextStyle(color: ProtoColors.tan, fontWeight: FontWeight.w700)),
@@ -43,7 +43,7 @@ class _ExploreTabState extends State<ExploreTab> {
           ),
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 90),
+              padding: FRInsets.page,
               itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (_, i) {
@@ -55,7 +55,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       Container(
                         width: 52,
                         height: 52,
-                        decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: FRRadii.md),
                         alignment: Alignment.center,
                         child: Text(p.emoji, style: const TextStyle(fontSize: 24)),
                       ),
@@ -87,11 +87,11 @@ class _Fx extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      margin: FRInsets.rightGapS,
+      padding: FRInsets.horizontalM,
       decoration: BoxDecoration(
         color: a ? ProtoColors.tan : ProtoColors.surface,
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: FRRadii.pill,
         border: Border.all(color: a ? ProtoColors.tan : ProtoColors.border),
       ),
       alignment: Alignment.center,

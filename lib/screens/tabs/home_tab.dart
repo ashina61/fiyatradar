@@ -18,14 +18,14 @@ class HomeTab extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+            padding: FRInsets.pageTopBar,
             child: Row(children: [
               Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [ProtoColors.tan, ProtoColors.tanDark]),
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: FRRadii.pill,
                 ),
                 alignment: Alignment.center,
                 child: const Text('FK', style: TextStyle(color: ProtoColors.bgPrimary, fontWeight: FontWeight.w800)),
@@ -47,7 +47,7 @@ class HomeTab extends StatelessWidget {
                 child: Container(
                   width: 40,
                   height: 40,
-                  decoration: BoxDecoration(color: ProtoColors.tan, borderRadius: BorderRadius.circular(99)),
+                  decoration: BoxDecoration(color: ProtoColors.tan, borderRadius: FRRadii.pill),
                   child: const Icon(Icons.settings, color: ProtoColors.bgPrimary),
                 ),
               )
@@ -61,7 +61,7 @@ class HomeTab extends StatelessWidget {
           SizedBox(
             height: 34,
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: FRInsets.horizontalPage,
               scrollDirection: Axis.horizontal,
               children: const [
                 _Chip('Tümü', true),
@@ -74,14 +74,14 @@ class HomeTab extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 100),
+              padding: FRInsets.heroBottom,
               children: [
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.all(16),
+                  margin: FRInsets.horizontalPage,
+                  padding: FRInsets.cardL,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF8B2500), Color(0xFFB84A1A)]),
-                    borderRadius: BorderRadius.circular(ProtoRadius.xl),
+                    gradient: const LinearGradient(colors: [ProtoColors.flashStart, ProtoColors.flashEnd]),
+                    borderRadius: FRRadii.xl,
                   ),
                   child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('⚡ FLASH DEAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
@@ -93,7 +93,7 @@ class HomeTab extends StatelessWidget {
                 const ProtoSectionHeader('Senin İçin Öneriler'),
                 const SizedBox(height: 10),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  padding: FRInsets.horizontalPage,
                   child: ProtoCard(child: Row(children: [
                     Text('🎧', style: TextStyle(fontSize: 24)), SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -109,7 +109,7 @@ class HomeTab extends StatelessWidget {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: FRInsets.horizontalPage,
                   itemCount: products.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: 12, mainAxisSpacing: 12),
@@ -132,7 +132,7 @@ class HomeTab extends StatelessWidget {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.all(10),
+                            padding: FRInsets.card10,
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 6),
@@ -160,11 +160,11 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      margin: FRInsets.rightGapS,
+      padding: FRInsets.horizontalM,
       decoration: BoxDecoration(
         color: active ? ProtoColors.tan : ProtoColors.surface,
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: FRRadii.pill,
         border: Border.all(color: active ? ProtoColors.tan : ProtoColors.border),
       ),
       alignment: Alignment.center,

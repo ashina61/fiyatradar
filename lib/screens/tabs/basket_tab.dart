@@ -16,13 +16,13 @@ class BasketTab extends StatelessWidget {
           const ProtoTopBar(title: 'Karşılaştırma'),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+              padding: FRInsets.pageBasket,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: FRInsets.cardXl,
                   decoration: BoxDecoration(
                     color: ProtoColors.tan.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(ProtoRadius.xl),
+                    borderRadius: FRRadii.xl,
                     border: Border.all(color: ProtoColors.tan.withOpacity(0.3)),
                   ),
                   child: Column(children: const [
@@ -33,7 +33,7 @@ class BasketTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsetsDirectional.all(4),
                   decoration: protoSurface(radius: ProtoRadius.lg),
                   child: Row(children: const [
                     Expanded(child: _Toggle('En İyi Karışık', true)),
@@ -46,11 +46,11 @@ class BasketTab extends StatelessWidget {
                 if (items.isEmpty)
                   const ProtoCard(child: Text('Sepet boş. Keşfet ekranından ürün ekleyin.')),
                 ...items.map((item) => Container(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: FRInsets.bottomGapM,
                       decoration: protoSurface(),
                       child: Column(children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: FRInsets.cardMd,
                           decoration: const BoxDecoration(
                             color: ProtoColors.surfaceAlt,
                             borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
@@ -65,7 +65,7 @@ class BasketTab extends StatelessWidget {
                         ...['A101', 'BİM', 'Migros'].asMap().entries.map((e) {
                           final best = e.key == 0;
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
                             color: best ? ProtoColors.success.withOpacity(0.08) : null,
                             child: Row(children: [
                               CircleAvatar(radius: 12, backgroundColor: ProtoColors.surfaceElevated, child: Text(e.value[0], style: const TextStyle(fontSize: 11, color: ProtoColors.tan))),
@@ -97,7 +97,7 @@ class _Toggle extends StatelessWidget {
       height: 38,
       decoration: BoxDecoration(
         color: a ? ProtoColors.tan : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: FRRadii.md,
       ),
       alignment: Alignment.center,
       child: Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: a ? ProtoColors.bgPrimary : ProtoColors.textSecondary)),

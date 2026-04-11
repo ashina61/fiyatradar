@@ -12,26 +12,26 @@ class NotificationsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Bildirimler')),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: FRInsets.cardXxl,
         children: [
           if (state.notifications.isEmpty)
             const ProtoCard(child: Text('Henüz bildirimin yok.')),
           ...state.notifications.map((n) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: FRInsets.bottomGapS,
                 child: InkWell(
                   onTap: () => state.markNotificationRead(n.id),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: FRInsets.card,
                     decoration: BoxDecoration(
                       color: ProtoColors.surface,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: FRRadii.lg,
                       border: Border.all(color: n.isRead ? ProtoColors.border : ProtoColors.tan),
                     ),
                     child: Row(children: [
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: BorderRadius.circular(99)),
+                        decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: FRRadii.pill),
                         alignment: Alignment.center,
                         child: Text(n.isRead ? '🔕' : '🔔'),
                       ),
