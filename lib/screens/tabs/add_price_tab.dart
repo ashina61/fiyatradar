@@ -30,7 +30,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
           const ProtoTopBar(title: 'Fiyat Ekle'),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 90),
+              padding: FRInsets.page,
               children: [
                 const ProtoCard(
                   child: Text('Bu fiyatı eklersen +24 XP ve +1 Trust kazanırsın.', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -71,7 +71,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   height: 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [ProtoColors.tan, ProtoColors.tanLight]),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: FRRadii.lg,
                   ),
                   child: InkWell(
                     onTap: () async {

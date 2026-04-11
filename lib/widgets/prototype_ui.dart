@@ -1,26 +1,29 @@
 import 'package:flutter/material.dart';
 
 class ProtoColors {
-  static const bgPrimary = Color(0xFF1A1614);
-  static const bgSecondary = Color(0xFF24201D);
-  static const surface = Color(0xFF2A2522);
-  static const surfaceAlt = Color(0xFF312C29);
-  static const surfaceElevated = Color(0xFF3D3633);
-  static const border = Color(0x663D3633);
-  static const borderLight = Color(0x14F5F1ED);
+  static const bgPrimary = Color.fromARGB(255, 26, 22, 20);
+  static const bgSecondary = Color.fromARGB(255, 36, 32, 29);
+  static const surface = Color.fromARGB(255, 42, 37, 34);
+  static const surfaceAlt = Color.fromARGB(255, 49, 44, 41);
+  static const surfaceElevated = Color.fromARGB(255, 61, 54, 51);
+  static const border = Color.fromARGB(102, 61, 54, 51);
+  static const borderLight = Color.fromARGB(20, 245, 241, 237);
 
-  static const textPrimary = Color(0xFFF7F3EF);
-  static const textSecondary = Color(0xFFAFA398);
-  static const textSubtle = Color(0xFF8F8680);
+  static const textPrimary = Color.fromARGB(255, 247, 243, 239);
+  static const textSecondary = Color.fromARGB(255, 175, 163, 152);
+  static const textSubtle = Color.fromARGB(255, 143, 134, 128);
 
-  static const tan = Color(0xFFC4A57B);
-  static const tanLight = Color(0xFFD4B896);
-  static const tanDark = Color(0xFF9A8260);
+  static const tan = Color.fromARGB(255, 196, 165, 123);
+  static const tanLight = Color.fromARGB(255, 212, 184, 150);
+  static const tanDark = Color.fromARGB(255, 154, 130, 96);
 
-  static const success = Color(0xFF8A9A8B);
-  static const danger = Color(0xFFA67B7B);
-  static const warning = Color(0xFFB58B7A);
-  static const purple = Color(0xFF8A7BA6);
+  static const success = Color.fromARGB(255, 138, 154, 139);
+  static const danger = Color.fromARGB(255, 166, 123, 123);
+  static const warning = Color.fromARGB(255, 181, 139, 122);
+  static const purple = Color.fromARGB(255, 138, 123, 166);
+
+  static const flashStart = Color.fromARGB(255, 139, 37, 0);
+  static const flashEnd = Color.fromARGB(255, 184, 74, 26);
 }
 
 class ProtoRadius {
@@ -29,6 +32,18 @@ class ProtoRadius {
   static const lg = 14.0;
   static const xl = 18.0;
   static const xxl = 22.0;
+  static const pill = 99.0;
+}
+
+class FRRadii {
+  static const sm = BorderRadius.all(Radius.circular(ProtoRadius.sm));
+  static const md = BorderRadius.all(Radius.circular(ProtoRadius.md));
+  static const lg = BorderRadius.all(Radius.circular(ProtoRadius.lg));
+  static const xl = BorderRadius.all(Radius.circular(ProtoRadius.xl));
+  static const xxl = BorderRadius.all(Radius.circular(ProtoRadius.xxl));
+  static const pill = BorderRadius.all(Radius.circular(ProtoRadius.pill));
+
+  static BorderRadius all(double value) => BorderRadius.all(Radius.circular(value));
 }
 
 class ProtoSpacing {
@@ -38,9 +53,37 @@ class ProtoSpacing {
   static const xl = 24.0;
 }
 
+class FRInsets {
+  static const page = EdgeInsetsDirectional.fromSTEB(24, 0, 24, 90);
+  static const pageTop = EdgeInsetsDirectional.fromSTEB(24, 10, 24, 90);
+  static const pageTopBar = EdgeInsetsDirectional.fromSTEB(20, 12, 20, 10);
+  static const pageBody = EdgeInsetsDirectional.fromSTEB(24, 10, 24, 20);
+  static const pageHeader = EdgeInsetsDirectional.fromSTEB(24, 12, 24, 8);
+  static const pageFooter = EdgeInsetsDirectional.fromSTEB(24, 12, 24, 20);
+  static const pageBasket = EdgeInsetsDirectional.fromSTEB(16, 0, 16, 90);
+  static const horizontalPage = EdgeInsetsDirectional.symmetric(horizontal: 24);
+  static const horizontalM = EdgeInsetsDirectional.symmetric(horizontal: 14);
+  static const verticalS = EdgeInsetsDirectional.symmetric(vertical: 10);
+  static const card = EdgeInsetsDirectional.all(14);
+  static const cardMd = EdgeInsetsDirectional.all(12);
+  static const card10 = EdgeInsetsDirectional.all(10);
+  static const cardL = EdgeInsetsDirectional.all(16);
+  static const cardXl = EdgeInsetsDirectional.all(20);
+  static const card22 = EdgeInsetsDirectional.all(22);
+  static const cardXxl = EdgeInsetsDirectional.all(24);
+  static const chip = EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 6);
+  static const searchWrap = EdgeInsetsDirectional.fromSTEB(24, 0, 24, 16);
+  static const searchContent = EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 12);
+  static const navItem = EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 6);
+  static const rightGapS = EdgeInsetsDirectional.only(end: 8);
+  static const bottomGapS = EdgeInsetsDirectional.only(bottom: 10);
+  static const bottomGapM = EdgeInsetsDirectional.only(bottom: 12);
+  static const heroBottom = EdgeInsetsDirectional.only(bottom: 100);
+}
+
 BoxDecoration protoSurface({double radius = ProtoRadius.xl}) => BoxDecoration(
       color: ProtoColors.surface,
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: FRRadii.all(radius),
       border: Border.all(color: ProtoColors.border),
     );
 
@@ -63,7 +106,7 @@ class ProtoTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+      padding: FRInsets.pageTopBar,
       child: Row(
         children: [
           Expanded(
@@ -105,7 +148,7 @@ class NotificationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(99),
+      borderRadius: FRRadii.pill,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -114,7 +157,7 @@ class NotificationButton extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: ProtoColors.surface,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: FRRadii.all(20),
               border: Border.all(color: ProtoColors.border),
             ),
             child: const Icon(Icons.notifications_none_rounded,
@@ -129,7 +172,7 @@ class NotificationButton extends StatelessWidget {
                 height: 18,
                 decoration: BoxDecoration(
                   color: ProtoColors.danger,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: FRRadii.all(9),
                   border: Border.all(color: ProtoColors.bgPrimary, width: 2),
                 ),
                 alignment: Alignment.center,
@@ -157,8 +200,8 @@ class ProtoSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: FRInsets.searchWrap,
+      padding: FRInsets.searchContent,
       decoration: protoSurface(),
       child: Row(
         children: [
@@ -178,9 +221,9 @@ class ProtoSearchField extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: ProtoColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: FRRadii.md,
             ),
             child: const Icon(Icons.qr_code_scanner_rounded,
                 color: ProtoColors.textSecondary, size: 18),
@@ -199,7 +242,7 @@ class ProtoSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: FRInsets.horizontalPage,
       child: Row(
         children: [
           Expanded(
@@ -217,9 +260,9 @@ class ProtoSectionHeader extends StatelessWidget {
 }
 
 class ProtoCard extends StatelessWidget {
-  const ProtoCard({super.key, required this.child, this.padding = const EdgeInsets.all(14)});
+  const ProtoCard({super.key, required this.child, this.padding = FRInsets.card});
   final Widget child;
-  final EdgeInsets padding;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {

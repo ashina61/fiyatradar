@@ -67,7 +67,7 @@ class _Dashboard extends StatelessWidget {
             final p = pSnap.data?.docs.length ?? 0;
             final u = uSnap.data?.docs.length ?? 0;
             return ListView(
-              padding: const EdgeInsets.all(24),
+              padding: FRInsets.cardXxl,
               children: [
                 GridView.count(
                   shrinkWrap: true,
@@ -93,7 +93,7 @@ class _Dashboard extends StatelessWidget {
   }
 
   Widget _stat(String l, String v, Color c) => Container(
-        padding: const EdgeInsets.all(14),
+        padding: FRInsets.card,
         decoration: protoSurface(radius: ProtoRadius.lg),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           CircleAvatar(radius: 18, backgroundColor: c.withOpacity(0.2), child: Icon(Icons.analytics_outlined, color: c, size: 18)),
@@ -114,11 +114,11 @@ class _Products extends StatelessWidget {
       builder: (context, snap) {
         final docs = snap.data?.docs ?? [];
         return ListView(
-          padding: const EdgeInsets.all(24),
+          padding: FRInsets.cardXxl,
           children: docs
               .take(20)
               .map((d) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
+                    margin: FRInsets.bottomGapS,
                     child: ProtoCard(
                       child: Row(children: [
                         const CircleAvatar(radius: 16, backgroundColor: ProtoColors.surfaceAlt, child: Text('📦')),
@@ -139,7 +139,7 @@ class _Banners extends StatelessWidget {
   const _Banners();
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(24),
+        padding: FRInsets.cardXxl,
         child: ProtoCard(child: Text('Banner yönetimi yüzeyi hazır.')),
       );
 }
@@ -148,7 +148,7 @@ class _Categories extends StatelessWidget {
   const _Categories();
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(24),
+        padding: FRInsets.cardXxl,
         child: ProtoCard(child: Text('Kategori yönetimi yüzeyi hazır.')),
       );
 }
@@ -157,7 +157,7 @@ class _Users extends StatelessWidget {
   const _Users();
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(24),
+        padding: FRInsets.cardXxl,
         child: ProtoCard(child: Text('Kullanıcı yönetimi yüzeyi hazır.')),
       );
 }
@@ -170,7 +170,7 @@ class _Notifications extends StatelessWidget {
     final titleCtrl = TextEditingController();
     final bodyCtrl = TextEditingController();
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: FRInsets.cardXxl,
       children: [
         TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Başlık')),
         const SizedBox(height: 10),

@@ -11,10 +11,10 @@ class CoffeeColors {
   static const Color cocoa = ProtoColors.textSubtle;
   static const Color caramel = ProtoColors.tan;
   static const Color latte = ProtoColors.tanLight;
-  static const Color foam = Color(0xFFF5F1ED);
-  static const Color cream = Color(0xFFFAF6F2);
-  static const Color crema = Color(0xFFE7DED4);
-  static const Color accent = Color(0xFFC48A5A);
+  static const Color foam = Color.fromARGB(255, 245, 241, 237);
+  static const Color cream = Color.fromARGB(255, 250, 246, 242);
+  static const Color crema = Color.fromARGB(255, 231, 222, 212);
+  static const Color accent = Color.fromARGB(255, 196, 138, 90);
   static const Color success = ProtoColors.success;
   static const Color danger = ProtoColors.danger;
 }
@@ -50,15 +50,15 @@ ThemeData buildCoffeeTheme() {
       fillColor: ProtoColors.surface,
       hintStyle: const TextStyle(color: ProtoColors.textSubtle),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(ProtoRadius.lg),
+        borderRadius: FRRadii.lg,
         borderSide: const BorderSide(color: ProtoColors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(ProtoRadius.lg),
+        borderRadius: FRRadii.lg,
         borderSide: const BorderSide(color: ProtoColors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(ProtoRadius.lg),
+        borderRadius: FRRadii.lg,
         borderSide: const BorderSide(color: ProtoColors.tan),
       ),
     ),

@@ -19,10 +19,10 @@ class ProductDetailScreen extends StatelessWidget {
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
+              padding: FRInsets.pageBody,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(22),
+                  padding: FRInsets.card22,
                   decoration: protoSurface(radius: ProtoRadius.xxl),
                   child: Column(children: [
                     Container(
@@ -30,7 +30,7 @@ class ProductDetailScreen extends StatelessWidget {
                       height: 160,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(colors: [ProtoColors.surface, ProtoColors.surfaceAlt]),
-                        borderRadius: BorderRadius.circular(ProtoRadius.xxl),
+                        borderRadius: FRRadii.xxl,
                       ),
                       alignment: Alignment.center,
                       child: Text(product.emoji, style: const TextStyle(fontSize: 70)),
@@ -43,10 +43,10 @@ class ProductDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: FRInsets.cardXl,
                   decoration: BoxDecoration(
                     color: ProtoColors.surfaceAlt,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: FRRadii.all(18),
                     border: Border.all(color: ProtoColors.tan.withOpacity(0.3)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -80,7 +80,7 @@ class ProductDetailScreen extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            padding: FRInsets.pageFooter,
             child: Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
@@ -117,7 +117,7 @@ class _VoteBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 42,
-      decoration: BoxDecoration(color: c.withOpacity(0.14), borderRadius: BorderRadius.circular(10), border: Border.all(color: c.withOpacity(0.4))),
+      decoration: BoxDecoration(color: c.withOpacity(0.14), borderRadius: FRRadii.md, border: Border.all(color: c.withOpacity(0.4))),
       alignment: Alignment.center,
       child: Text(t, style: TextStyle(color: c, fontWeight: FontWeight.w700)),
     );

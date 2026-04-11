@@ -43,7 +43,7 @@ class _MainScreenState extends State<MainScreen> {
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
-              colors: [Color(0xF71A1614), Color(0xD01A1614)],
+              colors: [ProtoColors.bgPrimary.withAlpha(247), ProtoColors.bgPrimary.withAlpha(208)],
             ),
             border: Border(top: BorderSide(color: ProtoColors.border)),
           ),
@@ -67,10 +67,10 @@ class _MainScreenState extends State<MainScreen> {
     return GestureDetector(
       onTap: () => setState(() => _index = i),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: FRInsets.navItem,
         decoration: BoxDecoration(
           color: active ? ProtoColors.tan.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: FRRadii.lg,
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 18, color: active ? ProtoColors.tan : ProtoColors.textSubtle),
