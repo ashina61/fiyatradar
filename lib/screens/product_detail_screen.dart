@@ -340,7 +340,9 @@ class _BestPricePanel extends StatelessWidget {
       );
     }
 
-    final advantage = (latest != null && latest! > lowest) ? latest! - lowest : null;
+    final lowestValue = lowest!;
+    final latestValue = latest;
+    final advantage = (latestValue != null && latestValue > lowestValue) ? latestValue - lowestValue : null;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -368,7 +370,7 @@ class _BestPricePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₺${lowest.toStringAsFixed(2)}',
+                '₺${lowestValue.toStringAsFixed(2)}',
                 style: const TextStyle(
                   color: CoffeeColors.espresso,
                   fontSize: 34,
