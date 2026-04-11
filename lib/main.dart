@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/main_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'state/app_state.dart';
 import 'theme.dart';
@@ -56,6 +57,10 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
             }
             if (snap.data!.showOnboarding) {
               return const OnboardingScreen();
+            }
+            final user = _state.user;
+            if (user == null || user.isAnonymous) {
+              return const LoginScreen();
             }
             return const MainScreen();
           },

@@ -515,6 +515,30 @@ class AppState extends ChangeNotifier {
     await _svc.auth.signOut();
     await init();
   }
+
+  Future<void> refreshFromAuthSession() async {
+    await _productsSub?.cancel();
+    await _bannersSub?.cancel();
+    await _userSub?.cancel();
+    await _notificationsSub?.cancel();
+    await _productAlertsSub?.cancel();
+    _productsSub = null;
+    _bannersSub = null;
+    _userSub = null;
+    _notificationsSub = null;
+    _productAlertsSub = null;
+    products.clear();
+    banners.clear();
+    favorites.clear();
+    notifications.clear();
+    productAlerts.clear();
+    cart.clear();
+    points = 0;
+    pointsToRedeem = 0;
+    _initialized = false;
+    notifyListeners();
+    await init();
+  }
 }
 
 class AppStateScope extends InheritedNotifier<AppState> {

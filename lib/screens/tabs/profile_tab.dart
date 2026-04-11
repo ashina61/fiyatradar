@@ -7,6 +7,7 @@ import '../profile/favorites_screen.dart';
 import '../profile/history_screen.dart';
 import '../profile/alerts_screen.dart';
 import '../admin_screen.dart';
+import '../login_screen.dart';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 
@@ -290,11 +291,9 @@ class ProfileTab extends StatelessWidget {
               final state = AppStateScope.of(context);
               await state.logout();
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Oturum kapatıldı.'),
-                  backgroundColor: CoffeeColors.darkRoast,
-                ),
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (_) => false,
               );
             },
             style: ElevatedButton.styleFrom(
